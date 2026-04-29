@@ -13,7 +13,8 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Profile from "@/pages/Profile";
 
-import { AuthProvider, useAuth } from "@/lib/AuthContext";
+import { AuthProvider } from "@/lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
