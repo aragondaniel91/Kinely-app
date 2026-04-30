@@ -26,6 +26,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  deleteDoc,
   query,
   where,
 } from "firebase/firestore";
@@ -47,24 +48,32 @@ export default function CustodyCalendar() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showSync, setShowSync] = useState(false);
   const [custodyDays, setCustodyDays] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const loadCustodyDays = async () => {
       if (!user) return;
 
-      const q = query(
-        collection(db, "custodyDays"),
-        where("userId", "==", user.uid)
-      );
+      setIsLoading(true);
 
-      const snap = await getDocs(q);
+      try {
+        const q = query(
+          collection(db, "custodyDays"),
+          where("userId", "==", user.uid)
+        );
 
-      const data = snap.docs.map((document) => ({
-        id: document.id,
-        ...document.data(),
-      }));
+        const snap = await getDocs(q);
 
-      setCustodyDays(data);
+        const data = snap.docs.map((document) => ({
+          id: document.id,
+          ...document.data(),
+        }));
+
+        setCustodyDays(data);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadCustodyDays();
@@ -73,32 +82,54 @@ export default function CustodyCalendar() {
   const saveCustodyDay = async (payload) => {
     if (!user) return;
 
-    const docId = `${user.uid}_${payload.date}`;
+    setIsSaving(true);
 
-    const data = {
-      id: payload.date,
-      ...payload,
-      userId: user.uid,
-      familyId: profile?.familyId || null,
-      updatedAt: new Date().toISOString(),
-    };
+    try {
+      const docId = `${user.uid}_${payload.date}`;
 
-    await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
+      const data = {
+        id: payload.date,
+        ...payload,
+        userId: user.uid,
+        familyId: profile?.familyId || null,
+        updatedAt: new Date().toISOString(),
+      };
 
-    const existing = custodyDays.find((d) => d.date === payload.date);
+      await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
 
-    let updated;
+      setCustodyDays((prev) => {
+        const existing = prev.find((d) => d.date === payload.date);
 
-    if (existing) {
-      updated = custodyDays.map((d) =>
-        d.date === payload.date ? { ...d, ...data } : d
-      );
-    } else {
-      updated = [...custodyDays, data];
+        if (existing) {
+          return prev.map((d) =>
+            d.date === payload.date ? { ...d, ...data } : d
+          );
+        }
+
+        return [...prev, data];
+      });
+
+      setSelectedDate(null);
+    } finally {
+      setIsSaving(false);
     }
+  };
 
-    setCustodyDays(updated);
-    setSelectedDate(null);
+  const deleteCustodyDay = async (date) => {
+    if (!user) return;
+
+    setIsSaving(true);
+
+    try {
+      const docId = `${user.uid}_${date}`;
+
+      await deleteDoc(doc(db, "custodyDays", docId));
+
+      setCustodyDays((prev) => prev.filter((d) => d.date !== date));
+      setSelectedDate(null);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const monthStart = startOfMonth(currentMonth);
@@ -160,6 +191,7 @@ export default function CustodyCalendar() {
 
   const dadDays = visibleCustodyDays.reduce((acc, d) => {
     if (!d.is_split) return acc + (d.with_whom === "dad" ? 1 : 0);
+
     return (
       acc + (d.morning === "dad" ? 0.5 : 0) + (d.afternoon === "dad" ? 0.5 : 0)
     );
@@ -167,12 +199,21 @@ export default function CustodyCalendar() {
 
   const momDays = visibleCustodyDays.reduce((acc, d) => {
     if (!d.is_split) return acc + (d.with_whom === "mom" ? 1 : 0);
+
     return (
       acc + (d.morning === "mom" ? 0.5 : 0) + (d.afternoon === "mom" ? 0.5 : 0)
     );
   }, 0);
 
   const weekDays = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-screen bg-gray-50">
@@ -193,9 +234,11 @@ export default function CustodyCalendar() {
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
             HOY
           </p>
+
           <p className="font-bold text-base font-heading">
             {format(new Date(), "EEEE, d 'de' MMMM")}
           </p>
+
           <p className="text-sm text-muted-foreground">
             {format(new Date(), "EEEE, MMMM d")}
           </p>
@@ -246,6 +289,7 @@ export default function CustodyCalendar() {
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
               PRÓXIMO CAMBIO
             </p>
+
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-2.5">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
@@ -253,6 +297,7 @@ export default function CustodyCalendar() {
                     {format(parseISO(nextChange.date + "T12:00:00"), "d")}
                   </span>
                 </div>
+
                 <div>
                   <p className="text-xs font-bold leading-tight">
                     {format(
@@ -260,6 +305,7 @@ export default function CustodyCalendar() {
                       "EEE, d MMM"
                     )}
                   </p>
+
                   <p className="text-xs text-muted-foreground">
                     en{" "}
                     {differenceInCalendarDays(
@@ -289,11 +335,13 @@ export default function CustodyCalendar() {
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
             RESUMEN
           </p>
+
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-2 text-center">
               <p className="text-xs text-blue-700">Papá</p>
               <p className="text-lg font-black text-blue-800">{dadDays}</p>
             </div>
+
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 text-center">
               <p className="text-xs text-amber-700">Mamá</p>
               <p className="text-lg font-black text-amber-800">{momDays}</p>
@@ -305,20 +353,24 @@ export default function CustodyCalendar() {
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
             LEYENDA
           </p>
+
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-blue-300 shrink-0" />
               <span className="text-xs">Con Papá</span>
             </div>
+
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-amber-300 shrink-0" />
               <span className="text-xs">Con Mamá</span>
             </div>
+
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded overflow-hidden shrink-0 flex flex-col">
                 <div className="flex-1 bg-blue-300" />
                 <div className="flex-1 bg-amber-300" />
               </div>
+
               <span className="text-xs">Día compartido</span>
             </div>
           </div>
@@ -329,6 +381,7 @@ export default function CustodyCalendar() {
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
               PRÓXIMOS DÍAS
             </p>
+
             <div className="space-y-1.5">
               {upcoming.map((d) => (
                 <div key={d.id || d.date} className="flex items-center gap-2">
@@ -338,10 +391,12 @@ export default function CustodyCalendar() {
                       d.with_whom === "dad" ? DAD_SOLID : MOM_SOLID
                     )}
                   />
+
                   <div>
                     <p className="text-xs font-semibold leading-tight">
                       {format(parseISO(d.date + "T12:00:00"), "EEE, d MMM")}
                     </p>
+
                     <p
                       className={cn(
                         "text-xs",
@@ -390,6 +445,7 @@ export default function CustodyCalendar() {
 
           <div className="flex items-center gap-2 ml-1">
             <CalendarDays className="w-4 h-4 text-muted-foreground" />
+
             <h2 className="text-xl font-bold font-heading">
               {format(currentMonth, "MMMM yyyy")}
             </h2>
@@ -500,6 +556,7 @@ export default function CustodyCalendar() {
                             <div className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-blue-300/60 text-blue-900">
                               AM 👨 Papá
                             </div>
+
                             <div className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-amber-300/60 text-amber-900">
                               PM 👩 Mamá
                             </div>
@@ -533,8 +590,9 @@ export default function CustodyCalendar() {
           date={selectedDate}
           existingData={custodyMap[format(selectedDate, "yyyy-MM-dd")]}
           onSave={saveCustodyDay}
+          onDelete={deleteCustodyDay}
           onClose={() => setSelectedDate(null)}
-          isSaving={false}
+          isSaving={isSaving}
         />
       )}
 
