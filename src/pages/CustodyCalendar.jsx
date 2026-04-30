@@ -32,18 +32,8 @@ function ParentPicker({ value, onChange, label, icon: Icon }) {
               : "border-border hover:border-primary/30"
           )}
         >
-          <User
-            className={cn(
-              "w-5 h-5",
-              value === "dad" ? "text-primary" : "text-muted-foreground"
-            )}
-          />
-          <span
-            className={cn(
-              "text-xs font-bold",
-              value === "dad" ? "text-primary" : "text-muted-foreground"
-            )}
-          >
+          <User className={cn("w-5 h-5", value === "dad" ? "text-primary" : "text-muted-foreground")} />
+          <span className={cn("text-xs font-bold", value === "dad" ? "text-primary" : "text-muted-foreground")}>
             Dad
           </span>
         </button>
@@ -58,18 +48,8 @@ function ParentPicker({ value, onChange, label, icon: Icon }) {
               : "border-border hover:border-pink-200"
           )}
         >
-          <Heart
-            className={cn(
-              "w-5 h-5",
-              value === "mom" ? "text-pink-500" : "text-muted-foreground"
-            )}
-          />
-          <span
-            className={cn(
-              "text-xs font-bold",
-              value === "mom" ? "text-pink-600" : "text-muted-foreground"
-            )}
-          >
+          <Heart className={cn("w-5 h-5", value === "mom" ? "text-pink-500" : "text-muted-foreground")} />
+          <span className={cn("text-xs font-bold", value === "mom" ? "text-pink-600" : "text-muted-foreground")}>
             Mom
           </span>
         </button>
@@ -105,19 +85,13 @@ export default function CustodyDayDialog({
 
   const handleDelete = () => {
     if (!existingData || !onDelete) return;
-
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this custody day?"
-    );
-
-    if (!confirmDelete) return;
-
+    if (!window.confirm("Delete this custody day?")) return;
     onDelete(existingData.date);
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-sm rounded-2xl">
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">
             {format(date, "EEEE, MMMM d")}
@@ -137,26 +111,11 @@ export default function CustodyDayDialog({
 
           {isSplit ? (
             <div className="space-y-3">
-              <ParentPicker
-                value={morning}
-                onChange={setMorning}
-                label="Morning"
-                icon={Sun}
-              />
-              <ParentPicker
-                value={afternoon}
-                onChange={setAfternoon}
-                label="Afternoon / Evening"
-                icon={Sunset}
-              />
+              <ParentPicker value={morning} onChange={setMorning} label="Morning" icon={Sun} />
+              <ParentPicker value={afternoon} onChange={setAfternoon} label="Afternoon / Evening" icon={Sunset} />
             </div>
           ) : (
-            <ParentPicker
-              value={withWhom}
-              onChange={setWithWhom}
-              label="All Day"
-              icon={User}
-            />
+            <ParentPicker value={withWhom} onChange={setWithWhom} label="All Day" icon={User} />
           )}
 
           <div>
@@ -174,30 +133,26 @@ export default function CustodyDayDialog({
         </div>
 
         <DialogFooter>
-          <div>
-            {existingData && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleDelete}
-                disabled={isSaving}
-                className="w-full sm:w-auto gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
-            )}
-          </div>
-
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+          {existingData && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDelete}
+              disabled={isSaving}
+              className="text-red-500"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
             </Button>
+          )}
 
-            <Button type="button" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving…" : existingData ? "Update" : "Save"}
-            </Button>
-          </div>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+
+          <Button type="button" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving…" : existingData ? "Update" : "Save"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
