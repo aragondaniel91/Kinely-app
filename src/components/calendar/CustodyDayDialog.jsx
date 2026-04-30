@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { User, Heart, Sun, Sunset } from "lucide-react";
+import { User, Heart, Sun, Sunset, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function ParentPicker({ value, onChange, label, icon: Icon }) {
@@ -20,8 +20,10 @@ function ParentPicker({ value, onChange, label, icon: Icon }) {
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
         <Icon className="w-3.5 h-3.5" /> {label}
       </p>
+
       <div className="grid grid-cols-2 gap-2">
         <button
+          type="button"
           onClick={() => onChange("dad")}
           className={cn(
             "flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all",
@@ -45,7 +47,9 @@ function ParentPicker({ value, onChange, label, icon: Icon }) {
             Dad
           </span>
         </button>
+
         <button
+          type="button"
           onClick={() => onChange("mom")}
           className={cn(
             "flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all",
@@ -78,6 +82,7 @@ export default function CustodyDayDialog({
   date,
   existingData,
   onSave,
+  onDelete,
   onClose,
   isSaving,
 }) {
@@ -98,6 +103,18 @@ export default function CustodyDayDialog({
     });
   };
 
+  const handleDelete = () => {
+    if (!existingData || !onDelete) return;
+
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this custody day?"
+    );
+
+    if (!confirmDelete) return;
+
+    onDelete(existingData.date);
+  };
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-sm">
@@ -108,7 +125,6 @@ export default function CustodyDayDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Split toggle */}
           <div className="flex items-center justify-between bg-muted/50 rounded-xl px-4 py-3">
             <div>
               <p className="font-semibold text-sm">Split Day</p>
@@ -157,13 +173,29 @@ export default function CustodyDayDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving…" : "Save"}
-          </Button>
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+          <div>
+            {existingData && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                className="gap-2 w-full sm:w-auto"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            )}
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving…" : existingData ? "Update" : "Save"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
