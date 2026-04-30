@@ -5,6 +5,7 @@ import {
   UtensilsCrossed,
   ShoppingCart,
   Home,
+  User, // 👈 AGREGADO
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ const navItems = [
   { icon: CheckSquare, label: "Tasks", path: "/tasks" },
   { icon: UtensilsCrossed, label: "Meals", path: "/meals" },
   { icon: ShoppingCart, label: "Groceries", path: "/groceries" },
+  { icon: User, label: "Profile", path: "/profile" }, // 👈 AGREGADO
 ];
 
 export default function AppShell() {
@@ -25,7 +27,7 @@ export default function AppShell() {
         <Outlet />
       </main>
 
-      {/* Bottom tab bar - optimized for tablet */}
+      {/* Bottom tab bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50">
         <div className="flex justify-around items-center max-w-3xl mx-auto px-2 py-1">
           {navItems.map((item) => {
