@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 const AuthContext = createContext(null);
@@ -50,24 +50,36 @@ export function AuthProvider({ children }) {
     return () => unsub();
   }, []);
 
-  const register = async ({ name, email, password }) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
+const register = async ({ name, email, password }) => {
+  const result = await createUserWithEmailAndPassword(auth, email, password);
 
-    await updateProfile(result.user, {
-      displayName: name,
-    });
+  await updateProfile(result.user, {
+    displayName: name,
+  });
 
-    await setDoc(doc(db, "users", result.user.uid), {
-      uid: result.user.uid,
-      name,
-      email,
-      createdAt: new Date().toISOString(),
-    });
+  const familyRef = doc(collection(db, "families"));
 
-    await loadProfile(result.user);
+  await setDoc(familyRef, {
+    familyName: `${name}'s Family`,
+    ownerId: result.user.uid,
+    members: [result.user.uid],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
 
-    return result.user;
-  };
+  await setDoc(doc(db, "users", result.user.uid), {
+    uid: result.user.uid,
+    name,
+    email,
+    familyId: familyRef.id,
+    role: "dad",
+    createdAt: new Date().toISOString(),
+  });
+
+  await loadProfile(result.user);
+
+  return result.user;
+};
 
   const login = async ({ email, password }) => {
     const result = await signInWithEmailAndPassword(auth, email, password);
