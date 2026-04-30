@@ -21,8 +21,19 @@ import {
   CalendarDays,
   Heart,
 } from "lucide-react";
+import {
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  query,
+  where,
+} from "firebase/firestore";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/lib/AuthContext";
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
 import GoogleCalendarSync from "@/components/calendar/GoogleCalendarSync";
 
@@ -30,41 +41,63 @@ const DAD_SOLID = "bg-blue-500";
 const MOM_SOLID = "bg-amber-400";
 
 export default function CustodyCalendar() {
+  const { user, profile } = useAuth();
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showSync, setShowSync] = useState(false);
   const [custodyDays, setCustodyDays] = useState([]);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem("custodyDays") || "[]");
-    setCustodyDays(data);
-  }, []);
+    const loadCustodyDays = async () => {
+      if (!user) return;
 
-  const saveCustodyDays = (updatedDays) => {
-    setCustodyDays(updatedDays);
-    localStorage.setItem("custodyDays", JSON.stringify(updatedDays));
-  };
+      const q = query(
+        collection(db, "custodyDays"),
+        where("userId", "==", user.uid)
+      );
 
-  const saveCustodyDay = (payload) => {
+      const snap = await getDocs(q);
+
+      const data = snap.docs.map((document) => ({
+        id: document.id,
+        ...document.data(),
+      }));
+
+      setCustodyDays(data);
+    };
+
+    loadCustodyDays();
+  }, [user]);
+
+  const saveCustodyDay = async (payload) => {
+    if (!user) return;
+
+    const docId = `${user.uid}_${payload.date}`;
+
+    const data = {
+      id: payload.date,
+      ...payload,
+      userId: user.uid,
+      familyId: profile?.familyId || null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
+
     const existing = custodyDays.find((d) => d.date === payload.date);
 
     let updated;
 
     if (existing) {
       updated = custodyDays.map((d) =>
-        d.date === payload.date ? { ...d, ...payload } : d
+        d.date === payload.date ? { ...d, ...data } : d
       );
     } else {
-      updated = [
-        ...custodyDays,
-        {
-          id: payload.date,
-          ...payload,
-        },
-      ];
+      updated = [...custodyDays, data];
     }
 
-    saveCustodyDays(updated);
+    setCustodyDays(updated);
     setSelectedDate(null);
   };
 
@@ -511,9 +544,7 @@ export default function CustodyCalendar() {
           currentMonth={currentMonth}
           onClose={() => setShowSync(false)}
           onImported={(updatedDays) => {
-            const data =
-              updatedDays ||
-              JSON.parse(localStorage.getItem("custodyDays") || "[]");
+            const data = updatedDays || custodyDays;
             setCustodyDays(data);
             setShowSync(false);
           }}
