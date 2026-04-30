@@ -26,12 +26,41 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    const ref = doc(db, "users", firebaseUser.uid);
-    const snap = await getDoc(ref);
+    const userRef = doc(db, "users", firebaseUser.uid);
+    const snap = await getDoc(userRef);
 
-    if (snap.exists()) {
-      setProfile({ id: snap.id, ...snap.data() });
+    if (!snap.exists()) {
+      setProfile(null);
+      return;
     }
+
+    const data = snap.data();
+
+    if (!data.familyId) {
+      const familyRef = doc(collection(db, "families"));
+
+      await setDoc(familyRef, {
+        familyName: `${data.name || firebaseUser.displayName || "Family"}'s Family`,
+        ownerId: firebaseUser.uid,
+        members: [firebaseUser.uid],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const updatedProfile = {
+        ...data,
+        familyId: familyRef.id,
+        role: data.role || "dad",
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(userRef, updatedProfile, { merge: true });
+
+      setProfile({ id: snap.id, ...updatedProfile });
+      return;
+    }
+
+    setProfile({ id: snap.id, ...data });
   };
 
   useEffect(() => {
@@ -50,36 +79,37 @@ export function AuthProvider({ children }) {
     return () => unsub();
   }, []);
 
-const register = async ({ name, email, password }) => {
-  const result = await createUserWithEmailAndPassword(auth, email, password);
+  const register = async ({ name, email, password }) => {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
 
-  await updateProfile(result.user, {
-    displayName: name,
-  });
+    await updateProfile(result.user, {
+      displayName: name,
+    });
 
-  const familyRef = doc(collection(db, "families"));
+    const familyRef = doc(collection(db, "families"));
 
-  await setDoc(familyRef, {
-    familyName: `${name}'s Family`,
-    ownerId: result.user.uid,
-    members: [result.user.uid],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+    await setDoc(familyRef, {
+      familyName: `${name}'s Family`,
+      ownerId: result.user.uid,
+      members: [result.user.uid],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
 
-  await setDoc(doc(db, "users", result.user.uid), {
-    uid: result.user.uid,
-    name,
-    email,
-    familyId: familyRef.id,
-    role: "dad",
-    createdAt: new Date().toISOString(),
-  });
+    await setDoc(doc(db, "users", result.user.uid), {
+      uid: result.user.uid,
+      name,
+      email,
+      familyId: familyRef.id,
+      role: "dad",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
 
-  await loadProfile(result.user);
+    await loadProfile(result.user);
 
-  return result.user;
-};
+    return result.user;
+  };
 
   const login = async ({ email, password }) => {
     const result = await signInWithEmailAndPassword(auth, email, password);
@@ -104,5 +134,3 @@ const register = async ({ name, email, password }) => {
     </AuthContext.Provider>
   );
 }
-
-
