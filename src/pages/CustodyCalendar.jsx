@@ -48,36 +48,41 @@ export default function CustodyCalendar() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showSync, setShowSync] = useState(false);
   const [custodyDays, setCustodyDays] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    const loadCustodyDays = async () => {
-      if (!user) return;
+useEffect(() => {
+  const loadCustodyDays = async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
 
-      setIsLoading(true);
+    setIsLoading(true);
 
-      try {
-        const q = query(
-          collection(db, "custodyDays"),
-          where("userId", "==", user.uid)
-        );
+    try {
+      const q = query(
+        collection(db, "custodyDays"),
+        where("userId", "==", user.uid)
+      );
 
-        const snap = await getDocs(q);
+      const snap = await getDocs(q);
 
-        const data = snap.docs.map((document) => ({
-          id: document.id,
-          ...document.data(),
-        }));
+      const data = snap.docs.map((document) => ({
+        id: document.id,
+        ...document.data(),
+      }));
 
-        setCustodyDays(data);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setCustodyDays(data);
+    } catch (error) {
+      console.error("Error loading custody days:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    loadCustodyDays();
-  }, [user]);
+  loadCustodyDays();
+}, [user]);
 
   const saveCustodyDay = async (payload) => {
     if (!user) return;
