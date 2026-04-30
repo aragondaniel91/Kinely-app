@@ -155,10 +155,11 @@ useEffect(() => {
       d.date <= format(calEnd, "yyyy-MM-dd")
   );
 
-  const custodyMap = {};
-  visibleCustodyDays.forEach((d) => {
-    custodyMap[d.date] = d;
-  });
+const custodyMap = {};
+visibleCustodyDays.forEach((d) => {
+  const key = d.date?.slice(0, 10); 
+  custodyMap[key] = d;
+});
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
   const todayCustody = custodyMap[todayKey];
