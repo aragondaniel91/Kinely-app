@@ -32,8 +32,18 @@ function ParentPicker({ value, onChange, label, icon: Icon }) {
               : "border-border hover:border-primary/30"
           )}
         >
-          <User className={cn("w-5 h-5", value === "dad" ? "text-primary" : "text-muted-foreground")} />
-          <span className={cn("text-xs font-bold", value === "dad" ? "text-primary" : "text-muted-foreground")}>
+          <User
+            className={cn(
+              "w-5 h-5",
+              value === "dad" ? "text-primary" : "text-muted-foreground"
+            )}
+          />
+          <span
+            className={cn(
+              "text-xs font-bold",
+              value === "dad" ? "text-primary" : "text-muted-foreground"
+            )}
+          >
             Dad
           </span>
         </button>
@@ -48,8 +58,18 @@ function ParentPicker({ value, onChange, label, icon: Icon }) {
               : "border-border hover:border-pink-200"
           )}
         >
-          <Heart className={cn("w-5 h-5", value === "mom" ? "text-pink-500" : "text-muted-foreground")} />
-          <span className={cn("text-xs font-bold", value === "mom" ? "text-pink-600" : "text-muted-foreground")}>
+          <Heart
+            className={cn(
+              "w-5 h-5",
+              value === "mom" ? "text-pink-500" : "text-muted-foreground"
+            )}
+          />
+          <span
+            className={cn(
+              "text-xs font-bold",
+              value === "mom" ? "text-pink-600" : "text-muted-foreground"
+            )}
+          >
             Mom
           </span>
         </button>
@@ -66,6 +86,13 @@ export default function CustodyDayDialog({
   onClose,
   isSaving,
 }) {
+  const safeDate = date instanceof Date ? date : new Date(date);
+
+  if (Number.isNaN(safeDate.getTime())) {
+    console.error("Invalid date received by CustodyDayDialog:", date);
+    return null;
+  }
+
   const [isSplit, setIsSplit] = useState(existingData?.is_split || false);
   const [withWhom, setWithWhom] = useState(existingData?.with_whom || "dad");
   const [morning, setMorning] = useState(existingData?.morning || "mom");
@@ -74,7 +101,7 @@ export default function CustodyDayDialog({
 
   const handleSave = () => {
     onSave({
-      date: format(date, "yyyy-MM-dd"),
+      date: format(safeDate, "yyyy-MM-dd"),
       is_split: isSplit,
       with_whom: isSplit ? null : withWhom,
       morning: isSplit ? morning : null,
@@ -85,8 +112,12 @@ export default function CustodyDayDialog({
 
   const handleDelete = () => {
     if (!existingData || !onDelete) return;
+
+    const dateToDelete = existingData.date || format(safeDate, "yyyy-MM-dd");
+
     if (!window.confirm("Delete this custody day?")) return;
-    onDelete(existingData.date);
+
+    onDelete(dateToDelete);
   };
 
   return (
@@ -94,7 +125,7 @@ export default function CustodyDayDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">
-            {format(date, "EEEE, MMMM d")}
+            {format(safeDate, "EEEE, MMMM d")}
           </DialogTitle>
         </DialogHeader>
 
@@ -106,16 +137,32 @@ export default function CustodyDayDialog({
                 Morning with one, afternoon with other
               </p>
             </div>
+
             <Switch checked={isSplit} onCheckedChange={setIsSplit} />
           </div>
 
           {isSplit ? (
             <div className="space-y-3">
-              <ParentPicker value={morning} onChange={setMorning} label="Morning" icon={Sun} />
-              <ParentPicker value={afternoon} onChange={setAfternoon} label="Afternoon / Evening" icon={Sunset} />
+              <ParentPicker
+                value={morning}
+                onChange={setMorning}
+                label="Morning"
+                icon={Sun}
+              />
+              <ParentPicker
+                value={afternoon}
+                onChange={setAfternoon}
+                label="Afternoon / Evening"
+                icon={Sunset}
+              />
             </div>
           ) : (
-            <ParentPicker value={withWhom} onChange={setWithWhom} label="All Day" icon={User} />
+            <ParentPicker
+              value={withWhom}
+              onChange={setWithWhom}
+              label="All Day"
+              icon={User}
+            />
           )}
 
           <div>
