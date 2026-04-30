@@ -117,7 +117,7 @@ export default function CustodyDayDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-sm w-[calc(100vw-2rem)] rounded-2xl">
+      <DialogContent className="max-w-sm rounded-2xl">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">
             {format(date, "EEEE, MMMM d")}
@@ -173,7 +173,7 @@ export default function CustodyDayDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+        <DialogFooter>
           <div>
             {existingData && (
               <Button
