@@ -92,8 +92,33 @@ export default function Profile() {
     setChildren((prev) => prev.filter((_, i) => i !== index));
   };
 
+  if (!familyId || !isAdmin) return;
   const handleSave = async () => {
-    if (!familyId || !isAdmin) return;
+    console.log("Saving profile with:", {
+      familyId,
+      isAdmin,
+      isOwner,
+      profile,
+      familyName,
+      children,
+      parent1Name,
+      parent1Role,
+      parent1Color,
+      parent2Name,
+      parent2Email,
+      parent2Role,
+      parent2Color,
+    });
+
+    if (!familyId) {
+      alert("No active familyId found. The profile cannot be saved.");
+      return;
+    }
+
+    if (!isAdmin) {
+      alert("You do not have admin permission to edit this family.");
+      return;
+    }
 
     setSaving(true);
     setSavedMessage("");
@@ -126,10 +151,13 @@ export default function Profile() {
         parent2_color: parent2Color,
       };
 
+      console.log("Profile payload:", payload);
+
       await updateActiveFamily(payload);
       await refreshFamilies?.();
 
       setSavedMessage("Cambios guardados correctamente.");
+      alert("Cambios guardados correctamente.");
     } catch (error) {
       console.error("Error saving family profile:", error);
       alert(`Error saving profile: ${error.message}`);
@@ -472,8 +500,9 @@ export default function Profile() {
 
         {canEdit && (
           <Button
+            type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !familyId || !isAdmin}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-6 font-semibold flex items-center justify-center gap-2 mb-3"
           >
             <Save className="w-5 h-5" />
