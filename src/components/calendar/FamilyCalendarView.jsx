@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { addDays, format, isToday, startOfWeek } from "date-fns";
 import {
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Clock,
