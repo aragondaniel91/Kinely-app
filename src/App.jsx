@@ -1,5 +1,10 @@
 import { Toaster } from "@/components/ui/toaster";
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+} from "react-router-dom";
 
 import PageNotFound from "./lib/PageNotFound";
 import AppShell from "@/components/layout/AppShell";
@@ -14,6 +19,7 @@ import Register from "@/pages/Register";
 import Profile from "@/pages/Profile";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
+import { FamilyProvider } from "@/lib/FamilyContext";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -95,10 +101,12 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-        <Toaster />
-      </Router>
+      <FamilyProvider>
+        <Router>
+          <AppRoutes />
+          <Toaster />
+        </Router>
+      </FamilyProvider>
     </AuthProvider>
   );
 }

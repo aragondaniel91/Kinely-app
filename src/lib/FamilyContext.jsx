@@ -87,14 +87,11 @@ function normalizePermissions(member) {
   };
 }
 
-/**
- * This converts your Firebase family document into a Base44-compatible shape.
- * That lets us reuse UI from Base44 with minimal changes.
- */
 function normalizeFamilyProfile(family, user) {
   if (!family) return null;
 
   const parent1Role = family.parent1Role || family.parent1_role || "dad";
+
   const parent2Role =
     family.parent2Role ||
     family.parent2_role ||
@@ -113,7 +110,6 @@ function normalizeFamilyProfile(family, user) {
   return {
     ...family,
 
-    // Firebase style
     familyId: family.id,
     familyName,
     ownerId: family.ownerId || family.owner_id,
@@ -131,7 +127,7 @@ function normalizeFamilyProfile(family, user) {
 
     children,
 
-    // Base44-compatible style
+    // Base44-compatible fields
     family_name: familyName,
     owner_email: family.ownerEmail || family.owner_email || user?.email || "",
     created_by: family.createdByEmail || family.created_by || user?.email || "",
@@ -167,7 +163,7 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
   const userRef = doc(db, "users", firebaseUser.uid);
   const userSnap = await getDoc(userRef);
 
-  let userData = userSnap.exists() ? userSnap.data() : authProfile || {};
+  const userData = userSnap.exists() ? userSnap.data() : authProfile || {};
 
   if (userData?.familyId) {
     return userData.familyId;
@@ -272,8 +268,14 @@ export function FamilyProvider({ children }) {
 
         if (ensuredFamilyId) ids.add(ensuredFamilyId);
         if (userData.familyId) ids.add(userData.familyId);
+        if (authProfile?.familyId) ids.add(authProfile.familyId);
+
         if (Array.isArray(userData.familyIds)) {
           userData.familyIds.forEach((id) => id && ids.add(id));
+        }
+
+        if (Array.isArray(authProfile?.familyIds)) {
+          authProfile.familyIds.forEach((id) => id && ids.add(id));
         }
 
         const loaded = [];
@@ -288,10 +290,6 @@ export function FamilyProvider({ children }) {
           }
         }
 
-        /**
-         * Also find families where this user's email is listed as member.
-         * This is useful later for invited co-parents/family members.
-         */
         if (myEmail) {
           const memberQuery = query(
             collection(db, "families"),
@@ -311,6 +309,8 @@ export function FamilyProvider({ children }) {
         }
 
         if (!cancelled) {
+          console.log("Loaded families:", loaded);
+          console.log("User family IDs:", Array.from(ids));
           setFamilies(loaded);
         }
       } catch (error) {
@@ -447,10 +447,6 @@ export function FamilyProvider({ children }) {
       updatedAt: serverTimestamp(),
     };
 
-    /**
-     * Keep both naming styles for now so Base44-migrated UI
-     * and Firebase-native code can both read the same document.
-     */
     if (data.family_name !== undefined) payload.familyName = data.family_name;
     if (data.parent1_name !== undefined)
       payload.parent1Name = data.parent1_name;
