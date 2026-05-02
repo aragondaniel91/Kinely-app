@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   format,
   startOfMonth,
@@ -14,6 +14,7 @@ import {
   parseISO,
   differenceInCalendarDays,
 } from "date-fns";
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,7 @@ import {
   CalendarDays,
   Heart,
 } from "lucide-react";
+
 import {
   collection,
   doc,
@@ -29,111 +31,213 @@ import {
   deleteDoc,
   query,
   where,
+  serverTimestamp,
 } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { useAuth } from "@/lib/AuthContext";
+import { useFamily } from "@/lib/FamilyContext";
+
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
-import GoogleCalendarSync from "@/components/calendar/GoogleCalendarSync";
+// GoogleCalendarSync currently still uses localStorage, so we keep it disabled for now.
+// import GoogleCalendarSync from "@/components/calendar/GoogleCalendarSync";
 
 const DAD_SOLID = "bg-blue-500";
 const MOM_SOLID = "bg-amber-400";
 
+function normalizeDate(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+
+  if (value?.toDate) {
+    return format(value.toDate(), "yyyy-MM-dd");
+  }
+
+  return String(value).slice(0, 10);
+}
+
+function normalizeCustodyDay(docSnap) {
+  const data = docSnap.data();
+
+  return {
+    id: docSnap.id,
+    ...data,
+    date: normalizeDate(data.date),
+    is_split: data.is_split || data.isSplit || false,
+    with_whom: data.with_whom || data.withWhom || null,
+    morning: data.morning || null,
+    afternoon: data.afternoon || null,
+    notes: data.notes || "",
+  };
+}
+
+function getParentLabel(parent, dadName, momName) {
+  if (parent === "dad") return dadName || "Papá";
+  if (parent === "mom") return momName || "Mamá";
+  return "Compartido";
+}
+
 export default function CustodyCalendar() {
-  const { user, profile } = useAuth();
+  const { user, profile, familyId, perms, dadName, momName } = useFamily();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showSync, setShowSync] = useState(false);
   const [custodyDays, setCustodyDays] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadCustodyDays = async () => {
-      if (!user) return;
+  const canRead = perms?.calendar?.read !== false;
+  const canWrite = perms?.calendar?.write !== false;
+
+  const loadCustodyDays = async () => {
+    if (!user || !familyId || !canRead) {
+      setCustodyDays([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let data = [];
 
       try {
         const q = query(
           collection(db, "custodyDays"),
-          where("userId", "==", user.uid)
+          where("familyId", "==", familyId)
         );
 
         const snap = await getDocs(q);
-
-        const data = snap.docs.map((document) => ({
-          id: document.id,
-          ...document.data(),
-        }));
-
-        setCustodyDays(data);
+        data = snap.docs.map(normalizeCustodyDay);
       } catch (error) {
-        console.error("Error loading custody days:", error);
-      }
-    };
+        console.warn("Fallback custody query by family_id:", error);
 
+        try {
+          const q = query(
+            collection(db, "custodyDays"),
+            where("family_id", "==", familyId)
+          );
+
+          const snap = await getDocs(q);
+          data = snap.docs.map(normalizeCustodyDay);
+        } catch (legacyError) {
+          console.warn("Fallback custody query by userId:", legacyError);
+
+          const q = query(
+            collection(db, "custodyDays"),
+            where("userId", "==", user.uid)
+          );
+
+          const snap = await getDocs(q);
+          data = snap.docs.map(normalizeCustodyDay);
+        }
+      }
+
+      data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      setCustodyDays(data);
+    } catch (error) {
+      console.error("Error loading custody days:", error);
+      setCustodyDays([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadCustodyDays();
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, familyId, canRead]);
 
   const saveCustodyDay = async (payload) => {
-    if (!user) return;
+    if (!user || !familyId || !canWrite) return;
 
     setIsSaving(true);
 
     try {
-      const docId = `${user.uid}_${payload.date}`;
+      const dateKey = normalizeDate(payload.date);
+      const docId = `${familyId}_${dateKey}`;
 
       const data = {
-        id: payload.date,
-        ...payload,
+        id: docId,
+        date: dateKey,
+
+        is_split: payload.is_split || false,
+        isSplit: payload.is_split || false,
+
+        with_whom: payload.is_split ? null : payload.with_whom,
+        withWhom: payload.is_split ? null : payload.with_whom,
+
+        morning: payload.is_split ? payload.morning : null,
+        afternoon: payload.is_split ? payload.afternoon : null,
+
+        notes: payload.notes || "",
+
+        familyId,
+        family_id: familyId,
+        familyName: profile?.family_name || profile?.familyName || "",
+
         userId: user.uid,
-        familyId: profile?.familyId || null,
-        updatedAt: new Date().toISOString(),
+        createdBy: user.uid,
+        createdByEmail: user.email || null,
+
+        updatedAt: serverTimestamp(),
+        updated_date: new Date().toISOString(),
       };
 
       await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
 
       setCustodyDays((prev) => {
-        const existing = prev.find(
-          (d) => d.date?.slice(0, 10) === payload.date
-        );
+        const existing = prev.find((d) => normalizeDate(d.date) === dateKey);
 
         if (existing) {
           return prev.map((d) =>
-            d.date?.slice(0, 10) === payload.date ? { ...d, ...data } : d
+            normalizeDate(d.date) === dateKey ? { ...d, ...data } : d
           );
         }
 
-        return [...prev, data];
+        return [...prev, data].sort((a, b) =>
+          (a.date || "").localeCompare(b.date || "")
+        );
       });
 
       setSelectedDate(null);
     } catch (error) {
       console.error("Error saving custody day:", error);
+      alert(`There was an error saving the custody day: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   const deleteCustodyDay = async (date) => {
-    if (!user || !date) return;
+    if (!user || !familyId || !date || !canWrite) return;
 
     setIsSaving(true);
 
     try {
-      const dateKey = date.slice(0, 10);
-      const docId = `${user.uid}_${dateKey}`;
+      const dateKey = normalizeDate(date);
+      const newDocId = `${familyId}_${dateKey}`;
 
-      await deleteDoc(doc(db, "custodyDays", docId));
+      await deleteDoc(doc(db, "custodyDays", newDocId));
+
+      // Best-effort cleanup for old per-user document ID.
+      try {
+        const oldDocId = `${user.uid}_${dateKey}`;
+        await deleteDoc(doc(db, "custodyDays", oldDocId));
+      } catch (legacyError) {
+        console.warn("Could not delete legacy custody doc:", legacyError);
+      }
 
       setCustodyDays((prev) =>
-        prev.filter((d) => d.date?.slice(0, 10) !== dateKey)
+        prev.filter((d) => normalizeDate(d.date) !== dateKey)
       );
 
       setSelectedDate(null);
     } catch (error) {
       console.error("Error deleting custody day:", error);
+      alert(`There was an error deleting the custody day: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -152,7 +256,8 @@ export default function CustodyCalendar() {
   }
 
   const visibleCustodyDays = custodyDays.filter((d) => {
-    const dateKey = d.date?.slice(0, 10);
+    const dateKey = normalizeDate(d.date);
+
     return (
       dateKey >= format(calStart, "yyyy-MM-dd") &&
       dateKey <= format(calEnd, "yyyy-MM-dd")
@@ -161,34 +266,41 @@ export default function CustodyCalendar() {
 
   const custodyMap = {};
   visibleCustodyDays.forEach((d) => {
-    const key = d.date?.slice(0, 10);
+    const key = normalizeDate(d.date);
     if (key) custodyMap[key] = d;
   });
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
   const todayCustody = custodyMap[todayKey];
+
   const todayParent = todayCustody?.is_split ? null : todayCustody?.with_whom;
 
   const todayLabel = todayCustody?.is_split
-    ? `AM: ${todayCustody.morning} / PM: ${todayCustody.afternoon}`
+    ? `AM: ${getParentLabel(
+        todayCustody.morning,
+        dadName,
+        momName
+      )} / PM: ${getParentLabel(todayCustody.afternoon, dadName, momName)}`
     : todayParent
     ? todayParent === "dad"
-      ? "PAPÁ"
-      : "MAMÁ"
+      ? (dadName || "PAPÁ").toUpperCase()
+      : (momName || "MAMÁ").toUpperCase()
     : null;
 
   const sortedDays = [...visibleCustodyDays].sort((a, b) =>
-    a.date.localeCompare(b.date)
+    (a.date || "").localeCompare(b.date || "")
   );
 
   const nextChange = sortedDays.find((d) => {
-    const dateKey = d.date?.slice(0, 10);
+    const dateKey = normalizeDate(d.date);
     if (!dateKey || dateKey <= todayKey) return false;
 
-    const prev =
-      custodyMap[
-        format(addDays(parseISO(dateKey + "T12:00:00"), -1), "yyyy-MM-dd")
-      ];
+    const prevKey = format(
+      addDays(parseISO(dateKey + "T12:00:00"), -1),
+      "yyyy-MM-dd"
+    );
+
+    const prev = custodyMap[prevKey];
 
     if (!prev) return false;
 
@@ -199,7 +311,7 @@ export default function CustodyCalendar() {
   });
 
   const upcoming = sortedDays
-    .filter((d) => d.date?.slice(0, 10) >= todayKey)
+    .filter((d) => normalizeDate(d.date) >= todayKey)
     .slice(0, 4);
 
   const dadDays = visibleCustodyDays.reduce((acc, d) => {
@@ -226,8 +338,21 @@ export default function CustodyCalendar() {
       : null;
 
   const selectedExistingData = selectedDateKey
-    ? custodyDays.find((d) => d.date?.slice(0, 10) === selectedDateKey)
+    ? custodyDays.find((d) => normalizeDate(d.date) === selectedDateKey)
     : null;
+
+  if (!canRead) {
+    return (
+      <div className="p-6 max-w-xl mx-auto text-center">
+        <h1 className="text-2xl font-bold font-heading mb-2">
+          Calendario de Custodia
+        </h1>
+        <p className="text-muted-foreground">
+          No tienes acceso al calendario de esta familia.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-screen bg-gray-50">
@@ -236,6 +361,7 @@ export default function CustodyCalendar() {
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <CalendarDays className="w-4 h-4 text-white" />
           </div>
+
           <div>
             <p className="font-bold font-heading text-sm leading-tight">
               Plan de Familia
@@ -243,6 +369,12 @@ export default function CustodyCalendar() {
             <p className="text-xs text-muted-foreground">Calendario Familiar</p>
           </div>
         </div>
+
+        {loading && (
+          <div className="text-xs text-muted-foreground bg-gray-50 border rounded-xl p-2">
+            Loading calendar...
+          </div>
+        )}
 
         <div>
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
@@ -292,6 +424,12 @@ export default function CustodyCalendar() {
               />
             </div>
           )}
+
+          {!todayCustody && (
+            <p className="text-xs text-muted-foreground mt-2">
+              No hay información de custodia para hoy.
+            </p>
+          )}
         </div>
 
         {nextChange && (
@@ -305,7 +443,7 @@ export default function CustodyCalendar() {
                 <div className="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                   <span className="text-xs font-bold text-primary">
                     {format(
-                      parseISO(nextChange.date.slice(0, 10) + "T12:00:00"),
+                      parseISO(normalizeDate(nextChange.date) + "T12:00:00"),
                       "d"
                     )}
                   </span>
@@ -314,7 +452,7 @@ export default function CustodyCalendar() {
                 <div>
                   <p className="text-xs font-bold leading-tight">
                     {format(
-                      parseISO(nextChange.date.slice(0, 10) + "T12:00:00"),
+                      parseISO(normalizeDate(nextChange.date) + "T12:00:00"),
                       "EEE, d MMM"
                     )}
                   </p>
@@ -322,7 +460,7 @@ export default function CustodyCalendar() {
                   <p className="text-xs text-muted-foreground">
                     en{" "}
                     {differenceInCalendarDays(
-                      parseISO(nextChange.date.slice(0, 10) + "T12:00:00"),
+                      parseISO(normalizeDate(nextChange.date) + "T12:00:00"),
                       new Date()
                     )}{" "}
                     días
@@ -338,7 +476,10 @@ export default function CustodyCalendar() {
                     : "text-amber-600"
                 )}
               >
-                Con {nextChange.with_whom === "dad" ? "PAPÁ 👨" : "MAMÁ 👩"}
+                Con{" "}
+                {nextChange.with_whom === "dad"
+                  ? `${dadName || "Papá"} 👨`
+                  : `${momName || "Mamá"} 👩`}
               </p>
             </div>
           </div>
@@ -351,12 +492,12 @@ export default function CustodyCalendar() {
 
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-2 text-center">
-              <p className="text-xs text-blue-700">Papá</p>
+              <p className="text-xs text-blue-700">{dadName || "Papá"}</p>
               <p className="text-lg font-black text-blue-800">{dadDays}</p>
             </div>
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 text-center">
-              <p className="text-xs text-amber-700">Mamá</p>
+              <p className="text-xs text-amber-700">{momName || "Mamá"}</p>
               <p className="text-lg font-black text-amber-800">{momDays}</p>
             </div>
           </div>
@@ -370,12 +511,12 @@ export default function CustodyCalendar() {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-blue-300 shrink-0" />
-              <span className="text-xs">Con Papá</span>
+              <span className="text-xs">Con {dadName || "Papá"}</span>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-amber-300 shrink-0" />
-              <span className="text-xs">Con Mamá</span>
+              <span className="text-xs">Con {momName || "Mamá"}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -408,7 +549,7 @@ export default function CustodyCalendar() {
                   <div>
                     <p className="text-xs font-semibold leading-tight">
                       {format(
-                        parseISO(d.date.slice(0, 10) + "T12:00:00"),
+                        parseISO(normalizeDate(d.date) + "T12:00:00"),
                         "EEE, d MMM"
                       )}
                     </p>
@@ -422,8 +563,20 @@ export default function CustodyCalendar() {
                       )}
                     >
                       {d.is_split
-                        ? `AM:${d.morning} PM:${d.afternoon}`
-                        : `Con ${d.with_whom === "dad" ? "Papá" : "Mamá"}`}
+                        ? `AM:${getParentLabel(
+                            d.morning,
+                            dadName,
+                            momName
+                          )} PM:${getParentLabel(
+                            d.afternoon,
+                            dadName,
+                            momName
+                          )}`
+                        : `Con ${getParentLabel(
+                            d.with_whom,
+                            dadName,
+                            momName
+                          )}`}
                     </p>
                   </div>
                 </div>
@@ -474,6 +627,8 @@ export default function CustodyCalendar() {
               variant="outline"
               size="sm"
               className="gap-1.5 hidden sm:flex"
+              disabled
+              title="Google Calendar sync will be enabled in a later step"
               onClick={() => setShowSync(true)}
             >
               <RefreshCw className="w-3.5 h-3.5" /> Sync Google
@@ -495,32 +650,38 @@ export default function CustodyCalendar() {
 
           <div className="space-y-1">
             {weeks.map((week, wi) => (
-              <div key={wi} className="grid grid-cols-7 gap-1 min-h-[58px] sm:min-h-[80px]">
+              <div
+                key={wi}
+                className="grid grid-cols-7 gap-1 min-h-[58px] sm:min-h-[80px]"
+              >
                 {week.map((day, di) => {
                   const key = format(day, "yyyy-MM-dd");
                   const custody = custodyMap[key];
                   const inMonth = isSameMonth(day, currentMonth);
                   const today = isToday(day);
                   const parent = custody?.is_split ? null : custody?.with_whom;
-                  const isSplit = custody?.is_split;
+                  const splitDay = custody?.is_split;
 
                   return (
                     <button
                       key={di}
                       type="button"
-                      onClick={() => setSelectedDate(day)}
+                      disabled={!canWrite}
+                      onClick={() => canWrite && setSelectedDate(day)}
                       className={cn(
                         "relative rounded-lg sm:rounded-xl border transition-all text-left overflow-hidden min-h-[54px] sm:min-h-[72px]",
-                        "hover:ring-2 hover:ring-primary/40 active:scale-95",
+                        canWrite
+                          ? "hover:ring-2 hover:ring-primary/40 active:scale-95"
+                          : "cursor-not-allowed opacity-80",
                         today && "ring-2 ring-primary ring-offset-1",
                         !custody && "bg-white border-gray-100 hover:bg-gray-50",
                         parent === "dad" && "border-blue-300",
                         parent === "mom" && "border-amber-300",
-                        isSplit && "border-gray-300",
+                        splitDay && "border-gray-300",
                         !inMonth && "opacity-40"
                       )}
                     >
-                      {!isSplit && parent && (
+                      {!splitDay && parent && (
                         <div
                           className={cn(
                             "absolute inset-0",
@@ -529,7 +690,7 @@ export default function CustodyCalendar() {
                         />
                       )}
 
-                      {isSplit && (
+                      {splitDay && (
                         <>
                           <div className="absolute inset-x-0 top-0 bottom-1/2 bg-blue-100" />
                           <div className="absolute inset-x-0 top-1/2 bottom-0 bg-amber-100" />
@@ -557,12 +718,12 @@ export default function CustodyCalendar() {
                           >
                             <span>{parent === "dad" ? "👨" : "👩"}</span>
                             <span className="truncate hidden sm:inline">
-                              {parent === "dad" ? "Con Papá" : "Con Mamá"}
+                              Con {getParentLabel(parent, dadName, momName)}
                             </span>
                           </div>
                         )}
 
-                        {isSplit && (
+                        {splitDay && (
                           <div className="space-y-0.5 mt-0.5">
                             <div className="rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold bg-blue-300/60 text-blue-900">
                               AM 👨
@@ -589,29 +750,19 @@ export default function CustodyCalendar() {
         </div>
       </div>
 
-      {selectedDate instanceof Date && !Number.isNaN(selectedDate.getTime()) && (
-        <CustodyDayDialog
-          date={selectedDate}
-          existingData={selectedExistingData}
-          onSave={saveCustodyDay}
-          onDelete={deleteCustodyDay}
-          onClose={() => setSelectedDate(null)}
-          isSaving={isSaving}
-        />
-      )}
+      {selectedDate instanceof Date &&
+        !Number.isNaN(selectedDate.getTime()) && (
+          <CustodyDayDialog
+            date={selectedDate}
+            existingData={selectedExistingData}
+            onSave={saveCustodyDay}
+            onDelete={deleteCustodyDay}
+            onClose={() => setSelectedDate(null)}
+            isSaving={isSaving}
+          />
+        )}
 
-      {showSync && (
-        <GoogleCalendarSync
-          custodyDays={custodyDays}
-          currentMonth={currentMonth}
-          onClose={() => setShowSync(false)}
-          onImported={(updatedDays) => {
-            const data = updatedDays || custodyDays;
-            setCustodyDays(data);
-            setShowSync(false);
-          }}
-        />
-      )}
+      {showSync && null}
     </div>
   );
 }
