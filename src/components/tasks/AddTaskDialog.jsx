@@ -1,14 +1,27 @@
 import React, { useState } from "react";
 import {
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
+
+import { db } from "@/lib/firebase";
+import { useFamily } from "@/lib/FamilyContext";
+
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 import {
   Select,
   SelectContent,
@@ -17,43 +30,69 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function AddTaskDialog({ onClose, onSuccess }) {
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("house");
-  const [priority, setPriority] = useState("medium");
-  const [dueDate, setDueDate] = useState("");
+export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
+  const [title, setTitle] = useState(editTask?.title || "");
+  const [category, setCategory] = useState(editTask?.category || "house");
+  const [priority, setPriority] = useState(editTask?.priority || "medium");
+  const [dueDate, setDueDate] = useState(
+    editTask?.due_date || editTask?.dueDate || ""
+  );
   const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
+  const { profile, familyId, user } = useFamily();
+
+  const handleSave = async () => {
     if (!title.trim()) return;
+
+    if (!familyId) {
+      alert("No active family found.");
+      return;
+    }
 
     setSaving(true);
 
-    const existingTasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+    try {
+      const payload = {
+        title: title.trim(),
+        category,
+        priority,
+        due_date: dueDate || "",
+        dueDate: dueDate || "",
+        familyId,
+        family_id: familyId,
+        updatedAt: serverTimestamp(),
+      };
 
-    const newTask = {
-      id: Date.now(),
-      title: title.trim(),
-      category,
-      priority,
-      due_date: dueDate || undefined,
-      status: "pending",
-      created_date: new Date().toISOString(),
-    };
+      if (editTask) {
+        await updateDoc(doc(db, "tasks", editTask.id), payload);
+      } else {
+        await addDoc(collection(db, "tasks"), {
+          ...payload,
+          status: "pending",
+          createdBy: user?.uid || null,
+          createdByEmail: user?.email || null,
+          created_date: new Date().toISOString(),
+          createdAt: serverTimestamp(),
+          familyName: profile?.family_name || profile?.familyName || "",
+        });
+      }
 
-    const updatedTasks = [newTask, ...existingTasks];
-
-    localStorage.setItem("tasks", JSON.stringify(updatedTasks));
-
-    setSaving(false);
-    onSuccess?.();
+      onSuccess?.();
+    } catch (error) {
+      console.error("Error saving task:", error);
+      alert(`There was an error saving the task: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="font-heading text-xl">New Task</DialogTitle>
+          <DialogTitle className="font-heading text-xl">
+            {editTask ? "Edit Task" : "New Task"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -64,6 +103,9 @@ export default function AddTaskDialog({ onClose, onSuccess }) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
               className="mt-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && title.trim()) handleSave();
+              }}
             />
           </div>
 
@@ -114,8 +156,12 @@ export default function AddTaskDialog({ onClose, onSuccess }) {
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || saving}>
-            {saving ? "Saving..." : "Add Task"}
+
+          <Button
+            onClick={handleSave}
+            disabled={!title.trim() || saving || !familyId}
+          >
+            {saving ? "Saving..." : editTask ? "Save Changes" : "Add Task"}
           </Button>
         </DialogFooter>
       </DialogContent>
