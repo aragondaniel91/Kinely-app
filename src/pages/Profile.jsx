@@ -92,7 +92,6 @@ export default function Profile() {
     setChildren((prev) => prev.filter((_, i) => i !== index));
   };
 
-  if (!familyId || !isAdmin) return;
   const handleSave = async () => {
     console.log("Saving profile with:", {
       familyId,
