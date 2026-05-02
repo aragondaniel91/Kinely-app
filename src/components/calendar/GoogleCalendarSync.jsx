@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -7,93 +7,46 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { CalendarClock, Info } from "lucide-react";
 
-export default function GoogleCalendarSync({
-  custodyDays,
-  currentMonth,
-  onClose,
-  onImported,
-}) {
-  const [calendarId, setCalendarId] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const monthStr = format(currentMonth, "MMMM yyyy");
-
-  const handleImport = () => {
-    setLoading(true);
-
-    // 👉 SIMULACIÓN SIMPLE (sin base44)
-    const days = [];
-    let current = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      1
-    );
-
-    for (let i = 0; i < 30; i++) {
-      const dateStr = format(current, "yyyy-MM-dd");
-
-      days.push({
-        date: dateStr,
-        with_whom: i % 2 === 0 ? "dad" : "mom",
-        notes: "Imported schedule",
-      });
-
-      current.setDate(current.getDate() + 1);
-    }
-
-    // 👉 guardar en localStorage
-    const existing = JSON.parse(localStorage.getItem("custodyDays") || "[]");
-
-    const merged = [...existing];
-
-    days.forEach((d) => {
-      const index = merged.findIndex((x) => x.date === d.date);
-      if (index >= 0) {
-        merged[index] = { ...merged[index], ...d };
-      } else {
-        merged.push({ id: Date.now() + Math.random(), ...d });
-      }
-    });
-
-    localStorage.setItem("custodyDays", JSON.stringify(merged));
-
-    setLoading(false);
-    onImported?.();
-  };
+export default function GoogleCalendarSync({ currentMonth, onClose }) {
+  const monthStr = currentMonth
+    ? format(currentMonth, "MMMM yyyy")
+    : format(new Date(), "MMMM yyyy");
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-xl">Google Calendar Sync</DialogTitle>
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <CalendarClock className="w-5 h-5" />
+            Google Calendar Sync
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div>
-            <Label>Calendar ID</Label>
-            <Input
-              value={calendarId}
-              onChange={(e) => setCalendarId(e.target.value)}
-              placeholder="yourcalendar@gmail.com"
-              className="mt-1"
-            />
+          <div className="rounded-xl border bg-muted/40 p-4">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-muted-foreground mt-0.5" />
+
+              <div>
+                <p className="font-semibold text-sm">Sync is not enabled yet</p>
+
+                <p className="text-sm text-muted-foreground mt-1">
+                  Google Calendar integration will be added in a later step. The
+                  app is currently using Firestore as the source of truth for
+                  custody days.
+                </p>
+              </div>
+            </div>
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Importing for {monthStr}
+            Current view: <span className="font-semibold">{monthStr}</span>
           </p>
 
-          <Button onClick={handleImport} disabled={loading} className="w-full">
-            {loading ? (
-              <Loader2 className="animate-spin w-4 h-4" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-            )}
-            {loading ? "Importing..." : "Import Schedule"}
+          <Button onClick={onClose} className="w-full">
+            Got it
           </Button>
         </div>
       </DialogContent>
