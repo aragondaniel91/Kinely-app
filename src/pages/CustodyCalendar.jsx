@@ -99,6 +99,8 @@ export default function CustodyCalendar() {
   const [loading, setLoading] = useState(true);
 
   const canRead = perms?.calendar?.read !== false;
+  const canWrite = perms?.calendar?.write !== false;
+
   const dadTheme = COLOR_MAP[dadColor] || COLOR_MAP.blue;
   const momTheme = COLOR_MAP[momColor] || COLOR_MAP.amber;
 
