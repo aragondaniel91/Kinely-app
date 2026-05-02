@@ -10,7 +10,7 @@ import PageNotFound from "./lib/PageNotFound";
 import AppShell from "@/components/layout/AppShell";
 
 import Dashboard from "@/pages/Dashboard";
-import CustodyCalendar from "@/pages/CustodyCalendar";
+import Calendar from "@/pages/Calendar";
 import Tasks from "@/pages/Tasks";
 import Meals from "@/pages/Meals";
 import Groceries from "@/pages/Groceries";
@@ -86,7 +86,7 @@ function AppRoutes() {
         }
       >
         <Route path="/" element={<Dashboard />} />
-        <Route path="/calendar" element={<CustodyCalendar />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/meals" element={<Meals />} />
         <Route path="/groceries" element={<Groceries />} />
