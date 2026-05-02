@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
 import {
   CalendarDays,
   Clock,
@@ -44,13 +50,68 @@ const categories = [
   { value: "other", label: "Other", emoji: "📌" },
 ];
 
+function getInitialAssignedTo(editEvent) {
+  if (!editEvent) return "all";
+
+  if (editEvent.assignedTo) return editEvent.assignedTo;
+
+  if (editEvent.assignedToType === "dad") return "dad";
+  if (editEvent.assignedToType === "mom") return "mom";
+
+  if (editEvent.assignedToType === "child" && editEvent.assignedToName) {
+    return `child:${editEvent.assignedToName}`;
+  }
+
+  if (editEvent.childName) return `child:${editEvent.childName}`;
+
+  return "all";
+}
+
+function parseAssignedTo(value, dadName, momName) {
+  if (value === "dad") {
+    return {
+      assignedTo: "dad",
+      assignedToType: "dad",
+      assignedToName: dadName || "Papá",
+      childName: "",
+    };
+  }
+
+  if (value === "mom") {
+    return {
+      assignedTo: "mom",
+      assignedToType: "mom",
+      assignedToName: momName || "Mamá",
+      childName: "",
+    };
+  }
+
+  if (value.startsWith("child:")) {
+    const child = value.replace("child:", "");
+
+    return {
+      assignedTo: value,
+      assignedToType: "child",
+      assignedToName: child,
+      childName: child,
+    };
+  }
+
+  return {
+    assignedTo: "all",
+    assignedToType: "all",
+    assignedToName: "",
+    childName: "",
+  };
+}
+
 export default function AddFamilyEventDialog({
   date,
   onClose,
   onSuccess,
   editEvent = null,
 }) {
-  const { user, familyId, profile, children } = useFamily();
+  const { user, familyId, profile, children, dadName, momName } = useFamily();
 
   const [title, setTitle] = useState(editEvent?.title || "");
   const [description, setDescription] = useState(
@@ -62,9 +123,11 @@ export default function AddFamilyEventDialog({
   const [startTime, setStartTime] = useState(editEvent?.startTime || "");
   const [endTime, setEndTime] = useState(editEvent?.endTime || "");
   const [category, setCategory] = useState(editEvent?.category || "family");
-  const [childName, setChildName] = useState(editEvent?.childName || "all");
+  const [assignedTo, setAssignedTo] = useState(getInitialAssignedTo(editEvent));
   const [location, setLocation] = useState(editEvent?.location || "");
   const [saving, setSaving] = useState(false);
+
+  const isEditing = Boolean(editEvent?.id);
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -77,7 +140,9 @@ export default function AddFamilyEventDialog({
     setSaving(true);
 
     try {
-      await addDoc(collection(db, "familyEvents"), {
+      const assignment = parseAssignedTo(assignedTo, dadName, momName);
+
+      const payload = {
         title: title.trim(),
         description: description.trim(),
         notes: description.trim(),
@@ -87,25 +152,38 @@ export default function AddFamilyEventDialog({
         endTime,
 
         category,
-        childName: childName === "all" ? "" : childName,
         location: location.trim(),
+
+        assignedTo: assignment.assignedTo,
+        assignedToType: assignment.assignedToType,
+        assignedToName: assignment.assignedToName,
+
+        // Backward-compatible field for child-specific events
+        childName: assignment.childName,
 
         familyId,
         family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
 
-        createdBy: user?.uid || null,
-        createdByEmail: user?.email || null,
-
-        created_date: new Date().toISOString(),
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      };
+
+      if (isEditing) {
+        await updateDoc(doc(db, "familyEvents", editEvent.id), payload);
+      } else {
+        await addDoc(collection(db, "familyEvents"), {
+          ...payload,
+          createdBy: user?.uid || null,
+          createdByEmail: user?.email || null,
+          created_date: new Date().toISOString(),
+          createdAt: serverTimestamp(),
+        });
+      }
 
       onSuccess?.();
     } catch (error) {
-      console.error("Error creating family event:", error);
-      alert(`There was an error creating the event: ${error.message}`);
+      console.error("Error saving family event:", error);
+      alert(`There was an error saving the event: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -117,7 +195,7 @@ export default function AddFamilyEventDialog({
         <DialogHeader>
           <DialogTitle className="font-heading text-xl flex items-center gap-2">
             <CalendarDays className="w-5 h-5" />
-            Add Family Event
+            {isEditing ? "Edit Family Event" : "Add Family Event"}
           </DialogTitle>
         </DialogHeader>
 
@@ -155,6 +233,7 @@ export default function AddFamilyEventDialog({
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
+
                 <SelectContent>
                   {categories.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
@@ -192,17 +271,21 @@ export default function AddFamilyEventDialog({
           </div>
 
           <div>
-            <Label>Child</Label>
-            <Select value={childName} onValueChange={setChildName}>
+            <Label>Assign To</Label>
+            <Select value={assignedTo} onValueChange={setAssignedTo}>
               <SelectTrigger className="mt-1">
                 <UserRound className="w-4 h-4 mr-2 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
+
               <SelectContent>
-                <SelectItem value="all">All / General</SelectItem>
+                <SelectItem value="all">👨‍👩‍👧‍👦 Family / General</SelectItem>
+                <SelectItem value="dad">👨 {dadName || "Papá"}</SelectItem>
+                <SelectItem value="mom">👩 {momName || "Mamá"}</SelectItem>
+
                 {(children || []).map((child) => (
-                  <SelectItem key={child} value={child}>
-                    {child}
+                  <SelectItem key={child} value={`child:${child}`}>
+                    👶 {child}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -245,7 +328,7 @@ export default function AddFamilyEventDialog({
           </Button>
 
           <Button onClick={handleSave} disabled={!title.trim() || saving}>
-            {saving ? "Saving..." : "Add Event"}
+            {saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}
           </Button>
         </DialogFooter>
       </DialogContent>

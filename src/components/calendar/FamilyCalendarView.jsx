@@ -5,8 +5,10 @@ import {
   ChevronRight,
   Clock,
   MapPin,
+  Pencil,
   Plus,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import {
   collection,
@@ -90,10 +92,23 @@ function normalizeEvent(docSnap) {
     category: data.category || "other",
     childName: data.childName || "",
     location: data.location || "",
+    assignedTo: data.assignedTo || "",
+    assignedToType: data.assignedToType || (data.childName ? "child" : "all"),
+    assignedToName: data.assignedToName || data.childName || "",
   };
 }
 
-function EventCard({ event, onDelete, canWrite }) {
+function getAssignedLabel(event) {
+  if (event.assignedToType === "dad")
+    return `👨 ${event.assignedToName || "Papá"}`;
+  if (event.assignedToType === "mom")
+    return `👩 ${event.assignedToName || "Mamá"}`;
+  if (event.assignedToType === "child")
+    return `👶 ${event.assignedToName || event.childName}`;
+  return "👨‍👩‍👧‍👦 Family";
+}
+
+function EventCard({ event, onDelete, onEdit, canWrite }) {
   const config = categoryConfig[event.category] || categoryConfig.other;
 
   return (
@@ -108,13 +123,23 @@ function EventCard({ event, onDelete, canWrite }) {
             </p>
 
             {canWrite && (
-              <button
-                onClick={() => onDelete(event.id)}
-                className="opacity-0 group-hover:opacity-100 text-destructive transition-opacity shrink-0"
-                title="Delete event"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <button
+                  onClick={() => onEdit(event)}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Edit event"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  onClick={() => onDelete(event.id)}
+                  className="text-destructive"
+                  title="Delete event"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
           </div>
 
@@ -128,11 +153,10 @@ function EventCard({ event, onDelete, canWrite }) {
               {config.emoji} {config.label}
             </span>
 
-            {event.childName && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
-                {event.childName}
-              </span>
-            )}
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold inline-flex items-center gap-1">
+              <UserRound className="w-3 h-3" />
+              {getAssignedLabel(event)}
+            </span>
           </div>
 
           {(event.startTime || event.endTime) && (
@@ -163,7 +187,7 @@ function EventCard({ event, onDelete, canWrite }) {
   );
 }
 
-function DayColumn({ day, events, onAdd, onDelete, canWrite }) {
+function DayColumn({ day, events, onAdd, onDelete, onEdit, canWrite }) {
   const today = isToday(day);
 
   return (
@@ -208,6 +232,7 @@ function DayColumn({ day, events, onAdd, onDelete, canWrite }) {
             key={event.id}
             event={event}
             onDelete={onDelete}
+            onEdit={onEdit}
             canWrite={canWrite}
           />
         ))}
@@ -229,6 +254,7 @@ export default function FamilyCalendarView() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addDate, setAddDate] = useState(null);
+  const [editEvent, setEditEvent] = useState(null);
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
@@ -387,19 +413,25 @@ export default function FamilyCalendarView() {
               events={getEventsForDate(day)}
               onAdd={(selectedDay) => setAddDate(selectedDay)}
               onDelete={deleteEvent}
+              onEdit={(event) => setEditEvent(event)}
               canWrite={canWrite}
             />
           ))}
         </div>
       )}
 
-      {addDate && (
+      {(addDate || editEvent) && (
         <AddFamilyEventDialog
-          date={addDate}
-          onClose={() => setAddDate(null)}
+          date={addDate || new Date(editEvent?.date || new Date())}
+          editEvent={editEvent}
+          onClose={() => {
+            setAddDate(null);
+            setEditEvent(null);
+          }}
           onSuccess={async () => {
             await loadEvents();
             setAddDate(null);
+            setEditEvent(null);
           }}
         />
       )}
