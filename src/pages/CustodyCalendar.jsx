@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
 // GoogleCalendarSync currently still uses localStorage, so we keep it disabled for now.
@@ -79,7 +80,16 @@ function getParentLabel(parent, dadName, momName) {
 }
 
 export default function CustodyCalendar() {
-  const { user, profile, familyId, perms, dadName, momName } = useFamily();
+  const {
+    user,
+    profile,
+    familyId,
+    perms,
+    dadName,
+    momName,
+    dadColor,
+    momColor,
+  } = useFamily();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -89,7 +99,8 @@ export default function CustodyCalendar() {
   const [loading, setLoading] = useState(true);
 
   const canRead = perms?.calendar?.read !== false;
-  const canWrite = perms?.calendar?.write !== false;
+  const dadTheme = COLOR_MAP[dadColor] || COLOR_MAP.blue;
+  const momTheme = COLOR_MAP[momColor] || COLOR_MAP.amber;
 
   const loadCustodyDays = async () => {
     if (!user || !familyId || !canRead) {
@@ -390,8 +401,8 @@ export default function CustodyCalendar() {
               className={cn(
                 "mt-2 rounded-xl p-3 flex items-center gap-2 border",
                 todayParent === "dad"
-                  ? "bg-blue-50 border-blue-200"
-                  : "bg-amber-50 border-amber-200"
+                  ? `${dadTheme.bg} ${dadTheme.border}`
+                  : `${momTheme.bg} ${momTheme.border}`
               )}
             >
               <span className="text-2xl">
@@ -407,7 +418,7 @@ export default function CustodyCalendar() {
                 <p
                   className={cn(
                     "font-black text-sm",
-                    todayParent === "dad" ? "text-blue-700" : "text-amber-700"
+                    todayParent === "dad" ? dadTheme.text : momTheme.text
                   )}
                 >
                   {todayLabel}
@@ -418,8 +429,8 @@ export default function CustodyCalendar() {
                 className={cn(
                   "w-4 h-4 ml-auto",
                   todayParent === "dad"
-                    ? "text-blue-400"
-                    : "text-amber-400 fill-amber-400"
+                    ? dadTheme.text
+                    : `${momTheme.text} fill-current`
                 )}
               />
             </div>
@@ -491,14 +502,18 @@ export default function CustodyCalendar() {
           </p>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-2 text-center">
-              <p className="text-xs text-blue-700">{dadName || "Papá"}</p>
-              <p className="text-lg font-black text-blue-800">{dadDays}</p>
+            <div
+              className={`${dadTheme.bg} ${dadTheme.border} border rounded-xl p-2 text-center`}
+            >
+              <p className={`text-xs ${dadTheme.text}`}>{dadName || "Papá"}</p>
+              <p className={`text-lg font-black ${dadTheme.text}`}>{dadDays}</p>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 text-center">
-              <p className="text-xs text-amber-700">{momName || "Mamá"}</p>
-              <p className="text-lg font-black text-amber-800">{momDays}</p>
+            <div
+              className={`${momTheme.bg} ${momTheme.border} border rounded-xl p-2 text-center`}
+            >
+              <p className={`text-xs ${momTheme.text}`}>{momName || "Mamá"}</p>
+              <p className={`text-lg font-black ${momTheme.text}`}>{momDays}</p>
             </div>
           </div>
         </div>
@@ -510,19 +525,19 @@ export default function CustodyCalendar() {
 
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-blue-300 shrink-0" />
+              <div className={`w-4 h-4 rounded ${dadTheme.dot} shrink-0`} />
               <span className="text-xs">Con {dadName || "Papá"}</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-amber-300 shrink-0" />
+              <div className={`w-4 h-4 rounded ${momTheme.dot} shrink-0`} />
               <span className="text-xs">Con {momName || "Mamá"}</span>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded overflow-hidden shrink-0 flex flex-col">
-                <div className="flex-1 bg-blue-300" />
-                <div className="flex-1 bg-amber-300" />
+                <div className={`flex-1 ${dadTheme.dot}`} />
+                <div className={`flex-1 ${momTheme.dot}`} />
               </div>
 
               <span className="text-xs">Día compartido</span>
@@ -542,7 +557,7 @@ export default function CustodyCalendar() {
                   <div
                     className={cn(
                       "w-2 h-2 rounded-full shrink-0",
-                      d.with_whom === "dad" ? DAD_SOLID : MOM_SOLID
+                      d.with_whom === "dad" ? dadTheme.dot : momTheme.dot
                     )}
                   />
 
@@ -557,9 +572,7 @@ export default function CustodyCalendar() {
                     <p
                       className={cn(
                         "text-xs",
-                        d.with_whom === "dad"
-                          ? "text-blue-600"
-                          : "text-amber-600"
+                        d.with_whom === "dad" ? dadTheme.text : momTheme.text
                       )}
                     >
                       {d.is_split
@@ -675,8 +688,8 @@ export default function CustodyCalendar() {
                           : "cursor-not-allowed opacity-80",
                         today && "ring-2 ring-primary ring-offset-1",
                         !custody && "bg-white border-gray-100 hover:bg-gray-50",
-                        parent === "dad" && "border-blue-300",
-                        parent === "mom" && "border-amber-300",
+                        parent === "dad" && dadTheme.border,
+                        parent === "mom" && momTheme.border,
                         splitDay && "border-gray-300",
                         !inMonth && "opacity-40"
                       )}
@@ -685,15 +698,19 @@ export default function CustodyCalendar() {
                         <div
                           className={cn(
                             "absolute inset-0",
-                            parent === "dad" ? "bg-blue-100" : "bg-amber-100"
+                            parent === "dad" ? dadTheme.bg : momTheme.bg
                           )}
                         />
                       )}
 
                       {splitDay && (
                         <>
-                          <div className="absolute inset-x-0 top-0 bottom-1/2 bg-blue-100" />
-                          <div className="absolute inset-x-0 top-1/2 bottom-0 bg-amber-100" />
+                          <div
+                            className={`absolute inset-x-0 top-0 bottom-1/2 ${dadTheme.bg}`}
+                          />
+                          <div
+                            className={`absolute inset-x-0 top-1/2 bottom-0 ${momTheme.bg}`}
+                          />
                         </>
                       )}
 
@@ -711,9 +728,7 @@ export default function CustodyCalendar() {
                           <div
                             className={cn(
                               "rounded-md sm:rounded-lg px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-xs font-bold flex items-center gap-1",
-                              parent === "dad"
-                                ? "bg-blue-300/60 text-blue-900"
-                                : "bg-amber-300/60 text-amber-900"
+                              parent === "dad" ? dadTheme.chip : momTheme.chip
                             )}
                           >
                             <span>{parent === "dad" ? "👨" : "👩"}</span>
@@ -725,11 +740,15 @@ export default function CustodyCalendar() {
 
                         {splitDay && (
                           <div className="space-y-0.5 mt-0.5">
-                            <div className="rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold bg-blue-300/60 text-blue-900">
+                            <div
+                              className={`rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold ${dadTheme.chip}`}
+                            >
                               AM 👨
                             </div>
 
-                            <div className="rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold bg-amber-300/60 text-amber-900">
+                            <div
+                              className={`rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold ${momTheme.chip}`}
+                            >
                               PM 👩
                             </div>
                           </div>

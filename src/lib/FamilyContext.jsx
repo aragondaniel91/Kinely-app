@@ -398,6 +398,16 @@ export function FamilyProvider({ children }) {
       ? activeProfile?.parent1_name
       : activeProfile?.parent2_name;
 
+  const dadColor =
+    activeProfile?.parent1_role === "dad"
+      ? activeProfile?.parent1_color || activeProfile?.parent1Color || "blue"
+      : activeProfile?.parent2_color || activeProfile?.parent2Color || "blue";
+
+  const momColor =
+    activeProfile?.parent1_role === "mom"
+      ? activeProfile?.parent1_color || activeProfile?.parent1Color || "amber"
+      : activeProfile?.parent2_color || activeProfile?.parent2Color || "amber";
+
   const familyChildren =
     activeProfile?.children ||
     (activeProfile?.child_name ? [activeProfile.child_name] : []);
@@ -493,6 +503,8 @@ export function FamilyProvider({ children }) {
 
     dadName: dadName || "Papá",
     momName: momName || "Mamá",
+    dadColor,
+    momColor,
     children: familyChildren,
 
     isLoading: isLoading || authLoading,

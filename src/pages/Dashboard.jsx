@@ -17,6 +17,7 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { useFamily } from "@/lib/FamilyContext";
+import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
@@ -39,7 +40,8 @@ function normalizeDate(value) {
 }
 
 export default function Dashboard() {
-  const { user, familyId, dadName, momName, perms } = useFamily();
+  const { user, familyId, dadName, momName, dadColor, momColor, perms } =
+    useFamily();
 
   const [custodyDays, setCustodyDays] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -52,6 +54,8 @@ export default function Dashboard() {
   const canReadGroceries =
     perms?.groceries?.read !== false && perms?.meals?.read !== false;
   const canReadCalendar = perms?.calendar?.read !== false;
+  const dadTheme = COLOR_MAP[dadColor] || COLOR_MAP.blue;
+  const momTheme = COLOR_MAP[momColor] || COLOR_MAP.amber;
 
   useEffect(() => {
     const loadData = async () => {
@@ -304,22 +308,22 @@ export default function Dashboard() {
         <Card
           className={`p-5 mb-6 border-2 hover:shadow-md transition-shadow ${
             isWithDad
-              ? "border-primary bg-primary/5"
+              ? `${dadTheme.border} ${dadTheme.bg}`
               : todayCustody
-              ? "border-pink-400 bg-pink-50"
+              ? `${momTheme.border} ${momTheme.bg}`
               : "border-border bg-white"
           }`}
         >
           <div className="flex items-center gap-4">
             <div
               className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                isWithDad ? "bg-primary/15" : "bg-pink-100"
+                isWithDad ? dadTheme.bg : momTheme.bg
               }`}
             >
               {isWithDad ? (
-                <User className="w-7 h-7 text-primary" />
+                <User className={`w-7 h-7 ${dadTheme.text}`} />
               ) : (
-                <Heart className="w-7 h-7 text-pink-500" />
+                <Heart className={`w-7 h-7 ${momTheme.text}`} />
               )}
             </div>
 
@@ -372,9 +376,9 @@ export default function Dashboard() {
 
             const bg =
               parent === "dad"
-                ? "bg-blue-100 border-blue-200"
+                ? `${dadTheme.bg} ${dadTheme.border}`
                 : parent === "mom"
-                ? "bg-amber-100 border-amber-200"
+                ? `${momTheme.bg} ${momTheme.border}`
                 : parent === "split"
                 ? "bg-green-100 border-green-200"
                 : "bg-white border-border";
@@ -395,16 +399,20 @@ export default function Dashboard() {
                   <div className="mt-2 flex justify-center">
                     {parent === "split" ? (
                       <div className="flex">
-                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 -ml-1" />
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${dadTheme.dot}`}
+                        />
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${momTheme.dot} -ml-1`}
+                        />
                       </div>
                     ) : (
                       <span
                         className={`w-2.5 h-2.5 rounded-full ${
                           parent === "dad"
-                            ? "bg-blue-500"
+                            ? dadTheme.dot
                             : parent === "mom"
-                            ? "bg-amber-400"
+                            ? momTheme.dot
                             : "bg-gray-300"
                         }`}
                       />
