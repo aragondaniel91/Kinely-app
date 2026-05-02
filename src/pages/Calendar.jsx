@@ -125,8 +125,8 @@ export default function Calendar() {
 
   return (
     <div className="min-h-full bg-background">
-      <div className="sticky top-[45px] z-30 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-6xl mx-auto px-3 md:px-6 py-3">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
+        <div className="max-w-6xl mx-auto px-3 md:px-6 py-2">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
               <CalendarDays className="w-5 h-5 text-primary" />
