@@ -53,19 +53,14 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
     if (!name.trim()) return;
 
     if (!familyId) {
-      alert("No active familyId found.");
-      console.error("Missing familyId in AddMealDialog", {
-        familyId,
-        user,
-        profile,
-      });
+      alert("No active family found.");
       return;
     }
 
     setSaving(true);
 
     try {
-      const payload = {
+      await addDoc(collection(db, "meals"), {
         date: format(date, "yyyy-MM-dd"),
 
         meal_type: mealType,
@@ -86,13 +81,7 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
         created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      };
-
-      console.log("Saving meal payload:", payload);
-
-      const docRef = await addDoc(collection(db, "meals"), payload);
-
-      console.log("Meal saved with ID:", docRef.id);
+      });
 
       onSuccess?.();
     } catch (error) {
@@ -185,7 +174,10 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
             Cancel
           </Button>
 
-          <Button onClick={handleSave} disabled={!name.trim() || saving}>
+          <Button
+            onClick={handleSave}
+            disabled={!name.trim() || saving || !familyId}
+          >
             {saving ? "Saving…" : "Add Meal"}
           </Button>
         </DialogFooter>

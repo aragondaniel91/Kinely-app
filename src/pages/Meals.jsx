@@ -273,7 +273,7 @@ export default function Meals() {
       await loadMeals();
     } catch (error) {
       console.error("Error deleting meal:", error);
-      alert("There was an error deleting the meal.");
+      alert(`There was an error deleting the meal: ${error.message}`);
     }
   };
 
