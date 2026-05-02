@@ -1,5 +1,10 @@
 import React, { useState } from "react";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { format } from "date-fns";
+
+import { db } from "@/lib/firebase";
+import { useFamily } from "@/lib/FamilyContext";
+
 import {
   Dialog,
   DialogContent,
@@ -7,9 +12,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 import {
   Select,
   SelectContent,
@@ -31,38 +38,69 @@ const FOOD_IMAGES = {
     "https://images.unsplash.com/photo-1481671703460-040cb8a2d909?w=400&q=80",
 };
 
-export default function AddMealDialog({ date, onClose, onSuccess }) {
-  const [name, setName] = useState("");
-  const [mealType, setMealType] = useState("lunch");
-  const [notes, setNotes] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
+  const [name, setName] = useState(prefill?.name || "");
+  const [mealType, setMealType] = useState(prefill?.meal_type || "lunch");
+  const [notes, setNotes] = useState(prefill?.notes || "");
+  const [imageUrl, setImageUrl] = useState(prefill?.image_url || "");
   const [saving, setSaving] = useState(false);
+
+  const { familyId, user, profile } = useFamily();
 
   const previewImg = imageUrl || FOOD_IMAGES[mealType] || FOOD_IMAGES.default;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
+
+    if (!familyId) {
+      alert("No active familyId found.");
+      console.error("Missing familyId in AddMealDialog", {
+        familyId,
+        user,
+        profile,
+      });
+      return;
+    }
 
     setSaving(true);
 
-    const existingMeals = JSON.parse(localStorage.getItem("meals") || "[]");
+    try {
+      const payload = {
+        date: format(date, "yyyy-MM-dd"),
 
-    const newMeal = {
-      id: Date.now(),
-      date: format(date, "yyyy-MM-dd"),
-      meal_type: mealType,
-      name: name.trim(),
-      notes: notes || undefined,
-      image_url: imageUrl || undefined,
-      created_date: new Date().toISOString(),
-    };
+        meal_type: mealType,
+        mealType,
 
-    const updatedMeals = [newMeal, ...existingMeals];
+        name: name.trim(),
+        notes: notes.trim() || "",
+        image_url: imageUrl.trim() || "",
+        imageUrl: imageUrl.trim() || "",
 
-    localStorage.setItem("meals", JSON.stringify(updatedMeals));
+        familyId,
+        family_id: familyId,
+        familyName: profile?.family_name || profile?.familyName || "",
 
-    setSaving(false);
-    onSuccess?.();
+        createdBy: user?.uid || null,
+        createdByEmail: user?.email || null,
+
+        created_date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      console.log("Saving meal payload:", payload);
+
+      const docRef = await addDoc(collection(db, "meals"), payload);
+
+      console.log("Meal saved with ID:", docRef.id);
+
+      onSuccess?.();
+    } catch (error) {
+      console.error("Error saving meal:", error);
+      alert(`There was an error saving the meal: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -74,13 +112,16 @@ export default function AddMealDialog({ date, onClose, onSuccess }) {
           </DialogTitle>
         </DialogHeader>
 
-        {/* Image preview */}
-        <div className="h-36 rounded-xl overflow-hidden bg-muted">
+        <div className="relative h-36 rounded-xl overflow-hidden bg-muted">
           <img
             src={previewImg}
             alt="meal"
             className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = FOOD_IMAGES.default;
+            }}
           />
+          <div className="absolute inset-0 bg-black/20" />
         </div>
 
         <div className="space-y-3 py-1">
@@ -91,6 +132,7 @@ export default function AddMealDialog({ date, onClose, onSuccess }) {
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
+
                 <SelectContent>
                   <SelectItem value="breakfast">☕ Breakfast</SelectItem>
                   <SelectItem value="lunch">🌞 Lunch</SelectItem>
@@ -107,6 +149,9 @@ export default function AddMealDialog({ date, onClose, onSuccess }) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Pasta, Tacos…"
                 className="mt-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && name.trim()) handleSave();
+                }}
               />
             </div>
           </div>
@@ -128,6 +173,9 @@ export default function AddMealDialog({ date, onClose, onSuccess }) {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Recipe link, instructions…"
               className="mt-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && name.trim()) handleSave();
+              }}
             />
           </div>
         </div>
@@ -136,6 +184,7 @@ export default function AddMealDialog({ date, onClose, onSuccess }) {
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
+
           <Button onClick={handleSave} disabled={!name.trim() || saving}>
             {saving ? "Saving…" : "Add Meal"}
           </Button>
