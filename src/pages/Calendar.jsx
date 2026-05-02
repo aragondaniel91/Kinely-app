@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { CalendarDays, Heart, Users, Layers, Plus, Info } from "lucide-react";
+import { CalendarDays, Heart, Users, Layers, Info } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CustodyCalendar from "@/pages/CustodyCalendar";
+import FamilyCalendarView from "@/components/calendar/FamilyCalendarView";
 
 const tabs = [
   {
@@ -26,52 +27,6 @@ const tabs = [
     icon: Layers,
   },
 ];
-
-function FamilyCalendarPlaceholder() {
-  return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-bold font-heading">Family Calendar</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Activities, school events, appointments, practices, pickups, and
-            family notes.
-          </p>
-        </div>
-
-        <Button disabled className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Event
-        </Button>
-      </div>
-
-      <Card className="p-5 border-dashed">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-            <CalendarDays className="w-5 h-5 text-blue-700" />
-          </div>
-
-          <div>
-            <p className="font-bold">Family events are coming next</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              In the next block we will create a Firestore collection called{" "}
-              <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                familyEvents
-              </span>{" "}
-              and add a modal to create activities like baseball practice,
-              school events, doctor appointments, birthdays, pickup notes, and
-              family reminders.
-            </p>
-
-            <div className="mt-4 rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
-              Example: “Pick up Joaquín at 3:00 PM for baseball practice.”
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-}
 
 function MixedCalendarPlaceholder() {
   return (
@@ -187,7 +142,7 @@ export default function Calendar() {
 
       <div>
         {activeTab === "custody" && <CustodyCalendar />}
-        {activeTab === "family" && <FamilyCalendarPlaceholder />}
+        {activeTab === "family" && <FamilyCalendarView />}
         {activeTab === "mixed" && <MixedCalendarPlaceholder />}
       </div>
     </div>
