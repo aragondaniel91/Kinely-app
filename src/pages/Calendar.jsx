@@ -126,23 +126,23 @@ export default function Calendar() {
   return (
     <div className="min-h-full bg-background">
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-6xl mx-auto px-3 md:px-6 py-2">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 py-2">
+          <div className="flex items-center gap-2 mb-2">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
               <CalendarDays className="w-5 h-5 text-primary" />
             </div>
 
             <div>
-              <h1 className="font-heading font-bold text-lg leading-tight">
+              <h1 className="font-heading font-bold text-base leading-tight">
                 Calendar
               </h1>
-              <p className="text-xs text-muted-foreground">
-                Custody, family activities, and mixed planning
+              <p className="text-[11px] text-muted-foreground">
+                Custody, activities, and planning
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -153,36 +153,21 @@ export default function Calendar() {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "rounded-2xl border px-2 py-2.5 text-left transition-all",
+                    "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
                     active
                       ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-card text-foreground border-border hover:border-primary/40"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <Icon
-                      className={cn(
-                        "w-4 h-4 shrink-0",
-                        active
-                          ? "text-primary-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    />
-
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm truncate">{tab.label}</p>
-                      <p
-                        className={cn(
-                          "text-[10px] truncate hidden sm:block",
-                          active
-                            ? "text-primary-foreground/80"
-                            : "text-muted-foreground"
-                        )}
-                      >
-                        {tab.description}
-                      </p>
-                    </div>
-                  </div>
+                  <Icon
+                    className={cn(
+                      "w-3.5 h-3.5",
+                      active
+                        ? "text-primary-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
