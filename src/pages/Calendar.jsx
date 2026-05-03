@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarView";
+import MixedCalendarView from "@/components/calendar/MixedCalendarView";
 
 const tabs = [
   {
@@ -171,7 +172,7 @@ export default function Calendar() {
       <div>
         {activeTab === "custody" && <CustodyCalendar viewMode={viewMode} />}
         {activeTab === "family" && <FamilyCalendarView viewMode={viewMode} />}
-        {activeTab === "mixed" && <MixedCalendarPlaceholder />}
+        {activeTab === "mixed" && <MixedCalendarView viewMode={viewMode} />}
       </div>
     </div>
   );
