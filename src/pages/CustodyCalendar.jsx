@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   format,
   startOfMonth,
@@ -79,7 +79,7 @@ function getParentLabel(parent, dadName, momName) {
   return "Compartido";
 }
 
-export default function CustodyCalendar() {
+export default function CustodyCalendar({ viewMode = "month" }) {
   const {
     user,
     profile,
