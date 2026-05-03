@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
+import CalendarViewControls from "@/components/calendar/CalendarViewControls";
 
 const categoryConfig = {
   school: {
@@ -453,7 +453,9 @@ function MonthGridView({
 
 export default function FamilyCalendarView({
   viewMode = "week",
+  setViewMode,
   showFilters = true,
+  setShowFilters,
 }) {
   const { user, familyId, perms, children, dadName, momName } = useFamily();
 
@@ -688,6 +690,12 @@ export default function FamilyCalendarView({
           <Button variant="outline" onClick={() => setAnchorDate(new Date())}>
             Today
           </Button>
+          <CalendarViewControls
+  viewMode={viewMode}
+  setViewMode={setViewMode}
+  showFilters={showFilters}
+  setShowFilters={setShowFilters}
+/>
         </div>
       </div>
 

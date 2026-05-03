@@ -47,6 +47,7 @@ import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
 import BulkCustodyDialog from "@/components/calendar/BulkCustodyDialog";
+import CalendarViewControls from "@/components/calendar/CalendarViewControls";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -511,7 +512,9 @@ function DayDetailView({
 
 export default function CustodyCalendar({
   viewMode = "month",
+  setViewMode,
   showFilters = true,
+  setShowFilters,
 }) {
   const {
     user,
@@ -1280,15 +1283,30 @@ export default function CustodyCalendar({
             <ChevronRight className="w-4 h-4" />
           </Button>
 
-          <div className="flex items-center gap-2 ml-1">
+          <div className="flex items-center gap-2 ml-1 min-w-0">
             <CalendarDays className="w-4 h-4 text-muted-foreground hidden sm:block" />
 
-            <h2 className="text-base sm:text-xl font-bold font-heading">
+            <h2 className="text-base sm:text-xl font-bold font-heading truncate">
               {period.title}
             </h2>
           </div>
 
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex gap-2 flex-wrap justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAnchorDate(new Date())}
+            >
+              Hoy
+            </Button>
+
+            <CalendarViewControls
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+            />
+
             {canWrite && (
               <Button
                 variant="outline"
@@ -1300,13 +1318,6 @@ export default function CustodyCalendar({
                 Range
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAnchorDate(new Date())}
-            >
-              Hoy
-            </Button>
 
             <Button
               variant="outline"
@@ -1316,7 +1327,8 @@ export default function CustodyCalendar({
               title="Google Calendar sync will be enabled in a later step"
               onClick={() => setShowSync(true)}
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Sync Google
+              <RefreshCw className="w-3.5 h-3.5" />
+              Sync Google
             </Button>
           </div>
         </div>

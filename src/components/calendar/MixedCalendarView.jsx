@@ -27,7 +27,7 @@ import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
 import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
-import { Button } from "@/components/ui/button";
+import CalendarViewControls from "@/components/calendar/CalendarViewControls";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -292,7 +292,9 @@ function DayMixedCard({
 
 export default function MixedCalendarView({
   viewMode = "week",
+  setViewMode,
   showFilters = true,
+  setShowFilters,
 }) {
   const {
     user,
@@ -556,6 +558,12 @@ export default function MixedCalendarView({
           <Button variant="outline" onClick={() => setAnchorDate(new Date())}>
             Today
           </Button>
+          <CalendarViewControls
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
+          />
         </div>
       </div>
 
