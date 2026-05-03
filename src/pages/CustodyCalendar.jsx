@@ -21,6 +21,7 @@ import {
   RefreshCw,
   CalendarDays,
   Heart,
+  Plus,
 } from "lucide-react";
 
 import {
@@ -35,17 +36,13 @@ import {
 } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
-// GoogleCalendarSync currently still uses localStorage, so we keep it disabled for now.
-// import GoogleCalendarSync from "@/components/calendar/GoogleCalendarSync";
-
-const DAD_SOLID = "bg-blue-500";
-const MOM_SOLID = "bg-amber-400";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -79,6 +76,271 @@ function getParentLabel(parent, dadName, momName) {
   return "Compartido";
 }
 
+function getParentEmoji(parent) {
+  if (parent === "dad") return "👨";
+  if (parent === "mom") return "👩";
+  return "👨👩";
+}
+
+function getCustodyParent(custody) {
+  if (!custody) return null;
+  if (custody.is_split) return "split";
+  return custody.with_whom;
+}
+
+function CustodyDayCard({
+  day,
+  custody,
+  canWrite,
+  onClick,
+  dadTheme,
+  momTheme,
+  dadName,
+  momName,
+  compact = false,
+  inMonth = true,
+}) {
+  const today = isToday(day);
+  const parent = getCustodyParent(custody);
+  const splitDay = parent === "split";
+
+  const getTheme = (value) => {
+    if (value === "dad") return dadTheme;
+    if (value === "mom") return momTheme;
+    return null;
+  };
+
+  const singleTheme = getTheme(parent);
+  const morningTheme = getTheme(custody?.morning) || dadTheme;
+  const afternoonTheme = getTheme(custody?.afternoon) || momTheme;
+
+  return (
+    <button
+      type="button"
+      disabled={!canWrite}
+      onClick={onClick}
+      className={cn(
+        "relative rounded-xl border transition-all text-left overflow-hidden",
+        compact ? "min-h-[72px] p-1.5" : "min-h-[112px] p-2",
+        canWrite
+          ? "hover:ring-2 hover:ring-primary/40 active:scale-95"
+          : "cursor-not-allowed opacity-80",
+        today && "ring-2 ring-primary ring-offset-1",
+        !custody && "bg-white border-gray-100 hover:bg-gray-50",
+        parent === "dad" && dadTheme.border,
+        parent === "mom" && momTheme.border,
+        splitDay && "border-gray-300",
+        !inMonth && "opacity-40"
+      )}
+    >
+      {!splitDay && singleTheme && (
+        <div className={cn("absolute inset-0", singleTheme.bg)} />
+      )}
+
+      {splitDay && (
+        <>
+          <div
+            className={`absolute inset-x-0 top-0 bottom-1/2 ${morningTheme.bg}`}
+          />
+          <div
+            className={`absolute inset-x-0 top-1/2 bottom-0 ${afternoonTheme.bg}`}
+          />
+        </>
+      )}
+
+      <div className="relative z-10 flex flex-col h-full">
+        <div className="flex items-center justify-between gap-1">
+          <span
+            className={cn(
+              "font-bold flex items-center justify-center rounded-full leading-none",
+              compact ? "text-[10px] w-5 h-5" : "text-xs w-7 h-7",
+              today ? "bg-primary text-white" : "text-gray-700 bg-white/60"
+            )}
+          >
+            {format(day, "d")}
+          </span>
+
+          {!compact && canWrite && (
+            <span className="w-6 h-6 rounded-full bg-white/70 flex items-center justify-center text-muted-foreground">
+              <Plus className="w-3.5 h-3.5" />
+            </span>
+          )}
+        </div>
+
+        {parent === "dad" && (
+          <div
+            className={cn(
+              "rounded-lg px-1.5 py-0.5 font-bold flex items-center gap-1 mt-2",
+              compact ? "text-[9px]" : "text-xs",
+              dadTheme.chip
+            )}
+          >
+            <span>👨</span>
+            <span className="truncate">
+              {compact ? dadName || "Papá" : `Con ${dadName || "Papá"}`}
+            </span>
+          </div>
+        )}
+
+        {parent === "mom" && (
+          <div
+            className={cn(
+              "rounded-lg px-1.5 py-0.5 font-bold flex items-center gap-1 mt-2",
+              compact ? "text-[9px]" : "text-xs",
+              momTheme.chip
+            )}
+          >
+            <span>👩</span>
+            <span className="truncate">
+              {compact ? momName || "Mamá" : `Con ${momName || "Mamá"}`}
+            </span>
+          </div>
+        )}
+
+        {splitDay && (
+          <div className="space-y-1 mt-2">
+            <div
+              className={cn(
+                "rounded px-1 py-0.5 font-bold",
+                compact ? "text-[8px]" : "text-[10px]",
+                morningTheme.chip
+              )}
+            >
+              AM {getParentEmoji(custody.morning)}{" "}
+              {!compact && getParentLabel(custody.morning, dadName, momName)}
+            </div>
+
+            <div
+              className={cn(
+                "rounded px-1 py-0.5 font-bold",
+                compact ? "text-[8px]" : "text-[10px]",
+                afternoonTheme.chip
+              )}
+            >
+              PM {getParentEmoji(custody.afternoon)}{" "}
+              {!compact && getParentLabel(custody.afternoon, dadName, momName)}
+            </div>
+          </div>
+        )}
+
+        {custody?.notes && !compact && (
+          <p className="text-[10px] text-muted-foreground mt-auto truncate bg-white/60 rounded px-1">
+            {custody.notes}
+          </p>
+        )}
+
+        {!custody && !compact && (
+          <p className="text-[10px] text-muted-foreground mt-auto">
+            No custody info
+          </p>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function DayDetailView({
+  day,
+  custody,
+  canWrite,
+  onEdit,
+  dadTheme,
+  momTheme,
+  dadName,
+  momName,
+}) {
+  const parent = getCustodyParent(custody);
+
+  const label = custody?.is_split
+    ? `AM: ${getParentLabel(
+        custody.morning,
+        dadName,
+        momName
+      )} / PM: ${getParentLabel(custody.afternoon, dadName, momName)}`
+    : parent === "dad"
+    ? `Con ${dadName || "Papá"}`
+    : parent === "mom"
+    ? `Con ${momName || "Mamá"}`
+    : "No custody info";
+
+  const theme =
+    parent === "dad" ? dadTheme : parent === "mom" ? momTheme : null;
+
+  return (
+    <div className="p-3 md:p-4 max-w-3xl mx-auto w-full">
+      <Card className="p-5 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+              Custody Day
+            </p>
+            <h2 className="text-2xl font-bold font-heading">
+              {format(day, "EEEE, MMMM d")}
+            </h2>
+          </div>
+
+          {canWrite && (
+            <Button onClick={() => onEdit(day)} className="gap-1.5">
+              <Plus className="w-4 h-4" />
+              Edit Day
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      <Card
+        className={cn(
+          "p-5 border-2",
+          theme ? `${theme.bg} ${theme.border}` : "bg-white border-border"
+        )}
+      >
+        <div className="flex items-start gap-4">
+          <div
+            className={cn(
+              "w-14 h-14 rounded-2xl flex items-center justify-center",
+              theme ? theme.bg : "bg-muted"
+            )}
+          >
+            <span className="text-3xl">
+              {parent === "dad"
+                ? "👨"
+                : parent === "mom"
+                ? "👩"
+                : parent === "split"
+                ? "👨👩"
+                : "📅"}
+            </span>
+          </div>
+
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground">Status</p>
+            <p
+              className={cn(
+                "text-2xl font-black",
+                theme ? theme.text : "text-foreground"
+              )}
+            >
+              {label}
+            </p>
+
+            {custody?.notes && (
+              <p className="text-sm text-muted-foreground mt-3">
+                {custody.notes}
+              </p>
+            )}
+
+            {!custody && (
+              <p className="text-sm text-muted-foreground mt-3">
+                Click edit to add custody information for this day.
+              </p>
+            )}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export default function CustodyCalendar({ viewMode = "month" }) {
   const {
     user,
@@ -91,7 +353,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
     momColor,
   } = useFamily();
 
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [anchorDate, setAnchorDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showSync, setShowSync] = useState(false);
   const [custodyDays, setCustodyDays] = useState([]);
@@ -235,7 +497,6 @@ export default function CustodyCalendar({ viewMode = "month" }) {
 
       await deleteDoc(doc(db, "custodyDays", newDocId));
 
-      // Best-effort cleanup for old per-user document ID.
       try {
         const oldDocId = `${user.uid}_${dateKey}`;
         await deleteDoc(doc(db, "custodyDays", oldDocId));
@@ -256,35 +517,73 @@ export default function CustodyCalendar({ viewMode = "month" }) {
     }
   };
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const allCustodyMap = useMemo(() => {
+    const map = {};
+    custodyDays.forEach((d) => {
+      const key = normalizeDate(d.date);
+      if (key) map[key] = d;
+    });
+    return map;
+  }, [custodyDays]);
 
-  const allDays = eachDayOfInterval({ start: calStart, end: calEnd });
+  const period = useMemo(() => {
+    if (viewMode === "day") {
+      const key = format(anchorDate, "yyyy-MM-dd");
 
-  const weeks = [];
-  for (let i = 0; i < allDays.length; i += 7) {
-    weeks.push(allDays.slice(i, i + 7));
-  }
+      return {
+        start: anchorDate,
+        end: anchorDate,
+        title: format(anchorDate, "MMM d, yyyy"),
+        days: [anchorDate],
+        startKey: key,
+        endKey: key,
+      };
+    }
+
+    if (viewMode === "week") {
+      const start = startOfWeek(anchorDate, { weekStartsOn: 0 });
+      const end = endOfWeek(anchorDate, { weekStartsOn: 0 });
+      const days = eachDayOfInterval({ start, end });
+
+      return {
+        start,
+        end,
+        title: `${format(start, "MMM d")} – ${format(end, "MMM d")}`,
+        days,
+        startKey: format(start, "yyyy-MM-dd"),
+        endKey: format(end, "yyyy-MM-dd"),
+      };
+    }
+
+    const monthStart = startOfMonth(anchorDate);
+    const monthEnd = endOfMonth(anchorDate);
+    const start = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const end = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const days = eachDayOfInterval({ start, end });
+
+    return {
+      start,
+      end,
+      title: format(anchorDate, "MMMM yyyy"),
+      days,
+      startKey: format(start, "yyyy-MM-dd"),
+      endKey: format(end, "yyyy-MM-dd"),
+    };
+  }, [anchorDate, viewMode]);
 
   const visibleCustodyDays = custodyDays.filter((d) => {
     const dateKey = normalizeDate(d.date);
-
-    return (
-      dateKey >= format(calStart, "yyyy-MM-dd") &&
-      dateKey <= format(calEnd, "yyyy-MM-dd")
-    );
+    return dateKey >= period.startKey && dateKey <= period.endKey;
   });
 
-  const custodyMap = {};
+  const visibleCustodyMap = {};
   visibleCustodyDays.forEach((d) => {
     const key = normalizeDate(d.date);
-    if (key) custodyMap[key] = d;
+    if (key) visibleCustodyMap[key] = d;
   });
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
-  const todayCustody = custodyMap[todayKey];
+  const todayCustody = allCustodyMap[todayKey];
 
   const todayParent = todayCustody?.is_split ? null : todayCustody?.with_whom;
 
@@ -300,7 +599,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
       : (momName || "MAMÁ").toUpperCase()
     : null;
 
-  const sortedDays = [...visibleCustodyDays].sort((a, b) =>
+  const sortedDays = [...custodyDays].sort((a, b) =>
     (a.date || "").localeCompare(b.date || "")
   );
 
@@ -313,7 +612,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
       "yyyy-MM-dd"
     );
 
-    const prev = custodyMap[prevKey];
+    const prev = allCustodyMap[prevKey];
 
     if (!prev) return false;
 
@@ -343,7 +642,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
     );
   }, 0);
 
-  const weekDays = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+  const weekLabels = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 
   const selectedDateKey =
     selectedDate instanceof Date && !Number.isNaN(selectedDate.getTime())
@@ -353,6 +652,34 @@ export default function CustodyCalendar({ viewMode = "month" }) {
   const selectedExistingData = selectedDateKey
     ? custodyDays.find((d) => normalizeDate(d.date) === selectedDateKey)
     : null;
+
+  const goPrevious = () => {
+    if (viewMode === "day") {
+      setAnchorDate(addDays(anchorDate, -1));
+      return;
+    }
+
+    if (viewMode === "week") {
+      setAnchorDate(addDays(anchorDate, -7));
+      return;
+    }
+
+    setAnchorDate(subMonths(anchorDate, 1));
+  };
+
+  const goNext = () => {
+    if (viewMode === "day") {
+      setAnchorDate(addDays(anchorDate, 1));
+      return;
+    }
+
+    if (viewMode === "week") {
+      setAnchorDate(addDays(anchorDate, 7));
+      return;
+    }
+
+    setAnchorDate(addMonths(anchorDate, 1));
+  };
 
   if (!canRead) {
     return (
@@ -379,7 +706,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
             <p className="font-bold font-heading text-sm leading-tight">
               Plan de Familia
             </p>
-            <p className="text-xs text-muted-foreground">Calendario Familiar</p>
+            <p className="text-xs text-muted-foreground">Custody Calendar</p>
           </div>
         </div>
 
@@ -484,9 +811,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
               <p
                 className={cn(
                   "text-xs font-bold mt-1.5",
-                  nextChange.with_whom === "dad"
-                    ? "text-blue-600"
-                    : "text-amber-600"
+                  nextChange.with_whom === "dad" ? dadTheme.text : momTheme.text
                 )}
               >
                 Con{" "}
@@ -500,7 +825,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
 
         <div>
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
-            RESUMEN
+            RESUMEN DEL PERÍODO
           </p>
 
           <div className="grid grid-cols-2 gap-2">
@@ -607,7 +932,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            onClick={goPrevious}
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -616,7 +941,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            onClick={goNext}
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
@@ -625,7 +950,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
             <CalendarDays className="w-4 h-4 text-muted-foreground hidden sm:block" />
 
             <h2 className="text-base sm:text-xl font-bold font-heading">
-              {format(currentMonth, "MMMM yyyy")}
+              {period.title}
             </h2>
           </div>
 
@@ -633,7 +958,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentMonth(new Date())}
+              onClick={() => setAnchorDate(new Date())}
             >
               Hoy
             </Button>
@@ -652,122 +977,58 @@ export default function CustodyCalendar({ viewMode = "month" }) {
         </div>
 
         <div className="flex-1 overflow-auto p-2 lg:p-3">
-          <div className="grid grid-cols-7 gap-1 mb-1">
-            {weekDays.map((d) => (
-              <div
-                key={d}
-                className="text-center text-[10px] sm:text-xs font-bold text-gray-400 py-1 uppercase tracking-wider"
-              >
-                {d}
-              </div>
-            ))}
-          </div>
+          {viewMode === "day" && (
+            <DayDetailView
+              day={anchorDate}
+              custody={allCustodyMap[format(anchorDate, "yyyy-MM-dd")]}
+              canWrite={canWrite}
+              onEdit={(day) => setSelectedDate(day)}
+              dadTheme={dadTheme}
+              momTheme={momTheme}
+              dadName={dadName}
+              momName={momName}
+            />
+          )}
 
-          <div className="space-y-1">
-            {weeks.map((week, wi) => (
-              <div
-                key={wi}
-                className="grid grid-cols-7 gap-1 min-h-[58px] sm:min-h-[80px]"
-              >
-                {week.map((day, di) => {
+          {(viewMode === "week" || viewMode === "month") && (
+            <>
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {weekLabels.map((d) => (
+                  <div
+                    key={d}
+                    className="text-center text-[10px] sm:text-xs font-bold text-gray-400 py-1 uppercase tracking-wider"
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1">
+                {period.days.map((day) => {
                   const key = format(day, "yyyy-MM-dd");
-                  const custody = custodyMap[key];
-                  const inMonth = isSameMonth(day, currentMonth);
-                  const today = isToday(day);
-                  const parent = custody?.is_split ? null : custody?.with_whom;
-                  const splitDay = custody?.is_split;
+                  const custody = visibleCustodyMap[key];
+                  const inMonth =
+                    viewMode === "month" ? isSameMonth(day, anchorDate) : true;
 
                   return (
-                    <button
-                      key={di}
-                      type="button"
-                      disabled={!canWrite}
+                    <CustodyDayCard
+                      key={key}
+                      day={day}
+                      custody={custody}
+                      canWrite={canWrite}
                       onClick={() => canWrite && setSelectedDate(day)}
-                      className={cn(
-                        "relative rounded-lg sm:rounded-xl border transition-all text-left overflow-hidden min-h-[54px] sm:min-h-[72px]",
-                        canWrite
-                          ? "hover:ring-2 hover:ring-primary/40 active:scale-95"
-                          : "cursor-not-allowed opacity-80",
-                        today && "ring-2 ring-primary ring-offset-1",
-                        !custody && "bg-white border-gray-100 hover:bg-gray-50",
-                        parent === "dad" && dadTheme.border,
-                        parent === "mom" && momTheme.border,
-                        splitDay && "border-gray-300",
-                        !inMonth && "opacity-40"
-                      )}
-                    >
-                      {!splitDay && parent && (
-                        <div
-                          className={cn(
-                            "absolute inset-0",
-                            parent === "dad" ? dadTheme.bg : momTheme.bg
-                          )}
-                        />
-                      )}
-
-                      {splitDay && (
-                        <>
-                          <div
-                            className={`absolute inset-x-0 top-0 bottom-1/2 ${dadTheme.bg}`}
-                          />
-                          <div
-                            className={`absolute inset-x-0 top-1/2 bottom-0 ${momTheme.bg}`}
-                          />
-                        </>
-                      )}
-
-                      <div className="relative z-10 p-1 sm:p-1.5 flex flex-col h-full">
-                        <span
-                          className={cn(
-                            "text-[10px] sm:text-xs font-bold mb-1 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full leading-none",
-                            today ? "bg-primary text-white" : "text-gray-600"
-                          )}
-                        >
-                          {format(day, "d")}
-                        </span>
-
-                        {parent && (
-                          <div
-                            className={cn(
-                              "rounded-md sm:rounded-lg px-1 sm:px-1.5 py-0.5 text-[9px] sm:text-xs font-bold flex items-center gap-1",
-                              parent === "dad" ? dadTheme.chip : momTheme.chip
-                            )}
-                          >
-                            <span>{parent === "dad" ? "👨" : "👩"}</span>
-                            <span className="truncate hidden sm:inline">
-                              Con {getParentLabel(parent, dadName, momName)}
-                            </span>
-                          </div>
-                        )}
-
-                        {splitDay && (
-                          <div className="space-y-0.5 mt-0.5">
-                            <div
-                              className={`rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold ${dadTheme.chip}`}
-                            >
-                              AM 👨
-                            </div>
-
-                            <div
-                              className={`rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-bold ${momTheme.chip}`}
-                            >
-                              PM 👩
-                            </div>
-                          </div>
-                        )}
-
-                        {custody?.notes && (
-                          <p className="text-[8px] sm:text-[9px] text-muted-foreground mt-auto truncate">
-                            {custody.notes}
-                          </p>
-                        )}
-                      </div>
-                    </button>
+                      dadTheme={dadTheme}
+                      momTheme={momTheme}
+                      dadName={dadName}
+                      momName={momName}
+                      compact={viewMode === "month"}
+                      inMonth={inMonth}
+                    />
                   );
                 })}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
