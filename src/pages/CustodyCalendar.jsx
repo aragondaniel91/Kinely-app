@@ -996,7 +996,7 @@ export default function CustodyCalendar({
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-background">
+    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-[#F7F8FC]">
       <aside className="w-full lg:w-56 shrink-0 bg-card border-b lg:border-b-0 lg:border-r border-border p-3 lg:p-4 flex flex-col gap-3 lg:gap-4 overflow-visible lg:overflow-y-auto">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -1333,7 +1333,7 @@ export default function CustodyCalendar({
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-2 lg:p-3 bg-background">
+        <div className="flex-1 overflow-auto p-2 lg:p-3 bg-[#F7F8FC]">
           {viewMode === "day" && (
             <DayDetailView
               day={anchorDate}
