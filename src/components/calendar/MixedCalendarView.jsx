@@ -27,6 +27,7 @@ import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
 import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
+import { Button } from "@/components/ui/button";
 import CalendarViewControls from "@/components/calendar/CalendarViewControls";
 
 function normalizeDate(value) {
