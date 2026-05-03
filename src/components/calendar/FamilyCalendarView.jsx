@@ -688,13 +688,6 @@ export default function FamilyCalendarView({
           <Button variant="outline" onClick={() => setAnchorDate(new Date())}>
             Today
           </Button>
-
-          {canWrite && (
-            <Button onClick={() => setAddDate(anchorDate)} className="gap-1.5">
-              <Plus className="w-4 h-4" />
-              Add
-            </Button>
-          )}
         </div>
       </div>
 
@@ -769,6 +762,18 @@ export default function FamilyCalendarView({
             />
           )}
         </>
+      )}
+
+      {canWrite && (
+        <button
+          type="button"
+          onClick={() => setAddDate(anchorDate)}
+          className="fixed right-5 bottom-20 md:right-8 md:bottom-8 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+          title="Add family event"
+          aria-label="Add family event"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
       )}
 
       {(addDate || editEvent) && (
