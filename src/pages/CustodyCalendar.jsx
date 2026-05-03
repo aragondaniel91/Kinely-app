@@ -113,11 +113,16 @@ function generateBlockStarts(payload) {
     return [baseStart];
   }
 
-  const starts = [];
+  const starts = [baseStart];
+
   const maxByOccurrences =
     payload.endMode === "after"
       ? Math.max(1, Number(payload.occurrences) || 1)
       : 9999;
+
+  if (starts.length >= maxByOccurrences) {
+    return starts;
+  }
 
   const untilDate =
     payload.endMode === "onDate" && payload.untilDate
@@ -126,21 +131,25 @@ function generateBlockStarts(payload) {
       ? addMonths(baseStart, 12)
       : null;
 
+  if (untilDate && baseStart > untilDate) {
+    return [];
+  }
+
   if (payload.repeatUnit === "week" && payload.repeatWeekdays?.length) {
     const cycleStartBase = startOfWeek(baseStart, { weekStartsOn: 0 });
     const selectedWeekdays = [...new Set(payload.repeatWeekdays)].sort(
       (a, b) => a - b
     );
 
-    let cycleIndex = 0;
+    let cycleIndex = safeEvery;
 
     while (starts.length < maxByOccurrences && cycleIndex < 500) {
-      const cycleBase = addWeeks(cycleStartBase, cycleIndex * safeEvery);
+      const cycleBase = addWeeks(cycleStartBase, cycleIndex);
 
       for (const weekday of selectedWeekdays) {
         const candidate = addDays(cycleBase, weekday);
 
-        if (candidate < baseStart) continue;
+        if (candidate <= baseStart) continue;
 
         if (untilDate && candidate > untilDate) {
           return starts;
@@ -153,21 +162,19 @@ function generateBlockStarts(payload) {
         }
       }
 
-      cycleIndex += 1;
+      cycleIndex += safeEvery;
     }
 
     return starts;
   }
 
-  let current = baseStart;
-  let count = 0;
+  let current = advanceDateByUnit(baseStart, safeEvery, payload.repeatUnit);
 
-  while (count < maxByOccurrences && count < 500) {
+  while (starts.length < maxByOccurrences && starts.length < 500) {
     if (untilDate && current > untilDate) break;
 
     starts.push(current);
     current = advanceDateByUnit(current, safeEvery, payload.repeatUnit);
-    count += 1;
   }
 
   return starts;
