@@ -427,16 +427,58 @@ function MonthGridView({
 }
 
 export default function FamilyCalendarView({ viewMode = "week" }) {
-  const { user, familyId, perms } = useFamily();
+  const { user, familyId, perms, children, dadName, momName } = useFamily();
 
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addDate, setAddDate] = useState(null);
-  const [editEvent, setEditEvent] = useState(null);
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
+
+  const assigneeOptions = useMemo(() => {
+    const options = [
+      { id: "all", label: "Todos", icon: "👨‍👩‍👧‍👦" },
+      { id: "dad", label: dadName || "Papá", icon: "👨" },
+      { id: "mom", label: momName || "Mamá", icon: "👩" },
+    ];
+
+    (children || []).forEach((child) => {
+      options.push({
+        id: `child:${child}`,
+        label: child,
+        icon: "👶",
+      });
+    });
+
+    return options;
+  }, [children, dadName, momName]);
+
+  const eventMatchesAssignee = (event) => {
+    if (assigneeFilter === "all") return true;
+
+    if (assigneeFilter === "dad") {
+      return event.assignedTo === "dad" || event.assignedToType === "dad";
+    }
+
+    if (assigneeFilter === "mom") {
+      return event.assignedTo === "mom" || event.assignedToType === "mom";
+    }
+
+    if (assigneeFilter.startsWith("child:")) {
+      const childName = assigneeFilter.replace("child:", "");
+
+      return (
+        event.assignedTo === assigneeFilter ||
+        event.assignedToName === childName ||
+        event.childName === childName
+      );
+    }
+
+    return true;
+  };
 
   const weekStart = startOfWeek(anchorDate);
   const weekEnd = addDays(weekStart, 6);
@@ -539,9 +581,14 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
     }
   };
 
+  const filteredEvents = useMemo(() => {
+    return events.filter(eventMatchesAssignee);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, assigneeFilter]);
+
   const getEventsForDate = (day) => {
     const key = format(day, "yyyy-MM-dd");
-    return events.filter((event) => event.date === key);
+    return filteredEvents.filter((event) => event.date === key);
   };
 
   const goPrevious = () => {
@@ -583,7 +630,33 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
             Family Calendar
           </h1>
           <p className="text-sm text-muted-foreground">
-            {loading ? "Loading events..." : `${events.length} events`}
+            <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+              <UserRound className="w-4 h-4 text-muted-foreground shrink-0" />
+
+              {assigneeOptions.map((option) => {
+                const active = assigneeFilter === option.id;
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setAssigneeFilter(option.id)}
+                    className={cn(
+                      "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="mr-1">{option.icon}</span>
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            {loading
+              ? "Loading events..."
+              : `${filteredEvents.length} of ${events.length} events`}
           </p>
         </div>
 
