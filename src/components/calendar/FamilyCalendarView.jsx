@@ -111,13 +111,34 @@ function normalizeEvent(docSnap) {
 }
 
 function getAssignedLabel(event) {
-  if (event.assignedToType === "dad")
+  if (event.assignedToType === "dad") {
     return `👨 ${event.assignedToName || "Papá"}`;
-  if (event.assignedToType === "mom")
+  }
+
+  if (event.assignedToType === "mom") {
     return `👩 ${event.assignedToName || "Mamá"}`;
-  if (event.assignedToType === "child")
+  }
+
+  if (event.assignedToType === "child") {
     return `👶 ${event.assignedToName || event.childName}`;
+  }
+
   return "👨‍👩‍👧‍👦 Family";
+}
+
+function getChildName(child) {
+  if (!child) return "";
+
+  if (typeof child === "string") return child;
+
+  return (
+    child.name ||
+    child.displayName ||
+    child.fullName ||
+    child.firstName ||
+    child.childName ||
+    ""
+  );
 }
 
 function EventCard({ event, onDelete, onEdit, canWrite, compact = false }) {
@@ -147,6 +168,7 @@ function EventCard({ event, onDelete, onEdit, canWrite, compact = false }) {
             {canWrite && (
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                 <button
+                  type="button"
                   onClick={() => onEdit(event)}
                   className="text-muted-foreground hover:text-foreground"
                   title="Edit event"
@@ -155,6 +177,7 @@ function EventCard({ event, onDelete, onEdit, canWrite, compact = false }) {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => onDelete(event.id)}
                   className="text-destructive"
                   title="Delete event"
@@ -241,6 +264,7 @@ function DayColumn({ day, events, onAdd, onDelete, onEdit, canWrite }) {
 
         {canWrite && (
           <button
+            type="button"
             onClick={() => onAdd(day)}
             className="w-8 h-8 rounded-full bg-background border flex items-center justify-center hover:border-primary hover:text-primary transition"
             title="Add event"
@@ -391,6 +415,7 @@ function MonthGridView({
 
                 {canWrite && (
                   <button
+                    type="button"
                     onClick={() => onAdd(day)}
                     className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-primary"
                     title="Add event"
@@ -433,6 +458,7 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addDate, setAddDate] = useState(null);
+  const [editEvent, setEditEvent] = useState(null);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
   const canRead = perms?.calendar?.read !== false;
@@ -446,39 +472,19 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
     ];
 
     (children || []).forEach((child) => {
+      const childName = getChildName(child);
+
+      if (!childName) return;
+
       options.push({
-        id: `child:${child}`,
-        label: child,
+        id: `child:${childName}`,
+        label: childName,
         icon: "👶",
       });
     });
 
     return options;
   }, [children, dadName, momName]);
-
-  const eventMatchesAssignee = (event) => {
-    if (assigneeFilter === "all") return true;
-
-    if (assigneeFilter === "dad") {
-      return event.assignedTo === "dad" || event.assignedToType === "dad";
-    }
-
-    if (assigneeFilter === "mom") {
-      return event.assignedTo === "mom" || event.assignedToType === "mom";
-    }
-
-    if (assigneeFilter.startsWith("child:")) {
-      const childName = assigneeFilter.replace("child:", "");
-
-      return (
-        event.assignedTo === assigneeFilter ||
-        event.assignedToName === childName ||
-        event.childName === childName
-      );
-    }
-
-    return true;
-  };
 
   const weekStart = startOfWeek(anchorDate);
   const weekEnd = addDays(weekStart, 6);
@@ -496,6 +502,7 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
     if (viewMode === "month") {
       const start = startOfWeek(startOfMonth(anchorDate));
       const end = endOfWeek(endOfMonth(anchorDate));
+
       return {
         startKey: format(start, "yyyy-MM-dd"),
         endKey: format(end, "yyyy-MM-dd"),
@@ -566,6 +573,36 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, familyId, canRead, dateRange.startKey, dateRange.endKey]);
 
+  const eventMatchesAssignee = (event) => {
+    if (assigneeFilter === "all") return true;
+
+    if (assigneeFilter === "dad") {
+      return event.assignedTo === "dad" || event.assignedToType === "dad";
+    }
+
+    if (assigneeFilter === "mom") {
+      return event.assignedTo === "mom" || event.assignedToType === "mom";
+    }
+
+    if (assigneeFilter.startsWith("child:")) {
+      const childName = assigneeFilter.replace("child:", "");
+
+      return (
+        event.assignedTo === assigneeFilter ||
+        event.assignedTo === childName ||
+        event.assignedToName === childName ||
+        event.childName === childName
+      );
+    }
+
+    return true;
+  };
+
+  const filteredEvents = useMemo(() => {
+    return events.filter(eventMatchesAssignee);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, assigneeFilter]);
+
   const deleteEvent = async (id) => {
     if (!canWrite) return;
 
@@ -580,11 +617,6 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
       alert(`There was an error deleting the event: ${error.message}`);
     }
   };
-
-  const filteredEvents = useMemo(() => {
-    return events.filter(eventMatchesAssignee);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, assigneeFilter]);
 
   const getEventsForDate = (day) => {
     const key = format(day, "yyyy-MM-dd");
@@ -629,31 +661,8 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
           <h1 className="text-xl md:text-2xl font-bold font-heading">
             Family Calendar
           </h1>
+
           <p className="text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-              <UserRound className="w-4 h-4 text-muted-foreground shrink-0" />
-
-              {assigneeOptions.map((option) => {
-                const active = assigneeFilter === option.id;
-
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => setAssigneeFilter(option.id)}
-                    className={cn(
-                      "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
-                      active
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <span className="mr-1">{option.icon}</span>
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
             {loading
               ? "Loading events..."
               : `${filteredEvents.length} of ${events.length} events`}
@@ -684,6 +693,31 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+        <UserRound className="w-4 h-4 text-muted-foreground shrink-0" />
+
+        {assigneeOptions.map((option) => {
+          const active = assigneeFilter === option.id;
+
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setAssigneeFilter(option.id)}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <span className="mr-1">{option.icon}</span>
+              {option.label}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
@@ -722,7 +756,7 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
           {viewMode === "month" && (
             <MonthGridView
               monthDate={anchorDate}
-              events={events}
+              events={filteredEvents}
               onAdd={(selectedDay) => setAddDate(selectedDay)}
               onDelete={deleteEvent}
               onEdit={(event) => setEditEvent(event)}
