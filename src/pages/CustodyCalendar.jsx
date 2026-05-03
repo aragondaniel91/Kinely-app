@@ -507,7 +507,10 @@ function DayDetailView({
   );
 }
 
-export default function CustodyCalendar({ viewMode = "month" }) {
+export default function CustodyCalendar({
+  viewMode = "month",
+  showFilters = true,
+}) {
   const {
     user,
     profile,
@@ -523,6 +526,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [showSync, setShowSync] = useState(false);
+  const [custodyFilter, setCustodyFilter] = useState("all");
   const [custodyDays, setCustodyDays] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -826,13 +830,43 @@ export default function CustodyCalendar({ viewMode = "month" }) {
     };
   }, [anchorDate, viewMode]);
 
+  const custodyMatchesFilter = (custody) => {
+    if (custodyFilter === "all") return true;
+    if (!custody) return false;
+
+    if (custodyFilter === "dad") {
+      if (custody.is_split) {
+        return custody.morning === "dad" || custody.afternoon === "dad";
+      }
+
+      return custody.with_whom === "dad";
+    }
+
+    if (custodyFilter === "mom") {
+      if (custody.is_split) {
+        return custody.morning === "mom" || custody.afternoon === "mom";
+      }
+
+      return custody.with_whom === "mom";
+    }
+
+    if (custodyFilter === "split") {
+      return custody.is_split;
+    }
+
+    return true;
+  };
+
   const visibleCustodyDays = custodyDays.filter((d) => {
     const dateKey = normalizeDate(d.date);
     return dateKey >= period.startKey && dateKey <= period.endKey;
   });
 
+  const filteredVisibleCustodyDays =
+    visibleCustodyDays.filter(custodyMatchesFilter);
+
   const visibleCustodyMap = {};
-  visibleCustodyDays.forEach((d) => {
+  filteredVisibleCustodyDays.forEach((d) => {
     const key = normalizeDate(d.date);
     if (key) visibleCustodyMap[key] = d;
   });
@@ -881,7 +915,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
     .filter((d) => normalizeDate(d.date) >= todayKey)
     .slice(0, 4);
 
-  const dadDays = visibleCustodyDays.reduce((acc, d) => {
+  const dadDays = filteredVisibleCustodyDays.reduce((acc, d) => {
     if (!d.is_split) return acc + (d.with_whom === "dad" ? 1 : 0);
 
     return (
@@ -889,13 +923,20 @@ export default function CustodyCalendar({ viewMode = "month" }) {
     );
   }, 0);
 
-  const momDays = visibleCustodyDays.reduce((acc, d) => {
+  const momDays = filteredVisibleCustodyDays.reduce((acc, d) => {
     if (!d.is_split) return acc + (d.with_whom === "mom" ? 1 : 0);
 
     return (
       acc + (d.morning === "mom" ? 0.5 : 0) + (d.afternoon === "mom" ? 0.5 : 0)
     );
   }, 0);
+
+  const custodyFilterOptions = [
+    { id: "all", label: "All", icon: "👨‍👩‍👧‍👦" },
+    { id: "dad", label: dadName || "Dad", icon: "👨" },
+    { id: "mom", label: momName || "Mom", icon: "👩" },
+    { id: "split", label: "Split", icon: "👨👩" },
+  ];
 
   const weekLabels = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 
@@ -964,6 +1005,42 @@ export default function CustodyCalendar({ viewMode = "month" }) {
             <p className="text-xs text-muted-foreground">Custody Calendar</p>
           </div>
         </div>
+
+        {showFilters && (
+          <div>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+              FILTERS
+            </p>
+
+            <div className="flex flex-wrap lg:flex-col gap-1.5">
+              {custodyFilterOptions.map((option) => {
+                const active = custodyFilter === option.id;
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setCustodyFilter(option.id)}
+                    className={cn(
+                      "rounded-full lg:rounded-xl border px-3 py-1.5 text-xs font-bold text-left transition",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="mr-1">{option.icon}</span>
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Showing {filteredVisibleCustodyDays.length} of{" "}
+              {visibleCustodyDays.length} custody day(s)
+            </p>
+          </div>
+        )}
 
         {loading && (
           <div className="text-xs text-muted-foreground bg-gray-50 border rounded-xl p-2">
@@ -1273,6 +1350,10 @@ export default function CustodyCalendar({ viewMode = "month" }) {
                 {period.days.map((day) => {
                   const key = format(day, "yyyy-MM-dd");
                   const custody = visibleCustodyMap[key];
+                  const originalCustody = visibleCustodyDays.find(
+                    (item) => normalizeDate(item.date) === key
+                  );
+                  const filteredOut = originalCustody && !custody;
                   const inMonth =
                     viewMode === "month" ? isSameMonth(day, anchorDate) : true;
 
@@ -1288,7 +1369,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
                       dadName={dadName}
                       momName={momName}
                       compact={viewMode === "month"}
-                      inMonth={inMonth}
+                      inMonth={inMonth && !filteredOut}
                     />
                   );
                 })}
