@@ -290,7 +290,10 @@ function DayMixedCard({
   );
 }
 
-export default function MixedCalendarView({ viewMode = "week" }) {
+export default function MixedCalendarView({
+  viewMode = "week",
+  showFilters = true,
+}) {
   const {
     user,
     familyId,
@@ -556,66 +559,68 @@ export default function MixedCalendarView({ viewMode = "week" }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowCustody((prev) => !prev)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-bold",
-              showCustody
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground"
-            )}
-          >
-            <Heart className="w-3 h-3 inline mr-1" />
-            Custody
-          </button>
+      {showFilters && (
+        <div className="flex flex-col gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCustody((prev) => !prev)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-bold",
+                showCustody
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground"
+              )}
+            >
+              <Heart className="w-3 h-3 inline mr-1" />
+              Custody
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setShowEvents((prev) => !prev)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-bold",
-              showEvents
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground"
-            )}
-          >
-            <CalendarDays className="w-3 h-3 inline mr-1" />
-            Events
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowEvents((prev) => !prev)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-bold",
+                showEvents
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground"
+              )}
+            >
+              <CalendarDays className="w-3 h-3 inline mr-1" />
+              Events
+            </button>
 
-          <span className="text-xs text-muted-foreground ml-1">
-            {filteredFamilyEvents.length} of {familyEvents.length} event(s)
-          </span>
+            <span className="text-xs text-muted-foreground ml-1">
+              {filteredFamilyEvents.length} of {familyEvents.length} event(s)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+
+            {personOptions.map((option) => {
+              const active = personFilter === option.id;
+
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setPersonFilter(option.id)}
+                  className={cn(
+                    "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span className="mr-1">{option.icon}</span>
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <Users className="w-4 h-4 text-muted-foreground shrink-0" />
-
-          {personOptions.map((option) => {
-            const active = personFilter === option.id;
-
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setPersonFilter(option.id)}
-                className={cn(
-                  "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
-                  active
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <span className="mr-1">{option.icon}</span>
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">

@@ -451,7 +451,10 @@ function MonthGridView({
   );
 }
 
-export default function FamilyCalendarView({ viewMode = "week" }) {
+export default function FamilyCalendarView({
+  viewMode = "week",
+  showFilters = true,
+}) {
   const { user, familyId, perms, children, dadName, momName } = useFamily();
 
   const [anchorDate, setAnchorDate] = useState(new Date());
@@ -695,30 +698,32 @@ export default function FamilyCalendarView({ viewMode = "week" }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-        <UserRound className="w-4 h-4 text-muted-foreground shrink-0" />
+      {showFilters && (
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+          <UserRound className="w-4 h-4 text-muted-foreground shrink-0" />
 
-        {assigneeOptions.map((option) => {
-          const active = assigneeFilter === option.id;
+          {assigneeOptions.map((option) => {
+            const active = assigneeFilter === option.id;
 
-          return (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => setAssigneeFilter(option.id)}
-              className={cn(
-                "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
-                active
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <span className="mr-1">{option.icon}</span>
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setAssigneeFilter(option.id)}
+                className={cn(
+                  "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span className="mr-1">{option.icon}</span>
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
