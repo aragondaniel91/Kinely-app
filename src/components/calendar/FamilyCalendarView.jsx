@@ -768,7 +768,7 @@ export default function FamilyCalendarView({
         <button
           type="button"
           onClick={() => setAddDate(anchorDate)}
-          className="fixed right-5 bottom-20 md:right-8 md:bottom-8 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+          className="fixed right-5 bottom-28 md:right-8 md:bottom-24 lg:bottom-8 z-[80] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
           title="Add family event"
           aria-label="Add family event"
         >
