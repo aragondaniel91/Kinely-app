@@ -145,25 +145,54 @@ function CustodyMiniCard({ custody, dadName, momName, dadTheme, momTheme }) {
     );
   }
 
-  const isDad = custody.with_whom === "dad";
-  const theme = custody.is_split ? null : isDad ? dadTheme : momTheme;
+  const isSplit = custody.is_split || custody.isSplit;
+  const fullParent = custody.with_whom || custody.withWhom;
+
+  if (isSplit) {
+    const morningTheme = custody.morning === "dad" ? dadTheme : momTheme;
+    const afternoonTheme = custody.afternoon === "dad" ? dadTheme : momTheme;
+
+    return (
+      <div className="rounded-xl border overflow-hidden bg-background text-xs">
+        <div
+          className={cn("p-2 border-b", morningTheme.bg, morningTheme.border)}
+        >
+          <div className="flex items-center gap-2">
+            <Heart className={cn("w-3.5 h-3.5", morningTheme.text)} />
+            <p className={cn("font-bold", morningTheme.text)}>
+              AM: {getParentName(custody.morning, dadName, momName)}
+            </p>
+          </div>
+        </div>
+
+        <div className={cn("p-2", afternoonTheme.bg)}>
+          <div className="flex items-center gap-2">
+            <Heart className={cn("w-3.5 h-3.5", afternoonTheme.text)} />
+            <p className={cn("font-bold", afternoonTheme.text)}>
+              PM: {getParentName(custody.afternoon, dadName, momName)}
+            </p>
+          </div>
+        </div>
+
+        {custody.notes && (
+          <p className="text-[10px] text-muted-foreground px-2 py-1 truncate bg-background">
+            {custody.notes}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  const theme = fullParent === "dad" ? dadTheme : momTheme;
 
   return (
     <div
-      className={cn(
-        "rounded-xl border p-2 text-xs",
-        theme ? `${theme.bg} ${theme.border}` : "bg-background"
-      )}
+      className={cn("rounded-xl border p-2 text-xs", theme.bg, theme.border)}
     >
       <div className="flex items-center gap-2">
-        <Heart
-          className={cn(
-            "w-3.5 h-3.5",
-            theme ? theme.text : "text-muted-foreground"
-          )}
-        />
-        <p className={cn("font-bold", theme ? theme.text : "text-foreground")}>
-          {getCustodySummary(custody, dadName, momName)}
+        <Heart className={cn("w-3.5 h-3.5", theme.text)} />
+        <p className={cn("font-bold", theme.text)}>
+          With {getParentName(fullParent, dadName, momName)}
         </p>
       </div>
 
