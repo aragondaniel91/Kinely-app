@@ -1,8 +1,15 @@
 import React, { useState } from "react";
-import { CalendarDays, Heart, Users, Layers, Info } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Filter,
+  Heart,
+  Layers,
+  Users,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarView";
 import MixedCalendarView from "@/components/calendar/MixedCalendarView";
@@ -11,19 +18,19 @@ const tabs = [
   {
     id: "custody",
     label: "Custody",
-    description: "Custody schedule",
+    shortLabel: "Custody",
     icon: Heart,
   },
   {
     id: "family",
     label: "Family",
-    description: "Activities & events",
+    shortLabel: "Family",
     icon: Users,
   },
   {
     id: "mixed",
     label: "Mixed",
-    description: "Everything together",
+    shortLabel: "Mixed",
     icon: Layers,
   },
 ];
@@ -34,77 +41,96 @@ const viewModes = [
   { id: "month", label: "Month" },
 ];
 
-function MixedCalendarPlaceholder() {
-  return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-bold font-heading">Mixed Calendar</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Custody, family events, tasks, and meals in one filtered view.
-          </p>
-        </div>
-      </div>
-
-      <Card className="p-5 border-dashed">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-            <Layers className="w-5 h-5 text-violet-700" />
-          </div>
-
-          <div>
-            <p className="font-bold">Mixed view will combine everything</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              This view will show custody days, family events, task due dates,
-              and meals together. It will also include filters so you can show
-              only what you need.
-            </p>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              <span className="text-xs rounded-full bg-blue-100 text-blue-700 px-3 py-1 font-semibold">
-                Custody
-              </span>
-              <span className="text-xs rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 font-semibold">
-                Events
-              </span>
-              <span className="text-xs rounded-full bg-amber-100 text-amber-700 px-3 py-1 font-semibold">
-                Tasks
-              </span>
-              <span className="text-xs rounded-full bg-purple-100 text-purple-700 px-3 py-1 font-semibold">
-                Meals
-              </span>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
 export default function Calendar() {
   const [activeTab, setActiveTab] = useState("custody");
   const [viewMode, setViewMode] = useState("week");
+  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
+
+  const activeViewLabel =
+    viewModes.find((mode) => mode.id === viewMode)?.label || "Week";
+
+  const handleViewChange = (nextViewMode) => {
+    setViewMode(nextViewMode);
+    setShowScheduleMenu(false);
+  };
 
   return (
     <div className="min-h-full bg-background">
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 py-2">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <CalendarDays className="w-5 h-5 text-primary" />
+        <div className="max-w-7xl mx-auto px-3 md:px-5 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-9 h-9 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                <CalendarDays className="w-5 h-5 text-primary" />
+              </div>
+
+              <div className="min-w-0">
+                <h1 className="font-heading font-black text-lg leading-tight">
+                  Calendar
+                </h1>
+                <p className="text-xs text-muted-foreground truncate">
+                  Custody, activities, and planning
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h1 className="font-heading font-bold text-base leading-tight">
-                Calendar
-              </h1>
-              <p className="text-[11px] text-muted-foreground">
-                Custody, activities, and planning
-              </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleMenu((prev) => !prev)}
+                  className="h-9 inline-flex items-center gap-1.5 rounded-full border bg-card px-3 text-xs font-bold text-foreground shadow-sm hover:border-primary/40 transition"
+                >
+                  <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                  <span className="hidden sm:inline">Schedule</span>
+                  <span>{activeViewLabel}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
+
+                {showScheduleMenu && (
+                  <div className="absolute right-0 mt-2 w-40 rounded-2xl border bg-popover shadow-lg p-1 z-50">
+                    {viewModes.map((mode) => {
+                      const active = viewMode === mode.id;
+
+                      return (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => handleViewChange(mode.id)}
+                          className={cn(
+                            "w-full flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold transition",
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "text-foreground hover:bg-muted"
+                          )}
+                        >
+                          <span>{mode.label}</span>
+                          {active && <Check className="w-4 h-4" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowFilters((prev) => !prev)}
+                className={cn(
+                  "h-9 inline-flex items-center gap-1.5 rounded-full border px-3 text-xs font-bold shadow-sm transition",
+                  showFilters
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground"
+                )}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Filters</span>
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+          <div className="mt-3 flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -115,7 +141,7 @@ export default function Calendar() {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
+                    "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all",
                     active
                       ? "bg-primary text-primary-foreground border-primary shadow-sm"
                       : "bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40"
@@ -129,50 +155,26 @@ export default function Calendar() {
                         : "text-muted-foreground"
                     )}
                   />
-                  <span>{tab.label}</span>
+                  <span>{tab.shortLabel}</span>
                 </button>
               );
             })}
           </div>
-
-          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto scrollbar-hide">
-            {viewModes.map((mode) => {
-              const active = viewMode === mode.id;
-
-              return (
-                <button
-                  key={mode.id}
-                  type="button"
-                  onClick={() => setViewMode(mode.id)}
-                  className={cn(
-                    "shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition-all",
-                    active
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-card text-muted-foreground border-border hover:text-foreground"
-                  )}
-                >
-                  {mode.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {activeTab !== "custody" && (
-            <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 border rounded-xl p-2">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <p>
-                This tab is scaffolded now. The next block will connect it to
-                Firestore and add real family events.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
       <div>
-        {activeTab === "custody" && <CustodyCalendar viewMode={viewMode} />}
-        {activeTab === "family" && <FamilyCalendarView viewMode={viewMode} />}
-        {activeTab === "mixed" && <MixedCalendarView viewMode={viewMode} />}
+        {activeTab === "custody" && (
+          <CustodyCalendar viewMode={viewMode} showFilters={showFilters} />
+        )}
+
+        {activeTab === "family" && (
+          <FamilyCalendarView viewMode={viewMode} showFilters={showFilters} />
+        )}
+
+        {activeTab === "mixed" && (
+          <MixedCalendarView viewMode={viewMode} showFilters={showFilters} />
+        )}
       </div>
     </div>
   );
