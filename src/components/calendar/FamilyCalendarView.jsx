@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDays, format, isToday, startOfWeek } from "date-fns";
+import {
+  addDays,
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  isToday,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
 import {
   ChevronLeft,
   ChevronRight,
@@ -108,17 +120,27 @@ function getAssignedLabel(event) {
   return "👨‍👩‍👧‍👦 Family";
 }
 
-function EventCard({ event, onDelete, onEdit, canWrite }) {
+function EventCard({ event, onDelete, onEdit, canWrite, compact = false }) {
   const config = categoryConfig[event.category] || categoryConfig.other;
 
   return (
-    <Card className="p-3 hover:shadow-sm transition group">
+    <Card
+      className={cn(
+        "hover:shadow-sm transition group",
+        compact ? "p-2" : "p-3"
+      )}
+    >
       <div className="flex items-start gap-3">
         <div className={cn("w-2 h-2 rounded-full mt-2", config.dot)} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className="font-bold text-sm leading-tight truncate">
+            <p
+              className={cn(
+                "font-bold leading-tight truncate",
+                compact ? "text-xs" : "text-sm"
+              )}
+            >
               {event.title}
             </p>
 
@@ -143,20 +165,22 @@ function EventCard({ event, onDelete, onEdit, canWrite }) {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 mt-1">
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
             <span
               className={cn(
                 "text-[10px] px-2 py-0.5 rounded-full border font-semibold",
                 config.chip
               )}
             >
-              {config.emoji} {config.label}
+              {config.emoji} {compact ? "" : config.label}
             </span>
 
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold inline-flex items-center gap-1">
-              <UserRound className="w-3 h-3" />
-              {getAssignedLabel(event)}
-            </span>
+            {!compact && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold inline-flex items-center gap-1">
+                <UserRound className="w-3 h-3" />
+                {getAssignedLabel(event)}
+              </span>
+            )}
           </div>
 
           {(event.startTime || event.endTime) && (
@@ -169,14 +193,14 @@ function EventCard({ event, onDelete, onEdit, canWrite }) {
             </div>
           )}
 
-          {event.location && (
+          {!compact && event.location && (
             <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
               <MapPin className="w-3.5 h-3.5" />
               <span className="truncate">{event.location}</span>
             </div>
           )}
 
-          {event.description && (
+          {!compact && event.description && (
             <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
               {event.description}
             </p>
@@ -247,10 +271,165 @@ function DayColumn({ day, events, onAdd, onDelete, onEdit, canWrite }) {
   );
 }
 
-export default function FamilyCalendarView() {
+function DayAgendaView({ day, events, onAdd, onDelete, onEdit, canWrite }) {
+  return (
+    <div className="max-w-3xl mx-auto w-full">
+      <Card className="p-4 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+              Selected Day
+            </p>
+            <h2 className="text-2xl font-bold font-heading">
+              {format(day, "EEEE, MMMM d")}
+            </h2>
+          </div>
+
+          {canWrite && (
+            <Button onClick={() => onAdd(day)} className="gap-1.5">
+              <Plus className="w-4 h-4" />
+              Add Event
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      <div className="space-y-3">
+        {events.map((event) => (
+          <EventCard
+            key={event.id}
+            event={event}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            canWrite={canWrite}
+          />
+        ))}
+
+        {events.length === 0 && (
+          <Card className="p-8 text-center border-dashed">
+            <p className="text-muted-foreground">
+              No family events for this day.
+            </p>
+            {canWrite && (
+              <Button
+                variant="outline"
+                className="mt-4 gap-1.5"
+                onClick={() => onAdd(day)}
+              >
+                <Plus className="w-4 h-4" />
+                Add first event
+              </Button>
+            )}
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MonthGridView({
+  monthDate,
+  events,
+  onAdd,
+  onDelete,
+  onEdit,
+  canWrite,
+}) {
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  const gridStart = startOfWeek(monthStart);
+  const gridEnd = endOfWeek(monthEnd);
+
+  const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
+  const weekLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const getEventsForDay = (day) => {
+    const key = format(day, "yyyy-MM-dd");
+    return events.filter((event) => event.date === key);
+  };
+
+  return (
+    <div className="w-full">
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {weekLabels.map((label) => (
+          <div
+            key={label}
+            className="text-center text-[10px] sm:text-xs font-bold text-muted-foreground uppercase py-1"
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((day) => {
+          const key = format(day, "yyyy-MM-dd");
+          const dayEvents = getEventsForDay(day);
+          const today = isToday(day);
+          const inMonth = isSameMonth(day, monthDate);
+
+          return (
+            <div
+              key={key}
+              className={cn(
+                "rounded-xl border min-h-[105px] p-1.5 bg-card overflow-hidden",
+                today && "ring-2 ring-primary ring-offset-1",
+                !inMonth && "opacity-40 bg-muted/30"
+              )}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span
+                  className={cn(
+                    "text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center",
+                    today
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground"
+                  )}
+                >
+                  {format(day, "d")}
+                </span>
+
+                {canWrite && (
+                  <button
+                    onClick={() => onAdd(day)}
+                    className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-primary"
+                    title="Add event"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                {dayEvents.slice(0, 2).map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                    canWrite={canWrite}
+                    compact
+                  />
+                ))}
+
+                {dayEvents.length > 2 && (
+                  <p className="text-[10px] text-muted-foreground font-semibold px-1">
+                    +{dayEvents.length - 2} more
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function FamilyCalendarView({ viewMode = "week" }) {
   const { user, familyId, perms } = useFamily();
 
-  const [weekStart, setWeekStart] = useState(startOfWeek(new Date()));
+  const [anchorDate, setAnchorDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addDate, setAddDate] = useState(null);
@@ -259,11 +438,33 @@ export default function FamilyCalendarView() {
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
 
+  const weekStart = startOfWeek(anchorDate);
+  const weekEnd = addDays(weekStart, 6);
+
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   }, [weekStart]);
 
-  const weekEnd = addDays(weekStart, 6);
+  const dateRange = useMemo(() => {
+    if (viewMode === "day") {
+      const key = format(anchorDate, "yyyy-MM-dd");
+      return { startKey: key, endKey: key };
+    }
+
+    if (viewMode === "month") {
+      const start = startOfWeek(startOfMonth(anchorDate));
+      const end = endOfWeek(endOfMonth(anchorDate));
+      return {
+        startKey: format(start, "yyyy-MM-dd"),
+        endKey: format(end, "yyyy-MM-dd"),
+      };
+    }
+
+    return {
+      startKey: format(weekStart, "yyyy-MM-dd"),
+      endKey: format(weekEnd, "yyyy-MM-dd"),
+    };
+  }, [anchorDate, viewMode, weekStart, weekEnd]);
 
   const loadEvents = async () => {
     if (!user || !familyId || !canRead) {
@@ -295,12 +496,12 @@ export default function FamilyCalendarView() {
         snap = await getDocs(q);
       }
 
-      const startKey = format(weekStart, "yyyy-MM-dd");
-      const endKey = format(weekEnd, "yyyy-MM-dd");
-
       const data = snap.docs
         .map(normalizeEvent)
-        .filter((event) => event.date >= startKey && event.date <= endKey);
+        .filter(
+          (event) =>
+            event.date >= dateRange.startKey && event.date <= dateRange.endKey
+        );
 
       data.sort((a, b) => {
         const dateCompare = (a.date || "").localeCompare(b.date || "");
@@ -321,7 +522,7 @@ export default function FamilyCalendarView() {
   useEffect(() => {
     loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, familyId, canRead, weekStart]);
+  }, [user?.uid, familyId, canRead, dateRange.startKey, dateRange.endKey]);
 
   const deleteEvent = async (id) => {
     if (!canWrite) return;
@@ -342,6 +543,24 @@ export default function FamilyCalendarView() {
     const key = format(day, "yyyy-MM-dd");
     return events.filter((event) => event.date === key);
   };
+
+  const goPrevious = () => {
+    if (viewMode === "day") setAnchorDate(addDays(anchorDate, -1));
+    else if (viewMode === "month") setAnchorDate(subMonths(anchorDate, 1));
+    else setAnchorDate(addDays(anchorDate, -7));
+  };
+
+  const goNext = () => {
+    if (viewMode === "day") setAnchorDate(addDays(anchorDate, 1));
+    else if (viewMode === "month") setAnchorDate(addMonths(anchorDate, 1));
+    else setAnchorDate(addDays(anchorDate, 7));
+  };
+
+  const title = (() => {
+    if (viewMode === "day") return format(anchorDate, "MMM d, yyyy");
+    if (viewMode === "month") return format(anchorDate, "MMMM yyyy");
+    return `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d")}`;
+  })();
 
   if (!canRead) {
     return (
@@ -364,35 +583,29 @@ export default function FamilyCalendarView() {
             Family Calendar
           </h1>
           <p className="text-sm text-muted-foreground">
-            {loading
-              ? "Loading events..."
-              : `${events.length} events this week`}
+            {loading ? "Loading events..." : `${events.length} events`}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart(addDays(weekStart, -7))}
-          >
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="icon" onClick={goPrevious}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
 
           <span className="text-sm font-semibold font-heading min-w-[145px] text-center">
-            {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d")}
+            {title}
           </span>
 
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart(addDays(weekStart, 7))}
-          >
+          <Button variant="outline" size="icon" onClick={goNext}>
             <ChevronRight className="w-4 h-4" />
           </Button>
 
+          <Button variant="outline" onClick={() => setAnchorDate(new Date())}>
+            Today
+          </Button>
+
           {canWrite && (
-            <Button onClick={() => setAddDate(new Date())} className="gap-1.5">
+            <Button onClick={() => setAddDate(anchorDate)} className="gap-1.5">
               <Plus className="w-4 h-4" />
               Add
             </Button>
@@ -405,19 +618,45 @@ export default function FamilyCalendarView() {
           <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-4 flex-1">
-          {weekDays.map((day) => (
-            <DayColumn
-              key={day.toISOString()}
-              day={day}
-              events={getEventsForDate(day)}
+        <>
+          {viewMode === "day" && (
+            <DayAgendaView
+              day={anchorDate}
+              events={getEventsForDate(anchorDate)}
               onAdd={(selectedDay) => setAddDate(selectedDay)}
               onDelete={deleteEvent}
               onEdit={(event) => setEditEvent(event)}
               canWrite={canWrite}
             />
-          ))}
-        </div>
+          )}
+
+          {viewMode === "week" && (
+            <div className="flex gap-3 overflow-x-auto pb-4 flex-1">
+              {weekDays.map((day) => (
+                <DayColumn
+                  key={day.toISOString()}
+                  day={day}
+                  events={getEventsForDate(day)}
+                  onAdd={(selectedDay) => setAddDate(selectedDay)}
+                  onDelete={deleteEvent}
+                  onEdit={(event) => setEditEvent(event)}
+                  canWrite={canWrite}
+                />
+              ))}
+            </div>
+          )}
+
+          {viewMode === "month" && (
+            <MonthGridView
+              monthDate={anchorDate}
+              events={events}
+              onAdd={(selectedDay) => setAddDate(selectedDay)}
+              onDelete={deleteEvent}
+              onEdit={(event) => setEditEvent(event)}
+              canWrite={canWrite}
+            />
+          )}
+        </>
       )}
 
       {(addDate || editEvent) && (

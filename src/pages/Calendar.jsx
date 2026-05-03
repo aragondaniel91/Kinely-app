@@ -27,6 +27,12 @@ const tabs = [
   },
 ];
 
+const viewModes = [
+  { id: "day", label: "Day" },
+  { id: "week", label: "Week" },
+  { id: "month", label: "Month" },
+];
+
 function MixedCalendarPlaceholder() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -76,6 +82,7 @@ function MixedCalendarPlaceholder() {
 
 export default function Calendar() {
   const [activeTab, setActiveTab] = useState("custody");
+  const [viewMode, setViewMode] = useState("week");
 
   return (
     <div className="min-h-full bg-background">
@@ -127,6 +134,28 @@ export default function Calendar() {
             })}
           </div>
 
+          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto scrollbar-hide">
+            {viewModes.map((mode) => {
+              const active = viewMode === mode.id;
+
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setViewMode(mode.id)}
+                  className={cn(
+                    "shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition-all",
+                    active
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground"
+                  )}
+                >
+                  {mode.label}
+                </button>
+              );
+            })}
+          </div>
+
           {activeTab !== "custody" && (
             <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 border rounded-xl p-2">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
@@ -141,7 +170,7 @@ export default function Calendar() {
 
       <div>
         {activeTab === "custody" && <CustodyCalendar />}
-        {activeTab === "family" && <FamilyCalendarView />}
+        {activeTab === "family" && <FamilyCalendarView viewMode={viewMode} />}
         {activeTab === "mixed" && <MixedCalendarPlaceholder />}
       </div>
     </div>
