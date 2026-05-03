@@ -10,6 +10,8 @@ import {
   startOfWeek,
   endOfWeek,
   addDays,
+  addWeeks,
+  addYears,
   isSameMonth,
   parseISO,
   differenceInCalendarDays,
@@ -22,6 +24,7 @@ import {
   CalendarDays,
   Heart,
   Plus,
+  CalendarRange,
 } from "lucide-react";
 
 import {
@@ -43,6 +46,7 @@ import { useFamily } from "@/lib/FamilyContext";
 import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
+import BulkCustodyDialog from "@/components/calendar/BulkCustodyDialog";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -86,6 +90,161 @@ function getCustodyParent(custody) {
   if (!custody) return null;
   if (custody.is_split) return "split";
   return custody.with_whom;
+}
+
+function getOtherParent(parent) {
+  return parent === "dad" ? "mom" : "dad";
+}
+
+function advanceDateByUnit(date, every, unit) {
+  if (unit === "day") return addDays(date, every);
+  if (unit === "week") return addWeeks(date, every);
+  if (unit === "month") return addMonths(date, every);
+  if (unit === "year") return addYears(date, every);
+
+  return addWeeks(date, every);
+}
+
+function generateBlockStarts(payload) {
+  const baseStart = parseISO(`${payload.startDate}T12:00:00`);
+  const safeEvery = Math.max(1, Number(payload.repeatEvery) || 1);
+
+  if (!payload.repeatEnabled) {
+    return [baseStart];
+  }
+
+  const starts = [];
+  const maxByOccurrences =
+    payload.endMode === "after"
+      ? Math.max(1, Number(payload.occurrences) || 1)
+      : 9999;
+
+  const untilDate =
+    payload.endMode === "onDate" && payload.untilDate
+      ? parseISO(`${payload.untilDate}T12:00:00`)
+      : payload.endMode === "never"
+      ? addMonths(baseStart, 12)
+      : null;
+
+  if (payload.repeatUnit === "week" && payload.repeatWeekdays?.length) {
+    const cycleStartBase = startOfWeek(baseStart, { weekStartsOn: 0 });
+    const selectedWeekdays = [...new Set(payload.repeatWeekdays)].sort(
+      (a, b) => a - b
+    );
+
+    let cycleIndex = 0;
+
+    while (starts.length < maxByOccurrences && cycleIndex < 500) {
+      const cycleBase = addWeeks(cycleStartBase, cycleIndex * safeEvery);
+
+      for (const weekday of selectedWeekdays) {
+        const candidate = addDays(cycleBase, weekday);
+
+        if (candidate < baseStart) continue;
+
+        if (untilDate && candidate > untilDate) {
+          return starts;
+        }
+
+        starts.push(candidate);
+
+        if (payload.endMode === "after" && starts.length >= maxByOccurrences) {
+          return starts;
+        }
+      }
+
+      cycleIndex += 1;
+    }
+
+    return starts;
+  }
+
+  let current = baseStart;
+  let count = 0;
+
+  while (count < maxByOccurrences && count < 500) {
+    if (untilDate && current > untilDate) break;
+
+    starts.push(current);
+    current = advanceDateByUnit(current, safeEvery, payload.repeatUnit);
+    count += 1;
+  }
+
+  return starts;
+}
+
+function buildBulkDayPayload({
+  day,
+  blockStart,
+  blockEnd,
+  payload,
+  familyId,
+  profile,
+  user,
+}) {
+  const dateKey = format(day, "yyyy-MM-dd");
+  const blockStartKey = format(blockStart, "yyyy-MM-dd");
+  const blockEndKey = format(blockEnd, "yyyy-MM-dd");
+
+  let isSplit = false;
+  let withWhom = payload.fullDaysParent;
+  let morning = null;
+  let afternoon = null;
+
+  const singleDayRange = blockStartKey === blockEndKey;
+
+  if (singleDayRange && (payload.splitFirstDay || payload.splitLastDay)) {
+    isSplit = true;
+    withWhom = null;
+
+    if (payload.splitFirstDay && payload.splitLastDay) {
+      morning = payload.firstDayMorning;
+      afternoon = payload.lastDayAfternoon;
+    } else if (payload.splitFirstDay) {
+      morning = payload.firstDayMorning;
+      afternoon = getOtherParent(payload.firstDayMorning);
+    } else if (payload.splitLastDay) {
+      morning = getOtherParent(payload.lastDayAfternoon);
+      afternoon = payload.lastDayAfternoon;
+    }
+  } else if (dateKey === blockStartKey && payload.splitFirstDay) {
+    isSplit = true;
+    withWhom = null;
+    morning = payload.firstDayMorning;
+    afternoon = getOtherParent(payload.firstDayMorning);
+  } else if (dateKey === blockEndKey && payload.splitLastDay) {
+    isSplit = true;
+    withWhom = null;
+    morning = getOtherParent(payload.lastDayAfternoon);
+    afternoon = payload.lastDayAfternoon;
+  }
+
+  return {
+    id: `${familyId}_${dateKey}`,
+    date: dateKey,
+
+    is_split: isSplit,
+    isSplit,
+
+    with_whom: isSplit ? null : withWhom,
+    withWhom: isSplit ? null : withWhom,
+
+    morning: isSplit ? morning : null,
+    afternoon: isSplit ? afternoon : null,
+
+    notes: payload.notes || "",
+
+    familyId,
+    family_id: familyId,
+    familyName: profile?.family_name || profile?.familyName || "",
+
+    userId: user.uid,
+    createdBy: user.uid,
+    createdByEmail: user.email || null,
+
+    updatedAt: serverTimestamp(),
+    updated_date: new Date().toISOString(),
+  };
 }
 
 function CustodyDayCard({
@@ -355,6 +514,7 @@ export default function CustodyCalendar({ viewMode = "month" }) {
 
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
+  const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [showSync, setShowSync] = useState(false);
   const [custodyDays, setCustodyDays] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -481,6 +641,94 @@ export default function CustodyCalendar({ viewMode = "month" }) {
     } catch (error) {
       console.error("Error saving custody day:", error);
       alert(`There was an error saving the custody day: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveBulkCustodyDays = async (payload) => {
+    if (!user || !familyId || !canWrite) return;
+
+    const baseStart = parseISO(`${payload.startDate}T12:00:00`);
+    const baseEnd = parseISO(`${payload.endDate}T12:00:00`);
+
+    if (Number.isNaN(baseStart.getTime()) || Number.isNaN(baseEnd.getTime())) {
+      alert("Invalid date range.");
+      return;
+    }
+
+    if (baseEnd < baseStart) {
+      alert("La fecha final no puede ser menor que la inicial.");
+      return;
+    }
+
+    const rangeLength = differenceInCalendarDays(baseEnd, baseStart);
+    const blockStarts = generateBlockStarts(payload);
+
+    if (!blockStarts.length) {
+      alert("No se generaron ocurrencias.");
+      return;
+    }
+
+    const estimatedTotalDays = blockStarts.length * (rangeLength + 1);
+
+    const confirmCreate = window.confirm(
+      `Se crearán ${blockStarts.length} bloque(s) y aproximadamente ${estimatedTotalDays} día(s). Esto sobrescribirá custodia en esas fechas. ¿Deseas continuar?`
+    );
+
+    if (!confirmCreate) return;
+
+    setIsSaving(true);
+
+    try {
+      const generatedEntries = [];
+
+      for (const blockStart of blockStarts) {
+        const blockEnd = addDays(blockStart, rangeLength);
+        const blockDays = eachDayOfInterval({
+          start: blockStart,
+          end: blockEnd,
+        });
+
+        for (const day of blockDays) {
+          const data = buildBulkDayPayload({
+            day,
+            blockStart,
+            blockEnd,
+            payload,
+            familyId,
+            profile,
+            user,
+          });
+
+          await setDoc(doc(db, "custodyDays", data.id), data, {
+            merge: true,
+          });
+
+          generatedEntries.push(data);
+        }
+      }
+
+      setCustodyDays((prev) => {
+        const map = new Map();
+
+        prev.forEach((item) => {
+          map.set(normalizeDate(item.date), item);
+        });
+
+        generatedEntries.forEach((item) => {
+          map.set(normalizeDate(item.date), item);
+        });
+
+        return Array.from(map.values()).sort((a, b) =>
+          (a.date || "").localeCompare(b.date || "")
+        );
+      });
+
+      setShowBulkDialog(false);
+    } catch (error) {
+      console.error("Error saving bulk custody days:", error);
+      alert(`There was an error saving the custody range: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -955,6 +1203,17 @@ export default function CustodyCalendar({ viewMode = "month" }) {
           </div>
 
           <div className="ml-auto flex gap-2">
+            {canWrite && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setShowBulkDialog(true)}
+              >
+                <CalendarRange className="w-3.5 h-3.5" />
+                Range
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -1031,7 +1290,16 @@ export default function CustodyCalendar({ viewMode = "month" }) {
           )}
         </div>
       </div>
-
+      {showBulkDialog && (
+        <BulkCustodyDialog
+          defaultDate={anchorDate}
+          onClose={() => setShowBulkDialog(false)}
+          onSave={saveBulkCustodyDays}
+          isSaving={isSaving}
+          dadLabel={dadName || "Dad"}
+          momLabel={momName || "Mom"}
+        />
+      )}
       {selectedDate instanceof Date &&
         !Number.isNaN(selectedDate.getTime()) && (
           <CustodyDayDialog
