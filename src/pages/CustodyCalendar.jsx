@@ -292,10 +292,10 @@ function CustodyDayCard({
           ? "hover:ring-2 hover:ring-primary/40 active:scale-95"
           : "cursor-not-allowed opacity-80",
         today && "ring-2 ring-primary ring-offset-1",
-        !custody && "bg-white border-gray-100 hover:bg-gray-50",
+        !custody && "bg-card border-border hover:bg-muted/40",
         parent === "dad" && dadTheme.border,
         parent === "mom" && momTheme.border,
-        splitDay && "border-gray-300",
+        splitDay && "border-border",
         !inMonth && "opacity-40"
       )}
     >
@@ -320,7 +320,9 @@ function CustodyDayCard({
             className={cn(
               "font-bold flex items-center justify-center rounded-full leading-none",
               compact ? "text-[10px] w-5 h-5" : "text-xs w-7 h-7",
-              today ? "bg-primary text-white" : "text-gray-700 bg-white/60"
+              today
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground bg-background/70"
             )}
           >
             {format(day, "d")}
@@ -390,7 +392,7 @@ function CustodyDayCard({
         )}
 
         {custody?.notes && !compact && (
-          <p className="text-[10px] text-muted-foreground mt-auto truncate bg-white/60 rounded px-1">
+          <p className="text-[10px] text-muted-foreground mt-auto truncate bg-background/70 rounded px-1">
             {custody.notes}
           </p>
         )}
@@ -991,8 +993,8 @@ export default function CustodyCalendar({
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-gray-50">
-      <aside className="w-full lg:w-56 shrink-0 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 p-3 lg:p-4 flex flex-col gap-3 lg:gap-4 overflow-visible lg:overflow-y-auto">
+    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-background">
+      <aside className="w-full lg:w-56 shrink-0 bg-card border-b lg:border-b-0 lg:border-r border-border p-3 lg:p-4 flex flex-col gap-3 lg:gap-4 overflow-visible lg:overflow-y-auto">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <CalendarDays className="w-4 h-4 text-white" />
@@ -1043,7 +1045,7 @@ export default function CustodyCalendar({
         )}
 
         {loading && (
-          <div className="text-xs text-muted-foreground bg-gray-50 border rounded-xl p-2">
+          <div className="text-xs text-muted-foreground bg-muted/40 border border-border rounded-xl p-2">
             Loading calendar...
           </div>
         )}
@@ -1110,7 +1112,7 @@ export default function CustodyCalendar({
               PRÓXIMO CAMBIO
             </p>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2.5">
+            <div className="bg-muted/40 border border-border rounded-xl p-2.5">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
                   <span className="text-xs font-bold text-primary">
@@ -1259,7 +1261,7 @@ export default function CustodyCalendar({
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-white border-b border-gray-200 px-3 lg:px-4 py-3 flex items-center gap-2 lg:gap-3">
+        <div className="bg-card border-b border-border px-3 lg:px-4 py-3 flex items-center gap-2 lg:gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -1319,7 +1321,7 @@ export default function CustodyCalendar({
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-2 lg:p-3">
+        <div className="flex-1 overflow-auto p-2 lg:p-3 bg-background">
           {viewMode === "day" && (
             <DayDetailView
               day={anchorDate}
