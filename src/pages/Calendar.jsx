@@ -169,7 +169,7 @@ export default function Calendar() {
       </div>
 
       <div>
-        {activeTab === "custody" && <CustodyCalendar />}
+        {activeTab === "custody" && <CustodyCalendar viewMode={viewMode} />}
         {activeTab === "family" && <FamilyCalendarView viewMode={viewMode} />}
         {activeTab === "mixed" && <MixedCalendarPlaceholder />}
       </div>
