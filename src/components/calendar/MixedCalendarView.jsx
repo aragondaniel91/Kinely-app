@@ -68,8 +68,10 @@ function normalizeFamilyEvent(docSnap) {
     endTime: data.endTime || "",
     category: data.category || "family",
     location: data.location || "",
+    assignedTo: data.assignedTo || "",
     assignedToType: data.assignedToType || (data.childName ? "child" : "all"),
     assignedToName: data.assignedToName || data.childName || "",
+    childName: data.childName || "",
   };
 }
 
@@ -91,6 +93,21 @@ function getCustodySummary(custody, dadName, momName) {
   }
 
   return `With ${getParentName(custody.with_whom, dadName, momName)}`;
+}
+
+function getChildName(child) {
+  if (!child) return "";
+
+  if (typeof child === "string") return child;
+
+  return (
+    child.name ||
+    child.displayName ||
+    child.fullName ||
+    child.firstName ||
+    child.childName ||
+    ""
+  );
 }
 
 function getAssignedLabel(event) {
@@ -274,8 +291,16 @@ function DayMixedCard({
 }
 
 export default function MixedCalendarView({ viewMode = "week" }) {
-  const { user, familyId, perms, dadName, momName, dadColor, momColor } =
-    useFamily();
+  const {
+    user,
+    familyId,
+    perms,
+    children,
+    dadName,
+    momName,
+    dadColor,
+    momColor,
+  } = useFamily();
 
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [custodyDays, setCustodyDays] = useState([]);
@@ -284,11 +309,59 @@ export default function MixedCalendarView({ viewMode = "week" }) {
 
   const [showCustody, setShowCustody] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
+  const [personFilter, setPersonFilter] = useState("all");
 
   const canRead = perms?.calendar?.read !== false;
 
   const dadTheme = COLOR_MAP[dadColor] || COLOR_MAP.blue;
   const momTheme = COLOR_MAP[momColor] || COLOR_MAP.amber;
+
+  const personOptions = useMemo(() => {
+    const options = [
+      { id: "all", label: "Todos", icon: "👨‍👩‍👧‍👦" },
+      { id: "dad", label: dadName || "Papá", icon: "👨" },
+      { id: "mom", label: momName || "Mamá", icon: "👩" },
+    ];
+
+    (children || []).forEach((child) => {
+      const childName = getChildName(child);
+
+      if (!childName) return;
+
+      options.push({
+        id: `child:${childName}`,
+        label: childName,
+        icon: "👶",
+      });
+    });
+
+    return options;
+  }, [children, dadName, momName]);
+
+  const eventMatchesPerson = (event) => {
+    if (personFilter === "all") return true;
+
+    if (personFilter === "dad") {
+      return event.assignedTo === "dad" || event.assignedToType === "dad";
+    }
+
+    if (personFilter === "mom") {
+      return event.assignedTo === "mom" || event.assignedToType === "mom";
+    }
+
+    if (personFilter.startsWith("child:")) {
+      const childName = personFilter.replace("child:", "");
+
+      return (
+        event.assignedTo === personFilter ||
+        event.assignedTo === childName ||
+        event.assignedToName === childName ||
+        event.childName === childName
+      );
+    }
+
+    return true;
+  };
 
   const period = useMemo(() => {
     if (viewMode === "day") {
@@ -403,10 +476,13 @@ export default function MixedCalendarView({ viewMode = "week" }) {
     });
     return map;
   }, [custodyDays]);
-
+  const filteredFamilyEvents = useMemo(() => {
+    return familyEvents.filter(eventMatchesPerson);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [familyEvents, personFilter]);
   const getEventsForDate = (day) => {
     const key = format(day, "yyyy-MM-dd");
-    return familyEvents.filter((event) => event.date === key);
+    return filteredFamilyEvents.filter((event) => event.date === key);
   };
 
   const goPrevious = () => {
@@ -480,34 +556,65 @@ export default function MixedCalendarView({ viewMode = "week" }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => setShowCustody((prev) => !prev)}
-          className={cn(
-            "rounded-full border px-3 py-1 text-xs font-bold",
-            showCustody
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-background text-muted-foreground"
-          )}
-        >
-          <Heart className="w-3 h-3 inline mr-1" />
-          Custody
-        </button>
+      <div className="flex flex-col gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCustody((prev) => !prev)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-bold",
+              showCustody
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground"
+            )}
+          >
+            <Heart className="w-3 h-3 inline mr-1" />
+            Custody
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setShowEvents((prev) => !prev)}
-          className={cn(
-            "rounded-full border px-3 py-1 text-xs font-bold",
-            showEvents
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-background text-muted-foreground"
-          )}
-        >
-          <CalendarDays className="w-3 h-3 inline mr-1" />
-          Events
-        </button>
+          <button
+            type="button"
+            onClick={() => setShowEvents((prev) => !prev)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-bold",
+              showEvents
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground"
+            )}
+          >
+            <CalendarDays className="w-3 h-3 inline mr-1" />
+            Events
+          </button>
+
+          <span className="text-xs text-muted-foreground ml-1">
+            {filteredFamilyEvents.length} of {familyEvents.length} event(s)
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+
+          {personOptions.map((option) => {
+            const active = personFilter === option.id;
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setPersonFilter(option.id)}
+                className={cn(
+                  "shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition",
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span className="mr-1">{option.icon}</span>
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading ? (
