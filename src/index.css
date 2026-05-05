@@ -145,27 +145,32 @@
     }
   }
 
-  /* Family Calendar filter popover: now filters live on the left, so open the panel near them. */
+  /* Family Calendar filter popover: centered modal-style panel for tablet reliability */
   div.fixed.right-4.top-28.z-\[80\] {
-    left: 1rem !important;
+    left: 50% !important;
     right: auto !important;
-    top: 17rem !important;
+    top: 50% !important;
+    width: min(400px, calc(100vw - 2rem)) !important;
+    transform: translate(-50%, -50%) !important;
   }
 
   @media (min-width: 768px) {
     div.fixed.right-4.top-28.z-\[80\] {
-      left: 2rem !important;
+      left: 50% !important;
       right: auto !important;
-      top: 16rem !important;
+      top: 50% !important;
+      width: min(420px, calc(100vw - 4rem)) !important;
+      transform: translate(-50%, -50%) !important;
     }
   }
 
   @media (max-width: 640px) {
     div.fixed.right-4.top-28.z-\[80\] {
-      left: 1rem !important;
+      left: 50% !important;
       right: auto !important;
-      top: 14rem !important;
+      top: 50% !important;
       width: calc(100vw - 2rem) !important;
+      transform: translate(-50%, -50%) !important;
     }
   }
 }
