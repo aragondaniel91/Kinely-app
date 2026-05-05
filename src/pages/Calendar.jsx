@@ -25,7 +25,7 @@ const tabs = [
 ];
 
 export default function Calendar() {
-  const [activeTab, setActiveTab] = useState("custody");
+  const [activeTab, setActiveTab] = useState("family");
   const [viewMode, setViewMode] = useState("week");
   const [showFilters, setShowFilters] = useState(true);
 

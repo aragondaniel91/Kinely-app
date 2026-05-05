@@ -238,7 +238,7 @@ function DayMixedCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border bg-card p-2 min-h-[150px]",
+        "rounded-2xl border bg-white/80 p-2 min-h-[150px]",
         today && "ring-2 ring-primary ring-offset-1",
         viewMode === "month" && "min-h-[125px]"
       )}
@@ -531,7 +531,7 @@ export default function MixedCalendarView({
   }
 
   return (
-    <div className="p-3 md:p-4 h-full flex flex-col">
+    <div className="p-3 md:p-4 h-full flex flex-col bg-[#F7F8FC]">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold font-heading flex items-center gap-2">
