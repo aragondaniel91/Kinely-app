@@ -90,6 +90,16 @@ function getChildName(child) {
   return child.name || child.displayName || child.fullName || child.firstName || child.childName || "";
 }
 
+function getChildKey(child, index) {
+  if (!child) return `child-${index + 1}`;
+  if (typeof child === "string") return child.toLowerCase().replace(/\s+/g, "-") || `child-${index + 1}`;
+  return child.id || child.uid || child.childId || child.profileId || child.name || child.displayName || `child-${index + 1}`;
+}
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function normalizeEvent(docSnap) {
   const data = docSnap.data();
   return {
@@ -102,6 +112,7 @@ function normalizeEvent(docSnap) {
     endTime: data.endTime || "",
     category: data.category || "other",
     childName: data.childName || "",
+    childId: data.childId || data.child_id || "",
     assignedTo: data.assignedTo || "",
     assignedToType: data.assignedToType || (data.childName ? "child" : "all"),
     assignedToName: data.assignedToName || data.childName || "",
@@ -112,8 +123,42 @@ function normalizeEvent(docSnap) {
 function getPersonKey(event) {
   if (event.assignedTo === "dad" || event.assignedToType === "dad") return "dad";
   if (event.assignedTo === "mom" || event.assignedToType === "mom") return "mom";
-  if (event.assignedToType === "child" || String(event.assignedTo || "").startsWith("child:")) return "child";
+  if (event.assignedToType === "child" || event.childId || event.childName || String(event.assignedTo || "").startsWith("child:")) return "child";
   return "all";
+}
+
+function eventMatchesPersonFilter(event, personFilter, childPeople) {
+  if (personFilter === "all") return true;
+
+  const personKey = getPersonKey(event);
+
+  if (personFilter === "everyone") return personKey === "all";
+  if (personFilter === "dad" || personFilter === "mom") return personKey === personFilter;
+
+  if (personFilter.startsWith("child:")) {
+    const child = childPeople.find((item) => item.value === personFilter);
+    if (!child) return personKey === "child";
+
+    const eventAssignedTo = normalizeText(event.assignedTo);
+    const eventChildId = normalizeText(event.childId);
+    const eventChildName = normalizeText(event.childName);
+    const eventAssignedName = normalizeText(event.assignedToName);
+    const childValue = normalizeText(child.value);
+    const childId = normalizeText(child.childId);
+    const childLabel = normalizeText(child.label);
+
+    return (
+      eventAssignedTo === childValue ||
+      eventAssignedTo === childId ||
+      eventAssignedTo === childLabel ||
+      eventChildId === childId ||
+      eventChildId === childValue.replace("child:", "") ||
+      eventChildName === childLabel ||
+      eventAssignedName === childLabel
+    );
+  }
+
+  return false;
 }
 
 function getPersonLabel(event, fallbackChildName = "Joaquín") {
@@ -175,6 +220,7 @@ function PersonChips({ personKey, size = "sm" }) {
 function CalendarTypeDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const selected = calendarTypeOptions.find((option) => option.value === value) || calendarTypeOptions[0];
+  const SelectedIcon = selected.icon;
 
   return (
     <div className="relative z-[120]">
@@ -183,7 +229,7 @@ function CalendarTypeDropdown({ value, onChange }) {
         onClick={() => setOpen((current) => !current)}
         className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-700 shadow-sm hover:bg-slate-50"
       >
-        <selected.icon className="h-4 w-4 text-blue-600" />
+        <SelectedIcon className="h-4 w-4 text-blue-600" />
         {selected.label}
         <ChevronRight className="h-3.5 w-3.5 rotate-90 text-slate-400" />
       </button>
@@ -335,22 +381,29 @@ function ToolbarButton({ children, active, onClick }) {
   );
 }
 
-function Legend({ dadName, momName, childName }) {
-  const items = [
-    { key: "dad", label: dadName || "Dad" },
-    { key: "mom", label: momName || "Mom" },
-    { key: "child", label: childName || "Joaquín" },
-    { key: "all", label: "Everyone" },
-  ];
-
+function Legend({ people, activePerson, onSelectPerson }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-      {items.map((item) => (
-        <div key={item.key} className="flex items-center gap-2">
-          <span className={cn("h-4 w-4 rounded-full", personColors[item.key].dot)} />
-          <span className="text-sm font-semibold text-slate-700">{item.label}</span>
-        </div>
-      ))}
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      {people.map((person) => {
+        const isActive = activePerson === person.value;
+        return (
+          <button
+            key={person.value}
+            type="button"
+            onClick={() => onSelectPerson(isActive ? "all" : person.value)}
+            className={cn(
+              "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition",
+              isActive
+                ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50"
+            )}
+            title={`Filter by ${person.label}`}
+          >
+            <span className={cn("h-4 w-4 rounded-full", personColors[person.colorKey || person.value]?.dot || personColors.child.dot)} />
+            <span>{person.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -580,15 +633,30 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
-  const fallbackChildName = useMemo(() => (children || []).map(getChildName).find(Boolean) || "Joaquín", [children]);
+  const childPeople = useMemo(() => {
+    return (children || [])
+      .map((child, index) => {
+        const label = getChildName(child) || `Child ${index + 1}`;
+        const key = getChildKey(child, index);
+        return {
+          value: `child:${key}`,
+          childId: String(key),
+          label,
+          colorKey: "child",
+        };
+      })
+      .filter((child) => child.label);
+  }, [children]);
+  const fallbackChildName = childPeople[0]?.label || "Joaquín";
   const familyDisplayName = profile?.family_name || profile?.familyName || profile?.family || "My Family";
   const personOptions = useMemo(() => [
-    { value: "all", label: "All People" },
-    { value: "dad", label: dadName || "Dad" },
-    { value: "mom", label: momName || "Mom" },
-    { value: "child", label: fallbackChildName },
-    { value: "everyone", label: "Everyone" },
-  ], [dadName, momName, fallbackChildName]);
+    { value: "all", label: "All People", colorKey: "all" },
+    { value: "dad", label: dadName || "Dad", colorKey: "dad" },
+    { value: "mom", label: momName || "Mom", colorKey: "mom" },
+    ...childPeople,
+    { value: "everyone", label: "Everyone", colorKey: "all" },
+  ], [dadName, momName, childPeople]);
+  const legendPeople = useMemo(() => personOptions.filter((person) => person.value !== "all"), [personOptions]);
 
   const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
@@ -641,12 +709,11 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
-      const personKey = getPersonKey(event);
-      const matchesPerson = personFilter === "all" || (personFilter === "everyone" ? personKey === "all" : personKey === personFilter);
+      const matchesPerson = eventMatchesPersonFilter(event, personFilter, childPeople);
       const matchesCategory = categoryFilter === "all" || event.category === categoryFilter;
       return matchesPerson && matchesCategory;
     });
-  }, [events, personFilter, categoryFilter]);
+  }, [events, personFilter, categoryFilter, childPeople]);
 
   const activeFilterCount = [personFilter, categoryFilter].filter((value) => value !== "all").length;
   const title = viewMode === "day" ? format(anchorDate, "MMMM d, yyyy") : viewMode === "month" ? format(anchorDate, "MMMM yyyy") : `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d")}`;
@@ -760,7 +827,7 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
             </div>
           </div>
 
-          {activeCalendar === "family" && <div className="mt-5"><Legend dadName={dadName} momName={momName} childName={fallbackChildName} /></div>}
+          {activeCalendar === "family" && <div className="mt-5"><Legend people={legendPeople} activePerson={personFilter} onSelectPerson={setPersonFilter} /></div>}
           <p className="mt-4 text-sm font-semibold text-slate-500">{loading ? "Loading events..." : activeCalendar === "family" ? `${filteredEvents.length} events · ${title}` : title}</p>
         </div>
 
