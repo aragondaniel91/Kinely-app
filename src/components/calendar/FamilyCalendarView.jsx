@@ -20,7 +20,6 @@ import {
   ChevronRight,
   Copy,
   Eye,
-  Filter,
   Grid3X3,
   Layers,
   Pencil,
@@ -582,7 +581,7 @@ function SelectedEventPopover({ event, onClose, onEdit, onDelete, fallbackChildN
   );
 }
 
-export default function FamilyCalendarView({ viewMode = "week", setViewMode, showFilters = true, setShowFilters }) {
+export default function FamilyCalendarView({ viewMode = "week", setViewMode, showFilters = true }) {
   const { user, familyId, perms, children, dadName, momName, profile } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [events, setEvents] = useState([]);
@@ -784,7 +783,6 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode, sho
                   <button key={option.value} type="button" onClick={() => setPersonFilter(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-extrabold transition", personFilter === option.value ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}>{option.label.replace("All People", "All")}</button>
                 ))}
                 {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-500 hover:bg-slate-50"><X className="h-3.5 w-3.5" />Clear</button>}
-                <button type="button" onClick={() => setShowFilters?.(!showFilters)} className="rounded-full border border-slate-200 bg-white p-2 text-slate-500" title="Hide filters"><Filter className="h-4 w-4" /></button>
               </div>
             )}
           </div>
