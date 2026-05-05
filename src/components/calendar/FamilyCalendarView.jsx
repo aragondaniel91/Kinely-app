@@ -19,7 +19,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
-  Copy,
   Eye,
   Grid3X3,
   HeartHandshake,
@@ -322,45 +321,23 @@ function MonthYearPicker({ anchorDate, setAnchorDate }) {
   );
 }
 
-function FilterDropdown({ icon: Icon, label, value, options, onChange }) {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((option) => option.value === value) || options[0];
-
+function CompactSelect({ icon: Icon, label, value, options, onChange }) {
   return (
-    <div className="relative z-20 min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="flex h-9 w-full min-w-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-50"
+    <label className="flex h-9 w-[150px] shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-50">
+      <Icon className="h-3.5 w-3.5 shrink-0" />
+      <span className="shrink-0">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-w-0 flex-1 appearance-auto bg-transparent text-[11px] font-semibold text-slate-500 outline-none"
       >
-        <Icon className="h-3.5 w-3.5 shrink-0" />
-        <span className="shrink-0">{label}</span>
-        <span className="min-w-0 flex-1 truncate text-left text-[11px] font-semibold text-slate-400">{selected.label}</span>
-        <ChevronRight className="h-3 w-3 shrink-0 rotate-90" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-10 z-20 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-bold transition",
-                value === option.value ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              {option.label}
-              {value === option.value && <span>✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -590,8 +567,7 @@ function SelectedEventPopover({ event, onClose, onEdit, onDelete, fallbackChildN
         <div className="mt-5 grid grid-cols-4 gap-2 border-t pt-4">
           <button type="button" className="flex flex-col items-center gap-1 rounded-2xl p-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Eye className="h-4 w-4" />Details</button>
           <button type="button" onClick={() => onEdit(event)} className="flex flex-col items-center gap-1 rounded-2xl p-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Pencil className="h-4 w-4" />Edit</button>
-          <button type="button" className="flex flex-col items-center gap-1 rounded-2xl p-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Copy className="h-4 w-4" />Duplicate</button>
-          <button type="button" onClick={() => onDelete(event.id)} className="flex flex-col items-center gap-1 rounded-2xl p-2 text-xs font-semibold text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" />Delete</button>
+          <button type="button" onClick={() => onDelete(event.id)} className="col-span-2 flex flex-col items-center gap-1 rounded-2xl p-2 text-xs font-semibold text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" />Delete</button>
         </div>
       </div>
     </div>
@@ -760,7 +736,7 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
 
   return (
     <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
-      <div className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-[1500px] flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+      <div className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-[1500px] flex-col rounded-[2rem] border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-white px-4 py-5 md:px-8">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
@@ -812,13 +788,9 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
             </div>
 
             {activeCalendar === "family" && (
-              <div className="flex w-full flex-nowrap justify-end gap-2 overflow-x-auto pb-1 xl:w-auto xl:min-w-[360px]">
-                <div className="w-[150px] shrink-0">
-                  <FilterDropdown icon={Grid3X3} label="Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
-                </div>
-                <div className="w-[150px] shrink-0">
-                  <FilterDropdown icon={UserRound} label="Person" value={personFilter} options={personOptions} onChange={setPersonFilter} />
-                </div>
+              <div className="flex w-full flex-nowrap justify-end gap-2 pb-1 xl:w-auto xl:min-w-[360px]">
+                <CompactSelect icon={Grid3X3} label="Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
+                <CompactSelect icon={UserRound} label="Person" value={personFilter} options={personOptions} onChange={setPersonFilter} />
                 {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-500 hover:bg-slate-50"><X className="h-3.5 w-3.5" />Clear</button>}
               </div>
             )}
