@@ -18,9 +18,11 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Check,
   Copy,
   Eye,
   Grid3X3,
+  HeartHandshake,
   Layers,
   Pencil,
   Plus,
@@ -49,20 +51,12 @@ const HOURS = Array.from({ length: 15 }, (_, index) => index + 7);
 const HOUR_HEIGHT = 92;
 const ALL_DAY_HEIGHT = 54;
 const MIN_EVENT_HEIGHT = 54;
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+const calendarTypeOptions = [
+  { value: "family", label: "Family Calendar", icon: CalendarDays },
+  { value: "custody", label: "Custody Calendar", icon: HeartHandshake },
+  { value: "all", label: "All Calendar", icon: Layers },
 ];
 
 const categoryOptions = [
@@ -77,16 +71,6 @@ const categoryOptions = [
   { value: "other", label: "Other" },
 ];
 
-const moduleOptions = [
-  { value: "all", label: "All Modules" },
-  { value: "family", label: "Family Calendar" },
-  { value: "custody", label: "Custody", disabled: true },
-  { value: "tasks", label: "Tasks", disabled: true },
-  { value: "meals", label: "Meals", disabled: true },
-  { value: "grocery", label: "Grocery", disabled: true },
-  { value: "notes", label: "Notes", disabled: true },
-];
-
 const categoryConfig = categoryOptions.reduce((acc, item) => {
   if (item.value !== "all") acc[item.value] = { label: item.label };
   return acc;
@@ -94,47 +78,16 @@ const categoryConfig = categoryOptions.reduce((acc, item) => {
 categoryConfig.other = categoryConfig.other || { label: "Other" };
 
 const personColors = {
-  dad: {
-    dot: "bg-blue-400",
-    border: "border-blue-300",
-    bg: "bg-blue-50",
-    stripe: "bg-blue-500",
-    ring: "ring-blue-200",
-  },
-  mom: {
-    dot: "bg-amber-300",
-    border: "border-amber-300",
-    bg: "bg-amber-50",
-    stripe: "bg-amber-400",
-    ring: "ring-amber-200",
-  },
-  child: {
-    dot: "bg-emerald-400",
-    border: "border-emerald-300",
-    bg: "bg-emerald-50",
-    stripe: "bg-emerald-500",
-    ring: "ring-emerald-200",
-  },
-  all: {
-    dot: "bg-gradient-to-r from-blue-400 via-amber-300 to-emerald-400",
-    border: "border-amber-200",
-    bg: "bg-orange-50",
-    stripe: "bg-gradient-to-b from-blue-500 via-amber-400 to-emerald-500",
-    ring: "ring-amber-200",
-  },
+  dad: { dot: "bg-blue-400", border: "border-blue-300", bg: "bg-blue-50", stripe: "bg-blue-500", ring: "ring-blue-200" },
+  mom: { dot: "bg-amber-300", border: "border-amber-300", bg: "bg-amber-50", stripe: "bg-amber-400", ring: "ring-amber-200" },
+  child: { dot: "bg-emerald-400", border: "border-emerald-300", bg: "bg-emerald-50", stripe: "bg-emerald-500", ring: "ring-emerald-200" },
+  all: { dot: "bg-gradient-to-r from-blue-400 via-amber-300 to-emerald-400", border: "border-amber-200", bg: "bg-orange-50", stripe: "bg-gradient-to-b from-blue-500 via-amber-400 to-emerald-500", ring: "ring-amber-200" },
 };
 
 function getChildName(child) {
   if (!child) return "";
   if (typeof child === "string") return child;
-  return (
-    child.name ||
-    child.displayName ||
-    child.fullName ||
-    child.firstName ||
-    child.childName ||
-    ""
-  );
+  return child.name || child.displayName || child.fullName || child.firstName || child.childName || "";
 }
 
 function normalizeEvent(docSnap) {
@@ -148,7 +101,6 @@ function normalizeEvent(docSnap) {
     startTime: data.startTime || "",
     endTime: data.endTime || "",
     category: data.category || "other",
-    module: data.module || data.moduleType || "family",
     childName: data.childName || "",
     assignedTo: data.assignedTo || "",
     assignedToType: data.assignedToType || (data.childName ? "child" : "all"),
@@ -160,12 +112,7 @@ function normalizeEvent(docSnap) {
 function getPersonKey(event) {
   if (event.assignedTo === "dad" || event.assignedToType === "dad") return "dad";
   if (event.assignedTo === "mom" || event.assignedToType === "mom") return "mom";
-  if (
-    event.assignedToType === "child" ||
-    String(event.assignedTo || "").startsWith("child:")
-  ) {
-    return "child";
-  }
+  if (event.assignedToType === "child" || String(event.assignedTo || "").startsWith("child:")) return "child";
   return "all";
 }
 
@@ -179,10 +126,6 @@ function getPersonLabel(event, fallbackChildName = "Joaquín") {
 
 function getCategoryLabel(event) {
   return categoryConfig[event.category]?.label || categoryConfig.other.label;
-}
-
-function getModuleLabel(value) {
-  return moduleOptions.find((option) => option.value === value)?.label || "Family Calendar";
 }
 
 function parseTimeToMinutes(value) {
@@ -216,11 +159,7 @@ function isTimedEvent(event) {
 }
 
 function PersonChips({ personKey, size = "sm" }) {
-  const chipClass = cn(
-    "rounded-full border border-white shadow-sm",
-    size === "xs" ? "h-4 w-4" : "h-5 w-5"
-  );
-
+  const chipClass = cn("rounded-full border border-white shadow-sm", size === "xs" ? "h-4 w-4" : "h-5 w-5");
   if (personKey === "all") {
     return (
       <div className="flex items-center -space-x-1">
@@ -230,136 +169,49 @@ function PersonChips({ personKey, size = "sm" }) {
       </div>
     );
   }
-
   return <span className={cn(chipClass, personColors[personKey]?.dot)} />;
 }
 
-function EventBlock({ event, selected, onSelect, fallbackChildName }) {
-  const personKey = getPersonKey(event);
-  const colors = personColors[personKey] || personColors.all;
-  const position = getEventPosition(event);
-  if (!position) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(event);
-      }}
-      className={cn(
-        "absolute left-2 right-2 overflow-hidden rounded-xl border p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
-        colors.bg,
-        colors.border,
-        selected && "ring-2",
-        selected && colors.ring
-      )}
-      style={{ top: position.top, height: position.height }}
-      title={event.title}
-    >
-      <span className={cn("absolute left-0 top-0 h-full w-1.5", colors.stripe)} />
-      <div className="pl-1">
-        <div className="flex items-start justify-between gap-2">
-          <p className="line-clamp-2 text-[11px] font-extrabold leading-tight text-slate-900 md:text-xs">
-            {event.title}
-          </p>
-          <PersonChips personKey={personKey} size="xs" />
-        </div>
-        <p className="mt-1 text-[10px] font-semibold text-slate-700 md:text-[11px]">
-          {formatDisplayTime(event.startTime)}
-          {event.endTime ? ` – ${formatDisplayTime(event.endTime)}` : ""}
-        </p>
-        <p className="mt-0.5 truncate text-[10px] text-slate-600">
-          {getCategoryLabel(event)}
-        </p>
-        {event.description && position.height > 88 && (
-          <p className="mt-1 line-clamp-2 text-[10px] text-slate-500">
-            {event.description}
-          </p>
-        )}
-        <span className="sr-only">{getPersonLabel(event, fallbackChildName)}</span>
-      </div>
-    </button>
-  );
-}
-
-function AllDayEvent({ event, onSelect, fallbackChildName }) {
-  const personKey = getPersonKey(event);
-  const colors = personColors[personKey] || personColors.all;
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(event);
-      }}
-      className={cn(
-        "w-full rounded-lg border px-2 py-1 text-left shadow-sm transition hover:shadow-md",
-        colors.bg,
-        colors.border
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-[10px] font-extrabold text-slate-900">
-          {event.title}
-        </p>
-        <PersonChips personKey={personKey} size="xs" />
-      </div>
-      <p className="truncate text-[9px] text-slate-600">
-        {getCategoryLabel(event)} · {getPersonLabel(event, fallbackChildName)}
-      </p>
-    </button>
-  );
-}
-
-function FilterDropdown({ icon: Icon, label, value, options, onChange }) {
+function CalendarTypeDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const selected = options.find((option) => option.value === value) || options[0];
+  const selected = calendarTypeOptions.find((option) => option.value === value) || calendarTypeOptions[0];
 
   return (
-    <div className="relative min-w-0">
+    <div className="relative z-[120]">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
+        className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-700 shadow-sm hover:bg-slate-50"
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="shrink-0">{label}</span>
-        <span className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-slate-400">
-          {selected.label}
-        </span>
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 rotate-90" />
+        <selected.icon className="h-4 w-4 text-blue-600" />
+        {selected.label}
+        <ChevronRight className="h-3.5 w-3.5 rotate-90 text-slate-400" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-12 z-[100] w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              disabled={option.disabled}
-              onClick={() => {
-                if (option.disabled) return;
-                onChange(option.value);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-bold transition",
-                value === option.value
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-600 hover:bg-slate-50",
-                option.disabled && "cursor-not-allowed bg-slate-50 text-slate-300 hover:bg-slate-50"
-              )}
-            >
-              <span>{option.label}</span>
-              {option.disabled ? (
-                <span className="text-[10px] font-black uppercase tracking-wide">Soon</span>
-              ) : value === option.value ? (
-                <span>✓</span>
-              ) : null}
-            </button>
-          ))}
+        <div className="absolute left-0 top-12 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl">
+          {calendarTypeOptions.map((option) => {
+            const Icon = option.icon;
+            const isActive = value === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-extrabold transition",
+                  isActive ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="flex-1">{option.label}</span>
+                {isActive && <Check className="h-4 w-4" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -378,7 +230,7 @@ function MonthYearPicker({ anchorDate, setAnchorDate }) {
   };
 
   return (
-    <div className="relative">
+    <div className="relative z-[110]">
       <button
         type="button"
         onClick={() => {
@@ -392,25 +244,16 @@ function MonthYearPicker({ anchorDate, setAnchorDate }) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-11 z-[110] w-[320px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
+        <div className="absolute left-0 top-11 w-[320px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
           <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setDisplayYear((year) => year - 1)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50"
-            >
+            <button type="button" onClick={() => setDisplayYear((year) => year - 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
               <ChevronLeft className="h-4 w-4" />
             </button>
             <p className="text-lg font-black text-slate-900">{displayYear}</p>
-            <button
-              type="button"
-              onClick={() => setDisplayYear((year) => year + 1)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50"
-            >
+            <button type="button" onClick={() => setDisplayYear((year) => year + 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-
           <div className="grid grid-cols-3 gap-2">
             {MONTHS.map((month, index) => {
               const isActive = activeYear === displayYear && activeMonth === index;
@@ -421,9 +264,7 @@ function MonthYearPicker({ anchorDate, setAnchorDate }) {
                   onClick={() => selectMonth(index)}
                   className={cn(
                     "rounded-2xl px-3 py-3 text-sm font-extrabold transition",
-                    isActive
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                    isActive ? "bg-blue-600 text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
                   )}
                 >
                   {month.slice(0, 3)}
@@ -431,6 +272,48 @@ function MonthYearPicker({ anchorDate, setAnchorDate }) {
               );
             })}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterDropdown({ icon: Icon, label, value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value) || options[0];
+
+  return (
+    <div className="relative min-w-0 z-[100]">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="shrink-0">{label}</span>
+        <span className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-slate-400">{selected.label}</span>
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 rotate-90" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-12 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-bold transition",
+                value === option.value ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              {option.label}
+              {value === option.value && <span>✓</span>}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -472,6 +355,68 @@ function Legend({ dadName, momName, childName }) {
   );
 }
 
+function EventBlock({ event, selected, onSelect, fallbackChildName }) {
+  const personKey = getPersonKey(event);
+  const colors = personColors[personKey] || personColors.all;
+  const position = getEventPosition(event);
+  if (!position) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(event);
+      }}
+      className={cn(
+        "absolute left-2 right-2 overflow-hidden rounded-xl border p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+        colors.bg,
+        colors.border,
+        selected && "ring-2",
+        selected && colors.ring
+      )}
+      style={{ top: position.top, height: position.height }}
+      title={event.title}
+    >
+      <span className={cn("absolute left-0 top-0 h-full w-1.5", colors.stripe)} />
+      <div className="pl-1">
+        <div className="flex items-start justify-between gap-2">
+          <p className="line-clamp-2 text-[11px] font-extrabold leading-tight text-slate-900 md:text-xs">{event.title}</p>
+          <PersonChips personKey={personKey} size="xs" />
+        </div>
+        <p className="mt-1 text-[10px] font-semibold text-slate-700 md:text-[11px]">
+          {formatDisplayTime(event.startTime)}{event.endTime ? ` – ${formatDisplayTime(event.endTime)}` : ""}
+        </p>
+        <p className="mt-0.5 truncate text-[10px] text-slate-600">{getCategoryLabel(event)}</p>
+        {event.description && position.height > 88 && <p className="mt-1 line-clamp-2 text-[10px] text-slate-500">{event.description}</p>}
+        <span className="sr-only">{getPersonLabel(event, fallbackChildName)}</span>
+      </div>
+    </button>
+  );
+}
+
+function AllDayEvent({ event, onSelect, fallbackChildName }) {
+  const personKey = getPersonKey(event);
+  const colors = personColors[personKey] || personColors.all;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(event);
+      }}
+      className={cn("w-full rounded-lg border px-2 py-1 text-left shadow-sm transition hover:shadow-md", colors.bg, colors.border)}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-[10px] font-extrabold text-slate-900">{event.title}</p>
+        <PersonChips personKey={personKey} size="xs" />
+      </div>
+      <p className="truncate text-[9px] text-slate-600">{getCategoryLabel(event)} · {getPersonLabel(event, fallbackChildName)}</p>
+    </button>
+  );
+}
+
 function WeekGrid({ days, events, onAdd, onSelect, selectedEvent, fallbackChildName }) {
   const timedEvents = events.filter(isTimedEvent);
   const allDayEvents = events.filter((event) => !isTimedEvent(event));
@@ -489,13 +434,7 @@ function WeekGrid({ days, events, onAdd, onSelect, selectedEvent, fallbackChildN
         <div className="grid border-b border-slate-200" style={{ gridTemplateColumns }}>
           <div className="border-r border-slate-200 bg-white" />
           {days.map((day) => (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                "border-r border-slate-200 py-4 text-center last:border-r-0",
-                isToday(day) && "bg-blue-50/60"
-              )}
-            >
+            <div key={day.toISOString()} className={cn("border-r border-slate-200 py-4 text-center last:border-r-0", isToday(day) && "bg-blue-50/60")}>
               <p className="text-base font-extrabold text-slate-900">{format(day, "EEE d")}</p>
               <p className="text-xs font-semibold text-slate-500">{format(day, "MMM")}</p>
             </div>
@@ -504,15 +443,9 @@ function WeekGrid({ days, events, onAdd, onSelect, selectedEvent, fallbackChildN
 
         <div className="grid" style={{ gridTemplateColumns, height: ALL_DAY_HEIGHT + HOURS.length * HOUR_HEIGHT }}>
           <div className="relative border-r border-slate-200 bg-white">
-            <div className="flex items-center justify-center border-b border-slate-200 text-xs font-semibold text-slate-500" style={{ height: ALL_DAY_HEIGHT }}>
-              All-day
-            </div>
+            <div className="flex items-center justify-center border-b border-slate-200 text-xs font-semibold text-slate-500" style={{ height: ALL_DAY_HEIGHT }}>All-day</div>
             {HOURS.map((hour) => (
-              <div
-                key={hour}
-                className="border-b border-slate-100 pr-2 pt-2 text-right text-sm font-semibold text-slate-500"
-                style={{ height: HOUR_HEIGHT }}
-              >
+              <div key={hour} className="border-b border-slate-100 pr-2 pt-2 text-right text-sm font-semibold text-slate-500" style={{ height: HOUR_HEIGHT }}>
                 {format(new Date(2026, 0, 1, hour), "h a")}
               </div>
             ))}
@@ -521,30 +454,13 @@ function WeekGrid({ days, events, onAdd, onSelect, selectedEvent, fallbackChildN
           {days.map((day) => {
             const dayTimedEvents = getEventsForDay(day, timedEvents);
             const dayAllDayEvents = getEventsForDay(day, allDayEvents);
-
             return (
-              <div
-                key={day.toISOString()}
-                className={cn("relative border-r border-slate-200 last:border-r-0", isToday(day) && "bg-blue-50/30")}
-                onClick={() => onAdd(day)}
-              >
+              <div key={day.toISOString()} className={cn("relative border-r border-slate-200 last:border-r-0", isToday(day) && "bg-blue-50/30")} onClick={() => onAdd(day)}>
                 <div className="space-y-1 border-b border-slate-200 p-2" style={{ height: ALL_DAY_HEIGHT }}>
-                  {dayAllDayEvents.slice(0, 1).map((event) => (
-                    <AllDayEvent key={event.id} event={event} onSelect={onSelect} fallbackChildName={fallbackChildName} />
-                  ))}
+                  {dayAllDayEvents.slice(0, 1).map((event) => <AllDayEvent key={event.id} event={event} onSelect={onSelect} fallbackChildName={fallbackChildName} />)}
                 </div>
-                {HOURS.map((hour) => (
-                  <div key={hour} className="border-b border-slate-100" style={{ height: HOUR_HEIGHT }} />
-                ))}
-                {dayTimedEvents.map((event) => (
-                  <EventBlock
-                    key={event.id}
-                    event={event}
-                    selected={selectedEvent?.id === event.id}
-                    onSelect={onSelect}
-                    fallbackChildName={fallbackChildName}
-                  />
-                ))}
+                {HOURS.map((hour) => <div key={hour} className="border-b border-slate-100" style={{ height: HOUR_HEIGHT }} />)}
+                {dayTimedEvents.map((event) => <EventBlock key={event.id} event={event} selected={selectedEvent?.id === event.id} onSelect={onSelect} fallbackChildName={fallbackChildName} />)}
               </div>
             );
           })}
@@ -570,30 +486,15 @@ function MonthView({ monthDate, events, onAdd, onSelect, fallbackChildName }) {
   return (
     <div className="rounded-b-[2rem] bg-white p-3">
       <div className="grid grid-cols-7 gap-2 pb-2">
-        {weekLabels.map((label) => (
-          <div key={label} className="text-center text-xs font-extrabold uppercase tracking-wide text-slate-500">
-            {label}
-          </div>
-        ))}
+        {weekLabels.map((label) => <div key={label} className="text-center text-xs font-extrabold uppercase tracking-wide text-slate-500">{label}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-2">
         {days.map((day) => {
           const dayEvents = getEventsForDay(day);
           return (
-            <button
-              type="button"
-              key={day.toISOString()}
-              onClick={() => onAdd(day)}
-              className={cn(
-                "min-h-[128px] rounded-2xl border border-slate-200 bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/30",
-                isToday(day) && "ring-2 ring-blue-400",
-                !isSameMonth(day, monthDate) && "opacity-45"
-              )}
-            >
+            <button key={day.toISOString()} type="button" onClick={() => onAdd(day)} className={cn("min-h-[128px] rounded-2xl border border-slate-200 bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/30", isToday(day) && "ring-2 ring-blue-400", !isSameMonth(day, monthDate) && "opacity-45")}>
               <div className="mb-2 flex items-center justify-between">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-extrabold text-slate-800">
-                  {format(day, "d")}
-                </span>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-extrabold text-slate-800">{format(day, "d")}</span>
                 <Plus className="h-4 w-4 text-slate-300" />
               </div>
               <div className="space-y-1">
@@ -601,27 +502,13 @@ function MonthView({ monthDate, events, onAdd, onSelect, fallbackChildName }) {
                   const personKey = getPersonKey(event);
                   const colors = personColors[personKey] || personColors.all;
                   return (
-                    <div
-                      key={event.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(event);
-                      }}
-                      className={cn("rounded-lg border px-2 py-1 text-[10px] font-bold", colors.bg, colors.border)}
-                    >
-                      <div className="flex items-center gap-1">
-                        <PersonChips personKey={personKey} size="xs" />
-                        <span className="truncate">{event.title}</span>
-                      </div>
+                    <div key={event.id} role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); onSelect(event); }} className={cn("rounded-lg border px-2 py-1 text-[10px] font-bold", colors.bg, colors.border)}>
+                      <div className="flex items-center gap-1"><PersonChips personKey={personKey} size="xs" /><span className="truncate">{event.title}</span></div>
                       <span className="sr-only">{getPersonLabel(event, fallbackChildName)}</span>
                     </div>
                   );
                 })}
-                {dayEvents.length > 3 && (
-                  <p className="px-1 text-[10px] font-bold text-slate-400">+{dayEvents.length - 3} more</p>
-                )}
+                {dayEvents.length > 3 && <p className="px-1 text-[10px] font-bold text-slate-400">+{dayEvents.length - 3} more</p>}
               </div>
             </button>
           );
@@ -638,29 +525,16 @@ function SelectedEventPopover({ event, onClose, onEdit, onDelete, fallbackChildN
 
   return (
     <div className="fixed inset-x-4 bottom-24 z-[90] mx-auto max-w-sm rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:bottom-auto lg:left-1/2 lg:top-[58%] lg:-translate-x-1/2">
-      <div className="absolute -top-3 left-1/2 hidden h-6 w-6 -translate-x-1/2 rotate-45 border-l border-t border-slate-200 bg-white lg:block" />
       <div className="relative">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-extrabold text-slate-950">{event.title}</h3>
-            <p className="mt-1 text-sm font-medium text-slate-600">
-              {event.date ? format(new Date(`${event.date}T00:00:00`), "EEE, MMM d") : ""}
-              {event.startTime ? ` • ${formatDisplayTime(event.startTime)}` : ""}
-              {event.endTime ? ` – ${formatDisplayTime(event.endTime)}` : ""}
-            </p>
-            <p className="mt-1 text-sm text-slate-500">{getCategoryLabel(event)} · {getModuleLabel(event.module)}</p>
+            <p className="mt-1 text-sm font-medium text-slate-600">{event.date ? format(new Date(`${event.date}T00:00:00`), "EEE, MMM d") : ""}{event.startTime ? ` • ${formatDisplayTime(event.startTime)}` : ""}{event.endTime ? ` – ${formatDisplayTime(event.endTime)}` : ""}</p>
+            <p className="mt-1 text-sm text-slate-500">{getCategoryLabel(event)}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full px-2 py-1 text-sm font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-            ×
-          </button>
+          <button type="button" onClick={onClose} className="rounded-full px-2 py-1 text-sm font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700">×</button>
         </div>
-        <div className="mt-4 flex items-center gap-2">
-          <span className={cn("h-8 w-8 rounded-full", colors.dot)} />
-          <span className="text-sm font-semibold text-slate-700">{getPersonLabel(event, fallbackChildName)}</span>
-          {event.googleCalendarEventId && (
-            <span className="ml-auto rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">Google synced</span>
-          )}
-        </div>
+        <div className="mt-4 flex items-center gap-2"><span className={cn("h-8 w-8 rounded-full", colors.dot)} /><span className="text-sm font-semibold text-slate-700">{getPersonLabel(event, fallbackChildName)}</span>{event.googleCalendarEventId && <span className="ml-auto rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">Google synced</span>}</div>
         {event.description && <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">{event.description}</p>}
         <div className="mt-5 grid grid-cols-4 gap-2 border-t pt-4">
           <button type="button" className="flex flex-col items-center gap-1 rounded-2xl p-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Eye className="h-4 w-4" />Details</button>
@@ -673,7 +547,27 @@ function SelectedEventPopover({ event, onClose, onEdit, onDelete, fallbackChildN
   );
 }
 
-export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
+function CalendarPlaceholder({ activeCalendar }) {
+  const selected = calendarTypeOptions.find((item) => item.value === activeCalendar);
+  const Icon = selected?.icon || CalendarDays;
+  return (
+    <div className="relative flex-1 bg-white p-8">
+      <div className="mx-auto flex min-h-[420px] max-w-3xl items-center justify-center rounded-[2rem] border border-slate-200 bg-slate-50/70 p-8 text-center">
+        <div className="max-w-lg">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-50 text-blue-600"><Icon className="h-8 w-8" /></div>
+          <h2 className="text-3xl font-black text-slate-950">{selected?.label}</h2>
+          <p className="mt-3 text-base font-semibold text-slate-500">
+            {activeCalendar === "custody"
+              ? "The existing Custody Calendar will be connected here without changing its current behavior."
+              : "This future view will combine Family, Custody, Tasks, Meals, Grocery, and Notes into one calendar."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function FamilyCalendarView({ activeCalendar = "family", setActiveCalendar, viewMode = "week", setViewMode }) {
   const { user, familyId, perms, children, dadName, momName, profile } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [events, setEvents] = useState([]);
@@ -683,22 +577,18 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [personFilter, setPersonFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [moduleFilter, setModuleFilter] = useState("all");
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
   const fallbackChildName = useMemo(() => (children || []).map(getChildName).find(Boolean) || "Joaquín", [children]);
   const familyDisplayName = profile?.family_name || profile?.familyName || profile?.family || "My Family";
-  const personOptions = useMemo(
-    () => [
-      { value: "all", label: "All People" },
-      { value: "dad", label: dadName || "Dad" },
-      { value: "mom", label: momName || "Mom" },
-      { value: "child", label: fallbackChildName },
-      { value: "everyone", label: "Everyone" },
-    ],
-    [dadName, momName, fallbackChildName]
-  );
+  const personOptions = useMemo(() => [
+    { value: "all", label: "All People" },
+    { value: "dad", label: dadName || "Dad" },
+    { value: "mom", label: momName || "Mom" },
+    { value: "child", label: fallbackChildName },
+    { value: "everyone", label: "Everyone" },
+  ], [dadName, momName, fallbackChildName]);
 
   const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
@@ -754,12 +644,11 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
       const personKey = getPersonKey(event);
       const matchesPerson = personFilter === "all" || (personFilter === "everyone" ? personKey === "all" : personKey === personFilter);
       const matchesCategory = categoryFilter === "all" || event.category === categoryFilter;
-      const matchesModule = moduleFilter === "all" || event.module === moduleFilter;
-      return matchesPerson && matchesCategory && matchesModule;
+      return matchesPerson && matchesCategory;
     });
-  }, [events, personFilter, categoryFilter, moduleFilter]);
+  }, [events, personFilter, categoryFilter]);
 
-  const activeFilterCount = [personFilter, categoryFilter, moduleFilter].filter((value) => value !== "all").length;
+  const activeFilterCount = [personFilter, categoryFilter].filter((value) => value !== "all").length;
   const title = viewMode === "day" ? format(anchorDate, "MMMM d, yyyy") : viewMode === "month" ? format(anchorDate, "MMMM yyyy") : `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d")}`;
 
   const deleteEvent = async (id) => {
@@ -787,7 +676,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     else setAnchorDate(addDays(anchorDate, 7));
   };
   const handleAdd = (day) => {
-    if (!canWrite) return;
+    if (!canWrite || activeCalendar !== "family") return;
     setSelectedEvent(null);
     setAddDate(day);
   };
@@ -798,7 +687,6 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const resetFilters = () => {
     setPersonFilter("all");
     setCategoryFilter("all");
-    setModuleFilter("all");
   };
 
   if (!canRead) {
@@ -823,7 +711,10 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
                   <p className="text-xs font-semibold text-slate-400">{familyDisplayName}</p>
                 </div>
               </div>
-              <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Family Calendar</h1>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">{calendarTypeOptions.find((item) => item.value === activeCalendar)?.label || "Family Calendar"}</h1>
+                <CalendarTypeDropdown value={activeCalendar} onChange={setActiveCalendar} />
+              </div>
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <CalendarDays className="h-5 w-5 text-slate-700" />
                 <MonthYearPicker anchorDate={anchorDate} setAnchorDate={setAnchorDate} />
@@ -844,11 +735,12 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
           </div>
 
           <div className="mt-6 space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <FilterDropdown icon={Grid3X3} label="Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
-              <FilterDropdown icon={UserRound} label="Person" value={personFilter} options={personOptions} onChange={setPersonFilter} />
-              <FilterDropdown icon={Layers} label="Module" value={moduleFilter} options={moduleOptions} onChange={setModuleFilter} />
-            </div>
+            {activeCalendar === "family" && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FilterDropdown icon={Grid3X3} label="Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
+                <FilterDropdown icon={UserRound} label="Person" value={personFilter} options={personOptions} onChange={setPersonFilter} />
+              </div>
+            )}
 
             <div className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-1">
               <div className="inline-flex shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -863,24 +755,19 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
                   </ToolbarButton>
                 ))}
               </div>
-              <button type="button" className="inline-flex h-11 shrink-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-xs font-black text-white">31</span><span className="whitespace-nowrap text-left leading-tight">Sync with<br />Google Calendar</span><RefreshCw className="h-4 w-4 text-slate-400" /></button>
-              {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="inline-flex h-11 shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 text-xs font-extrabold text-slate-500 hover:bg-slate-50"><X className="h-3.5 w-3.5" />Clear filters</button>}
+              {activeCalendar === "family" && <button type="button" className="inline-flex h-11 shrink-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-xs font-black text-white">31</span><span className="whitespace-nowrap text-left leading-tight">Sync with<br />Google Calendar</span><RefreshCw className="h-4 w-4 text-slate-400" /></button>}
+              {activeFilterCount > 0 && activeCalendar === "family" && <button type="button" onClick={resetFilters} className="inline-flex h-11 shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 text-xs font-extrabold text-slate-500 hover:bg-slate-50"><X className="h-3.5 w-3.5" />Clear filters</button>}
             </div>
-            {moduleOptions.some((option) => option.disabled) && (
-              <p className="text-xs font-semibold text-slate-400">
-                Custody, Tasks, Meals, Grocery, and Notes will appear here after those modules are connected to the combined calendar.
-              </p>
-            )}
           </div>
 
-          <div className="mt-5">
-            <Legend dadName={dadName} momName={momName} childName={fallbackChildName} />
-          </div>
-          <p className="mt-4 text-sm font-semibold text-slate-500">{loading ? "Loading events..." : `${filteredEvents.length} events`} · {title}</p>
+          {activeCalendar === "family" && <div className="mt-5"><Legend dadName={dadName} momName={momName} childName={fallbackChildName} /></div>}
+          <p className="mt-4 text-sm font-semibold text-slate-500">{loading ? "Loading events..." : activeCalendar === "family" ? `${filteredEvents.length} events · ${title}` : title}</p>
         </div>
 
         <div className="relative flex-1 bg-white">
-          {loading ? (
+          {activeCalendar !== "family" ? (
+            <CalendarPlaceholder activeCalendar={activeCalendar} />
+          ) : loading ? (
             <div className="flex justify-center py-16"><div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" /></div>
           ) : (
             <>
@@ -891,7 +778,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
             </>
           )}
 
-          {canWrite && <button type="button" onClick={() => handleAdd(anchorDate)} className="fixed bottom-24 right-6 z-[80] flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl transition hover:scale-105 active:scale-95 lg:bottom-10 lg:right-10" title="Add family event" aria-label="Add family event"><Plus className="h-8 w-8" /></button>}
+          {canWrite && activeCalendar === "family" && <button type="button" onClick={() => handleAdd(anchorDate)} className="fixed bottom-24 right-6 z-[80] flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl transition hover:scale-105 active:scale-95 lg:bottom-10 lg:right-10" title="Add family event" aria-label="Add family event"><Plus className="h-8 w-8" /></button>}
         </div>
       </div>
 
