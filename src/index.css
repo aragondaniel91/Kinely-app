@@ -110,27 +110,48 @@
     }
   }
 
-  /* Family Calendar V2 controls: filters left, view switcher right, Google sync below views */
+  /* Family Calendar V2 controls: filters left, compact Google sync above views on the right */
   div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) {
     order: 2;
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-end !important;
-    gap: 0.5rem !important;
+    gap: 0.4rem !important;
     overflow: visible !important;
     padding-bottom: 0 !important;
   }
 
   div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > div:first-child {
-    order: 1;
+    order: 2;
   }
 
   div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button {
-    order: 2;
+    order: 1;
     align-self: flex-end;
-    height: 2.5rem !important;
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    height: 2rem !important;
+    min-height: 2rem !important;
+    max-height: 2rem !important;
+    padding: 0 0.55rem !important;
+    gap: 0.35rem !important;
+    border-radius: 0.75rem !important;
+    font-size: 0.72rem !important;
+    line-height: 1 !important;
+  }
+
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button span.flex.h-7.w-7 {
+    height: 1.25rem !important;
+    width: 1.25rem !important;
+    border-radius: 0.45rem !important;
+    font-size: 0.65rem !important;
+  }
+
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button span.whitespace-nowrap {
+    white-space: nowrap !important;
+    line-height: 1 !important;
+  }
+
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button br {
+    display: none !important;
   }
 
   div[class*="xl:justify-between"] > div:nth-child(2):has(button[title], button svg) {
@@ -155,7 +176,7 @@
     }
   }
 
-  /* Tablet portrait: keep view buttons and Google sync organized as a right-side stack */
+  /* Tablet portrait: stable two-column layout; sync sits above view switcher */
   @media (min-width: 641px) and (max-width: 1023px) and (orientation: portrait) {
     div[class*="xl:justify-between"] {
       display: grid !important;
@@ -172,26 +193,21 @@
     }
 
     div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > div:first-child {
-      transform: scale(0.92);
+      transform: scale(0.9);
       transform-origin: right center;
     }
 
     div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > div:first-child button {
-      min-width: 58px !important;
-      padding-left: 0.6rem !important;
-      padding-right: 0.6rem !important;
-      font-size: 0.78rem !important;
+      min-width: 56px !important;
+      padding-left: 0.55rem !important;
+      padding-right: 0.55rem !important;
+      font-size: 0.76rem !important;
     }
 
     div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button {
-      width: 260px !important;
-      max-width: 260px !important;
+      width: auto !important;
+      max-width: 220px !important;
       justify-content: center !important;
-      font-size: 0.78rem !important;
-    }
-
-    div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button span.whitespace-nowrap {
-      white-space: nowrap !important;
     }
   }
 
