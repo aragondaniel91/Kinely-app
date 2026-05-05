@@ -583,7 +583,7 @@ function SelectedEventPopover({ event, onClose, onEdit, onDelete, fallbackChildN
 }
 
 export default function FamilyCalendarView({ viewMode = "week", setViewMode, showFilters = true, setShowFilters }) {
-  const { user, familyId, perms, children, dadName, momName } = useFamily();
+  const { user, familyId, perms, children, dadName, momName, profile } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -597,6 +597,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode, sho
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
   const fallbackChildName = useMemo(() => (children || []).map(getChildName).find(Boolean) || "Joaquín", [children]);
+  const familyDisplayName = profile?.family_name || profile?.familyName || profile?.family || "My Family";
   const personOptions = useMemo(
     () => [
       { value: "all", label: "All People" },
@@ -728,7 +729,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode, sho
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-xl">🏠</div>
                 <div>
                   <p className="text-xl font-extrabold text-slate-950">Family Wall</p>
-                  <p className="text-xs font-semibold text-slate-400">Family organizer</p>
+                  <p className="text-xs font-semibold text-slate-400">{familyDisplayName}</p>
                 </div>
               </div>
               <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Family Calendar</h1>
