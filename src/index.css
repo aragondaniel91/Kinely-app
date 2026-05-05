@@ -88,3 +88,18 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@layer components {
+  @media (min-width: 1024px) {
+    div.fixed.bottom-24.max-w-sm.shadow-2xl {
+      left: auto !important;
+      right: 1.5rem !important;
+      top: 8rem !important;
+      bottom: auto !important;
+      width: 360px !important;
+      max-width: calc(100vw - 3rem) !important;
+      transform: none !important;
+      z-index: 90 !important;
+    }
+  }
+}
