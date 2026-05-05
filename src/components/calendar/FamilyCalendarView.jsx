@@ -59,22 +59,22 @@ const calendarTypeOptions = [
 ];
 
 const categoryOptions = [
-  { value: "all", label: "All Categories" },
-  { value: "school", label: "School" },
-  { value: "sports", label: "Sports" },
-  { value: "doctor", label: "Health" },
-  { value: "pickup", label: "Pickup" },
-  { value: "birthday", label: "Birthday" },
-  { value: "family", label: "Family" },
-  { value: "note", label: "Note" },
-  { value: "other", label: "Other" },
+  { value: "all", label: "All Categories", emoji: "✨" },
+  { value: "school", label: "School", emoji: "🎒" },
+  { value: "sports", label: "Sports", emoji: "⚾" },
+  { value: "doctor", label: "Health", emoji: "🩺" },
+  { value: "pickup", label: "Pickup", emoji: "🚗" },
+  { value: "birthday", label: "Birthday", emoji: "🎂" },
+  { value: "family", label: "Family", emoji: "🏠" },
+  { value: "note", label: "Note", emoji: "📝" },
+  { value: "other", label: "Other", emoji: "📌" },
 ];
 
 const categoryConfig = categoryOptions.reduce((acc, item) => {
-  if (item.value !== "all") acc[item.value] = { label: item.label };
+  if (item.value !== "all") acc[item.value] = { label: item.label, emoji: item.emoji };
   return acc;
 }, {});
-categoryConfig.other = categoryConfig.other || { label: "Other" };
+categoryConfig.other = categoryConfig.other || { label: "Other", emoji: "📌" };
 
 const personColors = {
   dad: { dot: "bg-blue-400", border: "border-blue-300", bg: "bg-blue-50", stripe: "bg-blue-500", ring: "ring-blue-200" },
@@ -321,23 +321,82 @@ function MonthYearPicker({ anchorDate, setAnchorDate }) {
   );
 }
 
-function CompactSelect({ icon: Icon, label, value, options, onChange }) {
+function CompactFilterButton({ icon: Icon, label, selectedLabel, onClick }) {
   return (
-    <label className="flex h-9 w-[150px] shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-50">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-9 w-[150px] shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-left text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]"
+    >
       <Icon className="h-3.5 w-3.5 shrink-0" />
       <span className="shrink-0">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 flex-1 appearance-auto bg-transparent text-[11px] font-semibold text-slate-500 outline-none"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-400">{selectedLabel}</span>
+      <ChevronRight className="h-3 w-3 shrink-0 rotate-90" />
+    </button>
+  );
+}
+
+function FloatingFilterPopover({ type, categoryValue, personValue, categoryOptions, personOptions, onCategoryChange, onPersonChange, onClose }) {
+  if (!type) return null;
+
+  const isCategory = type === "category";
+  const title = isCategory ? "Filter by Category" : "Filter by Person";
+  const options = isCategory ? categoryOptions : personOptions;
+  const currentValue = isCategory ? categoryValue : personValue;
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close filter menu"
+        className="fixed inset-0 z-[70] cursor-default bg-slate-950/10"
+        onClick={onClose}
+      />
+      <div className="fixed right-4 top-28 z-[80] w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl md:right-8 md:top-32">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <div>
+            <p className="text-sm font-black text-slate-900">{title}</p>
+            <p className="text-xs font-semibold text-slate-400">Tap one option to apply it.</p>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-50 hover:text-slate-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] space-y-1 overflow-y-auto pr-1">
+          {options.map((option) => {
+            const isActive = currentValue === option.value;
+            const colorKey = option.colorKey || option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  if (isCategory) onCategoryChange(option.value);
+                  else onPersonChange(option.value);
+                  onClose();
+                }}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition",
+                  isActive ? "bg-blue-600 text-white shadow-sm" : "text-slate-700 hover:bg-slate-50"
+                )}
+              >
+                {isCategory ? (
+                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg", isActive ? "bg-white/20" : "bg-blue-50")}>{option.emoji || "📌"}</span>
+                ) : (
+                  <span className={cn("h-9 w-9 shrink-0 rounded-full border-2 border-white shadow-sm", personColors[colorKey]?.dot || personColors.child.dot)} />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-extrabold">{option.label}</span>
+                  <span className={cn("block truncate text-xs font-semibold", isActive ? "text-blue-50" : "text-slate-400")}>{isCategory ? "Category" : "Person"}</span>
+                </span>
+                {isActive && <Check className="h-5 w-5 shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -604,6 +663,7 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [personFilter, setPersonFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [openFilter, setOpenFilter] = useState(null);
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
@@ -626,6 +686,8 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
     { value: "everyone", label: "Everyone", colorKey: "all" },
   ], [dadName, momName, childPeople]);
   const legendPeople = useMemo(() => personOptions.filter((person) => person.value !== "all"), [personOptions]);
+  const selectedCategory = categoryOptions.find((item) => item.value === categoryFilter) || categoryOptions[0];
+  const selectedPerson = personOptions.find((item) => item.value === personFilter) || personOptions[0];
 
   const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
@@ -713,16 +775,19 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
   };
   const handleAdd = (day) => {
     if (!canWrite || activeCalendar !== "family") return;
+    setOpenFilter(null);
     setSelectedEvent(null);
     setAddDate(day);
   };
   const handleEdit = (event) => {
+    setOpenFilter(null);
     setSelectedEvent(null);
     setEditEvent(event);
   };
   const resetFilters = () => {
     setPersonFilter("all");
     setCategoryFilter("all");
+    setOpenFilter(null);
   };
 
   if (!canRead) {
@@ -789,8 +854,8 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
 
             {activeCalendar === "family" && (
               <div className="flex w-full flex-nowrap justify-end gap-2 pb-1 xl:w-auto xl:min-w-[360px]">
-                <CompactSelect icon={Grid3X3} label="Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
-                <CompactSelect icon={UserRound} label="Person" value={personFilter} options={personOptions} onChange={setPersonFilter} />
+                <CompactFilterButton icon={Grid3X3} label="Category" selectedLabel={selectedCategory.label} onClick={() => setOpenFilter(openFilter === "category" ? null : "category")} />
+                <CompactFilterButton icon={UserRound} label="Person" selectedLabel={selectedPerson.label} onClick={() => setOpenFilter(openFilter === "person" ? null : "person")} />
                 {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-500 hover:bg-slate-50"><X className="h-3.5 w-3.5" />Clear</button>}
               </div>
             )}
@@ -817,6 +882,17 @@ export default function FamilyCalendarView({ activeCalendar = "family", setActiv
           {canWrite && activeCalendar === "family" && <button type="button" onClick={() => handleAdd(anchorDate)} className="fixed bottom-24 right-6 z-[80] flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl transition hover:scale-105 active:scale-95 lg:bottom-10 lg:right-10" title="Add family event" aria-label="Add family event"><Plus className="h-8 w-8" /></button>}
         </div>
       </div>
+
+      <FloatingFilterPopover
+        type={openFilter}
+        categoryValue={categoryFilter}
+        personValue={personFilter}
+        categoryOptions={categoryOptions}
+        personOptions={personOptions}
+        onCategoryChange={setCategoryFilter}
+        onPersonChange={setPersonFilter}
+        onClose={() => setOpenFilter(null)}
+      />
 
       {(addDate || editEvent) && (
         <AddFamilyEventDialog
