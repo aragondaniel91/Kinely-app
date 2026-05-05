@@ -144,4 +144,28 @@
       align-self: flex-start;
     }
   }
+
+  /* Family Calendar filter popover: now filters live on the left, so open the panel near them. */
+  div.fixed.right-4.top-28.z-\[80\] {
+    left: 1rem !important;
+    right: auto !important;
+    top: 17rem !important;
+  }
+
+  @media (min-width: 768px) {
+    div.fixed.right-4.top-28.z-\[80\] {
+      left: 2rem !important;
+      right: auto !important;
+      top: 16rem !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    div.fixed.right-4.top-28.z-\[80\] {
+      left: 1rem !important;
+      right: auto !important;
+      top: 14rem !important;
+      width: calc(100vw - 2rem) !important;
+    }
+  }
 }
