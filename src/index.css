@@ -109,4 +109,39 @@
       max-width: calc(100vw - 3rem) !important;
     }
   }
+
+  /* Family Calendar V2 controls: filters left, view switcher right, Google sync below views */
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) {
+    order: 2;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 0.5rem !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+  }
+
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > div:first-child {
+    order: 1;
+  }
+
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button {
+    order: 2;
+    align-self: flex-end;
+  }
+
+  div[class*="xl:justify-between"] > div:nth-child(2):has(button[title], button svg) {
+    order: 1;
+    justify-content: flex-start !important;
+  }
+
+  @media (max-width: 1279px) {
+    div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) {
+      align-items: flex-start !important;
+    }
+
+    div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button {
+      align-self: flex-start;
+    }
+  }
 }
