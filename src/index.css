@@ -110,10 +110,10 @@
     }
   }
 
-  /* Move calendar navigation closer to the calendar surface */
+  /* Move calendar navigation closer to the calendar surface without creating dead white space */
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) {
     position: relative;
-    padding-bottom: 4.25rem !important;
+    padding-bottom: 1.75rem !important;
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5)
@@ -122,13 +122,21 @@
     > div.flex.items-center.gap-2 {
     position: absolute !important;
     right: 2rem !important;
-    bottom: 1rem !important;
+    bottom: 0.75rem !important;
     z-index: 25 !important;
+  }
+
+  div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > p.mt-4 {
+    margin-top: 0.5rem !important;
+  }
+
+  div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > div.mt-5 {
+    margin-top: 0.75rem !important;
   }
 
   @media (max-width: 767px) {
     div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) {
-      padding-bottom: 5rem !important;
+      padding-bottom: 2.25rem !important;
     }
 
     div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5)
@@ -136,7 +144,7 @@
       > div.flex.flex-col.items-end.gap-5
       > div.flex.items-center.gap-2 {
       right: 1rem !important;
-      bottom: 0.85rem !important;
+      bottom: 0.65rem !important;
     }
   }
 
