@@ -22,12 +22,15 @@ const navItems = [
 
 export default function AppShell() {
   const location = useLocation();
+  const hideFamilyHeader = location.pathname === "/calendar";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="sticky top-0 z-40 bg-card border-b border-border flex items-center justify-center py-2 px-4">
-        <FamilySelector />
-      </header>
+      {!hideFamilyHeader && (
+        <header className="sticky top-0 z-40 bg-card border-b border-border flex items-center justify-center py-2 px-4">
+          <FamilySelector />
+        </header>
+      )}
 
       <main className="flex-1 overflow-auto pb-20">
         <Outlet />
