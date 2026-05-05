@@ -304,18 +304,18 @@ function FilterDropdown({ icon: Icon, label, value, options, onChange }) {
   const selected = options.find((option) => option.value === value) || options[0];
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
+        className="inline-flex h-11 min-w-[180px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
       >
         <Icon className="h-4 w-4" />
         <span>{label}</span>
-        <span className="hidden text-xs font-semibold text-slate-400 md:inline">
+        <span className="text-xs font-semibold text-slate-400">
           {selected.label}
         </span>
-        <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+        <ChevronRight className="ml-auto h-3.5 w-3.5 rotate-90" />
       </button>
 
       {open && (
@@ -351,7 +351,7 @@ function ToolbarButton({ children, active, onClick }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "h-10 min-w-[76px] border-r border-slate-200 px-4 text-sm font-bold transition last:border-r-0",
+        "h-10 min-w-[72px] border-r border-slate-200 px-3 text-sm font-bold transition last:border-r-0",
         active ? "bg-blue-600 text-white shadow-sm" : "bg-white text-slate-600 hover:bg-slate-50"
       )}
     >
@@ -369,7 +369,7 @@ function Legend({ dadName, momName, childName }) {
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-5">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
       {items.map((item) => (
         <div key={item.key} className="flex items-center gap-2">
           <span className={cn("h-4 w-4 rounded-full", personColors[item.key].dot)} />
@@ -581,7 +581,7 @@ function SelectedEventPopover({ event, onClose, onEdit, onDelete, fallbackChildN
   );
 }
 
-export default function FamilyCalendarView({ viewMode = "week", setViewMode, showFilters = true }) {
+export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { user, familyId, perms, children, dadName, momName, profile } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [events, setEvents] = useState([]);
@@ -752,14 +752,15 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode, sho
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap gap-3">
+          <div className="mt-6 grid grid-cols-1 gap-4 min-[900px]:grid-cols-[minmax(0,1fr)_auto] min-[900px]:items-center">
+            <div className="flex flex-nowrap gap-3 overflow-x-auto pb-1">
               <FilterDropdown icon={Grid3X3} label="Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
               <FilterDropdown icon={UserRound} label="Person" value={personFilter} options={personOptions} onChange={setPersonFilter} />
               <FilterDropdown icon={Layers} label="Module" value={moduleFilter} options={moduleOptions} onChange={setModuleFilter} />
+              {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="inline-flex h-11 shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 text-xs font-extrabold text-slate-500 hover:bg-slate-50"><X className="h-3.5 w-3.5" />Clear</button>}
             </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-1 min-[900px]:justify-end">
+              <div className="inline-flex shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 {[
                   { value: "day", label: "Day" },
                   { value: "week", label: "Week" },
@@ -771,20 +772,12 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode, sho
                   </ToolbarButton>
                 ))}
               </div>
-              <button type="button" className="inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-xs font-black text-white">31</span><span className="text-left leading-tight">Sync with<br />Google Calendar</span><RefreshCw className="h-4 w-4 text-slate-400" /></button>
+              <button type="button" className="inline-flex h-11 shrink-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-xs font-black text-white">31</span><span className="whitespace-nowrap text-left leading-tight">Sync with<br />Google Calendar</span><RefreshCw className="h-4 w-4 text-slate-400" /></button>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="mt-5">
             <Legend dadName={dadName} momName={momName} childName={fallbackChildName} />
-            {showFilters && (
-              <div className="flex flex-wrap items-center gap-2">
-                {personOptions.map((option) => (
-                  <button key={option.value} type="button" onClick={() => setPersonFilter(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-extrabold transition", personFilter === option.value ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}>{option.label.replace("All People", "All")}</button>
-                ))}
-                {activeFilterCount > 0 && <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-500 hover:bg-slate-50"><X className="h-3.5 w-3.5" />Clear</button>}
-              </div>
-            )}
           </div>
           <p className="mt-4 text-sm font-semibold text-slate-500">{loading ? "Loading events..." : `${filteredEvents.length} events`} · {title}</p>
         </div>
