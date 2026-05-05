@@ -135,6 +135,23 @@
     justify-content: flex-start !important;
   }
 
+  /* Wider Category / Person compact buttons so selected values are readable */
+  div[class*="xl:justify-between"] button.w-\[150px\] {
+    width: 190px !important;
+  }
+
+  @media (min-width: 1024px) {
+    div[class*="xl:justify-between"] button.w-\[150px\] {
+      width: 210px !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    div[class*="xl:justify-between"] button.w-\[150px\] {
+      width: 170px !important;
+    }
+  }
+
   @media (max-width: 1279px) {
     div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) {
       align-items: flex-start !important;
