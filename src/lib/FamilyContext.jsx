@@ -22,7 +22,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/AuthContext";
 
-const FamilyContext = createContext(null);
+export const FamilyContext = createContext(null);
 
 const STORAGE_KEY = "familywall_active_family_id";
 const CUSTODY_PARENT_OVERRIDE_KEY = "familywall_custody_parent_override";
