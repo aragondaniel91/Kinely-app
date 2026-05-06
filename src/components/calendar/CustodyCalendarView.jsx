@@ -3,7 +3,7 @@ import { Baby, CalendarDays, HeartHandshake, Layers, Shield, UsersRound } from "
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
-import { useFamily } from "@/lib/FamilyContext";
+import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
 
@@ -138,7 +138,8 @@ export default function CustodyCalendarView({
   viewMode = "month",
   setViewMode,
 }) {
-  const { myEmail, profile, familyId, dadName, momName } = useFamily();
+  const familyContext = useFamily();
+  const { myEmail, profile, familyId, dadName, momName } = familyContext;
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -210,6 +211,39 @@ export default function CustodyCalendarView({
   const selectedParents = selectedGroup ? groupParents(selectedGroup) : [];
   const familyName = profile?.family_name || profile?.familyName || "Current Family";
   const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
+  const selectedCustodyGroupId = selectedGroup?.legacy ? "" : selectedGroup?.id || "";
+  const scopedFamilyId = selectedCustodyGroupId || familyId;
+
+  const scopedFamilyContext = useMemo(
+    () => ({
+      ...familyContext,
+      familyId: scopedFamilyId,
+      actualFamilyId: familyId,
+      custodyScopeId: selectedCustodyGroupId,
+      custodyModuleActive: true,
+      dadName: custodyParentNames.custodyDadName,
+      momName: custodyParentNames.custodyMomName,
+      custodyParentOverride: {
+        dadName: custodyParentNames.custodyDadName,
+        momName: custodyParentNames.custodyMomName,
+        dadEmail: custodyParentNames.custodyDadEmail,
+        momEmail: custodyParentNames.custodyMomEmail,
+        custodyGroupId: selectedCustodyGroupId,
+        custodyGroupName: selectedGroup?.name || "",
+      },
+    }),
+    [
+      familyContext,
+      scopedFamilyId,
+      familyId,
+      selectedCustodyGroupId,
+      custodyParentNames.custodyDadName,
+      custodyParentNames.custodyMomName,
+      custodyParentNames.custodyDadEmail,
+      custodyParentNames.custodyMomEmail,
+      selectedGroup?.name,
+    ]
+  );
 
   useEffect(() => {
     publishCustodyParentOverride({
@@ -217,7 +251,7 @@ export default function CustodyCalendarView({
       momName: custodyParentNames.custodyMomName,
       dadEmail: custodyParentNames.custodyDadEmail,
       momEmail: custodyParentNames.custodyMomEmail,
-      custodyGroupId: selectedGroup?.legacy ? "" : selectedGroup?.id || "",
+      custodyGroupId: selectedCustodyGroupId,
       custodyGroupName: selectedGroup?.name || "",
     });
   }, [
@@ -225,8 +259,7 @@ export default function CustodyCalendarView({
     custodyParentNames.custodyMomName,
     custodyParentNames.custodyDadEmail,
     custodyParentNames.custodyMomEmail,
-    selectedGroup?.id,
-    selectedGroup?.legacy,
+    selectedCustodyGroupId,
     selectedGroup?.name,
   ]);
 
@@ -305,19 +338,21 @@ export default function CustodyCalendarView({
         </div>
 
         <div className="custody-original-calendar-wrapper bg-[#f8fbff]">
-          <CustodyCalendar
-            viewMode={viewMode === "mixed" ? "month" : viewMode}
-            setViewMode={setViewMode}
-            showFilters
-            selectedCustodyGroup={selectedGroup}
-            selectedCustodyGroupId={selectedGroup?.legacy ? "" : selectedGroup?.id || ""}
-            custodyDadName={custodyParentNames.custodyDadName}
-            custodyMomName={custodyParentNames.custodyMomName}
-            custodyDadEmail={custodyParentNames.custodyDadEmail}
-            custodyMomEmail={custodyParentNames.custodyMomEmail}
-            custodyChildren={selectedChildren}
-            custodyCoParents={selectedParents}
-          />
+          <FamilyContext.Provider value={scopedFamilyContext}>
+            <CustodyCalendar
+              viewMode={viewMode === "mixed" ? "month" : viewMode}
+              setViewMode={setViewMode}
+              showFilters
+              selectedCustodyGroup={selectedGroup}
+              selectedCustodyGroupId={selectedCustodyGroupId}
+              custodyDadName={custodyParentNames.custodyDadName}
+              custodyMomName={custodyParentNames.custodyMomName}
+              custodyDadEmail={custodyParentNames.custodyDadEmail}
+              custodyMomEmail={custodyParentNames.custodyMomEmail}
+              custodyChildren={selectedChildren}
+              custodyCoParents={selectedParents}
+            />
+          </FamilyContext.Provider>
         </div>
       </div>
     </div>
