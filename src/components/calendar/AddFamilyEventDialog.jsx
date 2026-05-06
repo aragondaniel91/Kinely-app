@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import {
   addDoc,
@@ -55,6 +55,36 @@ const categories = [
 const hourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 const minuteOptions = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
 const meridiemOptions = ["AM", "PM"];
+const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+let googleMapsPlacesPromise = null;
+
+function loadGoogleMapsPlaces() {
+  if (!googleMapsApiKey || typeof window === "undefined") return Promise.resolve(false);
+  if (window.google?.maps?.places) return Promise.resolve(true);
+
+  if (!googleMapsPlacesPromise) {
+    googleMapsPlacesPromise = new Promise((resolve) => {
+      const existingScript = document.querySelector("script[data-family-wall-google-maps]");
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve(Boolean(window.google?.maps?.places)), { once: true });
+        existingScript.addEventListener("error", () => resolve(false), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.dataset.familyWallGoogleMaps = "true";
+      script.onload = () => resolve(Boolean(window.google?.maps?.places));
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+  }
+
+  return googleMapsPlacesPromise;
+}
 
 function getChildName(child) {
   if (!child) return "";
@@ -214,6 +244,67 @@ function TabletTimePicker({ label, value, onChange }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function AddressAutocompleteInput({ value, onChange }) {
+  const inputRef = useRef(null);
+  const [mapsReady, setMapsReady] = useState(false);
+
+  useEffect(() => {
+    let autocomplete;
+    let listener;
+    let mounted = true;
+
+    loadGoogleMapsPlaces().then((ready) => {
+      if (!mounted || !ready || !inputRef.current) return;
+
+      setMapsReady(true);
+      autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+        fields: ["formatted_address", "name"],
+        types: ["geocode", "establishment"],
+      });
+
+      listener = autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        const address = place?.formatted_address || place?.name || inputRef.current?.value || "";
+        onChange(address);
+      });
+    });
+
+    return () => {
+      mounted = false;
+      if (listener?.remove) listener.remove();
+      if (window.google?.maps?.event && autocomplete) {
+        window.google.maps.event.clearInstanceListeners(autocomplete);
+      }
+    };
+  }, [onChange]);
+
+  return (
+    <div>
+      <div className="relative mt-1">
+        <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Start typing an address..."
+          className="h-11 pl-9 pr-20 text-base"
+          autoComplete="off"
+        />
+        <span className="pointer-events-none absolute right-3 top-3 text-[10px] font-black uppercase tracking-wide text-slate-400">
+          Maps
+        </span>
+      </div>
+      <p className="mt-1 text-xs font-semibold text-slate-400">
+        {mapsReady
+          ? "Choose an address suggestion from Google Maps. No map will be shown."
+          : googleMapsApiKey
+            ? "Loading Google Maps address suggestions..."
+            : "Manual address entry is active. Add VITE_GOOGLE_MAPS_API_KEY to enable suggestions."}
+      </p>
     </div>
   );
 }
@@ -478,15 +569,7 @@ export default function AddFamilyEventDialog({
 
           <div>
             <Label>Location</Label>
-            <div className="relative mt-1">
-              <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="School, clinic, baseball field..."
-                className="h-11 pl-9 text-base"
-              />
-            </div>
+            <AddressAutocompleteInput value={location} onChange={setLocation} />
           </div>
 
           <div>
