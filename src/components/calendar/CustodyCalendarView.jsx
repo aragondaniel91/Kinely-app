@@ -7,8 +7,6 @@ import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
 
-const CUSTODY_PARENT_OVERRIDE_KEY = "familywall_custody_parent_override";
-
 const calendarTypes = [
   { value: "family", label: "Family Calendar", icon: CalendarDays },
   { value: "custody", label: "Custody Calendar", icon: HeartHandshake },
@@ -16,6 +14,7 @@ const calendarTypes = [
 ];
 
 function groupChildren(group) {
+  if (!group) return [];
   if (Array.isArray(group.children) && group.children.length) return group.children;
   if (Array.isArray(group.childNames) && group.childNames.length) return group.childNames;
   if (group.childName) return [group.childName];
@@ -23,6 +22,7 @@ function groupChildren(group) {
 }
 
 function groupParents(group) {
+  if (!group) return [];
   if (Array.isArray(group.coParents)) return group.coParents;
   if (Array.isArray(group.parents)) return group.parents;
   return [];
@@ -39,17 +39,6 @@ function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
     custodyDadEmail: dadParent?.email || parents[0]?.email || "",
     custodyMomEmail: momParent?.email || parents[1]?.email || "",
   };
-}
-
-function publishCustodyParentOverride(override) {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(CUSTODY_PARENT_OVERRIDE_KEY, JSON.stringify(override));
-    window.dispatchEvent(new CustomEvent("familywall:custody-parent-override", { detail: override }));
-  } catch (error) {
-    console.warn("Could not publish custody parent override:", error);
-  }
 }
 
 function CalendarSwitch({ activeCalendar, setActiveCalendar }) {
@@ -199,20 +188,22 @@ export default function CustodyCalendarView({
 
   const availableGroups = useMemo(() => {
     if (groups.length > 0) return groups;
+    if (loadingGroups) return [];
     return [legacyGroup];
-  }, [groups, legacyGroup]);
+  }, [groups, legacyGroup, loadingGroups]);
 
   const selectedGroup = useMemo(
     () => availableGroups.find((group) => group.id === selectedGroupId) || availableGroups[0] || null,
     [availableGroups, selectedGroupId]
   );
 
-  const selectedChildren = selectedGroup ? groupChildren(selectedGroup) : [];
-  const selectedParents = selectedGroup ? groupParents(selectedGroup) : [];
+  const selectedChildren = groupChildren(selectedGroup);
+  const selectedParents = groupParents(selectedGroup);
   const familyName = profile?.family_name || profile?.familyName || "Current Family";
   const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
   const selectedCustodyGroupId = selectedGroup?.legacy ? "" : selectedGroup?.id || "";
   const scopedFamilyId = selectedCustodyGroupId || familyId;
+  const canRenderCalendar = !loadingGroups && selectedGroup && scopedFamilyId;
 
   const scopedFamilyContext = useMemo(
     () => ({
@@ -244,24 +235,6 @@ export default function CustodyCalendarView({
       selectedGroup?.name,
     ]
   );
-
-  useEffect(() => {
-    publishCustodyParentOverride({
-      dadName: custodyParentNames.custodyDadName,
-      momName: custodyParentNames.custodyMomName,
-      dadEmail: custodyParentNames.custodyDadEmail,
-      momEmail: custodyParentNames.custodyMomEmail,
-      custodyGroupId: selectedCustodyGroupId,
-      custodyGroupName: selectedGroup?.name || "",
-    });
-  }, [
-    custodyParentNames.custodyDadName,
-    custodyParentNames.custodyMomName,
-    custodyParentNames.custodyDadEmail,
-    custodyParentNames.custodyMomEmail,
-    selectedCustodyGroupId,
-    selectedGroup?.name,
-  ]);
 
   return (
     <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
@@ -315,7 +288,7 @@ export default function CustodyCalendarView({
             )}
           </div>
 
-          {selectedGroup && (
+          {!loadingGroups && selectedGroup && (
             <div className="mt-3 grid grid-cols-1 gap-2 text-xs font-semibold text-slate-500 md:grid-cols-3">
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
                 <span className="font-black uppercase tracking-wide text-slate-400">Selected</span>
@@ -338,21 +311,27 @@ export default function CustodyCalendarView({
         </div>
 
         <div className="custody-original-calendar-wrapper bg-[#f8fbff]">
-          <FamilyContext.Provider value={scopedFamilyContext}>
-            <CustodyCalendar
-              viewMode={viewMode === "mixed" ? "month" : viewMode}
-              setViewMode={setViewMode}
-              showFilters
-              selectedCustodyGroup={selectedGroup}
-              selectedCustodyGroupId={selectedCustodyGroupId}
-              custodyDadName={custodyParentNames.custodyDadName}
-              custodyMomName={custodyParentNames.custodyMomName}
-              custodyDadEmail={custodyParentNames.custodyDadEmail}
-              custodyMomEmail={custodyParentNames.custodyMomEmail}
-              custodyChildren={selectedChildren}
-              custodyCoParents={selectedParents}
-            />
-          </FamilyContext.Provider>
+          {canRenderCalendar ? (
+            <FamilyContext.Provider value={scopedFamilyContext}>
+              <CustodyCalendar
+                viewMode={viewMode === "mixed" ? "month" : viewMode}
+                setViewMode={setViewMode}
+                showFilters
+                selectedCustodyGroup={selectedGroup}
+                selectedCustodyGroupId={selectedCustodyGroupId}
+                custodyDadName={custodyParentNames.custodyDadName}
+                custodyMomName={custodyParentNames.custodyMomName}
+                custodyDadEmail={custodyParentNames.custodyDadEmail}
+                custodyMomEmail={custodyParentNames.custodyMomEmail}
+                custodyChildren={selectedChildren}
+                custodyCoParents={selectedParents}
+              />
+            </FamilyContext.Provider>
+          ) : (
+            <div className="p-8 text-center text-sm font-bold text-slate-400">
+              Loading custody calendar...
+            </div>
+          )}
         </div>
       </div>
     </div>
