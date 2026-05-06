@@ -11,6 +11,7 @@ import AppShell from "@/components/layout/AppShell";
 
 import Dashboard from "@/pages/Dashboard";
 import Calendar from "@/pages/Calendar";
+import Custody from "@/pages/Custody";
 import Tasks from "@/pages/Tasks";
 import Meals from "@/pages/Meals";
 import Groceries from "@/pages/Groceries";
@@ -87,6 +88,7 @@ function AppRoutes() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/calendar" element={<Calendar />} />
+        <Route path="/custody" element={<Custody />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/meals" element={<Meals />} />
         <Route path="/groceries" element={<Groceries />} />
