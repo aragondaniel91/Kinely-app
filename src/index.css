@@ -112,7 +112,7 @@
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) {
     position: relative;
-    padding-bottom: 1.2rem !important;
+    padding-bottom: 1.1rem !important;
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5)
@@ -121,12 +121,13 @@
     > div.flex.items-center.gap-2 {
     position: absolute !important;
     right: 2rem !important;
-    bottom: 0.5rem !important;
+    bottom: 0.35rem !important;
     z-index: 25 !important;
   }
 
+  /* Legend and event count belong to the calendar area, so keep them lower and close to the grid */
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > div.mt-5 {
-    margin-top: 0.15rem !important;
+    margin-top: 1.15rem !important;
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > div.mt-5 > div.flex.flex-wrap {
@@ -139,12 +140,12 @@
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > p.mt-4 {
-    margin-top: 0.05rem !important;
+    margin-top: 0.1rem !important;
   }
 
   @media (max-width: 767px) {
     div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) {
-      padding-bottom: 1.75rem !important;
+      padding-bottom: 1.65rem !important;
     }
 
     div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5)
@@ -152,13 +153,13 @@
       > div.flex.flex-col.items-end.gap-5
       > div.flex.items-center.gap-2 {
       right: 1rem !important;
-      bottom: 0.5rem !important;
+      bottom: 0.45rem !important;
     }
   }
 
-  /* Control row sits closer to Month/Year, but filters visually drop toward legend */
+  /* Controls stay close to Month/Year; filters line up with view controls */
   div[class*="xl:justify-between"] {
-    margin-top: 0.55rem !important;
+    margin-top: 0.45rem !important;
     align-items: end !important;
   }
 
@@ -166,7 +167,7 @@
     order: 1;
     justify-content: flex-start !important;
     align-self: end !important;
-    padding-top: 1.15rem !important;
+    padding-top: 1.05rem !important;
   }
 
   div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) {
@@ -238,7 +239,7 @@
       grid-template-columns: minmax(0, 1fr) auto !important;
       align-items: end !important;
       gap: 0.75rem !important;
-      margin-top: 0.45rem !important;
+      margin-top: 0.4rem !important;
     }
 
     div[class*="xl:justify-between"] > div:nth-child(2):has(button[title], button svg) {
