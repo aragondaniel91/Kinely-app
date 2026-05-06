@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 
-import FamilyWallClockWeather from "@/components/FamilyWallClockWeather";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV5";
 
 const compactCalendarStyles = `
@@ -85,10 +84,6 @@ const compactCalendarStyles = `
   line-height: 0.8rem !important;
 }
 
-.family-calendar-shell div.hidden.items-center.gap-2.md\\:flex {
-  display: none !important;
-}
-
 @media (max-width: 900px) {
   .family-calendar-shell h1 {
     font-size: 2rem !important;
@@ -107,7 +102,6 @@ export default function Calendar() {
   return (
     <div className="family-calendar-shell min-h-full bg-background pb-28 md:pb-6">
       <style>{compactCalendarStyles}</style>
-      <FamilyWallClockWeather />
 
       <FamilyCalendarView
         activeCalendar={activeCalendar}
