@@ -41,6 +41,11 @@ const READ_ONLY_PERMS = {
   groceries: { read: true, write: false },
 };
 
+function getCurrentPath() {
+  if (typeof window === "undefined") return "";
+  return window.location.pathname || "";
+}
+
 function readCustodyParentOverride() {
   if (typeof window === "undefined") return null;
 
@@ -255,6 +260,7 @@ export function FamilyProvider({ children }) {
     return localStorage.getItem(STORAGE_KEY) || null;
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPath, setCurrentPath] = useState(() => getCurrentPath());
   const [custodyParentOverride, setCustodyParentOverride] = useState(() => readCustodyParentOverride());
 
   const myEmail = user?.email || authProfile?.email || null;
@@ -264,6 +270,30 @@ export function FamilyProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, id);
     setActiveFamilyIdState(id);
   };
+
+  useEffect(() => {
+    const updatePath = () => setCurrentPath(getCurrentPath());
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+
+    window.history.pushState = function patchedPushState(...args) {
+      originalPushState.apply(this, args);
+      updatePath();
+    };
+
+    window.history.replaceState = function patchedReplaceState(...args) {
+      originalReplaceState.apply(this, args);
+      updatePath();
+    };
+
+    window.addEventListener("popstate", updatePath);
+
+    return () => {
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+      window.removeEventListener("popstate", updatePath);
+    };
+  }, []);
 
   useEffect(() => {
     const handleCustodyOverride = (event) => {
@@ -404,8 +434,12 @@ export function FamilyProvider({ children }) {
   const momColor = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "amber" : activeProfile?.parent2_color || activeProfile?.parent2Color || "amber";
   const familyChildren = activeProfile?.children || (activeProfile?.child_name ? [activeProfile.child_name] : []);
 
-  const resolvedDadName = custodyParentOverride?.dadName || dadName || "Papá";
-  const resolvedMomName = custodyParentOverride?.momName || momName || "Mamá";
+  const custodyModuleActive = currentPath.startsWith("/custody");
+  const custodyScopeId = custodyModuleActive ? custodyParentOverride?.custodyGroupId || "" : "";
+  const effectiveFamilyId = custodyScopeId || activeProfile?.id || null;
+
+  const resolvedDadName = custodyModuleActive && custodyParentOverride?.dadName ? custodyParentOverride.dadName : dadName || "Papá";
+  const resolvedMomName = custodyModuleActive && custodyParentOverride?.momName ? custodyParentOverride.momName : momName || "Mamá";
 
   const refreshFamilies = async () => {
     if (!user) return;
@@ -545,7 +579,10 @@ export function FamilyProvider({ children }) {
     user,
     myEmail,
     profile: activeProfile,
-    familyId: activeProfile?.id || null,
+    familyId: effectiveFamilyId,
+    actualFamilyId: activeProfile?.id || null,
+    custodyScopeId,
+    custodyModuleActive,
     isOwner,
     isAdmin,
     perms,
