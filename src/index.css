@@ -110,10 +110,9 @@
     }
   }
 
-  /* Move calendar navigation closer to the calendar surface without creating dead white space */
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) {
     position: relative;
-    padding-bottom: 1.5rem !important;
+    padding-bottom: 1.2rem !important;
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5)
@@ -122,32 +121,30 @@
     > div.flex.items-center.gap-2 {
     position: absolute !important;
     right: 2rem !important;
-    bottom: 0.65rem !important;
+    bottom: 0.5rem !important;
     z-index: 25 !important;
   }
 
-  /* Compact legend + event count so they sit directly under Category / Person */
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > div.mt-5 {
-    margin-top: 0.35rem !important;
+    margin-top: 0.15rem !important;
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > div.mt-5 > div.flex.flex-wrap {
     margin-left: -0.75rem !important;
-    gap: 0.35rem 1.1rem !important;
+    gap: 0.2rem 0.95rem !important;
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > div.mt-5 > div.flex.flex-wrap > button {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    padding: 0.25rem 0.75rem !important;
   }
 
   div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) > p.mt-4 {
-    margin-top: 0.25rem !important;
+    margin-top: 0.05rem !important;
   }
 
   @media (max-width: 767px) {
     div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5) {
-      padding-bottom: 2rem !important;
+      padding-bottom: 1.75rem !important;
     }
 
     div.border-b.border-slate-200.bg-white:has(> div.flex.flex-wrap.items-start.justify-between.gap-5)
@@ -155,22 +152,29 @@
       > div.flex.flex-col.items-end.gap-5
       > div.flex.items-center.gap-2 {
       right: 1rem !important;
-      bottom: 0.6rem !important;
+      bottom: 0.5rem !important;
     }
   }
 
-  /* Bring Category / Person closer to month-year */
+  /* Control row sits closer to Month/Year, but filters visually drop toward legend */
   div[class*="xl:justify-between"] {
-    margin-top: 0.8rem !important;
+    margin-top: 0.55rem !important;
+    align-items: end !important;
   }
 
-  /* Family Calendar V2 controls: filters left, compact sync above views on the right */
+  div[class*="xl:justify-between"] > div:nth-child(2):has(button[title], button svg) {
+    order: 1;
+    justify-content: flex-start !important;
+    align-self: end !important;
+    padding-top: 1.15rem !important;
+  }
+
   div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) {
     order: 2;
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-end !important;
-    gap: 0.35rem !important;
+    gap: 0.25rem !important;
     overflow: visible !important;
     padding-bottom: 0 !important;
   }
@@ -199,14 +203,8 @@
     color: rgb(51 65 85);
   }
 
-  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button span.flex.h-7.w-7 {
-    display: none !important;
-  }
-
-  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button span.whitespace-nowrap {
-    display: none !important;
-  }
-
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button span.flex.h-7.w-7,
+  div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button span.whitespace-nowrap,
   div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) > button br {
     display: none !important;
   }
@@ -218,12 +216,6 @@
     color: rgb(100 116 139) !important;
   }
 
-  div[class*="xl:justify-between"] > div:nth-child(2):has(button[title], button svg) {
-    order: 1;
-    justify-content: flex-start !important;
-  }
-
-  /* Wider Category / Person compact buttons so selected values are readable */
   div[class*="xl:justify-between"] button.w-\[150px\] {
     width: 190px !important;
   }
@@ -240,14 +232,17 @@
     }
   }
 
-  /* Tablet portrait: stable two-column layout; sync sits above view switcher */
   @media (min-width: 641px) and (max-width: 1023px) and (orientation: portrait) {
     div[class*="xl:justify-between"] {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) auto !important;
-      align-items: start !important;
+      align-items: end !important;
       gap: 0.75rem !important;
-      margin-top: 0.75rem !important;
+      margin-top: 0.45rem !important;
+    }
+
+    div[class*="xl:justify-between"] > div:nth-child(2):has(button[title], button svg) {
+      padding-top: 1rem !important;
     }
 
     div[class*="xl:justify-between"] > div:first-child:has(button span.flex.h-7.w-7) {
@@ -296,7 +291,6 @@
     }
   }
 
-  /* Family Calendar filter popover: centered modal-style panel for tablet reliability */
   div.fixed.right-4.top-28.z-\[80\] {
     left: 50% !important;
     right: auto !important;
