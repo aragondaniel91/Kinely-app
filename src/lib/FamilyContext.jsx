@@ -436,7 +436,6 @@ export function FamilyProvider({ children }) {
 
   const custodyModuleActive = currentPath.startsWith("/custody");
   const custodyScopeId = custodyModuleActive ? custodyParentOverride?.custodyGroupId || "" : "";
-  const effectiveFamilyId = custodyScopeId || activeProfile?.id || null;
 
   const resolvedDadName = custodyModuleActive && custodyParentOverride?.dadName ? custodyParentOverride.dadName : dadName || "Papá";
   const resolvedMomName = custodyModuleActive && custodyParentOverride?.momName ? custodyParentOverride.momName : momName || "Mamá";
@@ -579,7 +578,7 @@ export function FamilyProvider({ children }) {
     user,
     myEmail,
     profile: activeProfile,
-    familyId: effectiveFamilyId,
+    familyId: activeProfile?.id || null,
     actualFamilyId: activeProfile?.id || null,
     custodyScopeId,
     custodyModuleActive,
