@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 
+import FamilyWallClockWeather from "@/components/FamilyWallClockWeather";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV5";
 
 const compactCalendarStyles = `
@@ -84,6 +85,29 @@ const compactCalendarStyles = `
   line-height: 0.8rem !important;
 }
 
+.family-calendar-clock-weather-slot {
+  position: absolute;
+  right: 5.7rem;
+  top: 1.25rem;
+  z-index: 35;
+}
+
+.family-calendar-clock-weather-slot .family-wall-clock-weather {
+  padding: 0 !important;
+  justify-content: flex-end !important;
+}
+
+.family-calendar-clock-weather-slot .family-wall-clock-weather > div {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.family-calendar-shell div.hidden.items-center.gap-2.md\\:flex {
+  display: none !important;
+}
+
 @media (max-width: 900px) {
   .family-calendar-shell h1 {
     font-size: 2rem !important;
@@ -91,6 +115,13 @@ const compactCalendarStyles = `
 
   .family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-3 button {
     font-size: 1.15rem !important;
+  }
+
+  .family-calendar-clock-weather-slot {
+    right: 5rem;
+    top: 1rem;
+    transform: scale(0.9);
+    transform-origin: top right;
   }
 }
 `;
@@ -100,8 +131,11 @@ export default function Calendar() {
   const [viewMode, setViewMode] = useState("week");
 
   return (
-    <div className="family-calendar-shell min-h-full bg-background pb-28 md:pb-6">
+    <div className="family-calendar-shell relative min-h-full bg-background pb-28 md:pb-6">
       <style>{compactCalendarStyles}</style>
+      <div className="family-calendar-clock-weather-slot">
+        <FamilyWallClockWeather />
+      </div>
 
       <FamilyCalendarView
         activeCalendar={activeCalendar}
