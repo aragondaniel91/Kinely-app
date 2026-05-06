@@ -7,6 +7,7 @@ import React, {
 } from "react";
 
 import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -127,7 +128,6 @@ function normalizeFamilyProfile(family, user) {
 
     children,
 
-    // Base44-compatible fields
     family_name: familyName,
     owner_email: family.ownerEmail || family.owner_email || user?.email || "",
     created_by: family.createdByEmail || family.created_by || user?.email || "",
@@ -172,22 +172,28 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
   const familyRef = doc(collection(db, "families"));
 
   const familyData = {
-    familyName: `${
-      firebaseUser.displayName || userData?.name || "Family"
-    }'s Family`,
+    familyName: `${firebaseUser.displayName || userData?.name || "Family"}'s Family`,
+    family_name: `${firebaseUser.displayName || userData?.name || "Family"}'s Family`,
     ownerId: firebaseUser.uid,
     ownerEmail: firebaseUser.email,
     createdBy: firebaseUser.uid,
     createdByEmail: firebaseUser.email,
 
     parent1Name: firebaseUser.displayName || userData?.name || "",
+    parent1_name: firebaseUser.displayName || userData?.name || "",
     parent1Role: userData?.role === "mom" ? "mom" : "dad",
+    parent1_role: userData?.role === "mom" ? "mom" : "dad",
     parent1Color: "blue",
+    parent1_color: "blue",
 
     parent2Name: "",
+    parent2_name: "",
     parent2Email: "",
+    parent2_email: "",
     parent2Role: userData?.role === "mom" ? "dad" : "mom",
+    parent2_role: userData?.role === "mom" ? "dad" : "mom",
     parent2Color: "amber",
+    parent2_color: "amber",
 
     children: [],
 
@@ -203,6 +209,7 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
     ],
 
     memberEmails: [firebaseUser.email],
+    member_emails: [firebaseUser.email],
 
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -283,10 +290,7 @@ export function FamilyProvider({ children }) {
         for (const familyId of ids) {
           const familySnap = await getDoc(doc(db, "families", familyId));
           if (familySnap.exists()) {
-            loaded.push({
-              id: familySnap.id,
-              ...familySnap.data(),
-            });
+            loaded.push({ id: familySnap.id, ...familySnap.data() });
           }
         }
 
@@ -295,34 +299,22 @@ export function FamilyProvider({ children }) {
             collection(db, "families"),
             where("memberEmails", "array-contains", myEmail)
           );
-
           const memberSnap = await getDocs(memberQuery);
-
           memberSnap.docs.forEach((familyDoc) => {
             if (!loaded.some((f) => f.id === familyDoc.id)) {
-              loaded.push({
-                id: familyDoc.id,
-                ...familyDoc.data(),
-              });
+              loaded.push({ id: familyDoc.id, ...familyDoc.data() });
             }
           });
         }
 
         if (!cancelled) {
-          console.log("Loaded families:", loaded);
-          console.log("User family IDs:", Array.from(ids));
           setFamilies(loaded);
         }
       } catch (error) {
         console.error("Error loading families:", error);
-
-        if (!cancelled) {
-          setFamilies([]);
-        }
+        if (!cancelled) setFamilies([]);
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     }
 
@@ -335,10 +327,7 @@ export function FamilyProvider({ children }) {
 
   const accessibleProfiles = useMemo(() => {
     if (!user) return [];
-
-    return families
-      .map((family) => normalizeFamilyProfile(family, user))
-      .filter(Boolean);
+    return families.map((family) => normalizeFamilyProfile(family, user)).filter(Boolean);
   }, [families, user]);
 
   const myOwnProfile = accessibleProfiles.find((family) => {
@@ -366,12 +355,8 @@ export function FamilyProvider({ children }) {
 
   const memberEntry = useMemo(() => {
     if (!activeProfile || !myEmail) return null;
-
     return (activeProfile.members || []).find((member) => {
-      return (
-        member.uid === user?.uid ||
-        member.email?.toLowerCase() === myEmail?.toLowerCase()
-      );
+      return member.uid === user?.uid || member.email?.toLowerCase() === myEmail?.toLowerCase();
     });
   }, [activeProfile, myEmail, user?.uid]);
 
@@ -383,62 +368,39 @@ export function FamilyProvider({ children }) {
       activeProfile.created_by === myEmail
     : false;
 
-  const isAdmin =
-    isOwner || memberEntry?.isAdmin === true || memberEntry?.is_admin === true;
-
+  const isAdmin = isOwner || memberEntry?.isAdmin === true || memberEntry?.is_admin === true;
   const perms = isAdmin ? DEFAULT_PERMS : normalizePermissions(memberEntry);
 
-  const dadName =
-    activeProfile?.parent1_role === "dad"
-      ? activeProfile?.parent1_name
-      : activeProfile?.parent2_name;
-
-  const momName =
-    activeProfile?.parent1_role === "mom"
-      ? activeProfile?.parent1_name
-      : activeProfile?.parent2_name;
-
-  const dadColor =
-    activeProfile?.parent1_role === "dad"
-      ? activeProfile?.parent1_color || activeProfile?.parent1Color || "blue"
-      : activeProfile?.parent2_color || activeProfile?.parent2Color || "blue";
-
-  const momColor =
-    activeProfile?.parent1_role === "mom"
-      ? activeProfile?.parent1_color || activeProfile?.parent1Color || "amber"
-      : activeProfile?.parent2_color || activeProfile?.parent2Color || "amber";
-
-  const familyChildren =
-    activeProfile?.children ||
-    (activeProfile?.child_name ? [activeProfile.child_name] : []);
+  const dadName = activeProfile?.parent1_role === "dad" ? activeProfile?.parent1_name : activeProfile?.parent2_name;
+  const momName = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_name : activeProfile?.parent2_name;
+  const dadColor = activeProfile?.parent1_role === "dad" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "blue" : activeProfile?.parent2_color || activeProfile?.parent2Color || "blue";
+  const momColor = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "amber" : activeProfile?.parent2_color || activeProfile?.parent2Color || "amber";
+  const familyChildren = activeProfile?.children || (activeProfile?.child_name ? [activeProfile.child_name] : []);
 
   const refreshFamilies = async () => {
     if (!user) return;
-
     setIsLoading(true);
 
     try {
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
       const userData = userSnap.exists() ? userSnap.data() : {};
-
       const ids = new Set();
-
       if (userData.familyId) ids.add(userData.familyId);
-      if (Array.isArray(userData.familyIds)) {
-        userData.familyIds.forEach((id) => id && ids.add(id));
-      }
+      if (Array.isArray(userData.familyIds)) userData.familyIds.forEach((id) => id && ids.add(id));
 
       const loaded = [];
-
       for (const familyId of ids) {
         const familySnap = await getDoc(doc(db, "families", familyId));
-        if (familySnap.exists()) {
-          loaded.push({
-            id: familySnap.id,
-            ...familySnap.data(),
-          });
-        }
+        if (familySnap.exists()) loaded.push({ id: familySnap.id, ...familySnap.data() });
+      }
+
+      if (myEmail) {
+        const memberQuery = query(collection(db, "families"), where("memberEmails", "array-contains", myEmail));
+        const memberSnap = await getDocs(memberQuery);
+        memberSnap.docs.forEach((familyDoc) => {
+          if (!loaded.some((f) => f.id === familyDoc.id)) loaded.push({ id: familyDoc.id, ...familyDoc.data() });
+        });
       }
 
       setFamilies(loaded);
@@ -449,85 +411,133 @@ export function FamilyProvider({ children }) {
     }
   };
 
-  const updateActiveFamily = async (data) => {
-    if (!activeProfile?.id) return;
+  const createFamily = async ({ familyName, parent2Name = "", parent2Email = "", children = [] } = {}) => {
+    if (!user) throw new Error("You must be logged in to create a family.");
 
-    const payload = {
-      ...data,
+    const name = familyName?.trim() || `${user.displayName || "My"} Family`;
+    const cleanChildren = Array.isArray(children) ? children.map((child) => String(child).trim()).filter(Boolean) : [];
+    const familyRef = doc(collection(db, "families"));
+    const userRef = doc(db, "users", user.uid);
+
+    const familyData = {
+      familyName: name,
+      family_name: name,
+      type: "household",
+      ownerId: user.uid,
+      ownerEmail: user.email,
+      createdBy: user.uid,
+      createdByEmail: user.email,
+
+      parent1Name: user.displayName || authProfile?.name || "",
+      parent1_name: user.displayName || authProfile?.name || "",
+      parent1Role: authProfile?.role === "mom" ? "mom" : "dad",
+      parent1_role: authProfile?.role === "mom" ? "mom" : "dad",
+      parent1Color: "blue",
+      parent1_color: "blue",
+
+      parent2Name: parent2Name.trim(),
+      parent2_name: parent2Name.trim(),
+      parent2Email: parent2Email.trim().toLowerCase(),
+      parent2_email: parent2Email.trim().toLowerCase(),
+      parent2Role: authProfile?.role === "mom" ? "dad" : "mom",
+      parent2_role: authProfile?.role === "mom" ? "dad" : "mom",
+      parent2Color: "amber",
+      parent2_color: "amber",
+
+      children: cleanChildren,
+
+      members: [
+        {
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName || authProfile?.name || "",
+          role: "owner",
+          isAdmin: true,
+          permissions: DEFAULT_PERMS,
+        },
+      ],
+      memberEmails: [user.email, parent2Email.trim().toLowerCase()].filter(Boolean),
+      member_emails: [user.email, parent2Email.trim().toLowerCase()].filter(Boolean),
+
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
 
+    await setDoc(familyRef, familyData);
+    await setDoc(
+      userRef,
+      {
+        uid: user.uid,
+        name: user.displayName || authProfile?.name || "",
+        email: user.email,
+        familyId: familyRef.id,
+        familyIds: arrayUnion(familyRef.id),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    localStorage.setItem(STORAGE_KEY, familyRef.id);
+    setActiveFamilyIdState(familyRef.id);
+    await refreshFamilies();
+
+    return familyRef.id;
+  };
+
+  const updateActiveFamily = async (data) => {
+    if (!activeProfile?.id) return;
+
+    const payload = { ...data, updatedAt: serverTimestamp() };
+
     if (data.family_name !== undefined) payload.familyName = data.family_name;
-    if (data.parent1_name !== undefined)
-      payload.parent1Name = data.parent1_name;
-    if (data.parent1_role !== undefined)
-      payload.parent1Role = data.parent1_role;
-    if (data.parent1_color !== undefined)
-      payload.parent1Color = data.parent1_color;
-    if (data.parent2_name !== undefined)
-      payload.parent2Name = data.parent2_name;
-    if (data.parent2_email !== undefined)
-      payload.parent2Email = data.parent2_email;
-    if (data.parent2_role !== undefined)
-      payload.parent2Role = data.parent2_role;
-    if (data.parent2_color !== undefined)
-      payload.parent2Color = data.parent2_color;
+    if (data.parent1_name !== undefined) payload.parent1Name = data.parent1_name;
+    if (data.parent1_role !== undefined) payload.parent1Role = data.parent1_role;
+    if (data.parent1_color !== undefined) payload.parent1Color = data.parent1_color;
+    if (data.parent2_name !== undefined) payload.parent2Name = data.parent2_name;
+    if (data.parent2_email !== undefined) payload.parent2Email = data.parent2_email;
+    if (data.parent2_role !== undefined) payload.parent2Role = data.parent2_role;
+    if (data.parent2_color !== undefined) payload.parent2Color = data.parent2_color;
 
     if (data.familyName !== undefined) payload.family_name = data.familyName;
     if (data.parent1Name !== undefined) payload.parent1_name = data.parent1Name;
     if (data.parent1Role !== undefined) payload.parent1_role = data.parent1Role;
-    if (data.parent1Color !== undefined)
-      payload.parent1_color = data.parent1Color;
+    if (data.parent1Color !== undefined) payload.parent1_color = data.parent1Color;
     if (data.parent2Name !== undefined) payload.parent2_name = data.parent2Name;
-    if (data.parent2Email !== undefined)
-      payload.parent2_email = data.parent2Email;
+    if (data.parent2Email !== undefined) payload.parent2_email = data.parent2Email;
     if (data.parent2Role !== undefined) payload.parent2_role = data.parent2Role;
-    if (data.parent2Color !== undefined)
-      payload.parent2_color = data.parent2Color;
+    if (data.parent2Color !== undefined) payload.parent2_color = data.parent2Color;
 
     await updateDoc(doc(db, "families", activeProfile.id), payload);
-
     await refreshFamilies();
   };
 
   const value = {
     user,
     myEmail,
-
     profile: activeProfile,
     familyId: activeProfile?.id || null,
-
     isOwner,
     isAdmin,
     perms,
-
     dadName: dadName || "Papá",
     momName: momName || "Mamá",
     dadColor,
     momColor,
     children: familyChildren,
-
     isLoading: isLoading || authLoading,
-
     allProfiles: accessibleProfiles,
     activeProfileId: activeProfile?.id || null,
     setActiveProfileId,
-
     refreshFamilies,
+    createFamily,
     updateActiveFamily,
   };
 
-  return (
-    <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>
-  );
+  return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;
 }
 
 export function useFamily() {
   const context = useContext(FamilyContext);
-
-  if (!context) {
-    throw new Error("useFamily must be used inside FamilyProvider");
-  }
-
+  if (!context) throw new Error("useFamily must be used inside FamilyProvider");
   return context;
 }
