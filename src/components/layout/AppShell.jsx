@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import {
   Calendar,
   CheckSquare,
+  HeartHandshake,
   UtensilsCrossed,
   ShoppingCart,
   Home,
@@ -14,6 +15,7 @@ import FamilySelector from "@/components/layout/FamilySelector";
 const navItems = [
   { icon: Home, label: "Inicio", path: "/" },
   { icon: Calendar, label: "Calendario", path: "/calendar" },
+  { icon: HeartHandshake, label: "Custodia", path: "/custody" },
   { icon: CheckSquare, label: "Tareas", path: "/tasks" },
   { icon: UtensilsCrossed, label: "Comidas", path: "/meals" },
   { icon: ShoppingCart, label: "Compras", path: "/groceries" },
@@ -22,7 +24,7 @@ const navItems = [
 
 export default function AppShell() {
   const location = useLocation();
-  const hideFamilyHeader = location.pathname === "/calendar";
+  const hideFamilyHeader = location.pathname === "/calendar" || location.pathname === "/custody";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -37,7 +39,7 @@ export default function AppShell() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50">
-        <div className="flex justify-around items-center max-w-3xl mx-auto px-2 py-1">
+        <div className="flex justify-around items-center max-w-4xl mx-auto px-1 py-1 overflow-x-auto">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -47,14 +49,14 @@ export default function AppShell() {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-all min-w-[72px]",
+                  "flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all min-w-[68px]",
                   isActive
                     ? "text-primary bg-primary/10"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Icon className={cn("w-6 h-6", isActive && "stroke-[2.5]")} />
-                <span className="text-xs font-semibold font-heading">
+                <span className="text-[11px] font-semibold font-heading">
                   {item.label}
                 </span>
               </Link>
