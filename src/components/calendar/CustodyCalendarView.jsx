@@ -26,6 +26,19 @@ function groupParents(group) {
   return [];
 }
 
+function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
+  const parents = groupParents(group);
+  const dadParent = parents.find((parent) => parent.role === "dad");
+  const momParent = parents.find((parent) => parent.role === "mom");
+
+  return {
+    custodyDadName: dadParent?.name || parents[0]?.name || fallbackDadName || "Dad",
+    custodyMomName: momParent?.name || parents[1]?.name || fallbackMomName || "Mom",
+    custodyDadEmail: dadParent?.email || parents[0]?.email || "",
+    custodyMomEmail: momParent?.email || parents[1]?.email || "",
+  };
+}
+
 function CalendarSwitch({ activeCalendar, setActiveCalendar }) {
   return (
     <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -60,6 +73,7 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
         const active = group.id === selectedGroupId;
         const children = groupChildren(group);
         const parents = groupParents(group);
+        const { custodyDadName, custodyMomName } = resolveCustodyParentNames(group, "Dad", "Mom");
 
         return (
           <button
@@ -92,7 +106,9 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
                   {children.join(", ") || "Child not selected"}
                 </p>
                 <p className="mt-1 truncate text-xs font-semibold text-slate-400">
-                  {parents.map((parent) => parent.name || parent.email).filter(Boolean).join(" & ") || "Co-parent pending"}
+                  {parents.length > 0
+                    ? parents.map((parent) => parent.name || parent.email).filter(Boolean).join(" & ")
+                    : `${custodyDadName} & ${custodyMomName}`}
                 </p>
               </div>
             </div>
@@ -159,8 +175,8 @@ export default function CustodyCalendarView({
       name: `${profile?.family_name || profile?.familyName || "Family"} Custody`,
       children: profile?.children || [],
       coParents: [
-        { name: dadName || "Dad", email: myEmail || "" },
-        { name: momName || "Mom", email: profile?.parent2_email || profile?.parent2Email || "" },
+        { name: dadName || "Dad", email: myEmail || "", role: "dad" },
+        { name: momName || "Mom", email: profile?.parent2_email || profile?.parent2Email || "", role: "mom" },
       ],
       legacy: true,
     }),
@@ -180,6 +196,7 @@ export default function CustodyCalendarView({
   const selectedChildren = selectedGroup ? groupChildren(selectedGroup) : [];
   const selectedParents = selectedGroup ? groupParents(selectedGroup) : [];
   const familyName = profile?.family_name || profile?.familyName || "Current Family";
+  const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
 
   return (
     <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
@@ -246,7 +263,9 @@ export default function CustodyCalendarView({
               <div className="rounded-2xl bg-slate-50 px-3 py-2">
                 <span className="font-black uppercase tracking-wide text-slate-400">Co-parents</span>
                 <p className="mt-0.5 truncate text-slate-700">
-                  {selectedParents.map((parent) => parent.name || parent.email).filter(Boolean).join(" & ") || "Pending"}
+                  {selectedParents.length > 0
+                    ? selectedParents.map((parent) => parent.name || parent.email).filter(Boolean).join(" & ")
+                    : `${custodyParentNames.custodyDadName} & ${custodyParentNames.custodyMomName}`}
                 </p>
               </div>
             </div>
@@ -260,6 +279,12 @@ export default function CustodyCalendarView({
             showFilters
             selectedCustodyGroup={selectedGroup}
             selectedCustodyGroupId={selectedGroup?.legacy ? "" : selectedGroup?.id || ""}
+            custodyDadName={custodyParentNames.custodyDadName}
+            custodyMomName={custodyParentNames.custodyMomName}
+            custodyDadEmail={custodyParentNames.custodyDadEmail}
+            custodyMomEmail={custodyParentNames.custodyMomEmail}
+            custodyChildren={selectedChildren}
+            custodyCoParents={selectedParents}
           />
         </div>
       </div>
