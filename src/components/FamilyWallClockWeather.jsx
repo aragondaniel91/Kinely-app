@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CloudSun, Clock3, MapPin } from "lucide-react";
+import { Clock3, MapPin } from "lucide-react";
 
 const WEATHER_CODE = {
   0: { label: "Clear", icon: "☀️" },
@@ -106,25 +106,27 @@ export default function FamilyWallClockWeather() {
   );
 
   return (
-    <div className="family-wall-clock-weather pointer-events-none fixed right-[5.25rem] top-5 z-[115] hidden items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur md:flex">
-      <div className="flex items-center gap-2 border-r border-slate-200 pr-3">
-        <Clock3 className="h-4 w-4 text-blue-600" />
-        <div className="leading-tight">
-          <p className="text-lg font-black text-slate-950">{time}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{day}</p>
+    <div className="family-wall-clock-weather flex items-center justify-end px-4 pt-3 md:px-8">
+      <div className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 shadow-sm">
+        <div className="flex items-center gap-2 border-r border-slate-200 pr-3">
+          <Clock3 className="h-4 w-4 text-blue-600" />
+          <div className="leading-tight">
+            <p className="text-lg font-black text-slate-950">{time}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{day}</p>
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-2xl" aria-hidden="true">{weatherInfo.icon}</span>
-        <div className="leading-tight">
-          <p className="text-lg font-black text-slate-950">
-            {weather.loading ? "--" : weather.temp !== null ? `${weather.temp}°` : "--°"}
-          </p>
-          <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            <MapPin className="h-3 w-3" />
-            {weather.temp !== null ? weatherInfo.label : "Weather"}
-          </p>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl" aria-hidden="true">{weatherInfo.icon}</span>
+          <div className="leading-tight">
+            <p className="text-lg font-black text-slate-950">
+              {weather.loading ? "--" : weather.temp !== null ? `${weather.temp}°` : "--°"}
+            </p>
+            <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              <MapPin className="h-3 w-3" />
+              {weather.temp !== null ? weatherInfo.label : "Weather"}
+            </p>
+          </div>
         </div>
       </div>
     </div>
