@@ -15,9 +15,18 @@ import {
   Users,
   X,
 } from "lucide-react";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 
 import { useAuth } from "@/lib/AuthContext";
 import { useFamily } from "@/lib/FamilyContext";
+import { db } from "@/lib/firebase";
 import ParentColorPicker from "@/components/profile/ParentColorPicker";
 
 import { Button } from "@/components/ui/button";
@@ -26,13 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
-const moduleLabels = [
-  "Family Calendar",
-  "Tasks",
-  "Meals",
-  "Grocery List",
-  "Notes",
-];
+const moduleLabels = ["Family Calendar", "Tasks", "Meals", "Grocery List", "Notes"];
 
 function normalizeChildren(children) {
   return Array.isArray(children) ? children : [];
@@ -128,6 +131,31 @@ function FamilyCard({ family, active, onSelect }) {
   );
 }
 
+function CustodyGroupCard({ group }) {
+  const children = Array.isArray(group.children) ? group.children : group.childName ? [group.childName] : [];
+  const parents = Array.isArray(group.coParents) ? group.coParents : [];
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+          <Baby className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-black text-slate-900">{group.name || "Custody Group"}</p>
+          <p className="text-xs font-semibold text-slate-400">
+            Child: {children.join(", ") || "Not selected"}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-slate-400">
+            Co-parents: {parents.map((parent) => parent.name || parent.email).filter(Boolean).join(" & ") || "Pending"}
+          </p>
+          <Badge variant="outline" className="mt-2">Active custody space</Badge>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Profile() {
   const { logout } = useAuth();
   const {
@@ -171,6 +199,15 @@ export default function Profile() {
   const [newFamilyAdultEmail, setNewFamilyAdultEmail] = useState("");
   const [newFamilyChildren, setNewFamilyChildren] = useState("");
 
+  const [custodyGroups, setCustodyGroups] = useState([]);
+  const [loadingCustody, setLoadingCustody] = useState(false);
+  const [showCreateCustody, setShowCreateCustody] = useState(false);
+  const [creatingCustody, setCreatingCustody] = useState(false);
+  const [custodyChild, setCustodyChild] = useState("");
+  const [custodyName, setCustodyName] = useState("");
+  const [custodyCoparentName, setCustodyCoparentName] = useState("");
+  const [custodyCoparentEmail, setCustodyCoparentEmail] = useState("");
+
   useEffect(() => {
     if (!profile) return;
 
@@ -195,20 +232,43 @@ export default function Profile() {
     setInviteEmail(profile.parent2_email || profile.parent2Email || "");
   }, [profile, user]);
 
+  useEffect(() => {
+    if (!myEmail) return;
+
+    let cancelled = false;
+
+    async function loadCustodyGroups() {
+      setLoadingCustody(true);
+      try {
+        const custodyQuery = query(
+          collection(db, "custodyGroups"),
+          where("memberEmails", "array-contains", myEmail)
+        );
+        const snap = await getDocs(custodyQuery);
+        const groups = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        if (!cancelled) setCustodyGroups(groups);
+      } catch (error) {
+        console.error("Error loading custody groups:", error);
+        if (!cancelled) setCustodyGroups([]);
+      } finally {
+        if (!cancelled) setLoadingCustody(false);
+      }
+    }
+
+    loadCustodyGroups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [myEmail, familyId]);
+
   const canEdit = isAdmin === true;
   const families = allProfiles || [];
   const members = useMemo(() => memberList(profile, user, myEmail), [profile, user, myEmail]);
 
-  const custodyDrafts = useMemo(() => {
-    const cleanChildren = children.filter(Boolean);
-    return cleanChildren.map((child) => ({
-      id: `custody-${child}`,
-      child,
-      name: `${child} Custody`,
-      coparents: [parent1Name || "Parent 1", parent2Name || "Co-parent"].filter(Boolean),
-      status: "Planned",
-    }));
-  }, [children, parent1Name, parent2Name]);
+  useEffect(() => {
+    if (!custodyChild && children.length > 0) setCustodyChild(children[0]);
+  }, [children, custodyChild]);
 
   const handleAddChild = () => {
     if (!newChild.trim()) return;
@@ -218,6 +278,79 @@ export default function Profile() {
 
   const handleRemoveChild = (index) => {
     setChildren((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const reloadCustodyGroups = async () => {
+    if (!myEmail) return;
+    const custodyQuery = query(collection(db, "custodyGroups"), where("memberEmails", "array-contains", myEmail));
+    const snap = await getDocs(custodyQuery);
+    setCustodyGroups(snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+  };
+
+  const handleCreateCustodyGroup = async () => {
+    if (!custodyChild.trim()) {
+      alert("Please select a child for this custody group.");
+      return;
+    }
+
+    if (!custodyCoparentEmail.trim()) {
+      alert("Please enter the co-parent email.");
+      return;
+    }
+
+    setCreatingCustody(true);
+    setSavedMessage("");
+
+    try {
+      const coparentEmail = custodyCoparentEmail.trim().toLowerCase();
+      const groupName = custodyName.trim() || `${custodyChild.trim()} Custody`;
+      const parentName = parent1Name || user?.displayName || "Parent 1";
+      const coparentName = custodyCoparentName.trim() || parent2Name || "Co-parent";
+
+      await addDoc(collection(db, "custodyGroups"), {
+        name: groupName,
+        type: "custody",
+        status: "active",
+        children: [custodyChild.trim()],
+        childNames: [custodyChild.trim()],
+        linkedFamilyIds: [familyId].filter(Boolean),
+        createdBy: user?.uid || null,
+        createdByEmail: myEmail || "",
+        ownerId: user?.uid || null,
+        ownerEmail: myEmail || "",
+        memberEmails: [myEmail, coparentEmail].filter(Boolean),
+        coParents: [
+          {
+            uid: user?.uid || null,
+            email: myEmail || "",
+            name: parentName,
+            role: parent1Role || "parent",
+            permissions: { custodyCalendar: { read: true, write: true } },
+          },
+          {
+            uid: null,
+            email: coparentEmail,
+            name: coparentName,
+            role: parent1Role === "dad" ? "mom" : "dad",
+            permissions: { custodyCalendar: { read: true, write: true } },
+          },
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await reloadCustodyGroups();
+      setCustodyName("");
+      setCustodyCoparentName("");
+      setCustodyCoparentEmail("");
+      setShowCreateCustody(false);
+      setSavedMessage("Custody group created. It is separate from the private family space.");
+    } catch (error) {
+      console.error("Error creating custody group:", error);
+      alert(`Error creating custody group: ${error.message}`);
+    } finally {
+      setCreatingCustody(false);
+    }
   };
 
   const handleCreateFamily = async () => {
@@ -230,11 +363,7 @@ export default function Profile() {
     setSavedMessage("");
 
     try {
-      const cleanChildren = newFamilyChildren
-        .split(",")
-        .map((child) => child.trim())
-        .filter(Boolean);
-
+      const cleanChildren = newFamilyChildren.split(",").map((child) => child.trim()).filter(Boolean);
       const newFamilyId = await createFamily?.({
         familyName: newFamilyName,
         parent2Name: newFamilyAdultName,
@@ -275,8 +404,7 @@ export default function Profile() {
 
     try {
       const cleanChildren = children.map((child) => child.trim()).filter(Boolean);
-
-      const payload = {
+      await updateActiveFamily({
         familyName: familyName.trim() || "Mi familia",
         family_name: familyName.trim() || "Mi familia",
         children: cleanChildren,
@@ -294,9 +422,7 @@ export default function Profile() {
         parent2_role: parent2Role,
         parent2Color,
         parent2_color: parent2Color,
-      };
-
-      await updateActiveFamily(payload);
+      });
       await refreshFamilies?.();
       setSavedMessage("Cambios guardados correctamente.");
     } catch (error) {
@@ -320,7 +446,6 @@ export default function Profile() {
         : Array.isArray(profile?.member_emails)
           ? profile.member_emails
           : [];
-
       const memberAlreadyExists = existingMembers.some((member) => member.email?.toLowerCase() === email);
       const updatedMembers = memberAlreadyExists
         ? existingMembers
@@ -339,9 +464,7 @@ export default function Profile() {
               },
             },
           ];
-
       const updatedMemberEmails = Array.from(new Set([...existingMemberEmails, email, myEmail].filter(Boolean)));
-
       await updateActiveFamily({
         parent2Email: email,
         parent2_email: email,
@@ -349,7 +472,6 @@ export default function Profile() {
         memberEmails: updatedMemberEmails,
         member_emails: updatedMemberEmails,
       });
-
       await refreshFamilies?.();
       setParent2Email(email);
       setSavedMessage("Email agregado a esta familia. La otra persona deberá registrarse con ese mismo email para verla.");
@@ -376,9 +498,7 @@ export default function Profile() {
             </div>
             <div>
               <h1 className="text-3xl font-black tracking-tight text-slate-950">Family Management</h1>
-              <p className="text-sm font-semibold text-slate-500">
-                Separate private family spaces from shared custody calendars.
-              </p>
+              <p className="text-sm font-semibold text-slate-500">Separate private family spaces from shared custody calendars.</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {isOwner && <Badge variant="secondary" className="gap-1"><Shield className="h-3 w-3" /> Owner</Badge>}
                 {isAdmin && <Badge variant="outline" className="gap-1"><Shield className="h-3 w-3" /> Admin</Badge>}
@@ -386,102 +506,43 @@ export default function Profile() {
               </div>
             </div>
           </div>
-
-          <Button variant="outline" onClick={handleLogout} className="gap-2 border-red-200 text-red-500 hover:text-red-600">
-            <LogOut className="h-4 w-4" />
-            Log out
-          </Button>
+          <Button variant="outline" onClick={handleLogout} className="gap-2 border-red-200 text-red-500 hover:text-red-600"><LogOut className="h-4 w-4" /> Log out</Button>
         </div>
 
-        {!canEdit && (
-          <Card className="mb-6 border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-800">
-              You have read access. Only a family admin can edit this family space.
-            </p>
-          </Card>
-        )}
-
-        {savedMessage && (
-          <Card className="mb-6 border-green-200 bg-green-50 p-4">
-            <p className="text-sm font-semibold text-green-800">{savedMessage}</p>
-          </Card>
-        )}
+        {!canEdit && <Card className="mb-6 border-amber-200 bg-amber-50 p-4"><p className="text-sm font-semibold text-amber-800">You have read access. Only a family admin can edit this family space.</p></Card>}
+        {savedMessage && <Card className="mb-6 border-green-200 bg-green-50 p-4"><p className="text-sm font-semibold text-green-800">{savedMessage}</p></Card>}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-6">
             <Card className="p-5">
               <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-                    <Home className="h-4 w-4" /> Active Family
-                  </h2>
-                  <p className="mt-1 text-xs font-semibold text-slate-400">This controls private calendar, tasks, meals and lists.</p>
-                </div>
+                <div><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Home className="h-4 w-4" /> Active Family</h2><p className="mt-1 text-xs font-semibold text-slate-400">This controls private calendar, tasks, meals and lists.</p></div>
               </div>
-
               <div className="rounded-3xl bg-indigo-50 p-4 ring-1 ring-indigo-100">
                 <p className="text-xl font-black text-slate-950">{familyName || "My Family"}</p>
                 <p className="mt-1 text-sm font-semibold text-slate-500">Private family space</p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {moduleLabels.map((module) => (
-                    <span key={module} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-indigo-700 ring-1 ring-indigo-100">
-                      {module}
-                    </span>
-                  ))}
-                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">{moduleLabels.map((module) => <span key={module} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-indigo-700 ring-1 ring-indigo-100">{module}</span>)}</div>
               </div>
             </Card>
 
             <Card className="p-5">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-                <Users className="h-4 w-4" /> My Families
-              </h2>
-
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Users className="h-4 w-4" /> My Families</h2>
               <div className="space-y-3">
-                {families.map((family) => (
-                  <FamilyCard key={family.id} family={family} active={family.id === activeProfileId} onSelect={() => setActiveProfileId?.(family.id)} />
-                ))}
+                {families.map((family) => <FamilyCard key={family.id} family={family} active={family.id === activeProfileId} onSelect={() => setActiveProfileId?.(family.id)} />)}
                 {families.length === 0 && <p className="text-sm font-semibold text-slate-400">No family spaces found.</p>}
               </div>
 
               {!showCreateFamily ? (
-                <Button type="button" variant="outline" className="mt-4 w-full gap-2" onClick={() => setShowCreateFamily(true)}>
-                  <Plus className="h-4 w-4" /> Create another family
-                </Button>
+                <Button type="button" variant="outline" className="mt-4 w-full gap-2" onClick={() => setShowCreateFamily(true)}><Plus className="h-4 w-4" /> Create another family</Button>
               ) : (
                 <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50/60 p-4">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black text-slate-950">Create family space</p>
-                      <p className="text-xs font-semibold text-slate-500">Private calendar, tasks, meals and lists.</p>
-                    </div>
-                    <button type="button" onClick={() => setShowCreateFamily(false)} className="rounded-full p-1 text-slate-400 hover:bg-white hover:text-slate-700">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
+                  <div className="mb-3 flex items-start justify-between gap-3"><div><p className="font-black text-slate-950">Create family space</p><p className="text-xs font-semibold text-slate-500">Private calendar, tasks, meals and lists.</p></div><button type="button" onClick={() => setShowCreateFamily(false)} className="rounded-full p-1 text-slate-400 hover:bg-white hover:text-slate-700"><X className="h-4 w-4" /></button></div>
                   <div className="space-y-3">
-                    <div>
-                      <Label>Family name</Label>
-                      <Input value={newFamilyName} onChange={(e) => setNewFamilyName(e.target.value)} placeholder="Daniel & Mary Family" className="mt-1 bg-white" />
-                    </div>
-                    <div>
-                      <Label>Second adult name</Label>
-                      <Input value={newFamilyAdultName} onChange={(e) => setNewFamilyAdultName(e.target.value)} placeholder="Mary" className="mt-1 bg-white" />
-                    </div>
-                    <div>
-                      <Label>Second adult email</Label>
-                      <Input type="email" value={newFamilyAdultEmail} onChange={(e) => setNewFamilyAdultEmail(e.target.value)} placeholder="email@example.com" className="mt-1 bg-white" />
-                    </div>
-                    <div>
-                      <Label>Children</Label>
-                      <Input value={newFamilyChildren} onChange={(e) => setNewFamilyChildren(e.target.value)} placeholder="Joaquin, Mady" className="mt-1 bg-white" />
-                      <p className="mt-1 text-xs font-semibold text-slate-400">Separate names with commas.</p>
-                    </div>
-
-                    <Button type="button" onClick={handleCreateFamily} disabled={creatingFamily || !newFamilyName.trim()} className="w-full bg-indigo-600 hover:bg-indigo-700">
-                      {creatingFamily ? "Creating..." : "Create and switch"}
-                    </Button>
+                    <div><Label>Family name</Label><Input value={newFamilyName} onChange={(e) => setNewFamilyName(e.target.value)} placeholder="Daniel & Mary Family" className="mt-1 bg-white" /></div>
+                    <div><Label>Second adult name</Label><Input value={newFamilyAdultName} onChange={(e) => setNewFamilyAdultName(e.target.value)} placeholder="Mary" className="mt-1 bg-white" /></div>
+                    <div><Label>Second adult email</Label><Input type="email" value={newFamilyAdultEmail} onChange={(e) => setNewFamilyAdultEmail(e.target.value)} placeholder="email@example.com" className="mt-1 bg-white" /></div>
+                    <div><Label>Children</Label><Input value={newFamilyChildren} onChange={(e) => setNewFamilyChildren(e.target.value)} placeholder="Joaquin, Mady" className="mt-1 bg-white" /><p className="mt-1 text-xs font-semibold text-slate-400">Separate names with commas.</p></div>
+                    <Button type="button" onClick={handleCreateFamily} disabled={creatingFamily || !newFamilyName.trim()} className="w-full bg-indigo-600 hover:bg-indigo-700">{creatingFamily ? "Creating..." : "Create and switch"}</Button>
                   </div>
                 </div>
               )}
@@ -490,162 +551,63 @@ export default function Profile() {
 
           <div className="space-y-6">
             <Card className="p-5">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-                <Home className="h-4 w-4" /> Family Space Settings
-              </h2>
-
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Home className="h-4 w-4" /> Family Space Settings</h2>
               <div className="space-y-5">
-                <div>
-                  <Label>Family name</Label>
-                  <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} disabled={!canEdit} placeholder="Daniel & Mary Family" className="mt-1" />
-                </div>
-
+                <div><Label>Family name</Label><Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} disabled={!canEdit} placeholder="Daniel & Mary Family" className="mt-1" /></div>
                 <div>
                   <Label>Children in this family space</Label>
                   <div className="my-3 flex flex-wrap gap-2">
-                    {children.map((child, index) => (
-                      <span key={`${child}-${index}`} className="flex items-center gap-2 rounded-xl bg-indigo-100 px-3 py-1.5 text-sm font-bold text-indigo-700">
-                        👶 {child}
-                        {canEdit && <button type="button" onClick={() => handleRemoveChild(index)}><X className="h-4 w-4" /></button>}
-                      </span>
-                    ))}
+                    {children.map((child, index) => <span key={`${child}-${index}`} className="flex items-center gap-2 rounded-xl bg-indigo-100 px-3 py-1.5 text-sm font-bold text-indigo-700">👶 {child}{canEdit && <button type="button" onClick={() => handleRemoveChild(index)}><X className="h-4 w-4" /></button>}</span>)}
                     {children.length === 0 && <p className="text-sm text-muted-foreground">No children added yet.</p>}
                   </div>
-
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <Input placeholder="Child name" value={newChild} onChange={(e) => setNewChild(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddChild()} />
-                      <Button type="button" variant="outline" onClick={handleAddChild}><Plus className="h-5 w-5" /></Button>
-                    </div>
-                  )}
+                  {canEdit && <div className="flex gap-2"><Input placeholder="Child name" value={newChild} onChange={(e) => setNewChild(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddChild()} /><Button type="button" variant="outline" onClick={handleAddChild}><Plus className="h-5 w-5" /></Button></div>}
                 </div>
               </div>
             </Card>
 
             <Card className="p-5">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-                <Users className="h-4 w-4" /> Parents / Caregivers
-              </h2>
-
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Users className="h-4 w-4" /> Parents / Caregivers</h2>
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <div className="rounded-2xl border bg-blue-50/40 p-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <Label>Parent 1 name</Label>
-                      <Input value={parent1Name} onChange={(e) => setParent1Name(e.target.value)} disabled={!canEdit} placeholder="Daniel" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>Role</Label>
-                      <select value={parent1Role} onChange={(e) => { const role = e.target.value; setParent1Role(role); setParent2Role(role === "dad" ? "mom" : "dad"); }} disabled={!canEdit} className="mt-1 w-full rounded-xl border bg-white px-3 py-2">
-                        <option value="dad">Dad</option>
-                        <option value="mom">Mom</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <ParentColorPicker label="Parent 1 color" value={parent1Color} onChange={setParent1Color} />
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border bg-amber-50/40 p-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <Label>Parent 2 name</Label>
-                      <Input value={parent2Name} onChange={(e) => setParent2Name(e.target.value)} disabled={!canEdit} placeholder="Name" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>Role</Label>
-                      <select value={parent2Role} onChange={(e) => { const role = e.target.value; setParent2Role(role); setParent1Role(role === "dad" ? "mom" : "dad"); }} disabled={!canEdit} className="mt-1 w-full rounded-xl border bg-white px-3 py-2">
-                        <option value="mom">Mom</option>
-                        <option value="dad">Dad</option>
-                      </select>
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Parent 2 email</Label>
-                      <Input type="email" value={parent2Email} onChange={(e) => setParent2Email(e.target.value)} disabled={!canEdit} placeholder="email@example.com" className="mt-1" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <ParentColorPicker label="Parent 2 color" value={parent2Color} onChange={setParent2Color} />
-                  </div>
-                </div>
+                <div className="rounded-2xl border bg-blue-50/40 p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><Label>Parent 1 name</Label><Input value={parent1Name} onChange={(e) => setParent1Name(e.target.value)} disabled={!canEdit} placeholder="Daniel" className="mt-1" /></div><div><Label>Role</Label><select value={parent1Role} onChange={(e) => { const role = e.target.value; setParent1Role(role); setParent2Role(role === "dad" ? "mom" : "dad"); }} disabled={!canEdit} className="mt-1 w-full rounded-xl border bg-white px-3 py-2"><option value="dad">Dad</option><option value="mom">Mom</option></select></div></div><div className="mt-4"><ParentColorPicker label="Parent 1 color" value={parent1Color} onChange={setParent1Color} /></div></div>
+                <div className="rounded-2xl border bg-amber-50/40 p-4"><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><Label>Parent 2 name</Label><Input value={parent2Name} onChange={(e) => setParent2Name(e.target.value)} disabled={!canEdit} placeholder="Name" className="mt-1" /></div><div><Label>Role</Label><select value={parent2Role} onChange={(e) => { const role = e.target.value; setParent2Role(role); setParent1Role(role === "dad" ? "mom" : "dad"); }} disabled={!canEdit} className="mt-1 w-full rounded-xl border bg-white px-3 py-2"><option value="mom">Mom</option><option value="dad">Dad</option></select></div><div className="md:col-span-2"><Label>Parent 2 email</Label><Input type="email" value={parent2Email} onChange={(e) => setParent2Email(e.target.value)} disabled={!canEdit} placeholder="email@example.com" className="mt-1" /></div></div><div className="mt-4"><ParentColorPicker label="Parent 2 color" value={parent2Color} onChange={setParent2Color} /></div></div>
               </div>
             </Card>
 
             <Card className="p-5">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-                <Shield className="h-4 w-4" /> Members & Permissions
-              </h2>
-
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Shield className="h-4 w-4" /> Members & Permissions</h2>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {members.map((member, index) => (
-                  <div key={`${member.email}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-black text-slate-900">{member.name || member.email || "Member"}</p>
-                        <p className="text-xs font-semibold text-slate-400">{member.email || "No email"}</p>
-                      </div>
-                      <Badge variant={member.admin ? "secondary" : "outline"}>{member.admin ? "Admin" : member.role}</Badge>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {moduleLabels.slice(0, 4).map((module) => (
-                        <span key={module} className="rounded-full bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">
-                          {module}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {members.map((member, index) => <div key={`${member.email}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-slate-900">{member.name || member.email || "Member"}</p><p className="text-xs font-semibold text-slate-400">{member.email || "No email"}</p></div><Badge variant={member.admin ? "secondary" : "outline"}>{member.admin ? "Admin" : member.role}</Badge></div><div className="mt-3 flex flex-wrap gap-1.5">{moduleLabels.slice(0, 4).map((module) => <span key={module} className="rounded-full bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{module}</span>)}</div></div>)}
               </div>
-
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-700"><Mail className="h-4 w-4" /> Invite / connect member</h3>
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Input type="email" placeholder="email@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} disabled={!canEdit} />
-                  <Button type="button" disabled={!canEdit || !inviteEmail.trim() || saving} onClick={handleSaveInviteEmail} className="gap-2">
-                    <UserPlus className="h-5 w-5" /> Add
-                  </Button>
-                </div>
-                <p className="mt-3 text-sm text-slate-500">MVP flow: this authorizes the email. Later this becomes a real email invitation with Firebase Functions.</p>
-              </div>
+              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4"><h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-700"><Mail className="h-4 w-4" /> Invite / connect member</h3><div className="flex flex-col gap-3 sm:flex-row"><Input type="email" placeholder="email@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} disabled={!canEdit} /><Button type="button" disabled={!canEdit || !inviteEmail.trim() || saving} onClick={handleSaveInviteEmail} className="gap-2"><UserPlus className="h-5 w-5" /> Add</Button></div><p className="mt-3 text-sm text-slate-500">MVP flow: this authorizes the email. Later this becomes a real email invitation with Firebase Functions.</p></div>
             </Card>
 
             <Card className="p-5">
-              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-                <CalendarHeart className="h-4 w-4" /> Custody Calendars
-              </h2>
-
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                <p className="font-black text-slate-950">Shared custody spaces are separate from private family spaces.</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">Family Calendar, Tasks, Meals and Grocery stay private by family. Custody Calendar is shared only between authorized co-parents.</p>
-              </div>
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><CalendarHeart className="h-4 w-4" /> Custody Calendars</h2>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4"><p className="font-black text-slate-950">Shared custody spaces are separate from private family spaces.</p><p className="mt-1 text-sm font-semibold text-slate-500">Family Calendar, Tasks, Meals and Grocery stay private by family. Custody Calendar is shared only between authorized co-parents.</p></div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                {custodyDrafts.map((custody) => (
-                  <div key={custody.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><Baby className="h-5 w-5" /></div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-black text-slate-900">{custody.name}</p>
-                        <p className="text-xs font-semibold text-slate-400">Co-parents: {custody.coparents.join(" & ")}</p>
-                        <Badge variant="outline" className="mt-2">{custody.status}</Badge>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {custodyDrafts.length === 0 && <p className="text-sm font-semibold text-slate-400">Add a child to prepare a custody calendar.</p>}
+                {loadingCustody && <p className="text-sm font-semibold text-slate-400">Loading custody calendars...</p>}
+                {!loadingCustody && custodyGroups.map((group) => <CustodyGroupCard key={group.id} group={group} />)}
+                {!loadingCustody && custodyGroups.length === 0 && <p className="text-sm font-semibold text-slate-400">No custody groups yet.</p>}
               </div>
 
-              <Button type="button" variant="outline" disabled className="mt-4 w-full gap-2">
-                <Plus className="h-4 w-4" /> Create custody group soon
-              </Button>
+              {!showCreateCustody ? (
+                <Button type="button" variant="outline" className="mt-4 w-full gap-2" onClick={() => setShowCreateCustody(true)}><Plus className="h-4 w-4" /> Create custody group</Button>
+              ) : (
+                <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3"><div><p className="font-black text-slate-950">Create custody group</p><p className="text-xs font-semibold text-slate-500">Shared only with the co-parent email.</p></div><button type="button" onClick={() => setShowCreateCustody(false)} className="rounded-full p-1 text-slate-400 hover:bg-white hover:text-slate-700"><X className="h-4 w-4" /></button></div>
+                  <div className="space-y-3">
+                    <div><Label>Child</Label><select value={custodyChild} onChange={(e) => setCustodyChild(e.target.value)} className="mt-1 w-full rounded-xl border bg-white px-3 py-2">{children.map((child) => <option key={child} value={child}>{child}</option>)}</select></div>
+                    <div><Label>Custody group name</Label><Input value={custodyName} onChange={(e) => setCustodyName(e.target.value)} placeholder={custodyChild ? `${custodyChild} Custody` : "Joaquin Custody"} className="mt-1 bg-white" /></div>
+                    <div><Label>Co-parent name</Label><Input value={custodyCoparentName} onChange={(e) => setCustodyCoparentName(e.target.value)} placeholder="Amanda" className="mt-1 bg-white" /></div>
+                    <div><Label>Co-parent email</Label><Input type="email" value={custodyCoparentEmail} onChange={(e) => setCustodyCoparentEmail(e.target.value)} placeholder="coparent@example.com" className="mt-1 bg-white" /></div>
+                    <Button type="button" onClick={handleCreateCustodyGroup} disabled={creatingCustody || !custodyChild || !custodyCoparentEmail.trim()} className="w-full bg-blue-600 hover:bg-blue-700">{creatingCustody ? "Creating..." : "Create custody group"}</Button>
+                  </div>
+                </div>
+              )}
             </Card>
 
-            {canEdit && (
-              <Button type="button" onClick={handleSave} disabled={saving || !familyId || !isAdmin} className="w-full rounded-xl bg-indigo-600 py-6 font-semibold text-white hover:bg-indigo-700">
-                <Save className="mr-2 h-5 w-5" /> {saving ? "Saving..." : "Save family changes"}
-              </Button>
-            )}
+            {canEdit && <Button type="button" onClick={handleSave} disabled={saving || !familyId || !isAdmin} className="w-full rounded-xl bg-indigo-600 py-6 font-semibold text-white hover:bg-indigo-700"><Save className="mr-2 h-5 w-5" /> {saving ? "Saving..." : "Save family changes"}</Button>}
           </div>
         </div>
       </div>
