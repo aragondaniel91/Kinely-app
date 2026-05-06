@@ -11,6 +11,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import FamilySelector from "@/components/layout/FamilySelector";
+import { useFamily } from "@/lib/FamilyContext";
 
 const navItems = [
   { icon: Home, label: "Inicio", path: "/" },
@@ -22,9 +23,31 @@ const navItems = [
   { icon: User, label: "Perfil", path: "/profile" },
 ];
 
+function AppShellLoader() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">
+        <div className="mx-auto flex max-w-4xl justify-around px-1 py-2">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <div key={index} className="flex min-w-[68px] flex-col items-center gap-1 px-3 py-1">
+              <div className="h-6 w-6 animate-pulse rounded-full bg-muted" />
+              <div className="h-2 w-10 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AppShell() {
   const location = useLocation();
+  const { isLoading, profile, familyId } = useFamily();
   const hideFamilyHeader = location.pathname === "/calendar" || location.pathname === "/custody";
+
+  if (isLoading || !profile || !familyId) {
+    return <AppShellLoader />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
