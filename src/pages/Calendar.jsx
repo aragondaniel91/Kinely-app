@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
 import FamilyWallClockWeather from "@/components/FamilyWallClockWeather";
+import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV5";
 
 const compactCalendarStyles = `
@@ -137,12 +138,16 @@ export default function Calendar() {
         <FamilyWallClockWeather />
       </div>
 
-      <FamilyCalendarView
-        activeCalendar={activeCalendar}
-        setActiveCalendar={setActiveCalendar}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-      />
+      {activeCalendar === "custody" ? (
+        <CustodyCalendarView activeCalendar={activeCalendar} setActiveCalendar={setActiveCalendar} />
+      ) : (
+        <FamilyCalendarView
+          activeCalendar={activeCalendar}
+          setActiveCalendar={setActiveCalendar}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
+      )}
     </div>
   );
 }
