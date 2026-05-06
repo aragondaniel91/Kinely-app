@@ -25,7 +25,6 @@ import { useAuth } from "@/lib/AuthContext";
 export const FamilyContext = createContext(null);
 
 const STORAGE_KEY = "familywall_active_family_id";
-const CUSTODY_PARENT_OVERRIDE_KEY = "familywall_custody_parent_override";
 
 const DEFAULT_PERMS = {
   calendar: { read: true, write: true },
@@ -40,24 +39,6 @@ const READ_ONLY_PERMS = {
   meals: { read: true, write: false },
   groceries: { read: true, write: false },
 };
-
-function getCurrentPath() {
-  if (typeof window === "undefined") return "";
-  return window.location.pathname || "";
-}
-
-function readCustodyParentOverride() {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.localStorage.getItem(CUSTODY_PARENT_OVERRIDE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (error) {
-    console.warn("Invalid custody parent override:", error);
-    return null;
-  }
-}
 
 function normalizePermissions(member) {
   if (!member) return READ_ONLY_PERMS;
@@ -260,8 +241,6 @@ export function FamilyProvider({ children }) {
     return localStorage.getItem(STORAGE_KEY) || null;
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPath, setCurrentPath] = useState(() => getCurrentPath());
-  const [custodyParentOverride, setCustodyParentOverride] = useState(() => readCustodyParentOverride());
 
   const myEmail = user?.email || authProfile?.email || null;
 
@@ -270,42 +249,6 @@ export function FamilyProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, id);
     setActiveFamilyIdState(id);
   };
-
-  useEffect(() => {
-    const updatePath = () => setCurrentPath(getCurrentPath());
-    const originalPushState = window.history.pushState;
-    const originalReplaceState = window.history.replaceState;
-
-    window.history.pushState = function patchedPushState(...args) {
-      originalPushState.apply(this, args);
-      updatePath();
-    };
-
-    window.history.replaceState = function patchedReplaceState(...args) {
-      originalReplaceState.apply(this, args);
-      updatePath();
-    };
-
-    window.addEventListener("popstate", updatePath);
-
-    return () => {
-      window.history.pushState = originalPushState;
-      window.history.replaceState = originalReplaceState;
-      window.removeEventListener("popstate", updatePath);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleCustodyOverride = (event) => {
-      setCustodyParentOverride(event.detail || readCustodyParentOverride());
-    };
-
-    window.addEventListener("familywall:custody-parent-override", handleCustodyOverride);
-
-    return () => {
-      window.removeEventListener("familywall:custody-parent-override", handleCustodyOverride);
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -433,12 +376,6 @@ export function FamilyProvider({ children }) {
   const dadColor = activeProfile?.parent1_role === "dad" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "blue" : activeProfile?.parent2_color || activeProfile?.parent2Color || "blue";
   const momColor = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "amber" : activeProfile?.parent2_color || activeProfile?.parent2Color || "amber";
   const familyChildren = activeProfile?.children || (activeProfile?.child_name ? [activeProfile.child_name] : []);
-
-  const custodyModuleActive = currentPath.startsWith("/custody");
-  const custodyScopeId = custodyModuleActive ? custodyParentOverride?.custodyGroupId || "" : "";
-
-  const resolvedDadName = custodyModuleActive && custodyParentOverride?.dadName ? custodyParentOverride.dadName : dadName || "Papá";
-  const resolvedMomName = custodyModuleActive && custodyParentOverride?.momName ? custodyParentOverride.momName : momName || "Mamá";
 
   const refreshFamilies = async () => {
     if (!user) return;
@@ -580,16 +517,16 @@ export function FamilyProvider({ children }) {
     profile: activeProfile,
     familyId: activeProfile?.id || null,
     actualFamilyId: activeProfile?.id || null,
-    custodyScopeId,
-    custodyModuleActive,
+    custodyScopeId: "",
+    custodyModuleActive: false,
     isOwner,
     isAdmin,
     perms,
-    dadName: resolvedDadName,
-    momName: resolvedMomName,
+    dadName: dadName || "Papá",
+    momName: momName || "Mamá",
     familyDadName: dadName || "Papá",
     familyMomName: momName || "Mamá",
-    custodyParentOverride,
+    custodyParentOverride: null,
     dadColor,
     momColor,
     children: familyChildren,
