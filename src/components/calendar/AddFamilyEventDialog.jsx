@@ -490,19 +490,26 @@ export default function AddFamilyEventDialog({
           </div>
 
           <div>
-            <Label>Description / Notes</Label>
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <Label>Description / Notes</Label>
+              <span className="text-xs font-semibold text-slate-400">
+                {description.length}/500
+              </span>
+            </div>
+
             <div className="relative mt-1">
               <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-              <Input
+              <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Pick up at 3:00 PM, bring uniform..."
-                className="h-11 pl-9 text-base"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && title.trim()) handleSave();
-                }}
+                onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+                placeholder="Example: Pick up at 3:00 PM after baseball practice. Bring uniform and water bottle."
+                className="min-h-[108px] w-full resize-none rounded-xl border border-input bg-background px-3 py-3 pl-9 text-base leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
+
+            <p className="mt-1 text-xs font-semibold text-slate-400">
+              These notes will show in the event details panel.
+            </p>
           </div>
         </div>
 
