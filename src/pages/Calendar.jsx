@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV2";
+import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV3";
 
 const compactCalendarStyles = `
 .family-calendar-shell > div > div.mx-auto {
