@@ -62,6 +62,28 @@ const compactCalendarStyles = `
   padding-bottom: 0.65rem !important;
 }
 
+.family-calendar-shell div.space-y-1.overflow-hidden.border-b.border-slate-200.p-2 > button {
+  padding-top: 0.1rem !important;
+  padding-bottom: 0.1rem !important;
+  min-height: 0 !important;
+}
+
+.family-calendar-shell div.space-y-1.overflow-hidden.border-b.border-slate-200.p-2 > button p:first-child {
+  font-size: 0.62rem !important;
+  line-height: 0.82rem !important;
+}
+
+.family-calendar-shell div.space-y-1.overflow-hidden.border-b.border-slate-200.p-2 > button p:last-child {
+  display: none !important;
+}
+
+.family-calendar-shell div.space-y-1.overflow-hidden.border-b.border-slate-200.p-2 > div.border-dashed {
+  padding-top: 0.08rem !important;
+  padding-bottom: 0.08rem !important;
+  font-size: 0.62rem !important;
+  line-height: 0.8rem !important;
+}
+
 @media (max-width: 900px) {
   .family-calendar-shell h1 {
     font-size: 2rem !important;
