@@ -7,6 +7,8 @@ import { useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
 
+const CUSTODY_PARENT_OVERRIDE_KEY = "familywall_custody_parent_override";
+
 const calendarTypes = [
   { value: "family", label: "Family Calendar", icon: CalendarDays },
   { value: "custody", label: "Custody Calendar", icon: HeartHandshake },
@@ -37,6 +39,17 @@ function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
     custodyDadEmail: dadParent?.email || parents[0]?.email || "",
     custodyMomEmail: momParent?.email || parents[1]?.email || "",
   };
+}
+
+function publishCustodyParentOverride(override) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(CUSTODY_PARENT_OVERRIDE_KEY, JSON.stringify(override));
+    window.dispatchEvent(new CustomEvent("familywall:custody-parent-override", { detail: override }));
+  } catch (error) {
+    console.warn("Could not publish custody parent override:", error);
+  }
 }
 
 function CalendarSwitch({ activeCalendar, setActiveCalendar }) {
@@ -197,6 +210,25 @@ export default function CustodyCalendarView({
   const selectedParents = selectedGroup ? groupParents(selectedGroup) : [];
   const familyName = profile?.family_name || profile?.familyName || "Current Family";
   const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
+
+  useEffect(() => {
+    publishCustodyParentOverride({
+      dadName: custodyParentNames.custodyDadName,
+      momName: custodyParentNames.custodyMomName,
+      dadEmail: custodyParentNames.custodyDadEmail,
+      momEmail: custodyParentNames.custodyMomEmail,
+      custodyGroupId: selectedGroup?.legacy ? "" : selectedGroup?.id || "",
+      custodyGroupName: selectedGroup?.name || "",
+    });
+  }, [
+    custodyParentNames.custodyDadName,
+    custodyParentNames.custodyMomName,
+    custodyParentNames.custodyDadEmail,
+    custodyParentNames.custodyMomEmail,
+    selectedGroup?.id,
+    selectedGroup?.legacy,
+    selectedGroup?.name,
+  ]);
 
   return (
     <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
