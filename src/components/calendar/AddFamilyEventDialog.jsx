@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   addDoc,
@@ -19,6 +19,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { cn } from "@/lib/utils";
 
 import {
   Dialog,
@@ -50,6 +51,10 @@ const categories = [
   { value: "note", label: "Note", emoji: "📝" },
   { value: "other", label: "Other", emoji: "📌" },
 ];
+
+const hourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
+const minuteOptions = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+const meridiemOptions = ["AM", "PM"];
 
 function getChildName(child) {
   if (!child) return "";
@@ -123,6 +128,96 @@ function parseAssignedTo(value, dadName, momName) {
   };
 }
 
+function timeToParts(value, fallback = "09:00") {
+  const safeValue = value || fallback;
+  const [rawHour = "9", rawMinute = "00"] = safeValue.split(":");
+  const hour24 = Number(rawHour);
+  const minute = rawMinute.padStart(2, "0").slice(0, 2);
+  const meridiem = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return {
+    hour: String(hour12),
+    minute,
+    meridiem,
+  };
+}
+
+function partsToTime(parts) {
+  let hour = Number(parts.hour || "9");
+  const minute = String(parts.minute || "00").padStart(2, "0");
+  const meridiem = parts.meridiem || "AM";
+
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
+function addOneHour(parts) {
+  const current = partsToTime(parts);
+  const [hour, minute] = current.split(":").map(Number);
+  const nextHour = (hour + 1) % 24;
+  return timeToParts(`${String(nextHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+}
+
+function TabletTimePicker({ label, value, onChange }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+      <Label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+        <Clock className="h-3.5 w-3.5" />
+        {label}
+      </Label>
+
+      <div className="grid grid-cols-[1fr_1fr_1.05fr] gap-2">
+        <Select value={value.hour} onValueChange={(hour) => onChange({ ...value, hour })}>
+          <SelectTrigger className="h-12 rounded-xl bg-white text-base font-black">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="z-[230] max-h-72">
+            {hourOptions.map((hour) => (
+              <SelectItem key={hour} value={hour}>
+                {hour}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={value.minute} onValueChange={(minute) => onChange({ ...value, minute })}>
+          <SelectTrigger className="h-12 rounded-xl bg-white text-base font-black">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="z-[230] max-h-72">
+            {minuteOptions.map((minute) => (
+              <SelectItem key={minute} value={minute}>
+                {minute}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          {meridiemOptions.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onChange({ ...value, meridiem: option })}
+              className={cn(
+                "text-sm font-black transition",
+                value.meridiem === option
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AddFamilyEventDialog({
   date,
   onClose,
@@ -130,6 +225,15 @@ export default function AddFamilyEventDialog({
   editEvent = null,
 }) {
   const { user, familyId, profile, children, dadName, momName } = useFamily();
+
+  const initialStartParts = useMemo(
+    () => timeToParts(editEvent?.startTime, "09:00"),
+    [editEvent?.startTime]
+  );
+  const initialEndParts = useMemo(
+    () => timeToParts(editEvent?.endTime, "10:00"),
+    [editEvent?.endTime]
+  );
 
   const [title, setTitle] = useState(editEvent?.title || "");
   const [description, setDescription] = useState(
@@ -141,20 +245,49 @@ export default function AddFamilyEventDialog({
   const [isAllDay, setIsAllDay] = useState(
     Boolean(editEvent?.isAllDay) || (!editEvent?.startTime && !editEvent?.endTime)
   );
-  const [startTime, setStartTime] = useState(editEvent?.startTime || "");
-  const [endTime, setEndTime] = useState(editEvent?.endTime || "");
+  const [startParts, setStartParts] = useState(initialStartParts);
+  const [endParts, setEndParts] = useState(initialEndParts);
   const [category, setCategory] = useState(editEvent?.category || "family");
   const [assignedTo, setAssignedTo] = useState(getInitialAssignedTo(editEvent));
   const [location, setLocation] = useState(editEvent?.location || "");
   const [saving, setSaving] = useState(false);
 
   const isEditing = Boolean(editEvent?.id);
+  const startTime = partsToTime(startParts);
+  const endTime = partsToTime(endParts);
+
+  const toggleAllDay = () => {
+    setIsAllDay((current) => {
+      const next = !current;
+      if (!next && (!startParts || !endParts)) {
+        const start = timeToParts("09:00");
+        setStartParts(start);
+        setEndParts(addOneHour(start));
+      }
+      return next;
+    });
+  };
+
+  const handleStartChange = (nextStart) => {
+    setStartParts(nextStart);
+
+    const nextStartTime = partsToTime(nextStart);
+    const currentEndTime = partsToTime(endParts);
+    if (currentEndTime <= nextStartTime) {
+      setEndParts(addOneHour(nextStart));
+    }
+  };
 
   const handleSave = async () => {
     if (!title.trim()) return;
 
     if (!familyId) {
       alert("No active family found.");
+      return;
+    }
+
+    if (!isAllDay && endTime <= startTime) {
+      alert("End time must be after start time.");
       return;
     }
 
@@ -214,10 +347,10 @@ export default function AddFamilyEventDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="z-[200] max-w-md">
+      <DialogContent className="z-[200] max-h-[92vh] max-w-lg overflow-y-auto rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="font-heading text-xl flex items-center gap-2">
-            <CalendarDays className="w-5 h-5" />
+          <DialogTitle className="font-heading flex items-center gap-2 text-xl">
+            <CalendarDays className="h-5 w-5" />
             {isEditing ? "Edit Family Event" : "Add Family Event"}
           </DialogTitle>
         </DialogHeader>
@@ -226,12 +359,12 @@ export default function AddFamilyEventDialog({
           <div>
             <Label>Title</Label>
             <div className="relative mt-1">
-              <FileText className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+              <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Baseball practice, school activity..."
-                className="pl-9"
+                className="h-11 pl-9 text-base"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && title.trim()) handleSave();
                 }}
@@ -239,21 +372,21 @@ export default function AddFamilyEventDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>Date</Label>
               <Input
                 type="date"
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
-                className="mt-1"
+                className="mt-1 h-11 text-base"
               />
             </div>
 
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1">
+                <SelectTrigger className="mt-1 h-11">
                   <SelectValue />
                 </SelectTrigger>
 
@@ -270,60 +403,59 @@ export default function AddFamilyEventDialog({
 
           <button
             type="button"
-            onClick={() => setIsAllDay((current) => !current)}
-            className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
+            onClick={toggleAllDay}
+            className={cn(
+              "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
               isAllDay
                 ? "border-blue-200 bg-blue-50 text-blue-700"
-                : "border-border bg-background text-foreground hover:bg-muted"
-            }`}
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            )}
           >
-            <span
-              className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                isAllDay ? "border-blue-600 bg-blue-600 text-white" : "border-muted-foreground/40"
-              }`}
-            >
-              {isAllDay && <Check className="h-3.5 w-3.5" />}
-            </span>
             <span>
-              <span className="block text-sm font-semibold">All day event</span>
-              <span className="block text-xs text-muted-foreground">
-                Use this for events that do not need a specific time.
+              <span className="block text-sm font-black">All-day event</span>
+              <span className="block text-xs font-semibold text-muted-foreground">
+                Use this when the event does not need a specific time.
+              </span>
+            </span>
+
+            <span
+              className={cn(
+                "relative h-8 w-14 shrink-0 rounded-full transition",
+                isAllDay ? "bg-blue-600" : "bg-slate-300"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition",
+                  isAllDay ? "left-7 text-blue-600" : "left-1 text-slate-400"
+                )}
+              >
+                {isAllDay && <Check className="h-3.5 w-3.5" />}
               </span>
             </span>
           </button>
 
           {!isAllDay && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Start Time</Label>
-                <div className="relative mt-1">
-                  <Clock className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                  <Input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <TabletTimePicker
+                label="Start time"
+                value={startParts}
+                onChange={handleStartChange}
+              />
 
-              <div>
-                <Label>End Time</Label>
-                <Input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
+              <TabletTimePicker
+                label="End time"
+                value={endParts}
+                onChange={setEndParts}
+              />
             </div>
           )}
 
           <div>
             <Label>Assign To</Label>
             <Select value={assignedTo} onValueChange={setAssignedTo}>
-              <SelectTrigger className="mt-1">
-                <UserRound className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectTrigger className="mt-1 h-11">
+                <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
 
@@ -347,12 +479,12 @@ export default function AddFamilyEventDialog({
           <div>
             <Label>Location</Label>
             <div className="relative mt-1">
-              <MapPin className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+              <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="School, clinic, baseball field..."
-                className="pl-9"
+                className="h-11 pl-9 text-base"
               />
             </div>
           </div>
@@ -360,12 +492,12 @@ export default function AddFamilyEventDialog({
           <div>
             <Label>Description / Notes</Label>
             <div className="relative mt-1">
-              <Tag className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+              <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Pick up at 3:00 PM, bring uniform..."
-                className="pl-9"
+                className="h-11 pl-9 text-base"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && title.trim()) handleSave();
                 }}
@@ -374,7 +506,7 @@ export default function AddFamilyEventDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
