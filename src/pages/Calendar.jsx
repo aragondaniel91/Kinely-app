@@ -2,7 +2,7 @@ import React, { useState } from "react";
 
 import FamilyWallClockWeather from "@/components/FamilyWallClockWeather";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV5";
-import CustodyCalendar from "@/pages/CustodyCalendar";
+import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 
 const compactCalendarStyles = `
 .family-calendar-shell > div > div.mx-auto {
@@ -139,10 +139,11 @@ export default function Calendar() {
       </div>
 
       {activeCalendar === "custody" ? (
-        <CustodyCalendar
-          viewMode={viewMode === "mixed" ? "month" : viewMode}
+        <CustodyCalendarView
+          activeCalendar={activeCalendar}
+          setActiveCalendar={setActiveCalendar}
+          viewMode={viewMode}
           setViewMode={setViewMode}
-          showFilters
         />
       ) : (
         <FamilyCalendarView
