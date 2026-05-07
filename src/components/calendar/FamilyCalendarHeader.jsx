@@ -24,11 +24,6 @@ export default function FamilyCalendarHeader() {
             <h1 className="text-[42px] font-black leading-none tracking-tight text-slate-950">
               Family Calendar
             </h1>
-            <button className="mb-1 flex items-center gap-2 rounded-xl px-2 py-1 text-sm font-bold text-slate-600 hover:bg-slate-50">
-              <span>▣</span>
-              Family Calendar
-              <span className="text-slate-400">⌄</span>
-            </button>
           </div>
 
           <button className="mt-5 flex items-center gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
