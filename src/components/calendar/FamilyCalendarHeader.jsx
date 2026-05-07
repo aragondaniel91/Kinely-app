@@ -10,7 +10,7 @@ const people = [
 export default function FamilyCalendarHeader() {
   return (
     <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
-      <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-2">
+      <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-3">
         <div className="flex items-center gap-3 text-slate-500">
           <span className="text-xl leading-none">🏠</span>
           <div>
@@ -65,7 +65,7 @@ export default function FamilyCalendarHeader() {
           </button>
         </div>
 
-        <div className="col-span-2 flex flex-wrap items-center gap-12 pt-1">
+        <div className="col-span-2 flex mt-2 flex-wrap items-center gap-12 pt-1">
           {people.map((person) => (
             <div key={person.name} className="flex items-center gap-3">
               <span className={`h-4 w-4 rounded-full ${person.color}`} />
@@ -74,7 +74,7 @@ export default function FamilyCalendarHeader() {
           ))}
         </div>
 
-        <div className="self-center mt-2 pb-1 text-base font-semibold text-slate-600">
+        <div className="self-center mt-3 pb-1 text-base font-semibold text-slate-600">
           17 events · May 2026
         </div>
 
