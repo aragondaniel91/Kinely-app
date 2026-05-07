@@ -18,6 +18,7 @@ import Groceries from "@/pages/Groceries";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Profile from "@/pages/ProfileV5";
+import FamilyCalendarHeaderPreview from "@/pages/FamilyCalendarHeaderPreview";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
 import { FamilyProvider } from "@/lib/FamilyContext";
@@ -61,6 +62,8 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/calendar-header-preview" element={<FamilyCalendarHeaderPreview />} />
+
       <Route
         path="/login"
         element={
