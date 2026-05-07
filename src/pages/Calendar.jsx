@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 import FamilyWallClockWeather from "@/components/FamilyWallClockWeather";
-import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV5";
+import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV6";
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 
 const compactCalendarStyles = `
