@@ -1,17 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Baby, CalendarDays, HeartHandshake, Layers, Shield, UsersRound } from "lucide-react";
+import { Baby, HeartHandshake, Shield, UsersRound } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
-
-const calendarTypes = [
-  { value: "family", label: "Family Calendar", icon: CalendarDays },
-  { value: "custody", label: "Custody Calendar", icon: HeartHandshake },
-  { value: "all", label: "All Calendar", icon: Layers },
-];
 
 function groupChildren(group) {
   if (!group) return [];
@@ -39,31 +33,6 @@ function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
     custodyDadEmail: dadParent?.email || parents[0]?.email || "",
     custodyMomEmail: momParent?.email || parents[1]?.email || "",
   };
-}
-
-function CalendarSwitch({ activeCalendar, setActiveCalendar }) {
-  return (
-    <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      {calendarTypes.map((item) => {
-        const Icon = item.icon;
-        const active = activeCalendar === item.value;
-
-        return (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => setActiveCalendar?.(item.value)}
-            className={`flex h-10 items-center gap-2 border-r border-slate-200 px-3 text-sm font-extrabold last:border-r-0 ${
-              active ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            <span className="hidden sm:inline">{item.label.replace(" Calendar", "")}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
@@ -122,8 +91,6 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
 }
 
 export default function CustodyCalendarView({
-  activeCalendar = "custody",
-  setActiveCalendar,
   viewMode = "month",
   setViewMode,
 }) {
@@ -266,11 +233,10 @@ export default function CustodyCalendarView({
               </p>
             </div>
 
-            <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center justify-end">
               <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700">
                 <UsersRound className="h-5 w-5" />
               </button>
-              <CalendarSwitch activeCalendar={activeCalendar} setActiveCalendar={setActiveCalendar} />
             </div>
           </div>
 
