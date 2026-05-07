@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Baby, HeartHandshake, Shield, UsersRound } from "lucide-react";
+import { Baby } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -166,7 +166,6 @@ export default function CustodyCalendarView({
 
   const selectedChildren = groupChildren(selectedGroup);
   const selectedParents = groupParents(selectedGroup);
-  const familyName = profile?.family_name || profile?.familyName || "Current Family";
   const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
   const selectedCustodyGroupId = selectedGroup?.legacy ? "" : selectedGroup?.id || "";
   const scopedFamilyId = selectedCustodyGroupId || familyId;
@@ -207,40 +206,7 @@ export default function CustodyCalendarView({
     <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
       <div className="mx-auto max-w-none rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                  <HeartHandshake className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-lg font-black text-slate-950">Custody Calendar</p>
-                  <p className="text-xs font-semibold text-slate-400">{familyName}</p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-                  Shared Custody
-                </h1>
-                <Badge variant="outline" className="gap-1 border-blue-200 bg-blue-50 text-blue-700">
-                  <Shield className="h-3 w-3" /> Co-parent space
-                </Badge>
-              </div>
-
-              <p className="mt-2 max-w-2xl text-sm font-semibold text-slate-500">
-                Select the custody group first. The calendar below keeps the original custody logic and layout.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end">
-              <button type="button" className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700">
-                <UsersRound className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5">
+          <div>
             {loadingGroups ? (
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
                 Loading custody groups...
