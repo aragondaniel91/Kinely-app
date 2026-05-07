@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, User } from "lucide-react";
 
 const people = [
   { name: "Daniel Aragon", color: "bg-blue-500" },
@@ -53,7 +53,7 @@ export default function FamilyCalendarHeader() {
 
         <div className="flex flex-wrap items-center justify-end gap-4">
           <button className="flex h-11 min-w-[220px] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 text-left text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-            <span className="text-slate-500">♙</span>
+            <User className="h-4 w-4 text-slate-500" />
             Person
             <span className="text-xs font-semibold text-slate-400">All People</span>
             <span className="ml-auto text-slate-400">⌄</span>
