@@ -7,7 +7,7 @@ const days = ["Mon 4", "Tue 5", "Wed 6", "Thu 7", "Fri 8", "Sat 9", "Sun 10"];
 export default function FamilyCalendarHeaderPreview() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-[1600px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+      <div className="relative mx-auto max-w-[1600px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
         <FamilyCalendarHeader />
 
         <div className="grid grid-cols-7 border-b border-slate-200 bg-white">
@@ -27,6 +27,10 @@ export default function FamilyCalendarHeaderPreview() {
             </div>
           ))}
         </div>
+
+        <button className="absolute bottom-6 left-6 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-4xl font-light leading-none text-white shadow-xl shadow-blue-600/30 transition hover:scale-105 hover:bg-blue-700 active:scale-95" aria-label="Add event">
+          +
+        </button>
       </div>
     </div>
   );
