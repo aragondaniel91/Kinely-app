@@ -44,7 +44,7 @@ export default function FamilyCalendarHeader() {
           </button>
         </div>
 
-        <button className="flex w-fit items-center gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
+        <button className="flex w-fit items-center mt-2 gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
           <span className="text-xl leading-none">🗓️</span>
           May 2026
           <span className="text-base text-slate-400">⌄</span>
@@ -74,7 +74,7 @@ export default function FamilyCalendarHeader() {
           ))}
         </div>
 
-        <div className="self-center pb-1 text-base font-semibold text-slate-600">
+        <div className="self-center mt-2 pb-1 text-base font-semibold text-slate-600">
           17 events · May 2026
         </div>
 
