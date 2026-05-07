@@ -135,6 +135,9 @@ export function custodyPersonColorMap(custodyGroup = {}) {
 }
 
 export function resolveEventColor(event = {}, profile = {}, fallbackType = "all") {
+  const storedColor = event.eventColor || event.event_color || event.color || event.familyColor || event.family_color;
+  if (storedColor && PERSON_COLOR_OPTIONS.some((color) => color.id === storedColor)) return storedColor;
+
   const { map } = familyPersonColorMap(profile);
   const possibleKeys = [
     event.assignedTo,
