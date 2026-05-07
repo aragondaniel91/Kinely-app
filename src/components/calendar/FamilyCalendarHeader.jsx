@@ -15,7 +15,10 @@ export default function FamilyCalendarHeader() {
           <span className="text-lg">⌂</span>
           <div>
             <p className="text-lg font-black leading-tight text-slate-900">Family Wall</p>
-            <p className="text-xs font-semibold text-slate-400">Aragon Arraga Family</p>
+            <button className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-700">
+              Aragon Arraga Family
+              <span className="text-slate-400">⌄</span>
+            </button>
           </div>
         </div>
 
