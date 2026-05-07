@@ -13,6 +13,15 @@ const compactCalendarStyles = `
 
 .family-calendar-shell div.border-b.border-slate-200.bg-white {
   position: relative !important;
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1fr) auto !important;
+  grid-template-areas:
+    "brand sync"
+    "month filters"
+    "people people"
+    "summary views" !important;
+  column-gap: 1.5rem !important;
+  row-gap: 0.85rem !important;
   padding: 1rem 1.5rem 0.85rem !important;
 }
 
@@ -22,57 +31,98 @@ const compactCalendarStyles = `
   letter-spacing: -0.04em !important;
 }
 
-/* Header: [Family Wall] left, [Weather/Time] right */
+/* Row 1/2 left: [Family Wall] / Family Calendar */
 .family-calendar-shell .mb-5.flex.items-center.gap-3 {
-  max-width: calc(100% - 24rem) !important;
-  margin-bottom: 0.7rem !important;
+  grid-area: brand !important;
+  margin: 0 !important;
+  align-self: start !important;
+  max-width: none !important;
 }
 
-.family-calendar-shell .mb-5.flex.items-center.gap-3 .h-10.w-10 {
-  height: 2rem !important;
-  width: 2rem !important;
-  border-radius: 0.85rem !important;
-  font-size: 1rem !important;
+.family-calendar-shell .mb-5.flex.items-center.gap-3 .h-10.w-10,
+.family-calendar-shell .mb-5.flex.items-center.gap-3 .h-11.w-11 {
+  height: 2.25rem !important;
+  width: 2.25rem !important;
+  border-radius: 0.9rem !important;
 }
 
-.family-calendar-shell .mb-5.flex.items-center.gap-3 p.text-xl {
-  font-size: 1.05rem !important;
+.family-calendar-shell .mb-5.flex.items-center.gap-3 p.text-xl,
+.family-calendar-shell .mb-5.flex.items-center.gap-3 p.truncate {
+  font-size: 1.1rem !important;
   line-height: 1.1 !important;
 }
 
-/* Row 3: [May 2026] left and [Person filter] [Category filter] right */
+.family-calendar-shell .mb-5.flex.items-center.gap-3 p.text-xs,
+.family-calendar-shell .mb-5.flex.items-center.gap-3 p.text-sm {
+  font-size: 0.8rem !important;
+  line-height: 1.05rem !important;
+}
+
+/* Row 2 right: sync calendar */
+.family-calendar-shell div.border-b.border-slate-200.bg-white button:has(svg[class*="RefreshCw"]),
+.family-calendar-shell div.border-b.border-slate-200.bg-white button:has(svg) {
+  white-space: nowrap !important;
+}
+
+/* Month + filters row */
 .family-calendar-shell div[class*="xl:justify-between"] {
-  margin-top: 0 !important;
+  display: contents !important;
+}
+
+.family-calendar-shell div[class*="xl:justify-between"] > div:first-child {
+  grid-area: month !important;
+  display: flex !important;
   align-items: center !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
 }
 
 .family-calendar-shell div[class*="xl:justify-between"] > div:last-child {
-  margin-left: auto !important;
+  grid-area: filters !important;
+  display: flex !important;
+  align-items: center !important;
   justify-content: flex-end !important;
+  gap: 0.75rem !important;
+  min-width: 0 !important;
 }
 
-/* Row 4: all names/chips by themselves */
-.family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-3 {
+/* Keep only the person/category filters visually in the filters area */
+.family-calendar-shell div[class*="xl:justify-between"] > div:last-child > button,
+.family-calendar-shell div[class*="xl:justify-between"] > div:last-child > div {
+  flex-shrink: 0 !important;
+}
+
+/* All names row */
+.family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-3,
+.family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-2 {
+  grid-area: people !important;
   width: 100% !important;
-  margin-top: 0.9rem !important;
+  margin: 0 !important;
   justify-content: flex-start !important;
 }
 
-.family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-3 button {
-  font-size: 1.15rem !important;
+.family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-3 button,
+.family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-2 button {
+  font-size: 1.05rem !important;
 }
 
-.family-calendar-shell div.border-b.border-slate-200.bg-white > div.mt-5 {
-  margin-top: 0.85rem !important;
-}
-
-/* Row 5: summary left, < Today > center, Day/Week/Month right */
+/* Summary + view controls row */
 .family-calendar-shell div.border-b.border-slate-200.bg-white > p.mt-4 {
-  margin-top: 0.9rem !important;
-  margin-bottom: 0 !important;
+  grid-area: summary !important;
+  margin: 0 !important;
+  align-self: center !important;
   font-weight: 800 !important;
 }
 
+.family-calendar-shell div.border-b.border-slate-200.bg-white > div.mt-5,
+.family-calendar-shell div.border-b.border-slate-200.bg-white > div:last-of-type {
+  grid-area: views !important;
+  margin: 0 !important;
+  align-self: center !important;
+  justify-self: end !important;
+}
+
+/* Calendar grid compacting */
 .family-calendar-shell .grid.border-b.border-slate-200 > div {
   padding-top: 0.65rem !important;
   padding-bottom: 0.65rem !important;
@@ -124,11 +174,19 @@ const compactCalendarStyles = `
     font-size: 2rem !important;
   }
 
-  .family-calendar-shell .mb-5.flex.items-center.gap-3 {
-    max-width: 100% !important;
+  .family-calendar-shell div.border-b.border-slate-200.bg-white {
+    display: flex !important;
+    flex-direction: column !important;
   }
 
-  .family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-3 button {
+  .family-calendar-shell div[class*="xl:justify-between"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-3 button,
+  .family-calendar-shell .mt-5.flex.flex-wrap.items-center.gap-2 button {
     font-size: 1rem !important;
   }
 
