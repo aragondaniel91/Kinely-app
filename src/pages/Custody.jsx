@@ -6,6 +6,7 @@ import {
   MessageCircle,
   Shirt,
   Trash2,
+  Truck,
 } from "lucide-react";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
@@ -21,6 +22,13 @@ const custodyModules = [
     icon: CalendarDays,
     description: "Custody calendar, manual days, bulk schedule, and future templates.",
     accent: "bg-blue-50 text-blue-600 border-blue-100",
+  },
+  {
+    id: "exchange",
+    label: "Exchange",
+    icon: Truck,
+    description: "Pickup/dropoff days, handoff notes, exchange reminders, and status.",
+    accent: "bg-cyan-50 text-cyan-600 border-cyan-100",
   },
   {
     id: "packing",
@@ -159,11 +167,11 @@ export default function Custody() {
               Shared co-parenting hub
             </h1>
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-500 md:text-base">
-              Manage the custody schedule, packing needs, child expenses, and co-parent communication from one place.
+              Manage the custody schedule, exchanges, packing needs, child expenses, and co-parent communication from one place.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
             {custodyModules.map((module) => (
               <ModuleCard
                 key={module.id}
@@ -223,6 +231,22 @@ export default function Custody() {
           setActiveCalendar={setActiveCalendar}
           viewMode={viewMode}
           setViewMode={setViewMode}
+        />
+      )}
+
+      {activeModule === "exchange" && (
+        <ComingSoonPanel
+          icon={Truck}
+          title="Exchange"
+          description="This section will organize custody transitions, pickup/dropoff notes, locations, and reminders."
+          bullets={[
+            "Pickup and dropoff location",
+            "Exchange time",
+            "Who is picking up",
+            "Special handoff notes",
+            "Exchange reminder",
+            "Change-day status",
+          ]}
         />
       )}
 
