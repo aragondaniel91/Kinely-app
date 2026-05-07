@@ -17,7 +17,7 @@ import Meals from "@/pages/Meals";
 import Groceries from "@/pages/Groceries";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-import Profile from "@/pages/ProfileV4";
+import Profile from "@/pages/ProfileV5";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
 import { FamilyProvider } from "@/lib/FamilyContext";
