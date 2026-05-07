@@ -9,8 +9,8 @@ const people = [
 
 export default function FamilyCalendarHeader() {
   return (
-    <div className="border-b border-slate-100 bg-white px-10 pb-6 pt-7">
-      <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-6">
+    <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
+      <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-5">
         <div className="flex items-center gap-3 text-slate-500">
           <span className="text-lg">⌂</span>
           <div>
@@ -71,11 +71,11 @@ export default function FamilyCalendarHeader() {
           ))}
         </div>
 
-        <div className="self-center text-base font-semibold text-slate-600">
+        <div className="self-center pb-1 text-base font-semibold text-slate-600">
           17 events · May 2026
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-5">
+        <div className="flex flex-wrap items-center justify-end gap-5 pb-1">
           <div className="flex items-center gap-4">
             <button className="text-xl font-black text-slate-400">‹</button>
             <button className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
