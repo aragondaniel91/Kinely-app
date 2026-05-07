@@ -20,6 +20,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
+import { resolveEventColor } from "@/lib/personColorUtils";
 
 import {
   Dialog,
@@ -156,6 +157,13 @@ function parseAssignedTo(value, dadName, momName) {
     childName: "",
     childId: "",
   };
+}
+
+function getEventColorSource(assignment) {
+  if (assignment.assignedToType === "dad") return "parent1";
+  if (assignment.assignedToType === "mom") return "parent2";
+  if (assignment.assignedToType === "child") return "child";
+  return "family";
 }
 
 function timeToParts(value, fallback = "09:00") {
@@ -386,6 +394,8 @@ export default function AddFamilyEventDialog({
 
     try {
       const assignment = parseAssignedTo(assignedTo, dadName, momName);
+      const eventColor = resolveEventColor(assignment, profile || {});
+      const eventColorSource = getEventColorSource(assignment);
 
       const payload = {
         title: title.trim(),
@@ -406,6 +416,11 @@ export default function AddFamilyEventDialog({
 
         childName: assignment.childName,
         childId: assignment.childId,
+
+        eventColor,
+        event_color: eventColor,
+        eventColorSource,
+        event_color_source: eventColorSource,
 
         familyId,
         family_id: familyId,
