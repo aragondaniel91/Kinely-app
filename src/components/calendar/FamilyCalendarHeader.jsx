@@ -1,4 +1,5 @@
 import React from "react";
+import { RefreshCw } from "lucide-react";
 
 const people = [
   { name: "Daniel Aragon", color: "bg-blue-500" },
@@ -39,8 +40,8 @@ export default function FamilyCalendarHeader() {
 
         <div className="flex justify-end">
           <button className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
-            Sync calendar
-            <span className="text-slate-400">↗</span>
+            <RefreshCw className="h-4 w-4 text-slate-500" />
+            <span>Sync calendar</span>
           </button>
         </div>
 
