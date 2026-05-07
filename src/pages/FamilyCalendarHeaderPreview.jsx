@@ -28,7 +28,7 @@ export default function FamilyCalendarHeaderPreview() {
           ))}
         </div>
 
-        <button className="absolute bottom-6 left-6 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-4xl font-light leading-none text-white shadow-xl shadow-blue-600/30 transition hover:scale-105 hover:bg-blue-700 active:scale-95" aria-label="Add event">
+        <button className="absolute bottom-6 right-6 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-4xl font-light leading-none text-white shadow-xl shadow-blue-600/30 transition hover:scale-105 hover:bg-blue-700 active:scale-95" aria-label="Add event">
           +
         </button>
       </div>
