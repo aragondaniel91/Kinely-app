@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
   CreditCard,
   MessageCircle,
   Shirt,
+  Sun,
   Trash2,
   Truck,
 } from "lucide-react";
@@ -53,6 +54,34 @@ const custodyModules = [
   },
 ];
 
+function formatTime(date) {
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function WeatherTimeBadge() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-50 text-yellow-500">
+        <Sun className="h-6 w-6" />
+      </div>
+      <div className="leading-tight">
+        <p className="text-base font-black text-slate-950">{formatTime(now)}</p>
+        <p className="text-xs font-bold text-slate-500">68° · Sunny</p>
+      </div>
+    </div>
+  );
+}
+
 function ModuleCard({ module, onClick }) {
   const Icon = module.icon;
 
@@ -78,6 +107,37 @@ function ModuleCard({ module, onClick }) {
         {module.description}
       </p>
     </button>
+  );
+}
+
+function ManagementPanel({ canResetCustody, isResetting, onReset }) {
+  if (!canResetCustody) return null;
+
+  return (
+    <Card className="mt-5 rounded-[2rem] border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+            Management
+          </p>
+          <h2 className="text-lg font-black text-slate-950">Custody data tools</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Temporary admin tools live here until Profile has full custody management.
+          </p>
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          disabled={isResetting}
+          onClick={onReset}
+          className="w-fit gap-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
+        >
+          <Trash2 className="h-4 w-4" />
+          {isResetting ? "Resetting..." : "Reset custody data"}
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -180,6 +240,12 @@ export default function Custody() {
               />
             ))}
           </div>
+
+          <ManagementPanel
+            canResetCustody={canResetCustody}
+            isResetting={isResetting}
+            onReset={handleResetCustody}
+          />
         </div>
       </div>
     );
@@ -210,18 +276,7 @@ export default function Custody() {
             </div>
           </div>
 
-          {activeModule === "schedule" && canResetCustody && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isResetting}
-              onClick={handleResetCustody}
-              className="w-fit gap-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-            >
-              <Trash2 className="h-4 w-4" />
-              {isResetting ? "Resetting..." : "Reset"}
-            </Button>
-          )}
+          <WeatherTimeBadge />
         </div>
       </div>
 
