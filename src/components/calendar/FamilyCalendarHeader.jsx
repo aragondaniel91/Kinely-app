@@ -12,7 +12,7 @@ export default function FamilyCalendarHeader() {
     <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
       <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-5">
         <div className="flex items-center gap-3 text-slate-500">
-          <span className="text-lg">⌂</span>
+          <span className="text-xl leading-none">🏠</span>
           <div>
             <p className="text-lg font-black leading-tight text-slate-900">Family Wall</p>
             <button className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-700">
@@ -45,7 +45,7 @@ export default function FamilyCalendarHeader() {
         </div>
 
         <button className="flex w-fit items-center gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
-          <span className="text-lg text-slate-500">▦</span>
+          <span className="text-xl leading-none">🗓️</span>
           May 2026
           <span className="text-base text-slate-400">⌄</span>
         </button>
