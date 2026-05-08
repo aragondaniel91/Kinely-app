@@ -57,12 +57,24 @@ const weatherCodeMap = {
   99: { emoji: "⛈️", label: "Storm / hail" },
 };
 
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 function calendarButtons() {
   return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
 }
 
 function cleanText(element) {
   return (element?.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function monthIndexFromLabel(label) {
+  const [month, year] = String(label || "").split(/\s+/);
+  const monthIndex = monthNames.findIndex((item) => item.toLowerCase().startsWith(String(month || "").toLowerCase()));
+
+  return {
+    monthIndex: monthIndex >= 0 ? monthIndex : new Date().getMonth(),
+    year: Number(year) || new Date().getFullYear(),
+  };
 }
 
 function clickButtonByText(pattern) {
@@ -230,6 +242,20 @@ export default function Calendar() {
 
   const weatherInfo = useMemo(() => weatherLabels(weather), [weather]);
 
+  const handleMonthSelect = (targetMonthIndex, targetYear) => {
+    const current = monthIndexFromLabel(calendarMeta.monthLabel);
+    const monthDiff = (targetYear - current.year) * 12 + (targetMonthIndex - current.monthIndex);
+
+    if (monthDiff === 0) return;
+
+    const directionIndex = monthDiff > 0 ? 1 : 0;
+    const steps = Math.min(Math.abs(monthDiff), 120);
+
+    for (let index = 0; index < steps; index += 1) {
+      window.setTimeout(() => clickIconButton(directionIndex), index * 35);
+    }
+  };
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
@@ -316,8 +342,7 @@ export default function Calendar() {
             onPrevious={() => clickIconButton(0)}
             onToday={() => clickButtonByText(/^today$/i)}
             onNext={() => clickIconButton(1)}
-            onMonthClick={() => clickButtonByText(/^[A-Za-z]+\s+\d{4}$/)}
-            onAddEvent={triggerHiddenAddEventButton}
+            onMonthSelect={handleMonthSelect}
             onPersonFilterClick={() => clickButtonContainingText(/^Person/i)}
             onCategoryFilterClick={() => clickButtonContainingText(/^Category/i)}
             onLegendPersonClick={selectPersonFromExistingChip}
