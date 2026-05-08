@@ -70,23 +70,23 @@ function selectPersonFromExistingChip(label) {
 }
 
 function decoratePersonFilterFamilyDots() {
-  const body = document.querySelector(".family-calendar-live-body");
-  const popover = Array.from(body?.querySelectorAll("div.fixed") || []).find((element) =>
-    cleanText(element).includes("Filter by Person")
-  );
+  const popovers = Array.from(document.querySelectorAll("div.fixed"));
+  const popover = popovers.find((element) => cleanText(element).includes("Filter by Person"));
 
   if (!popover) return;
 
   Array.from(popover.querySelectorAll("button")).forEach((button) => {
-    const text = cleanText(button);
-    const isFamilyOption = /^All\s+Person$/i.test(text) || /^Everyone\s+Person$/i.test(text);
+    const normalizedText = cleanText(button).replace(/\s+/g, "");
+    const isFamilyOption = /^AllPerson$/i.test(normalizedText) || /^EveryonePerson$/i.test(normalizedText);
     if (!isFamilyOption) return;
 
-    const dot = Array.from(button.querySelectorAll("span")).find((span) =>
-      /rounded-full/.test(span.className || "")
-    );
+    const dot = Array.from(button.querySelectorAll("span")).find((span) => {
+      const className = String(span.className || "");
+      return className.includes("rounded-full") || (className.includes("h-9") && className.includes("w-9"));
+    });
 
     if (dot) {
+      dot.classList.remove("bg-slate-500");
       dot.style.setProperty("background", "var(--family-gradient)", "important");
     }
   });
