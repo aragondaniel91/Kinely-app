@@ -46,7 +46,7 @@ function readCalendarMeta() {
     .map((button) => (button.textContent || "").trim())
     .find((text) => /^[A-Za-z]+\s+\d{4}$/.test(text));
 
-  const summaryText = Array.from(body?.querySelectorAll("p") || [])
+  const summaryText = Array.from(body?.querySelectorAll("p, div, span") || [])
     .map((item) => (item.textContent || "").trim())
     .find((text) => /^\d+\s+events?\s*\|/.test(text));
 
@@ -54,6 +54,21 @@ function readCalendarMeta() {
     monthLabel: monthText || "May 2026",
     eventSummary: summaryText ? summaryText.replace(" | ", " · ") : "17 events · May 2026",
   };
+}
+
+function hideDuplicateSummary() {
+  const body = document.querySelector(".family-calendar-live-body");
+  if (!body) return;
+
+  Array.from(body.querySelectorAll("p, div, span")).forEach((element) => {
+    const text = (element.textContent || "").trim();
+    const isSummary = /^\d+\s+events?\s*[|·]/.test(text);
+    const hasNestedElements = element.children.length > 0;
+
+    if (isSummary && !hasNestedElements) {
+      element.style.setProperty("display", "none", "important");
+    }
+  });
 }
 
 function triggerHiddenAddEventButton() {
@@ -74,7 +89,10 @@ export default function Calendar() {
   const [calendarMeta, setCalendarMeta] = useState(() => readCalendarMeta());
 
   useEffect(() => {
-    const updateMeta = () => setCalendarMeta(readCalendarMeta());
+    const updateMeta = () => {
+      setCalendarMeta(readCalendarMeta());
+      requestAnimationFrame(hideDuplicateSummary);
+    };
     updateMeta();
 
     const body = document.querySelector(".family-calendar-live-body");
