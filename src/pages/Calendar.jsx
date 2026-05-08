@@ -9,6 +9,10 @@ const compactCalendarStyles = `
   display: none !important;
 }
 
+.family-calendar-live-body > div > div.mx-auto > p {
+  display: none !important;
+}
+
 .family-calendar-live-body > div > div.mx-auto {
   max-width: none !important;
   min-height: calc(100vh - 1rem) !important;
