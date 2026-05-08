@@ -191,6 +191,7 @@ export default function FamilyCalendarHeader({
             onClick={() => {
               setPickerYear(parsedMonth.year);
               setMonthPickerOpen((open) => !open);
+              setFamilyPickerOpen(false);
             }}
             className="flex w-fit items-center gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50"
           >
@@ -200,17 +201,23 @@ export default function FamilyCalendarHeader({
           </button>
 
           {monthPickerOpen && (
-            <div className="absolute left-0 top-11 z-[120] w-[340px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
-              <div className="mb-3 flex items-center justify-between">
-                <button type="button" onClick={() => setPickerYear((year) => year - 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <p className="text-lg font-black text-slate-900">{pickerYear}</p>
-                <button type="button" onClick={() => setPickerYear((year) => year + 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+            <div className="absolute left-0 top-11 z-[120] w-[360px] rounded-3xl border border-slate-200 bg-white p-2 shadow-2xl">
+              <div className="flex items-center justify-between px-3 pb-2 pt-2">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Jump to month</p>
+                  <p className="text-sm font-black text-slate-900">{monthOptions[parsedMonth.monthIndex]} {parsedMonth.year}</p>
+                </div>
+                <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-1">
+                  <button type="button" onClick={() => setPickerYear((year) => year - 1)} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[56px] text-center text-sm font-black text-slate-900">{pickerYear}</span>
+                  <button type="button" onClick={() => setPickerYear((year) => year + 1)} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 {monthOptions.map((month, index) => {
                   const active = parsedMonth.monthIndex === index && parsedMonth.year === pickerYear;
                   return (
@@ -222,11 +229,12 @@ export default function FamilyCalendarHeader({
                         setMonthPickerOpen(false);
                       }}
                       className={cn(
-                        "rounded-2xl px-3 py-3 text-sm font-extrabold",
-                        active ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                        "flex items-center justify-between gap-2 rounded-2xl px-3 py-3 text-left transition",
+                        active ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
                       )}
                     >
-                      {month.slice(0, 3)}
+                      <span className="text-sm font-black">{month.slice(0, 3)}</span>
+                      {active && <Check className="h-4 w-4 shrink-0" />}
                     </button>
                   );
                 })}
