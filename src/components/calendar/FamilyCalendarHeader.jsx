@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { ChevronLeft, ChevronRight, RefreshCw, Tags, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, Tags, User } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
@@ -53,10 +53,20 @@ export default function FamilyCalendarHeader({
   eventSummary = "17 events · May 2026",
   selectedPersonLabel = "All People",
   selectedCategoryLabel = "All Categories",
+  currentTimeLabel = "--:--",
+  currentDateLabel = "Today",
+  weatherLabel = "--°",
+  weatherDescription = "Weather",
+  familyName = "Family",
+  families = [],
+  activeFamilyId = "",
+  onFamilyChange = () => {},
   onViewModeChange = () => {},
   onPrevious = () => {},
   onToday = () => {},
   onNext = () => {},
+  onMonthClick = () => {},
+  onAddEvent = () => {},
   onPersonFilterClick = () => {},
   onCategoryFilterClick = () => {},
   onLegendPersonClick = () => {},
@@ -88,21 +98,34 @@ export default function FamilyCalendarHeader({
           <span className="text-xl leading-none">🏠</span>
           <div>
             <p className="text-lg font-black leading-tight text-slate-900">Family Wall</p>
-            <button className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-700">
-              Aragon Arraga Family
-              <span className="text-slate-400">⌄</span>
-            </button>
+            {families.length > 1 ? (
+              <select
+                value={activeFamilyId}
+                onChange={(event) => onFamilyChange(event.target.value)}
+                className="max-w-[220px] rounded-lg border-0 bg-transparent px-1 py-0.5 text-xs font-bold text-slate-400 outline-none hover:bg-slate-50 hover:text-slate-700"
+              >
+                {families.map((family) => (
+                  <option key={family.id} value={family.id}>
+                    {family.family_name || family.familyName || family.familyName || "Family"}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-xs font-bold text-slate-400">
+                {familyName}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex items-start justify-end gap-8 text-right">
           <div>
-            <p className="text-xl font-black leading-tight text-slate-950">5:39 p.m.</p>
-            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Jue 7 de May</p>
+            <p className="text-xl font-black leading-tight text-slate-950">{currentTimeLabel}</p>
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{currentDateLabel}</p>
           </div>
           <div>
-            <p className="text-xl font-black leading-tight text-slate-950">☁️ 76°</p>
-            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Cloudy</p>
+            <p className="text-xl font-black leading-tight text-slate-950">{weatherLabel}</p>
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{weatherDescription}</p>
           </div>
         </div>
 
@@ -110,14 +133,18 @@ export default function FamilyCalendarHeader({
           Family Calendar
         </h1>
 
-        <div className="flex justify-end">
-          <button className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onAddEvent} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700">
+            <Plus className="h-4 w-4" />
+            <span>Add event</span>
+          </button>
+          <button type="button" className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
             <RefreshCw className="h-4 w-4 text-slate-500" />
             <span>Sync calendar</span>
           </button>
         </div>
 
-        <button className="flex w-fit items-center mt-2 gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
+        <button type="button" onClick={onMonthClick} className="flex w-fit items-center mt-2 gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
           <span className="text-xl leading-none">🗓️</span>
           {monthLabel}
           <span className="text-base text-slate-400">⌄</span>
