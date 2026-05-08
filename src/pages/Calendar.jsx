@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import FamilyCalendarHeader from "@/components/calendar/FamilyCalendarHeader";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV9";
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
+import { useFamily } from "@/lib/FamilyContext";
+import { familyColorIds, colorHex, colorSoftHex } from "@/lib/personColorUtils";
 
 const compactCalendarStyles = `
 .family-calendar-live-body > div > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child {
@@ -121,9 +123,22 @@ function triggerHiddenAddEventButton() {
 }
 
 export default function Calendar() {
+  const { user, profile } = useFamily();
   const [activeCalendar, setActiveCalendar] = useState("family");
   const [viewMode, setViewMode] = useState("week");
   const [calendarMeta, setCalendarMeta] = useState(() => readCalendarMeta());
+
+  const familyGradientVariables = useMemo(() => {
+    const colorIds = familyColorIds(profile || {}, user);
+    const strongColors = colorIds.map((color) => colorHex(color));
+    const softColors = colorIds.map((color) => colorSoftHex(color));
+
+    return {
+      "--family-gradient": `linear-gradient(to right, ${strongColors.join(", ")})`,
+      "--family-gradient-vertical": `linear-gradient(to bottom, ${strongColors.join(", ")})`,
+      "--family-soft-gradient": `linear-gradient(to right, ${softColors.join(", ")})`,
+    };
+  }, [profile, user]);
 
   useEffect(() => {
     const updateMeta = () => {
@@ -142,7 +157,7 @@ export default function Calendar() {
   }, [activeCalendar, viewMode]);
 
   return (
-    <div className="family-calendar-shell relative min-h-full bg-background pb-28 md:pb-6">
+    <div className="family-calendar-shell relative min-h-full bg-background pb-28 md:pb-6" style={familyGradientVariables}>
       <style>{compactCalendarStyles}</style>
 
       {activeCalendar === "custody" ? (
