@@ -160,15 +160,29 @@ function hideDuplicateSummary() {
 }
 
 function triggerHiddenAddEventButton() {
+  const body = document.querySelector(".family-calendar-live-body");
   const addButton = calendarButtons().find((button) => /add\s*event/i.test(cleanText(button)));
 
   if (addButton) {
     addButton.click();
-    return;
+    return true;
   }
 
-  const todayCell = calendarButtons().find((button) => button.querySelector("svg") && /\d+/.test(cleanText(button)));
-  todayCell?.click();
+  const visibleDayButtons = Array.from(body?.querySelectorAll("button") || []).filter((button) => {
+    const text = cleanText(button);
+    const className = String(button.className || "");
+    return button.querySelector("svg") && /^\d+/.test(text) && !/add\s*event/i.test(text) && !className.includes("fixed");
+  });
+
+  const todayCell = visibleDayButtons.find((button) => String(button.className || "").includes("ring-blue-400"));
+  const targetCell = todayCell || visibleDayButtons[0];
+
+  if (targetCell) {
+    targetCell.click();
+    return true;
+  }
+
+  return false;
 }
 
 function findMonthYearPickerPanel() {
@@ -240,6 +254,15 @@ export default function Calendar() {
   }, [profile, user]);
 
   const weatherInfo = useMemo(() => weatherLabels(weather), [weather]);
+
+  const handleFloatingAddEvent = () => {
+    if (triggerHiddenAddEventButton()) return;
+
+    setViewMode("month");
+    window.setTimeout(() => {
+      triggerHiddenAddEventButton();
+    }, 120);
+  };
 
   const handleDateSelect = (dateValue) => {
     const targetDate = new Date(`${dateValue}T00:00:00`);
@@ -383,7 +406,7 @@ export default function Calendar() {
           </div>
           <button
             type="button"
-            onClick={triggerHiddenAddEventButton}
+            onClick={handleFloatingAddEvent}
             className="fixed bottom-28 right-8 z-[90] flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-4xl font-light leading-none text-white shadow-xl shadow-blue-600/30 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8"
             aria-label="Add event"
           >
