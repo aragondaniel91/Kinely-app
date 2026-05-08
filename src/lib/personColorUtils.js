@@ -1,13 +1,13 @@
 export const PERSON_COLOR_OPTIONS = [
-  { id: "blue", label: "Blue", dot: "bg-blue-500", bg: "bg-blue-50", border: "border-blue-300", stripe: "bg-blue-500", ring: "ring-blue-200", text: "text-blue-700" },
-  { id: "green", label: "Green", dot: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-300", stripe: "bg-emerald-500", ring: "ring-emerald-200", text: "text-emerald-700" },
-  { id: "purple", label: "Purple", dot: "bg-violet-500", bg: "bg-violet-50", border: "border-violet-300", stripe: "bg-violet-500", ring: "ring-violet-200", text: "text-violet-700" },
-  { id: "orange", label: "Orange", dot: "bg-orange-500", bg: "bg-orange-50", border: "border-orange-300", stripe: "bg-orange-500", ring: "ring-orange-200", text: "text-orange-700" },
-  { id: "yellow", label: "Yellow", dot: "bg-yellow-500", bg: "bg-yellow-50", border: "border-yellow-300", stripe: "bg-yellow-500", ring: "ring-yellow-200", text: "text-yellow-700" },
-  { id: "pink", label: "Pink", dot: "bg-pink-500", bg: "bg-pink-50", border: "border-pink-300", stripe: "bg-pink-500", ring: "ring-pink-200", text: "text-pink-700" },
-  { id: "red", label: "Red", dot: "bg-red-500", bg: "bg-red-50", border: "border-red-300", stripe: "bg-red-500", ring: "ring-red-200", text: "text-red-700" },
-  { id: "teal", label: "Teal", dot: "bg-teal-500", bg: "bg-teal-50", border: "border-teal-300", stripe: "bg-teal-500", ring: "ring-teal-200", text: "text-teal-700" },
-  { id: "slate", label: "Slate", dot: "bg-slate-500", bg: "bg-slate-50", border: "border-slate-300", stripe: "bg-slate-500", ring: "ring-slate-200", text: "text-slate-700" },
+  { id: "blue", label: "Blue", dot: "bg-blue-500", bg: "bg-blue-50", border: "border-blue-300", stripe: "bg-blue-500", ring: "ring-blue-200", text: "text-blue-700", hex: "#3b82f6", softHex: "#eff6ff" },
+  { id: "green", label: "Green", dot: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-300", stripe: "bg-emerald-500", ring: "ring-emerald-200", text: "text-emerald-700", hex: "#10b981", softHex: "#ecfdf5" },
+  { id: "purple", label: "Purple", dot: "bg-violet-500", bg: "bg-violet-50", border: "border-violet-300", stripe: "bg-violet-500", ring: "ring-violet-200", text: "text-violet-700", hex: "#8b5cf6", softHex: "#f5f3ff" },
+  { id: "orange", label: "Orange", dot: "bg-orange-500", bg: "bg-orange-50", border: "border-orange-300", stripe: "bg-orange-500", ring: "ring-orange-200", text: "text-orange-700", hex: "#f97316", softHex: "#fff7ed" },
+  { id: "yellow", label: "Yellow", dot: "bg-yellow-500", bg: "bg-yellow-50", border: "border-yellow-300", stripe: "bg-yellow-500", ring: "ring-yellow-200", text: "text-yellow-700", hex: "#eab308", softHex: "#fefce8" },
+  { id: "pink", label: "Pink", dot: "bg-pink-500", bg: "bg-pink-50", border: "border-pink-300", stripe: "bg-pink-500", ring: "ring-pink-200", text: "text-pink-700", hex: "#ec4899", softHex: "#fdf2f8" },
+  { id: "red", label: "Red", dot: "bg-red-500", bg: "bg-red-50", border: "border-red-300", stripe: "bg-red-500", ring: "ring-red-200", text: "text-red-700", hex: "#ef4444", softHex: "#fef2f2" },
+  { id: "teal", label: "Teal", dot: "bg-teal-500", bg: "bg-teal-50", border: "border-teal-300", stripe: "bg-teal-500", ring: "ring-teal-200", text: "text-teal-700", hex: "#14b8a6", softHex: "#f0fdfa" },
+  { id: "slate", label: "Slate", dot: "bg-slate-500", bg: "bg-slate-50", border: "border-slate-300", stripe: "bg-slate-500", ring: "ring-slate-200", text: "text-slate-700", hex: "#64748b", softHex: "#f8fafc" },
   {
     id: "family",
     label: "Family",
@@ -17,6 +17,8 @@ export const PERSON_COLOR_OPTIONS = [
     stripe: "bg-gradient-to-b from-blue-500 via-yellow-500 to-emerald-500",
     ring: "ring-blue-200",
     text: "text-slate-800",
+    hex: "#3b82f6",
+    softHex: "#eff6ff",
   },
 ];
 
@@ -34,6 +36,47 @@ export function normalizeName(value) {
 
 export function getColorMeta(colorId, fallback = "blue") {
   return PERSON_COLOR_OPTIONS.find((color) => color.id === colorId) || PERSON_COLOR_OPTIONS.find((color) => color.id === fallback) || PERSON_COLOR_OPTIONS[0];
+}
+
+export function colorHex(colorId, fallback = "blue") {
+  return getColorMeta(colorId, fallback).hex;
+}
+
+export function colorSoftHex(colorId, fallback = "blue") {
+  return getColorMeta(colorId, fallback).softHex;
+}
+
+function uniqueColors(colors = []) {
+  const seen = new Set();
+  return colors.filter((color) => {
+    const key = String(color || "").trim();
+    if (!key || key === "family" || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function familyColorIds(profile = {}, user = null) {
+  const { people } = familyPersonColorMap(profile, user, user?.email || "");
+  const colors = uniqueColors(people.map((person) => person.color));
+  return colors.length > 0 ? colors : [DEFAULT_PERSON_COLORS.dad, DEFAULT_PERSON_COLORS.mom, DEFAULT_PERSON_COLORS.child];
+}
+
+export function familyGradientStyle(profile = {}, user = null, direction = "to right") {
+  const colors = familyColorIds(profile, user).map((color) => colorHex(color));
+  return {
+    background: `linear-gradient(${direction}, ${colors.join(", ")})`,
+    borderColor: colors[0],
+  };
+}
+
+export function familySoftGradientStyle(profile = {}, user = null, direction = "to right") {
+  const colors = familyColorIds(profile, user).map((color) => colorSoftHex(color));
+  const borderColor = colorHex(familyColorIds(profile, user)[0]);
+  return {
+    background: `linear-gradient(${direction}, ${colors.join(", ")})`,
+    borderColor,
+  };
 }
 
 export function childName(child, index = 0) {
