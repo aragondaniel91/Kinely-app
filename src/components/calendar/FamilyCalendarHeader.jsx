@@ -18,6 +18,19 @@ const viewOptions = [
   { value: "month", label: "Month" },
 ];
 
+const monthOptions = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function parseMonthLabel(label) {
+  const [rawMonth, rawYear] = String(label || "").split(/\s+/);
+  const monthIndex = monthOptions.findIndex((month) => month.toLowerCase().startsWith(String(rawMonth || "").toLowerCase()));
+  const year = Number(rawYear) || new Date().getFullYear();
+
+  return {
+    monthIndex: monthIndex >= 0 ? monthIndex : new Date().getMonth(),
+    year,
+  };
+}
+
 function familyDisplayName(family) {
   return family?.family_name || family?.familyName || family?.name || "Family";
 }
@@ -69,13 +82,16 @@ export default function FamilyCalendarHeader({
   onPrevious = () => {},
   onToday = () => {},
   onNext = () => {},
-  onMonthClick = () => {},
+  onMonthSelect = () => {},
   onPersonFilterClick = () => {},
   onCategoryFilterClick = () => {},
   onLegendPersonClick = () => {},
 }) {
   const { user, profile } = useFamily();
+  const parsedMonth = useMemo(() => parseMonthLabel(monthLabel), [monthLabel]);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(parsedMonth.year);
   const familyOptions = families.length > 0 ? families : [{ id: activeFamilyId || "active-family", family_name: familyName }];
   const activeFamily = familyOptions.find((family) => family.id === activeFamilyId) || familyOptions[0];
 
@@ -169,11 +185,55 @@ export default function FamilyCalendarHeader({
           </button>
         </div>
 
-        <button type="button" onClick={onMonthClick} className="flex w-fit items-center mt-2 gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
-          <span className="text-xl leading-none">🗓️</span>
-          {monthLabel}
-          <span className="text-base text-slate-400">⌄</span>
-        </button>
+        <div className="relative mt-2 w-fit">
+          <button
+            type="button"
+            onClick={() => {
+              setPickerYear(parsedMonth.year);
+              setMonthPickerOpen((open) => !open);
+            }}
+            className="flex w-fit items-center gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50"
+          >
+            <span className="text-xl leading-none">🗓️</span>
+            {monthLabel}
+            <span className="text-base text-slate-400">⌄</span>
+          </button>
+
+          {monthPickerOpen && (
+            <div className="absolute left-0 top-11 z-[120] w-[340px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
+              <div className="mb-3 flex items-center justify-between">
+                <button type="button" onClick={() => setPickerYear((year) => year - 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <p className="text-lg font-black text-slate-900">{pickerYear}</p>
+                <button type="button" onClick={() => setPickerYear((year) => year + 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {monthOptions.map((month, index) => {
+                  const active = parsedMonth.monthIndex === index && parsedMonth.year === pickerYear;
+                  return (
+                    <button
+                      key={month}
+                      type="button"
+                      onClick={() => {
+                        onMonthSelect(index, pickerYear);
+                        setMonthPickerOpen(false);
+                      }}
+                      className={cn(
+                        "rounded-2xl px-3 py-3 text-sm font-extrabold",
+                        active ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+                      )}
+                    >
+                      {month.slice(0, 3)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center justify-end gap-4">
           <button type="button" onClick={onPersonFilterClick} className="flex h-11 min-w-[220px] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 text-left text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
