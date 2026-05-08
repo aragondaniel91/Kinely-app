@@ -1,6 +1,9 @@
 const MAX_WEEK_VISIBLE_PER_START_TIME = 3;
 let layoutScheduled = false;
 let observerStarted = false;
+let bodyObserver = null;
+let retryTimer = null;
+let heartbeatTimer = null;
 
 function textOf(element) {
   return (element?.textContent || "").replace(/\s+/g, " ").trim();
@@ -10,6 +13,7 @@ function setStyle(element, property, value) {
   if (element.style[property] !== value) {
     element.style[property] = value;
   }
+  element.style.setProperty(property, value, "important");
 }
 
 function timedEventLabel(button) {
@@ -29,7 +33,7 @@ function clickOriginalEvent(button) {
   const previousOpacity = button.style.opacity;
   const previousPointerEvents = button.style.pointerEvents;
 
-  button.style.display = "block";
+  button.style.setProperty("display", "block", "important");
   button.style.opacity = "0";
   button.style.pointerEvents = "none";
   button.click();
@@ -120,7 +124,7 @@ function layoutCluster(cluster) {
     setStyle(item.button, "left", "0.5rem");
     setStyle(item.button, "right", "auto");
     setStyle(item.button, "width", "calc(100% - 1rem)");
-    setStyle(item.button, "zIndex", "20");
+    setStyle(item.button, "z-index", "20");
     return;
   }
 
@@ -155,7 +159,7 @@ function layoutCluster(cluster) {
     setStyle(item.button, "left", `calc(${width * item.columnIndex}% + 0.5rem)`);
     setStyle(item.button, "right", "auto");
     setStyle(item.button, "width", `calc(${width}% - 0.7rem)`);
-    setStyle(item.button, "zIndex", String(30 + item.columnIndex));
+    setStyle(item.button, "z-index", String(30 + item.columnIndex));
   });
 }
 
@@ -191,9 +195,9 @@ function renderMoreBadge(parent, startKey, visibleAnchor, hiddenItems) {
   badge.className = "absolute rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-black text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700";
   badge.textContent = `+${hiddenItems.length}`;
   badge.title = `${hiddenItems.length} more events starting at this time`;
-  badge.style.top = `${Math.max(112, visibleAnchor.top + 8)}px`;
-  badge.style.right = "0.5rem";
-  badge.style.zIndex = "90";
+  badge.style.setProperty("top", `${Math.max(112, visibleAnchor.top + 8)}px`, "important");
+  badge.style.setProperty("right", "0.5rem", "important");
+  badge.style.setProperty("z-index", "90", "important");
   badge.onclick = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -264,13 +268,39 @@ function scheduleLayout() {
   window.setTimeout(layoutTimedEvents, 220);
 }
 
+function attachBodyObserver() {
+  const body = document.querySelector(".family-calendar-live-body");
+  if (!body) return false;
+
+  if (bodyObserver) bodyObserver.disconnect();
+  bodyObserver = new MutationObserver(scheduleLayout);
+  bodyObserver.observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+  scheduleLayout();
+  return true;
+}
+
+function waitForCalendarBody() {
+  if (attachBodyObserver()) return;
+
+  if (retryTimer) window.clearInterval(retryTimer);
+  retryTimer = window.setInterval(() => {
+    if (attachBodyObserver()) {
+      window.clearInterval(retryTimer);
+      retryTimer = null;
+    }
+  }, 250);
+}
+
 function startObserver() {
   if (observerStarted) return;
   observerStarted = true;
 
-  window.addEventListener("load", scheduleLayout);
+  window.addEventListener("load", waitForCalendarBody);
   window.addEventListener("resize", scheduleLayout);
-  document.addEventListener("click", scheduleLayout, true);
+  document.addEventListener("click", () => {
+    waitForCalendarBody();
+    scheduleLayout();
+  }, true);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closePanels();
   }, true);
@@ -280,12 +310,14 @@ function startObserver() {
     closePanels();
   }, true);
 
-  const observer = new MutationObserver(scheduleLayout);
-  window.requestAnimationFrame(() => {
-    const body = document.querySelector(".family-calendar-live-body");
-    if (body) observer.observe(body, { childList: true, subtree: true });
-    scheduleLayout();
-  });
+  if (!heartbeatTimer) {
+    heartbeatTimer = window.setInterval(() => {
+      waitForCalendarBody();
+      scheduleLayout();
+    }, 1000);
+  }
+
+  waitForCalendarBody();
 }
 
 if (typeof window !== "undefined") {
