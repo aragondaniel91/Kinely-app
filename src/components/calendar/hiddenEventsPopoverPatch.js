@@ -1,6 +1,5 @@
 const MAX_WEEK_VISIBLE_PER_START_TIME = 3;
 let layoutScheduled = false;
-let lastLayoutSignature = "";
 
 function cleanText(element) {
   return (element?.textContent || "").replace(/\s+/g, " ").trim();
@@ -262,13 +261,6 @@ function layoutWeekEventsByStartTime() {
       .filter(Boolean)
   ));
 
-  const signature = parents
-    .map((parent, parentIndex) => `${parentIndex}:${getTimedEventItems(parent).map((item) => `${item.startKey}-${Math.round(item.bottom)}-${cleanText(item.button)}`).join("|")}`)
-    .join("::");
-
-  if (signature === lastLayoutSignature) return;
-  lastLayoutSignature = signature;
-
   parents.forEach((parent) => {
     const items = getTimedEventItems(parent);
     const startGroups = new Map();
@@ -307,10 +299,12 @@ function scheduleWeekLayout() {
   if (layoutScheduled) return;
   layoutScheduled = true;
 
-  window.requestAnimationFrame(() => {
-    layoutScheduled = false;
-    layoutWeekEventsByStartTime();
-  });
+  window.setTimeout(() => {
+    window.requestAnimationFrame(() => {
+      layoutScheduled = false;
+      layoutWeekEventsByStartTime();
+    });
+  }, 80);
 }
 
 if (typeof window !== "undefined" && !window.__familyCalendarHiddenEventsPatchLoaded) {
@@ -357,16 +351,8 @@ if (typeof window !== "undefined" && !window.__familyCalendarHiddenEventsPatchLo
   const observer = new MutationObserver(scheduleWeekLayout);
 
   window.addEventListener("load", scheduleWeekLayout);
-  window.addEventListener("resize", () => {
-    lastLayoutSignature = "";
-    scheduleWeekLayout();
-  });
-  document.addEventListener("click", () => {
-    window.setTimeout(() => {
-      lastLayoutSignature = "";
-      scheduleWeekLayout();
-    }, 80);
-  });
+  window.addEventListener("resize", scheduleWeekLayout);
+  document.addEventListener("click", scheduleWeekLayout);
 
   window.requestAnimationFrame(() => {
     const body = document.querySelector(".family-calendar-live-body");
