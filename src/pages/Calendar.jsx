@@ -69,6 +69,29 @@ function selectPersonFromExistingChip(label) {
   chip?.click();
 }
 
+function decoratePersonFilterFamilyDots() {
+  const body = document.querySelector(".family-calendar-live-body");
+  const popover = Array.from(body?.querySelectorAll("div.fixed") || []).find((element) =>
+    cleanText(element).includes("Filter by Person")
+  );
+
+  if (!popover) return;
+
+  Array.from(popover.querySelectorAll("button")).forEach((button) => {
+    const text = cleanText(button);
+    const isFamilyOption = /^All\s+Person$/i.test(text) || /^Everyone\s+Person$/i.test(text);
+    if (!isFamilyOption) return;
+
+    const dot = Array.from(button.querySelectorAll("span")).find((span) =>
+      /rounded-full/.test(span.className || "")
+    );
+
+    if (dot) {
+      dot.style.setProperty("background", "var(--family-gradient)", "important");
+    }
+  });
+}
+
 function readCalendarMeta() {
   const body = document.querySelector(".family-calendar-live-body");
   const monthText = Array.from(body?.querySelectorAll("button") || [])
@@ -143,7 +166,10 @@ export default function Calendar() {
   useEffect(() => {
     const updateMeta = () => {
       setCalendarMeta(readCalendarMeta());
-      requestAnimationFrame(hideDuplicateSummary);
+      requestAnimationFrame(() => {
+        hideDuplicateSummary();
+        decoratePersonFilterFamilyDots();
+      });
     };
     updateMeta();
 
