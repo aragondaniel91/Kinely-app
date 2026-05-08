@@ -58,6 +58,15 @@ function uniqueColors(colors = []) {
   });
 }
 
+function isValidColor(colorId) {
+  return colorId === "family" || PERSON_COLOR_OPTIONS.some((color) => color.id === colorId);
+}
+
+function isManualColorSource(event = {}) {
+  const source = String(event.eventColorSource || event.event_color_source || "").toLowerCase();
+  return source === "manual" || source === "custom" || source === "event";
+}
+
 export function familyColorIds(profile = {}, user = null) {
   const { people } = familyPersonColorMap(profile, user, user?.email || "");
   const colors = uniqueColors(people.map((person) => person.color));
@@ -201,11 +210,11 @@ function isEveryoneEvent(event = {}) {
 
 export function resolveEventColor(event = {}, profile = {}, fallbackType = "all") {
   const { map } = familyPersonColorMap(profile);
+  const storedColor = event.eventColor || event.event_color || event.color || event.familyColor || event.family_color;
+
+  if (storedColor && isManualColorSource(event) && isValidColor(storedColor)) return storedColor;
 
   if (isEveryoneEvent(event)) return map.all;
-
-  const storedColor = event.eventColor || event.event_color || event.color || event.familyColor || event.family_color;
-  if (storedColor && storedColor !== "slate" && (storedColor === "family" || PERSON_COLOR_OPTIONS.some((color) => color.id === storedColor))) return storedColor;
 
   const possibleKeys = [
     event.assignedTo,
@@ -226,6 +235,7 @@ export function resolveEventColor(event = {}, profile = {}, fallbackType = "all"
   if (event.assignedTo === "dad" || event.assignedToType === "dad") return map.dad;
   if (event.assignedTo === "mom" || event.assignedToType === "mom") return map.mom;
   if (event.assignedToType === "child" || event.childName || event.childId) return DEFAULT_PERSON_COLORS.child;
+  if (storedColor && isValidColor(storedColor)) return storedColor;
 
   return map[fallbackType] || DEFAULT_PERSON_COLORS.all;
 }
