@@ -282,7 +282,6 @@ function layoutOverlappingTimedEvents(viewMode = "week") {
     badge.style.display = "none";
     badge.setAttribute("aria-expanded", "false");
   });
-  closeActiveOverlapPreview();
 
   timedEvents.forEach((button) => {
     const parent = button.parentElement;
