@@ -201,6 +201,10 @@ function layoutOverlappingTimedEvents() {
   const timedEvents = Array.from(body.querySelectorAll("button.absolute.left-2.right-2"));
   const groups = new Map();
 
+  body.querySelectorAll("[data-overlap-more-badge]").forEach((badge) => {
+    badge.style.display = "none";
+  });
+
   timedEvents.forEach((button) => {
     const parent = button.parentElement;
     if (!parent) return;
@@ -209,6 +213,7 @@ function layoutOverlappingTimedEvents() {
     const height = Number.parseFloat(button.style.height || "0");
     if (!top || !height) return;
 
+    button.style.display = "";
     button.style.left = "0.5rem";
     button.style.right = "auto";
     button.style.width = "calc(100% - 1rem)";
@@ -221,7 +226,7 @@ function layoutOverlappingTimedEvents() {
 
   const overlaps = (a, b) => a.top < b.bottom && b.top < a.bottom;
 
-  groups.forEach((items) => {
+  groups.forEach((items, parent) => {
     const sorted = [...items].sort((a, b) => a.top - b.top || a.bottom - b.bottom);
     const clusters = [];
 
@@ -234,31 +239,47 @@ function layoutOverlappingTimedEvents() {
       }
     });
 
-    clusters.forEach((cluster) => {
-      if (cluster.length <= 1) return;
+    clusters.forEach((cluster, clusterIndex) => {
+      const orderedCluster = cluster.sort((a, b) => a.top - b.top || b.bottom - a.bottom);
+      if (orderedCluster.length <= 1) return;
 
-      const columns = [];
-      cluster
-        .sort((a, b) => a.top - b.top || a.bottom - b.bottom)
-        .forEach((item) => {
-          let columnIndex = columns.findIndex((columnEnd) => columnEnd <= item.top);
-          if (columnIndex === -1) {
-            columnIndex = columns.length;
-            columns.push(item.bottom);
-          } else {
-            columns[columnIndex] = item.bottom;
-          }
-
-          item.columnIndex = columnIndex;
-        });
-
-      const columnCount = Math.max(1, columns.length);
+      const visibleItems = orderedCluster.slice(0, 3);
+      const hiddenItems = orderedCluster.slice(3);
+      const columnCount = Math.max(1, visibleItems.length);
       const width = 100 / columnCount;
 
-      cluster.forEach((item) => {
-        item.button.style.left = `calc(${width * item.columnIndex}% + 0.5rem)`;
+      visibleItems.forEach((item, columnIndex) => {
+        item.button.style.display = "";
+        item.button.style.left = `calc(${width * columnIndex}% + 0.5rem)`;
         item.button.style.width = `calc(${width}% - 0.7rem)`;
+        item.button.style.zIndex = String(20 + columnIndex);
       });
+
+      hiddenItems.forEach((item) => {
+        item.button.style.display = "none";
+      });
+
+      if (hiddenItems.length > 0) {
+        const top = Math.min(...orderedCluster.map((item) => item.top));
+        const hiddenTitles = hiddenItems.map((item) => cleanText(item.button)).filter(Boolean).join("\n");
+        const badgeKey = `overlap-${clusterIndex}`;
+        let badge = parent.querySelector(`[data-overlap-more-badge="${badgeKey}"]`);
+
+        if (!badge) {
+          badge = document.createElement("button");
+          badge.type = "button";
+          badge.dataset.overlapMoreBadge = badgeKey;
+          badge.className = "absolute rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-black text-slate-600 shadow-sm";
+          parent.appendChild(badge);
+        }
+
+        badge.textContent = `+${hiddenItems.length}`;
+        badge.title = hiddenTitles || `${hiddenItems.length} more events`;
+        badge.style.display = "block";
+        badge.style.top = `${Math.max(112, top + 8)}px`;
+        badge.style.right = "0.5rem";
+        badge.style.zIndex = "45";
+      }
     });
   });
 }
