@@ -17,6 +17,19 @@ const compactCalendarStyles = `
 }
 `;
 
+function triggerHiddenAddEventButton() {
+  const buttons = Array.from(document.querySelectorAll(".family-calendar-live-body button"));
+  const addButton = buttons.find((button) => /add\s*event/i.test(button.textContent || ""));
+
+  if (addButton) {
+    addButton.click();
+    return;
+  }
+
+  const todayCell = buttons.find((button) => button.querySelector("svg") && /\d+/.test(button.textContent || ""));
+  todayCell?.click();
+}
+
 export default function Calendar() {
   const [activeCalendar, setActiveCalendar] = useState("family");
   const [viewMode, setViewMode] = useState("week");
@@ -45,6 +58,7 @@ export default function Calendar() {
           </div>
           <button
             type="button"
+            onClick={triggerHiddenAddEventButton}
             className="fixed bottom-8 right-8 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-4xl font-light leading-none text-white shadow-xl shadow-blue-600/30 transition hover:scale-105 hover:bg-blue-700 active:scale-95"
             aria-label="Add event"
           >
