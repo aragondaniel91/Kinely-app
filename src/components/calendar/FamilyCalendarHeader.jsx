@@ -35,6 +35,7 @@ export default function FamilyCalendarHeader({
   onNext = () => {},
   onPersonFilterClick = () => {},
   onCategoryFilterClick = () => {},
+  onLegendPersonClick = () => {},
 }) {
   const { user, profile } = useFamily();
   const { people: familyPeople } = useMemo(
@@ -109,13 +110,26 @@ export default function FamilyCalendarHeader({
           </button>
         </div>
 
-        <div className="col-span-2 flex mt-2 flex-wrap items-center gap-12 pt-1">
-          {legendPeople.map((person) => (
-            <div key={person.label} className="flex items-center gap-3">
-              <LegendDot color={person.color} />
-              <span className="text-base font-semibold text-slate-800">{person.label}</span>
-            </div>
-          ))}
+        <div className="col-span-2 flex mt-2 flex-wrap items-center gap-4 pt-1">
+          {legendPeople.map((person) => {
+            const active = selectedPersonLabel === person.label;
+            return (
+              <button
+                key={person.label}
+                type="button"
+                onClick={() => onLegendPersonClick(person.label)}
+                className={cn(
+                  "flex items-center gap-3 rounded-full border px-3 py-1.5 transition",
+                  active
+                    ? "border-blue-600 bg-blue-50 shadow-sm"
+                    : "border-transparent hover:border-slate-200 hover:bg-slate-50"
+                )}
+              >
+                <LegendDot color={person.color} />
+                <span className={cn("text-base font-semibold", active ? "text-blue-700" : "text-slate-800")}>{person.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="self-center mt-3 pb-1 text-base font-semibold text-slate-600">
