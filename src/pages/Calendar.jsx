@@ -59,6 +59,7 @@ const weatherCodeMap = {
 
 const monthShortNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEK_MAX_VISIBLE_PER_START_TIME = 3;
+let timedLayoutMutationLock = false;
 
 function calendarButtons() {
   return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
@@ -273,14 +274,83 @@ function showTimedOverflowPanel(badge, hiddenItems) {
 
 function layoutTimedCalendarEvents(viewMode = "week") {
   const body = document.querySelector(".family-calendar-live-body");
-  if (!body || (viewMode !== "week" && viewMode !== "day")) return;
-
-  body.querySelectorAll("[data-family-timed-overflow-badge]").forEach((badge) => badge.remove());
+  if (!body || (viewMode !== "week" && viewMode !== "day") || timedLayoutMutationLock) return;
 
   const eventButtons = Array.from(body.querySelectorAll("button.absolute.left-2.right-2"));
-  const parents = Array.from(new Set(eventButtons.map((button) => button.parentElement).filter(Boolean)));
+  if (eventButtons.length === 0) return;
 
+  timedLayoutMutationLock = true;
+  body.querySelectorAll("[data-family-timed-overflow-badge]").forEach((badge) => badge.remove());
+
+  const parents = Array.from(new Set(eventButtons.map((button) => button.parentElement).filter(Boolean)));
   const overlaps = (a, b) => a.top < b.bottom && b.top < a.bottom;
+
+  const buildClusters = (items) => {
+    const sorted = [...items].sort((a, b) => a.top - b.top || b.bottom - a.bottom || a.index - b.index);
+    const clusters = [];
+    let currentCluster = [];
+    let currentBottom = null;
+
+    sorted.forEach((item) => {
+      if (!currentCluster.length || item.top < currentBottom) {
+        currentCluster.push(item);
+        currentBottom = Math.max(currentBottom ?? item.bottom, item.bottom);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [item];
+        currentBottom = item.bottom;
+      }
+    });
+
+    if (currentCluster.length) clusters.push(currentCluster);
+    return clusters;
+  };
+
+  const layoutCluster = (cluster) => {
+    if (cluster.length === 1) {
+      const item = cluster[0];
+      item.button.style.display = "block";
+      item.button.style.left = "0.5rem";
+      item.button.style.width = "calc(100% - 1rem)";
+      item.button.style.right = "auto";
+      item.button.style.zIndex = "20";
+      return;
+    }
+
+    const columns = [];
+    const sorted = [...cluster].sort((a, b) => a.top - b.top || a.bottom - b.bottom || a.index - b.index);
+
+    sorted.forEach((item) => {
+      let columnIndex = columns.findIndex((columnEnd) => columnEnd <= item.top);
+      if (columnIndex === -1) {
+        columnIndex = columns.length;
+        columns.push(item.bottom);
+      } else {
+        columns[columnIndex] = item.bottom;
+      }
+      item.columnIndex = columnIndex;
+    });
+
+    let columnCount = Math.max(1, columns.length);
+    sorted.forEach((item) => {
+      const localMax = Math.max(
+        ...sorted
+          .filter((other) => other === item || overlaps(item, other))
+          .map((other) => other.columnIndex),
+        0
+      );
+      columnCount = Math.max(columnCount, localMax + 1);
+    });
+
+    const width = 100 / columnCount;
+    sorted.forEach((item) => {
+      item.button.style.display = "block";
+      item.button.style.left = `calc(${width * item.columnIndex}% + 0.5rem)`;
+      item.button.style.width = `calc(${width}% - 0.7rem)`;
+      item.button.style.right = "auto";
+      item.button.style.zIndex = String(20 + item.columnIndex);
+    });
+  };
 
   parents.forEach((parent) => {
     const items = Array.from(parent.querySelectorAll("button.absolute.left-2.right-2"))
@@ -346,39 +416,12 @@ function layoutTimedCalendarEvents(viewMode = "week") {
     }
 
     const visibleItems = items.filter((item) => !item.hidden);
-    const columns = [];
-
-    visibleItems.forEach((item) => {
-      let columnIndex = columns.findIndex((columnEnd) => columnEnd <= item.top);
-      if (columnIndex === -1) {
-        columnIndex = columns.length;
-        columns.push(item.bottom);
-      } else {
-        columns[columnIndex] = item.bottom;
-      }
-      item.columnIndex = columnIndex;
-    });
-
-    let columnCount = Math.max(1, columns.length);
-    visibleItems.forEach((item) => {
-      const localMax = Math.max(
-        ...visibleItems
-          .filter((other) => other === item || overlaps(item, other))
-          .map((other) => other.columnIndex),
-        0
-      );
-      columnCount = Math.max(columnCount, localMax + 1);
-    });
-
-    const width = 100 / columnCount;
-    visibleItems.forEach((item) => {
-      item.button.style.display = "block";
-      item.button.style.left = `calc(${width * item.columnIndex}% + 0.5rem)`;
-      item.button.style.width = `calc(${width}% - 0.7rem)`;
-      item.button.style.right = "auto";
-      item.button.style.zIndex = String(20 + item.columnIndex);
-    });
+    buildClusters(visibleItems).forEach(layoutCluster);
   });
+
+  window.setTimeout(() => {
+    timedLayoutMutationLock = false;
+  }, 0);
 }
 
 function formatClock(date) {
@@ -530,6 +573,7 @@ export default function Calendar() {
 
   useEffect(() => {
     const updateMeta = () => {
+      if (timedLayoutMutationLock) return;
       setCalendarMeta(readCalendarMeta());
       requestAnimationFrame(() => {
         hideDuplicateSummary();
