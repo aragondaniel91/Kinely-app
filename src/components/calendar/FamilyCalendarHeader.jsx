@@ -18,19 +18,6 @@ const viewOptions = [
   { value: "month", label: "Month" },
 ];
 
-const monthOptions = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-function parseMonthLabel(label) {
-  const [rawMonth, rawYear] = String(label || "").split(/\s+/);
-  const monthIndex = monthOptions.findIndex((month) => month.toLowerCase().startsWith(String(rawMonth || "").toLowerCase()));
-  const year = Number(rawYear) || new Date().getFullYear();
-
-  return {
-    monthIndex: monthIndex >= 0 ? monthIndex : new Date().getMonth(),
-    year,
-  };
-}
-
 function familyDisplayName(family) {
   return family?.family_name || family?.familyName || family?.name || "Family";
 }
@@ -82,16 +69,13 @@ export default function FamilyCalendarHeader({
   onPrevious = () => {},
   onToday = () => {},
   onNext = () => {},
-  onMonthSelect = () => {},
+  onMonthClick = () => {},
   onPersonFilterClick = () => {},
   onCategoryFilterClick = () => {},
   onLegendPersonClick = () => {},
 }) {
   const { user, profile } = useFamily();
-  const parsedMonth = useMemo(() => parseMonthLabel(monthLabel), [monthLabel]);
-  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(parsedMonth.year);
   const familyOptions = families.length > 0 ? families : [{ id: activeFamilyId || "active-family", family_name: familyName }];
   const activeFamily = familyOptions.find((family) => family.id === activeFamilyId) || familyOptions[0];
 
@@ -185,63 +169,11 @@ export default function FamilyCalendarHeader({
           </button>
         </div>
 
-        <div className="relative mt-2 w-fit">
-          <button
-            type="button"
-            onClick={() => {
-              setPickerYear(parsedMonth.year);
-              setMonthPickerOpen((open) => !open);
-              setFamilyPickerOpen(false);
-            }}
-            className="flex w-fit items-center gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50"
-          >
-            <span className="text-xl leading-none">🗓️</span>
-            {monthLabel}
-            <span className="text-base text-slate-400">⌄</span>
-          </button>
-
-          {monthPickerOpen && (
-            <div className="absolute left-0 top-11 z-[120] w-[360px] rounded-3xl border border-slate-200 bg-white p-2 shadow-2xl">
-              <div className="flex items-center justify-between px-3 pb-2 pt-2">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Jump to month</p>
-                  <p className="text-sm font-black text-slate-900">{monthOptions[parsedMonth.monthIndex]} {parsedMonth.year}</p>
-                </div>
-                <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-1">
-                  <button type="button" onClick={() => setPickerYear((year) => year - 1)} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm">
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="min-w-[56px] text-center text-sm font-black text-slate-900">{pickerYear}</span>
-                  <button type="button" onClick={() => setPickerYear((year) => year + 1)} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm">
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {monthOptions.map((month, index) => {
-                  const active = parsedMonth.monthIndex === index && parsedMonth.year === pickerYear;
-                  return (
-                    <button
-                      key={month}
-                      type="button"
-                      onClick={() => {
-                        onMonthSelect(index, pickerYear);
-                        setMonthPickerOpen(false);
-                      }}
-                      className={cn(
-                        "flex items-center justify-between gap-2 rounded-2xl px-3 py-3 text-left transition",
-                        active ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      <span className="text-sm font-black">{month.slice(0, 3)}</span>
-                      {active && <Check className="h-4 w-4 shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        <button type="button" onClick={onMonthClick} className="flex w-fit items-center mt-2 gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
+          <span className="text-xl leading-none">🗓️</span>
+          {monthLabel}
+          <span className="text-base text-slate-400">⌄</span>
+        </button>
 
         <div className="flex flex-wrap items-center justify-end gap-4">
           <button type="button" onClick={onPersonFilterClick} className="flex h-11 min-w-[220px] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 text-left text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
