@@ -1,0 +1,1 @@
+Temporary note: remove the closeActiveOverlapPreview() call inside layoutOverlappingTimedEvents() before timedEvents.forEach(). That call makes the +X hidden-events popover close immediately after it opens because the MutationObserver re-runs the layout when the panel is inserted.
