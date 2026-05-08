@@ -35,19 +35,23 @@ function calendarButtons() {
   return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
 }
 
+function cleanText(element) {
+  return (element?.textContent || "").replace(/\s+/g, " ").trim();
+}
+
 function clickButtonByText(pattern) {
-  const button = calendarButtons().find((item) => pattern.test(item.textContent || ""));
+  const button = calendarButtons().find((item) => pattern.test(cleanText(item)));
   button?.click();
 }
 
 function clickButtonContainingText(pattern) {
-  const button = calendarButtons().find((item) => pattern.test((item.textContent || "").replace(/\s+/g, " ").trim()));
+  const button = calendarButtons().find((item) => pattern.test(cleanText(item)));
   button?.click();
 }
 
 function clickIconButton(index) {
   const buttons = calendarButtons().filter((item) => {
-    const text = (item.textContent || "").trim();
+    const text = cleanText(item);
     return !text && item.querySelector("svg");
   });
   buttons[index]?.click();
@@ -56,26 +60,26 @@ function clickIconButton(index) {
 function readCalendarMeta() {
   const body = document.querySelector(".family-calendar-live-body");
   const monthText = Array.from(body?.querySelectorAll("button") || [])
-    .map((button) => (button.textContent || "").trim())
+    .map(cleanText)
     .find((text) => /^[A-Za-z]+\s+\d{4}$/.test(text));
 
   const summaryText = Array.from(body?.querySelectorAll("p, div, span") || [])
-    .map((item) => (item.textContent || "").trim())
+    .map(cleanText)
     .find((text) => /^\d+\s+events?\s*\|/.test(text));
 
   const personText = Array.from(body?.querySelectorAll("button") || [])
-    .map((button) => (button.textContent || "").replace(/\s+/g, " ").trim())
-    .find((text) => /^Person\s+/.test(text));
+    .map(cleanText)
+    .find((text) => /^Person/i.test(text));
 
   const categoryText = Array.from(body?.querySelectorAll("button") || [])
-    .map((button) => (button.textContent || "").replace(/\s+/g, " ").trim())
-    .find((text) => /^Category\s+/.test(text));
+    .map(cleanText)
+    .find((text) => /^Category/i.test(text));
 
   return {
     monthLabel: monthText || "May 2026",
     eventSummary: summaryText ? summaryText.replace(" | ", " · ") : "17 events · May 2026",
-    selectedPersonLabel: personText ? personText.replace(/^Person\s+/, "") : "All People",
-    selectedCategoryLabel: categoryText ? categoryText.replace(/^Category\s+/, "") : "All Categories",
+    selectedPersonLabel: personText ? personText.replace(/^Person\s*/i, "") : "All People",
+    selectedCategoryLabel: categoryText ? categoryText.replace(/^Category\s*/i, "") : "All Categories",
   };
 }
 
@@ -84,7 +88,7 @@ function hideDuplicateSummary() {
   if (!body) return;
 
   Array.from(body.querySelectorAll("p, div, span")).forEach((element) => {
-    const text = (element.textContent || "").trim();
+    const text = cleanText(element);
     const isSummary = /^\d+\s+events?\s*[|·]/.test(text);
     const hasNestedElements = element.children.length > 0;
 
@@ -95,14 +99,14 @@ function hideDuplicateSummary() {
 }
 
 function triggerHiddenAddEventButton() {
-  const addButton = calendarButtons().find((button) => /add\s*event/i.test(button.textContent || ""));
+  const addButton = calendarButtons().find((button) => /add\s*event/i.test(cleanText(button)));
 
   if (addButton) {
     addButton.click();
     return;
   }
 
-  const todayCell = calendarButtons().find((button) => button.querySelector("svg") && /\d+/.test(button.textContent || ""));
+  const todayCell = calendarButtons().find((button) => button.querySelector("svg") && /\d+/.test(cleanText(button)));
   todayCell?.click();
 }
 
@@ -150,8 +154,8 @@ export default function Calendar() {
             onPrevious={() => clickIconButton(0)}
             onToday={() => clickButtonByText(/^today$/i)}
             onNext={() => clickIconButton(1)}
-            onPersonFilterClick={() => clickButtonContainingText(/^Person\s+/i)}
-            onCategoryFilterClick={() => clickButtonContainingText(/^Category\s+/i)}
+            onPersonFilterClick={() => clickButtonContainingText(/^Person/i)}
+            onCategoryFilterClick={() => clickButtonContainingText(/^Category/i)}
           />
           <div className="family-calendar-live-body">
             <FamilyCalendarView
