@@ -8,7 +8,13 @@ const people = [
   { name: "Everyone", color: "bg-lime-600" },
 ];
 
-export default function FamilyCalendarHeader() {
+const viewOptions = [
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+];
+
+export default function FamilyCalendarHeader({ viewMode = "week", onViewModeChange = () => {} }) {
   return (
     <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
       <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-3">
@@ -91,16 +97,18 @@ export default function FamilyCalendarHeader() {
           </div>
 
           <div className="flex overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-            {['Day', 'Week', 'Month'].map((view) => (
+            {viewOptions.map((view) => (
               <button
-                key={view}
+                key={view.value}
+                type="button"
+                onClick={() => onViewModeChange(view.value)}
                 className={
-                  view === 'Month'
-                    ? 'min-w-[86px] border-r border-slate-200 bg-blue-600 px-5 py-3 text-sm font-black text-white last:border-r-0'
-                    : 'min-w-[86px] border-r border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50 last:border-r-0'
+                  viewMode === view.value
+                    ? 'min-w-[86px] border-r border-slate-200 bg-blue-600 px-5 py-3 text-sm font-black capitalize text-white last:border-r-0'
+                    : 'min-w-[86px] border-r border-slate-200 bg-white px-5 py-3 text-sm font-black capitalize text-slate-700 hover:bg-slate-50 last:border-r-0'
                 }
               >
-                {view}
+                {view.label}
               </button>
             ))}
           </div>
