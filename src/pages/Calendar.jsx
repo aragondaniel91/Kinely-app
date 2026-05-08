@@ -65,6 +65,18 @@ function cleanText(element) {
   return (element?.textContent || "").replace(/\s+/g, " ").trim();
 }
 
+function cleanSummaryText(value) {
+  const text = cleanText({ textContent: value }).replace(" | ", " · ");
+  const weekMatch = text.match(/^(\d+\s+events?\s*[·|]\s*[A-Za-z]{3,9}\s+\d{1,2}\s*-\s*[A-Za-z]{3,9}\s+\d{1,2})/i);
+  if (weekMatch) return weekMatch[1].replace(" | ", " · ");
+
+  const monthMatch = text.match(/^(\d+\s+events?\s*[·|]\s*[A-Za-z]{3,9}\s+\d{4})/i);
+  if (monthMatch) return monthMatch[1].replace(" | ", " · ");
+
+  const fallback = text.split(/Person|Category|Add\s*Event/i)[0]?.trim();
+  return fallback || "17 events · May 2026";
+}
+
 function clickButtonByText(pattern) {
   const button = calendarButtons().find((item) => pattern.test(cleanText(item)));
   button?.click();
@@ -136,7 +148,7 @@ function readCalendarMeta() {
 
   return {
     monthLabel: monthText || "May 2026",
-    eventSummary: summaryText ? summaryText.replace(" | ", " · ") : "17 events · May 2026",
+    eventSummary: summaryText ? cleanSummaryText(summaryText) : "17 events · May 2026",
     selectedPersonLabel: personText ? personText.replace(/^Person\s*/i, "") : "All People",
     selectedCategoryLabel: categoryText ? categoryText.replace(/^Category\s*/i, "") : "All Categories",
   };
