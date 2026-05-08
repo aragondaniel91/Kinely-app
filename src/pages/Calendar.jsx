@@ -70,7 +70,8 @@ function selectPersonFromMenu(label) {
   let attempts = 0;
   const trySelect = () => {
     attempts += 1;
-    const menuButtons = Array.from(document.querySelectorAll("button"));
+    const body = document.querySelector(".family-calendar-live-body");
+    const menuButtons = Array.from(body?.querySelectorAll("button") || []);
     const target = menuButtons.find((button) => {
       const text = cleanText(button);
       return text === label || text.startsWith(`${label} `);
