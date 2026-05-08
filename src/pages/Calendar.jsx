@@ -31,29 +31,6 @@ const compactCalendarStyles = `
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
 }
-
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2 {
-  width: calc(33.333% - 0.45rem) !important;
-  right: auto !important;
-  z-index: 20 !important;
-}
-
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(3n + 1) {
-  left: 0.5rem !important;
-}
-
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(3n + 2) {
-  left: calc(33.333% + 0.15rem) !important;
-}
-
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(3n) {
-  left: calc(66.666% - 0.2rem) !important;
-}
-
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:hover,
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:focus-visible {
-  z-index: 40 !important;
-}
 `;
 
 const weatherCodeMap = {
@@ -217,6 +194,75 @@ function findMonthYearPickerPanel() {
   });
 }
 
+function layoutOverlappingTimedEvents() {
+  const body = document.querySelector(".family-calendar-live-body");
+  if (!body) return;
+
+  const timedEvents = Array.from(body.querySelectorAll("button.absolute.left-2.right-2"));
+  const groups = new Map();
+
+  timedEvents.forEach((button) => {
+    const parent = button.parentElement;
+    if (!parent) return;
+
+    const top = Number.parseFloat(button.style.top || "0");
+    const height = Number.parseFloat(button.style.height || "0");
+    if (!top || !height) return;
+
+    button.style.left = "0.5rem";
+    button.style.right = "auto";
+    button.style.width = "calc(100% - 1rem)";
+    button.style.zIndex = "20";
+
+    const list = groups.get(parent) || [];
+    list.push({ button, top, bottom: top + height });
+    groups.set(parent, list);
+  });
+
+  const overlaps = (a, b) => a.top < b.bottom && b.top < a.bottom;
+
+  groups.forEach((items) => {
+    const sorted = [...items].sort((a, b) => a.top - b.top || a.bottom - b.bottom);
+    const clusters = [];
+
+    sorted.forEach((item) => {
+      const cluster = clusters.find((current) => current.some((existing) => overlaps(item, existing)));
+      if (cluster) {
+        cluster.push(item);
+      } else {
+        clusters.push([item]);
+      }
+    });
+
+    clusters.forEach((cluster) => {
+      if (cluster.length <= 1) return;
+
+      const columns = [];
+      cluster
+        .sort((a, b) => a.top - b.top || a.bottom - b.bottom)
+        .forEach((item) => {
+          let columnIndex = columns.findIndex((columnEnd) => columnEnd <= item.top);
+          if (columnIndex === -1) {
+            columnIndex = columns.length;
+            columns.push(item.bottom);
+          } else {
+            columns[columnIndex] = item.bottom;
+          }
+
+          item.columnIndex = columnIndex;
+        });
+
+      const columnCount = Math.max(1, columns.length);
+      const width = 100 / columnCount;
+
+      cluster.forEach((item) => {
+        item.button.style.left = `calc(${width * item.columnIndex}% + 0.5rem)`;
+        item.button.style.width = `calc(${width}% - 0.7rem)`;
+      });
+    });
+  });
+}
+
 function formatClock(date) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toLowerCase();
 }
@@ -370,6 +416,9 @@ export default function Calendar() {
       requestAnimationFrame(() => {
         hideDuplicateSummary();
         decoratePersonFilterFamilyDots();
+        if (viewMode === "week" || viewMode === "day") {
+          layoutOverlappingTimedEvents();
+        }
       });
     };
     updateMeta();
@@ -384,7 +433,7 @@ export default function Calendar() {
   }, [activeCalendar, viewMode]);
 
   return (
-    <div className={`family-calendar-shell ${viewMode === "week" ? "family-calendar-week" : ""} relative min-h-full bg-background pb-28 md:pb-6`} style={familyGradientVariables}>
+    <div className="family-calendar-shell relative min-h-full bg-background pb-28 md:pb-6" style={familyGradientVariables}>
       <style>{compactCalendarStyles}</style>
 
       {activeCalendar === "custody" ? (
