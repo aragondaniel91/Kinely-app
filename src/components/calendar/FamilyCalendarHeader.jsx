@@ -31,6 +31,10 @@ function parseMonthLabel(label) {
   };
 }
 
+function familyDisplayName(family) {
+  return family?.family_name || family?.familyName || family?.name || "Family";
+}
+
 function LegendDot({ color, colors = [] }) {
   if (color === "family") {
     const familyColors = colors.length > 0 ? colors : fallbackPeople.filter((person) => person.color !== "family").map((person) => person.color);
@@ -87,6 +91,7 @@ export default function FamilyCalendarHeader({
   const parsedMonth = useMemo(() => parseMonthLabel(monthLabel), [monthLabel]);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(parsedMonth.year);
+  const familyOptions = families.length > 0 ? families : [{ id: activeFamilyId || "active-family", family_name: familyName }];
 
   const { people: familyPeople } = useMemo(
     () => familyPersonColorMap(profile || {}, user, user?.email || ""),
@@ -112,25 +117,26 @@ export default function FamilyCalendarHeader({
       <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-3">
         <div className="flex items-center gap-3 text-slate-500">
           <span className="text-xl leading-none">🏠</span>
-          <div>
+          <div className="min-w-[260px]">
             <p className="text-lg font-black leading-tight text-slate-900">Family Wall</p>
-            {families.length > 1 ? (
+            <label className="mt-2 block text-[10px] font-black uppercase tracking-wide text-slate-400">
+              Active family
+            </label>
+            <div className="relative mt-1">
               <select
-                value={activeFamilyId}
+                value={activeFamilyId || familyOptions[0]?.id || ""}
                 onChange={(event) => onFamilyChange(event.target.value)}
-                className="max-w-[220px] rounded-lg border-0 bg-transparent px-1 py-0.5 text-xs font-bold text-slate-400 outline-none hover:bg-slate-50 hover:text-slate-700"
+                disabled={familyOptions.length <= 1}
+                className="h-11 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm font-black text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500"
               >
-                {families.map((family) => (
+                {familyOptions.map((family) => (
                   <option key={family.id} value={family.id}>
-                    {family.family_name || family.familyName || "Family"}
+                    {familyDisplayName(family)}
                   </option>
                 ))}
               </select>
-            ) : (
-              <p className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-xs font-bold text-slate-400">
-                {familyName}
-              </p>
-            )}
+              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">⌄</span>
+            </div>
           </div>
         </div>
 
