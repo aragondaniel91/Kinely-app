@@ -57,9 +57,6 @@ const weatherCodeMap = {
   99: { emoji: "⛈️", label: "Storm / hail" },
 };
 
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const monthShortNames = monthNames.map((month) => month.slice(0, 3));
-
 function calendarButtons() {
   return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
 }
@@ -233,37 +230,6 @@ export default function Calendar() {
 
   const weatherInfo = useMemo(() => weatherLabels(weather), [weather]);
 
-  const handleMonthSelect = (targetMonthIndex, targetYear) => {
-    const realMonthPickerButton = calendarButtons().find((button) => /^[A-Za-z]+\s+\d{4}$/.test(cleanText(button)));
-    if (!realMonthPickerButton) return;
-
-    realMonthPickerButton.click();
-
-    window.setTimeout(() => {
-      const yearButtons = calendarButtons().filter((button) => {
-        const text = cleanText(button);
-        return !text && button.querySelector("svg");
-      });
-
-      const visibleYearText = Array.from(document.querySelectorAll(".family-calendar-live-body p"))
-        .map(cleanText)
-        .find((text) => /^\d{4}$/.test(text));
-      const visibleYear = Number(visibleYearText) || targetYear;
-      const yearDiff = Math.max(-20, Math.min(20, targetYear - visibleYear));
-      const yearButton = yearDiff > 0 ? yearButtons[3] : yearButtons[2];
-
-      for (let index = 0; index < Math.abs(yearDiff); index += 1) {
-        window.setTimeout(() => yearButton?.click(), index * 25);
-      }
-
-      window.setTimeout(() => {
-        const targetMonth = monthShortNames[targetMonthIndex];
-        const monthButton = calendarButtons().find((button) => cleanText(button) === targetMonth);
-        monthButton?.click();
-      }, Math.abs(yearDiff) * 25 + 50);
-    }, 0);
-  };
-
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
@@ -350,7 +316,7 @@ export default function Calendar() {
             onPrevious={() => clickIconButton(0)}
             onToday={() => clickButtonByText(/^today$/i)}
             onNext={() => clickIconButton(1)}
-            onMonthSelect={handleMonthSelect}
+            onMonthClick={() => clickButtonByText(/^[A-Za-z]+\s+\d{4}$/)}
             onPersonFilterClick={() => clickButtonContainingText(/^Person/i)}
             onCategoryFilterClick={() => clickButtonContainingText(/^Category/i)}
             onLegendPersonClick={selectPersonFromExistingChip}
