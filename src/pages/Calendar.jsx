@@ -10,17 +10,7 @@ const compactCalendarStyles = `
 .family-calendar-live-body > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child,
 .family-calendar-live-body > div > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child,
 .family-calendar-live-body .family-calendar-internal-toolbar {
-  position: absolute !important;
-  left: -9999px !important;
-  top: 0 !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: 0 !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
+  display: none !important;
 }
 
 .family-calendar-live-body p.mt-4,
