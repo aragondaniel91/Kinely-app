@@ -11,10 +11,10 @@ export const PERSON_COLOR_OPTIONS = [
   {
     id: "family",
     label: "Family",
-    dot: "bg-gradient-to-r from-blue-500 via-yellow-500 to-emerald-500",
-    bg: "bg-gradient-to-r from-blue-50 via-yellow-50 to-emerald-50",
+    dot: "bg-[image:var(--family-gradient)]",
+    bg: "bg-[image:var(--family-soft-gradient)]",
     border: "border-blue-200",
-    stripe: "bg-gradient-to-b from-blue-500 via-yellow-500 to-emerald-500",
+    stripe: "bg-[image:var(--family-gradient-vertical)]",
     ring: "ring-blue-200",
     text: "text-slate-800",
     hex: "#3b82f6",
