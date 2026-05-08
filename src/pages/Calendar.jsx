@@ -32,6 +32,11 @@ function clickButtonByText(pattern) {
   button?.click();
 }
 
+function clickButtonContainingText(pattern) {
+  const button = calendarButtons().find((item) => pattern.test((item.textContent || "").trim()));
+  button?.click();
+}
+
 function clickIconButton(index) {
   const buttons = calendarButtons().filter((item) => {
     const text = (item.textContent || "").trim();
@@ -50,9 +55,19 @@ function readCalendarMeta() {
     .map((item) => (item.textContent || "").trim())
     .find((text) => /^\d+\s+events?\s*\|/.test(text));
 
+  const personText = Array.from(body?.querySelectorAll("button") || [])
+    .map((button) => (button.textContent || "").replace(/\s+/g, " ").trim())
+    .find((text) => /^Person\s+/.test(text));
+
+  const categoryText = Array.from(body?.querySelectorAll("button") || [])
+    .map((button) => (button.textContent || "").replace(/\s+/g, " ").trim())
+    .find((text) => /^Category\s+/.test(text));
+
   return {
     monthLabel: monthText || "May 2026",
     eventSummary: summaryText ? summaryText.replace(" | ", " · ") : "17 events · May 2026",
+    selectedPersonLabel: personText ? personText.replace(/^Person\s+/, "") : "All People",
+    selectedCategoryLabel: categoryText ? categoryText.replace(/^Category\s+/, "") : "All Categories",
   };
 }
 
@@ -121,10 +136,14 @@ export default function Calendar() {
             viewMode={viewMode}
             monthLabel={calendarMeta.monthLabel}
             eventSummary={calendarMeta.eventSummary}
+            selectedPersonLabel={calendarMeta.selectedPersonLabel}
+            selectedCategoryLabel={calendarMeta.selectedCategoryLabel}
             onViewModeChange={setViewMode}
             onPrevious={() => clickIconButton(0)}
             onToday={() => clickButtonByText(/^today$/i)}
             onNext={() => clickIconButton(1)}
+            onPersonFilterClick={() => clickButtonContainingText(/^Person\s+/i)}
+            onCategoryFilterClick={() => clickButtonContainingText(/^Category\s+/i)}
           />
           <div className="family-calendar-live-body">
             <FamilyCalendarView
