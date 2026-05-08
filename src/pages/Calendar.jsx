@@ -58,6 +58,7 @@ const weatherCodeMap = {
 };
 
 const monthShortNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEK_MAX_VISIBLE_PER_START_TIME = 3;
 
 function calendarButtons() {
   return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
@@ -191,6 +192,192 @@ function findMonthYearPickerPanel() {
   return panels.find((panel) => {
     const text = cleanText(panel);
     return monthShortNames.every((month) => text.includes(month)) && /\d{4}/.test(text);
+  });
+}
+
+function closeTimedOverflowPanel() {
+  document.querySelectorAll("[data-family-timed-overflow-panel]").forEach((panel) => panel.remove());
+}
+
+function clickHiddenTimedEvent(button) {
+  const previousDisplay = button.style.display;
+  const previousOpacity = button.style.opacity;
+  const previousPointerEvents = button.style.pointerEvents;
+
+  button.style.display = "block";
+  button.style.opacity = "0";
+  button.style.pointerEvents = "none";
+  button.click();
+
+  window.setTimeout(() => {
+    button.style.display = previousDisplay;
+    button.style.opacity = previousOpacity;
+    button.style.pointerEvents = previousPointerEvents;
+  }, 0);
+}
+
+function timedEventLabel(button) {
+  const text = cleanText(button);
+  if (!text) return "Hidden event";
+  const match = text.match(/^(.*?)(\d{1,2}:\d{2}\s*[AP]M.*)$/i);
+  if (!match) return text;
+  return `${match[1].trim()} · ${match[2].trim()}`;
+}
+
+function showTimedOverflowPanel(badge, hiddenItems) {
+  closeTimedOverflowPanel();
+
+  const rect = badge.getBoundingClientRect();
+  const panel = document.createElement("div");
+  panel.dataset.familyTimedOverflowPanel = "true";
+  panel.className = "fixed z-[120] w-[300px] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl ring-1 ring-black/5";
+  panel.style.top = `${Math.min(window.innerHeight - 260, rect.bottom + 8)}px`;
+  panel.style.left = `${Math.max(12, Math.min(window.innerWidth - 312, rect.right - 300))}px`;
+
+  const header = document.createElement("div");
+  header.className = "mb-2 flex items-start justify-between gap-3 border-b border-slate-100 pb-2";
+  header.innerHTML = `
+    <div class="min-w-0">
+      <div class="text-xs font-black uppercase tracking-wide text-slate-700">More events</div>
+      <div class="mt-0.5 text-[11px] font-semibold text-slate-400">Same start time · tap to open</div>
+    </div>
+  `;
+
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base font-black leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700";
+  closeButton.textContent = "×";
+  closeButton.onclick = (event) => {
+    event.stopPropagation();
+    closeTimedOverflowPanel();
+  };
+
+  header.appendChild(closeButton);
+  panel.appendChild(header);
+
+  hiddenItems.forEach((item) => {
+    const preview = document.createElement("button");
+    preview.type = "button";
+    preview.className = "mb-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold text-slate-700 shadow-sm transition hover:scale-[1.01] hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300";
+    preview.textContent = timedEventLabel(item.button);
+    preview.onclick = (event) => {
+      event.stopPropagation();
+      closeTimedOverflowPanel();
+      clickHiddenTimedEvent(item.button);
+    };
+    panel.appendChild(preview);
+  });
+
+  document.body.appendChild(panel);
+}
+
+function layoutTimedCalendarEvents(viewMode = "week") {
+  const body = document.querySelector(".family-calendar-live-body");
+  if (!body || (viewMode !== "week" && viewMode !== "day")) return;
+
+  body.querySelectorAll("[data-family-timed-overflow-badge]").forEach((badge) => badge.remove());
+
+  const eventButtons = Array.from(body.querySelectorAll("button.absolute.left-2.right-2"));
+  const parents = Array.from(new Set(eventButtons.map((button) => button.parentElement).filter(Boolean)));
+
+  const overlaps = (a, b) => a.top < b.bottom && b.top < a.bottom;
+
+  parents.forEach((parent) => {
+    const items = Array.from(parent.querySelectorAll("button.absolute.left-2.right-2"))
+      .map((button, index) => {
+        const top = Number.parseFloat(button.style.top || "0");
+        const height = Number.parseFloat(button.style.height || "0");
+        if (!top || !height) return null;
+        return {
+          button,
+          index,
+          top,
+          bottom: top + height,
+          startKey: String(Math.round(top)),
+          hidden: false,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.top - b.top || b.bottom - a.bottom || a.index - b.index);
+
+    if (items.length === 0) return;
+
+    const byStart = new Map();
+
+    items.forEach((item) => {
+      item.button.style.display = "block";
+      item.button.style.right = "auto";
+      item.hidden = false;
+
+      const list = byStart.get(item.startKey) || [];
+      list.push(item);
+      byStart.set(item.startKey, list);
+    });
+
+    if (viewMode === "week") {
+      byStart.forEach((group, startKey) => {
+        const ordered = [...group].sort((a, b) => b.bottom - a.bottom || a.index - b.index);
+        const hiddenItems = ordered.slice(WEEK_MAX_VISIBLE_PER_START_TIME);
+
+        hiddenItems.forEach((item) => {
+          item.hidden = true;
+          item.button.style.display = "none";
+        });
+
+        if (hiddenItems.length > 0) {
+          const firstVisible = ordered[0];
+          const badge = document.createElement("button");
+          badge.type = "button";
+          badge.dataset.familyTimedOverflowBadge = startKey;
+          badge.className = "absolute rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-black text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700";
+          badge.textContent = `+${hiddenItems.length}`;
+          badge.title = `${hiddenItems.length} more events starting at this time`;
+          badge.style.top = `${Math.max(112, firstVisible.top + 8)}px`;
+          badge.style.right = "0.5rem";
+          badge.style.zIndex = "70";
+          badge.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            showTimedOverflowPanel(badge, hiddenItems);
+          };
+          parent.appendChild(badge);
+        }
+      });
+    }
+
+    const visibleItems = items.filter((item) => !item.hidden);
+    const columns = [];
+
+    visibleItems.forEach((item) => {
+      let columnIndex = columns.findIndex((columnEnd) => columnEnd <= item.top);
+      if (columnIndex === -1) {
+        columnIndex = columns.length;
+        columns.push(item.bottom);
+      } else {
+        columns[columnIndex] = item.bottom;
+      }
+      item.columnIndex = columnIndex;
+    });
+
+    let columnCount = Math.max(1, columns.length);
+    visibleItems.forEach((item) => {
+      const localMax = Math.max(
+        ...visibleItems
+          .filter((other) => other === item || overlaps(item, other))
+          .map((other) => other.columnIndex),
+        0
+      );
+      columnCount = Math.max(columnCount, localMax + 1);
+    });
+
+    const width = 100 / columnCount;
+    visibleItems.forEach((item) => {
+      item.button.style.display = "block";
+      item.button.style.left = `calc(${width * item.columnIndex}% + 0.5rem)`;
+      item.button.style.width = `calc(${width}% - 0.7rem)`;
+      item.button.style.right = "auto";
+      item.button.style.zIndex = String(20 + item.columnIndex);
+    });
   });
 }
 
@@ -347,6 +534,7 @@ export default function Calendar() {
       requestAnimationFrame(() => {
         hideDuplicateSummary();
         decoratePersonFilterFamilyDots();
+        window.setTimeout(() => layoutTimedCalendarEvents(viewMode), 0);
       });
     };
     updateMeta();
@@ -357,8 +545,30 @@ export default function Calendar() {
     const observer = new MutationObserver(updateMeta);
     observer.observe(body, { childList: true, subtree: true, characterData: true });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      closeTimedOverflowPanel();
+    };
   }, [activeCalendar, viewMode]);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => {
+      if (event.target?.closest?.("[data-family-timed-overflow-panel]")) return;
+      if (event.target?.closest?.("[data-family-timed-overflow-badge]")) return;
+      closeTimedOverflowPanel();
+    };
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") closeTimedOverflowPanel();
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsideClick, true);
+    document.addEventListener("keydown", closeOnEscape, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick, true);
+      document.removeEventListener("keydown", closeOnEscape, true);
+    };
+  }, []);
 
   return (
     <div className="family-calendar-shell relative min-h-full bg-background pb-28 md:pb-6" style={familyGradientVariables}>
