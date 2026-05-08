@@ -9,7 +9,9 @@ const compactCalendarStyles = `
   display: none !important;
 }
 
-.family-calendar-live-body > div > div.mx-auto > p {
+.family-calendar-live-body p.mt-4,
+.family-calendar-live-body p.text-base.font-semibold.text-slate-600,
+.family-calendar-live-body p[class*="text-slate-600"]:has(+ .grid.border-b.border-slate-200) {
   display: none !important;
 }
 
