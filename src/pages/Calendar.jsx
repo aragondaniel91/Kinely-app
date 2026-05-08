@@ -17,12 +17,6 @@ const compactCalendarStyles = `
   border: 0 !important;
 }
 
-body.legend-quick-filter button[aria-label="Close filter menu"],
-body.legend-quick-filter div.fixed[class*="z-[80]"] {
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
 .family-calendar-live-body p.mt-4,
 .family-calendar-live-body p.text-base.font-semibold.text-slate-600,
 .family-calendar-live-body p[class*="text-slate-600"]:has(+ .grid.border-b.border-slate-200) {
@@ -63,35 +57,14 @@ function clickIconButton(index) {
   buttons[index]?.click();
 }
 
-function selectPersonFromMenu(label) {
-  document.body.classList.add("legend-quick-filter");
-  clickButtonContainingText(/^Person/i);
+function selectPersonFromExistingChip(label) {
+  const body = document.querySelector(".family-calendar-live-body");
+  const chip = Array.from(body?.querySelectorAll("button") || []).find((button) => {
+    const text = cleanText(button);
+    return text === label && !/^Person/i.test(text) && !/^Category/i.test(text);
+  });
 
-  let attempts = 0;
-  const trySelect = () => {
-    attempts += 1;
-    const body = document.querySelector(".family-calendar-live-body");
-    const menuButtons = Array.from(body?.querySelectorAll("button") || []);
-    const target = menuButtons.find((button) => {
-      const text = cleanText(button);
-      return text === label || text.startsWith(`${label} `);
-    });
-
-    if (target) {
-      target.click();
-      window.setTimeout(() => document.body.classList.remove("legend-quick-filter"), 80);
-      return;
-    }
-
-    if (attempts < 8) {
-      window.setTimeout(trySelect, 25);
-      return;
-    }
-
-    document.body.classList.remove("legend-quick-filter");
-  };
-
-  window.setTimeout(trySelect, 25);
+  chip?.click();
 }
 
 function readCalendarMeta() {
@@ -193,7 +166,7 @@ export default function Calendar() {
             onNext={() => clickIconButton(1)}
             onPersonFilterClick={() => clickButtonContainingText(/^Person/i)}
             onCategoryFilterClick={() => clickButtonContainingText(/^Category/i)}
-            onLegendPersonClick={selectPersonFromMenu}
+            onLegendPersonClick={selectPersonFromExistingChip}
           />
           <div className="family-calendar-live-body">
             <FamilyCalendarView
