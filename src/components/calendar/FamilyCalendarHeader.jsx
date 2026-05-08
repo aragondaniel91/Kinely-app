@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, Tags, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Tags, User } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
@@ -66,7 +66,6 @@ export default function FamilyCalendarHeader({
   onToday = () => {},
   onNext = () => {},
   onMonthClick = () => {},
-  onAddEvent = () => {},
   onPersonFilterClick = () => {},
   onCategoryFilterClick = () => {},
   onLegendPersonClick = () => {},
@@ -106,7 +105,7 @@ export default function FamilyCalendarHeader({
               >
                 {families.map((family) => (
                   <option key={family.id} value={family.id}>
-                    {family.family_name || family.familyName || family.familyName || "Family"}
+                    {family.family_name || family.familyName || "Family"}
                   </option>
                 ))}
               </select>
@@ -134,10 +133,6 @@ export default function FamilyCalendarHeader({
         </h1>
 
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onAddEvent} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700">
-            <Plus className="h-4 w-4" />
-            <span>Add event</span>
-          </button>
           <button type="button" className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
             <RefreshCw className="h-4 w-4 text-slate-500" />
             <span>Sync calendar</span>
