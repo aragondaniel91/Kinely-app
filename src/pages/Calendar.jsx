@@ -8,12 +8,10 @@ const compactCalendarStyles = `
 .family-calendar-live-body > div > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child {
   position: absolute !important;
   left: -9999px !important;
-  top: auto !important;
+  top: 0 !important;
   width: 1px !important;
   height: 1px !important;
-  overflow: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
+  overflow: visible !important;
   padding: 0 !important;
   margin: 0 !important;
   border: 0 !important;
