@@ -33,17 +33,21 @@ const compactCalendarStyles = `
 }
 
 .family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2 {
-  width: calc(50% - 0.45rem) !important;
+  width: calc(33.333% - 0.45rem) !important;
   right: auto !important;
   z-index: 20 !important;
 }
 
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(odd) {
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(3n + 1) {
   left: 0.5rem !important;
 }
 
-.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(even) {
-  left: calc(50% + 0.2rem) !important;
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(3n + 2) {
+  left: calc(33.333% + 0.15rem) !important;
+}
+
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(3n) {
+  left: calc(66.666% - 0.2rem) !important;
 }
 
 .family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:hover,
