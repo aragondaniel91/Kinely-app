@@ -9,7 +9,7 @@ const fallbackPeople = [
   { label: "Daniel Aragon", color: "blue" },
   { label: "Amanda Arraga", color: "yellow" },
   { label: "Joaquin", color: "emerald" },
-  { label: "Everyone", color: "lime" },
+  { label: "Everyone", color: "family" },
 ];
 
 const viewOptions = [
@@ -18,7 +18,20 @@ const viewOptions = [
   { value: "month", label: "Month" },
 ];
 
-function LegendDot({ color }) {
+function LegendDot({ color, colors = [] }) {
+  if (color === "family") {
+    const familyColors = colors.length > 0 ? colors : fallbackPeople.filter((person) => person.color !== "family").map((person) => person.color);
+
+    return (
+      <span className="flex h-4 w-4 overflow-hidden rounded-full border border-white shadow-sm">
+        {familyColors.slice(0, 4).map((familyColor, index) => {
+          const meta = getColorMeta(familyColor, "slate");
+          return <span key={`${familyColor}-${index}`} className={cn("h-full flex-1", meta.dot)} />;
+        })}
+      </span>
+    );
+  }
+
   const meta = getColorMeta(color, "slate");
   return <span className={cn("h-4 w-4 rounded-full", meta.dot)} />;
 }
@@ -53,6 +66,10 @@ export default function FamilyCalendarHeader({
     () => familyPersonColorMap(profile || {}, user, user?.email || ""),
     [profile, user]
   );
+  const familyColors = useMemo(
+    () => dedupePeopleByLabel(familyPeople).map((person) => person.color).filter(Boolean),
+    [familyPeople]
+  );
   const legendPeople = useMemo(() => {
     const mappedPeople = familyPeople.map((person) => ({
       label: person.label,
@@ -60,7 +77,7 @@ export default function FamilyCalendarHeader({
     }));
 
     return mappedPeople.length > 0
-      ? dedupePeopleByLabel([...mappedPeople, { label: "Everyone", color: "lime" }])
+      ? dedupePeopleByLabel([...mappedPeople, { label: "Everyone", color: "family" }])
       : fallbackPeople;
   }, [familyPeople]);
 
@@ -136,7 +153,7 @@ export default function FamilyCalendarHeader({
                     : "border-transparent hover:border-slate-200 hover:bg-slate-50"
                 )}
               >
-                <LegendDot color={person.color} />
+                <LegendDot color={person.color} colors={familyColors} />
                 <span className={cn("text-base font-semibold", active ? "text-blue-700" : "text-slate-800")}>{person.label}</span>
               </button>
             );
