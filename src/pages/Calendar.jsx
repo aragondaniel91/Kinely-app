@@ -17,6 +17,12 @@ const compactCalendarStyles = `
   border: 0 !important;
 }
 
+body.legend-quick-filter button[aria-label="Close filter menu"],
+body.legend-quick-filter div.fixed[class*="z-[80]"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .family-calendar-live-body p.mt-4,
 .family-calendar-live-body p.text-base.font-semibold.text-slate-600,
 .family-calendar-live-body p[class*="text-slate-600"]:has(+ .grid.border-b.border-slate-200) {
@@ -58,17 +64,33 @@ function clickIconButton(index) {
 }
 
 function selectPersonFromMenu(label) {
+  document.body.classList.add("legend-quick-filter");
   clickButtonContainingText(/^Person/i);
 
-  window.setTimeout(() => {
+  let attempts = 0;
+  const trySelect = () => {
+    attempts += 1;
     const menuButtons = Array.from(document.querySelectorAll("button"));
     const target = menuButtons.find((button) => {
       const text = cleanText(button);
       return text === label || text.startsWith(`${label} `);
     });
 
-    target?.click();
-  }, 0);
+    if (target) {
+      target.click();
+      window.setTimeout(() => document.body.classList.remove("legend-quick-filter"), 80);
+      return;
+    }
+
+    if (attempts < 8) {
+      window.setTimeout(trySelect, 25);
+      return;
+    }
+
+    document.body.classList.remove("legend-quick-filter");
+  };
+
+  window.setTimeout(trySelect, 25);
 }
 
 function readCalendarMeta() {
