@@ -31,6 +31,25 @@ const compactCalendarStyles = `
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
 }
+
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2 {
+  width: calc(50% - 0.45rem) !important;
+  right: auto !important;
+  z-index: 20 !important;
+}
+
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(odd) {
+  left: 0.5rem !important;
+}
+
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:nth-of-type(even) {
+  left: calc(50% + 0.2rem) !important;
+}
+
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:hover,
+.family-calendar-week .family-calendar-live-body div.relative > button.absolute.left-2.right-2:focus-visible {
+  z-index: 40 !important;
+}
 `;
 
 const weatherCodeMap = {
@@ -361,7 +380,7 @@ export default function Calendar() {
   }, [activeCalendar, viewMode]);
 
   return (
-    <div className="family-calendar-shell relative min-h-full bg-background pb-28 md:pb-6" style={familyGradientVariables}>
+    <div className={`family-calendar-shell ${viewMode === "week" ? "family-calendar-week" : ""} relative min-h-full bg-background pb-28 md:pb-6`} style={familyGradientVariables}>
       <style>{compactCalendarStyles}</style>
 
       {activeCalendar === "custody" ? (
