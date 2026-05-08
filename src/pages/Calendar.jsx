@@ -33,6 +33,30 @@ const compactCalendarStyles = `
 }
 `;
 
+const weatherCodeMap = {
+  0: { emoji: "☀️", label: "Clear" },
+  1: { emoji: "🌤️", label: "Mostly clear" },
+  2: { emoji: "⛅", label: "Partly cloudy" },
+  3: { emoji: "☁️", label: "Cloudy" },
+  45: { emoji: "🌫️", label: "Fog" },
+  48: { emoji: "🌫️", label: "Fog" },
+  51: { emoji: "🌦️", label: "Light drizzle" },
+  53: { emoji: "🌦️", label: "Drizzle" },
+  55: { emoji: "🌧️", label: "Heavy drizzle" },
+  61: { emoji: "🌧️", label: "Light rain" },
+  63: { emoji: "🌧️", label: "Rain" },
+  65: { emoji: "🌧️", label: "Heavy rain" },
+  71: { emoji: "🌨️", label: "Light snow" },
+  73: { emoji: "🌨️", label: "Snow" },
+  75: { emoji: "❄️", label: "Heavy snow" },
+  80: { emoji: "🌦️", label: "Rain showers" },
+  81: { emoji: "🌧️", label: "Rain showers" },
+  82: { emoji: "⛈️", label: "Heavy showers" },
+  95: { emoji: "⛈️", label: "Thunderstorm" },
+  96: { emoji: "⛈️", label: "Storm / hail" },
+  99: { emoji: "⛈️", label: "Storm / hail" },
+};
+
 function calendarButtons() {
   return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
 }
@@ -153,12 +177,44 @@ function formatHeaderDate(date) {
   return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
+function weatherLabels(weather) {
+  if (weather.status === "loading") return { label: "📍 --°", description: "Locating" };
+  if (weather.status === "blocked") return { label: "📍 --°", description: "Allow location" };
+  if (weather.status === "error") return { label: "☁️ --°", description: "Weather" };
+  if (weather.status !== "ready") return { label: "☁️ --°", description: "Weather" };
+
+  const meta = weatherCodeMap[weather.code] || { emoji: "☁️", label: "Weather" };
+  return {
+    label: `${meta.emoji} ${Math.round(weather.temperature)}°`,
+    description: meta.label,
+  };
+}
+
+async function fetchWeather(latitude, longitude) {
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.searchParams.set("latitude", latitude);
+  url.searchParams.set("longitude", longitude);
+  url.searchParams.set("current", "temperature_2m,weather_code");
+  url.searchParams.set("temperature_unit", "fahrenheit");
+  url.searchParams.set("timezone", "auto");
+
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error("Weather request failed");
+  const data = await response.json();
+
+  return {
+    temperature: data.current?.temperature_2m,
+    code: data.current?.weather_code,
+  };
+}
+
 export default function Calendar() {
   const { user, profile, allProfiles, activeProfileId, setActiveProfileId } = useFamily();
   const [activeCalendar, setActiveCalendar] = useState("family");
   const [viewMode, setViewMode] = useState("week");
   const [calendarMeta, setCalendarMeta] = useState(() => readCalendarMeta());
   const [now, setNow] = useState(() => new Date());
+  const [weather, setWeather] = useState({ status: "idle" });
 
   const familyGradientVariables = useMemo(() => {
     const colorIds = familyColorIds(profile || {}, user);
@@ -172,9 +228,42 @@ export default function Calendar() {
     };
   }, [profile, user]);
 
+  const weatherInfo = useMemo(() => weatherLabels(weather), [weather]);
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setWeather({ status: "error" });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setWeather({ status: "loading" });
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const result = await fetchWeather(position.coords.latitude, position.coords.longitude);
+          if (!cancelled) setWeather({ status: "ready", ...result });
+        } catch (error) {
+          console.error("Error loading weather:", error);
+          if (!cancelled) setWeather({ status: "error" });
+        }
+      },
+      (error) => {
+        console.error("Location permission/weather error:", error);
+        if (!cancelled) setWeather({ status: "blocked" });
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 30 * 60 * 1000 }
+    );
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -217,8 +306,8 @@ export default function Calendar() {
             selectedCategoryLabel={calendarMeta.selectedCategoryLabel}
             currentTimeLabel={formatClock(now)}
             currentDateLabel={formatHeaderDate(now)}
-            weatherLabel="☁️ --°"
-            weatherDescription="Weather"
+            weatherLabel={weatherInfo.label}
+            weatherDescription={weatherInfo.description}
             familyName={profile?.family_name || profile?.familyName || "Family"}
             families={allProfiles || []}
             activeFamilyId={activeProfileId || ""}
