@@ -145,11 +145,20 @@ function triggerHiddenAddEventButton() {
   todayCell?.click();
 }
 
+function formatClock(date) {
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toLowerCase();
+}
+
+function formatHeaderDate(date) {
+  return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
 export default function Calendar() {
-  const { user, profile } = useFamily();
+  const { user, profile, allProfiles, activeProfileId, setActiveProfileId } = useFamily();
   const [activeCalendar, setActiveCalendar] = useState("family");
   const [viewMode, setViewMode] = useState("week");
   const [calendarMeta, setCalendarMeta] = useState(() => readCalendarMeta());
+  const [now, setNow] = useState(() => new Date());
 
   const familyGradientVariables = useMemo(() => {
     const colorIds = familyColorIds(profile || {}, user);
@@ -162,6 +171,11 @@ export default function Calendar() {
       "--family-soft-gradient": `linear-gradient(to right, ${softColors.join(", ")})`,
     };
   }, [profile, user]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const updateMeta = () => {
@@ -201,10 +215,20 @@ export default function Calendar() {
             eventSummary={calendarMeta.eventSummary}
             selectedPersonLabel={calendarMeta.selectedPersonLabel}
             selectedCategoryLabel={calendarMeta.selectedCategoryLabel}
+            currentTimeLabel={formatClock(now)}
+            currentDateLabel={formatHeaderDate(now)}
+            weatherLabel="☁️ --°"
+            weatherDescription="Weather"
+            familyName={profile?.family_name || profile?.familyName || "Family"}
+            families={allProfiles || []}
+            activeFamilyId={activeProfileId || ""}
+            onFamilyChange={setActiveProfileId}
             onViewModeChange={setViewMode}
             onPrevious={() => clickIconButton(0)}
             onToday={() => clickButtonByText(/^today$/i)}
             onNext={() => clickIconButton(1)}
+            onMonthClick={() => clickButtonByText(/^[A-Za-z]+\s+\d{4}$/)}
+            onAddEvent={triggerHiddenAddEventButton}
             onPersonFilterClick={() => clickButtonContainingText(/^Person/i)}
             onCategoryFilterClick={() => clickButtonContainingText(/^Category/i)}
             onLegendPersonClick={selectPersonFromExistingChip}
