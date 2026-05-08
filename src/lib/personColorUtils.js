@@ -189,11 +189,22 @@ export function custodyPersonColorMap(custodyGroup = {}) {
   return { map, people };
 }
 
-export function resolveEventColor(event = {}, profile = {}, fallbackType = "all") {
-  const storedColor = event.eventColor || event.event_color || event.color || event.familyColor || event.family_color;
-  if (storedColor && PERSON_COLOR_OPTIONS.some((color) => color.id === storedColor)) return storedColor;
+function isEveryoneEvent(event = {}) {
+  return event.assignedTo === "all"
+    || event.assignedToType === "all"
+    || event.assignedTo === "everyone"
+    || event.assignedToType === "everyone"
+    || (!event.assignedTo && !event.assignedToType && !event.childName && !event.childId);
+}
 
+export function resolveEventColor(event = {}, profile = {}, fallbackType = "all") {
   const { map } = familyPersonColorMap(profile);
+
+  if (isEveryoneEvent(event)) return map.all;
+
+  const storedColor = event.eventColor || event.event_color || event.color || event.familyColor || event.family_color;
+  if (storedColor && storedColor !== "slate" && PERSON_COLOR_OPTIONS.some((color) => color.id === storedColor)) return storedColor;
+
   const possibleKeys = [
     event.assignedTo,
     event.assignedToName,
@@ -212,7 +223,6 @@ export function resolveEventColor(event = {}, profile = {}, fallbackType = "all"
 
   if (event.assignedTo === "dad" || event.assignedToType === "dad") return map.dad;
   if (event.assignedTo === "mom" || event.assignedToType === "mom") return map.mom;
-  if (event.assignedTo === "all" || event.assignedToType === "all" || event.assignedTo === "everyone" || event.assignedToType === "everyone") return map.all;
   if (event.assignedToType === "child" || event.childName || event.childId) return DEFAULT_PERSON_COLORS.child;
 
   return map[fallbackType] || DEFAULT_PERSON_COLORS.all;
