@@ -14,7 +14,13 @@ const viewOptions = [
   { value: "month", label: "Month" },
 ];
 
-export default function FamilyCalendarHeader({ viewMode = "week", onViewModeChange = () => {} }) {
+export default function FamilyCalendarHeader({
+  viewMode = "week",
+  onViewModeChange = () => {},
+  onPrevious = () => {},
+  onToday = () => {},
+  onNext = () => {},
+}) {
   return (
     <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
       <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-3">
@@ -87,11 +93,11 @@ export default function FamilyCalendarHeader({ viewMode = "week", onViewModeChan
 
         <div className="flex flex-wrap items-center justify-end gap-5 pb-1">
           <div className="flex items-center gap-3">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
+            <button type="button" onClick={onPrevious} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
+            <button type="button" onClick={onToday} className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
+            <button type="button" onClick={onNext} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
