@@ -1,11 +1,15 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ChevronLeft, ChevronRight, RefreshCw, Tags, User } from "lucide-react";
 
-const people = [
-  { name: "Daniel Aragon", color: "bg-blue-500" },
-  { name: "Amanda Arraga", color: "bg-yellow-500" },
-  { name: "Joaquin", color: "bg-emerald-500" },
-  { name: "Everyone", color: "bg-lime-600" },
+import { useFamily } from "@/lib/FamilyContext";
+import { cn } from "@/lib/utils";
+import { familyPersonColorMap, getColorMeta } from "@/lib/personColorUtils";
+
+const fallbackPeople = [
+  { label: "Daniel Aragon", color: "blue" },
+  { label: "Amanda Arraga", color: "yellow" },
+  { label: "Joaquin", color: "emerald" },
+  { label: "Everyone", color: "lime" },
 ];
 
 const viewOptions = [
@@ -13,6 +17,11 @@ const viewOptions = [
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
 ];
+
+function LegendDot({ color }) {
+  const meta = getColorMeta(color, "slate");
+  return <span className={cn("h-4 w-4 rounded-full", meta.dot)} />;
+}
 
 export default function FamilyCalendarHeader({
   viewMode = "week",
@@ -27,6 +36,22 @@ export default function FamilyCalendarHeader({
   onPersonFilterClick = () => {},
   onCategoryFilterClick = () => {},
 }) {
+  const { user, profile } = useFamily();
+  const { people: familyPeople } = useMemo(
+    () => familyPersonColorMap(profile || {}, user, user?.email || ""),
+    [profile, user]
+  );
+  const legendPeople = useMemo(() => {
+    const mappedPeople = familyPeople.map((person) => ({
+      label: person.label,
+      color: person.color,
+    }));
+
+    return mappedPeople.length > 0
+      ? [...mappedPeople, { label: "Everyone", color: "lime" }]
+      : fallbackPeople;
+  }, [familyPeople]);
+
   return (
     <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
       <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-3">
@@ -85,10 +110,10 @@ export default function FamilyCalendarHeader({
         </div>
 
         <div className="col-span-2 flex mt-2 flex-wrap items-center gap-12 pt-1">
-          {people.map((person) => (
-            <div key={person.name} className="flex items-center gap-3">
-              <span className={`h-4 w-4 rounded-full ${person.color}`} />
-              <span className="text-base font-semibold text-slate-800">{person.name}</span>
+          {legendPeople.map((person) => (
+            <div key={person.label} className="flex items-center gap-3">
+              <LegendDot color={person.color} />
+              <span className="text-base font-semibold text-slate-800">{person.label}</span>
             </div>
           ))}
         </div>
