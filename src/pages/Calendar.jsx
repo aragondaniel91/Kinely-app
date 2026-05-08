@@ -194,12 +194,39 @@ function findMonthYearPickerPanel() {
   });
 }
 
-function layoutOverlappingTimedEvents() {
+function clickHiddenEventButton(button) {
+  const previousDisplay = button.style.display;
+  const previousOpacity = button.style.opacity;
+  const previousPointerEvents = button.style.pointerEvents;
+
+  button.style.display = "";
+  button.style.opacity = "0";
+  button.style.pointerEvents = "none";
+  button.click();
+
+  window.setTimeout(() => {
+    button.style.display = previousDisplay;
+    button.style.opacity = previousOpacity;
+    button.style.pointerEvents = previousPointerEvents;
+  }, 0);
+}
+
+function eventPreviewLabel(button) {
+  const text = cleanText(button);
+  if (!text) return "Hidden event";
+
+  const match = text.match(/^(.*?)(\d{1,2}:\d{2}\s*[AP]M.*)$/i);
+  if (!match) return text;
+  return `${match[1].trim()} · ${match[2].trim()}`;
+}
+
+function layoutOverlappingTimedEvents(viewMode = "week") {
   const body = document.querySelector(".family-calendar-live-body");
   if (!body) return;
 
   const timedEvents = Array.from(body.querySelectorAll("button.absolute.left-2.right-2"));
   const groups = new Map();
+  const maxVisible = viewMode === "week" ? 3 : Number.POSITIVE_INFINITY;
 
   body.querySelectorAll("[data-overlap-more-badge]").forEach((badge) => {
     badge.style.display = "none";
@@ -243,8 +270,8 @@ function layoutOverlappingTimedEvents() {
       const orderedCluster = cluster.sort((a, b) => a.top - b.top || b.bottom - a.bottom);
       if (orderedCluster.length <= 1) return;
 
-      const visibleItems = orderedCluster.slice(0, 3);
-      const hiddenItems = orderedCluster.slice(3);
+      const visibleItems = orderedCluster.slice(0, maxVisible);
+      const hiddenItems = orderedCluster.slice(maxVisible);
       const columnCount = Math.max(1, visibleItems.length);
       const width = 100 / columnCount;
 
@@ -261,7 +288,6 @@ function layoutOverlappingTimedEvents() {
 
       if (hiddenItems.length > 0) {
         const top = Math.min(...orderedCluster.map((item) => item.top));
-        const hiddenTitles = hiddenItems.map((item) => cleanText(item.button)).filter(Boolean).join("\n");
         const badgeKey = `overlap-${clusterIndex}`;
         let badge = parent.querySelector(`[data-overlap-more-badge="${badgeKey}"]`);
 
@@ -269,12 +295,42 @@ function layoutOverlappingTimedEvents() {
           badge = document.createElement("button");
           badge.type = "button";
           badge.dataset.overlapMoreBadge = badgeKey;
-          badge.className = "absolute rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-black text-slate-600 shadow-sm";
+          badge.className = "absolute rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-black text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700";
           parent.appendChild(badge);
         }
 
         badge.textContent = `+${hiddenItems.length}`;
-        badge.title = hiddenTitles || `${hiddenItems.length} more events`;
+        badge.title = `${hiddenItems.length} more events`;
+        badge.onclick = (event) => {
+          event.stopPropagation();
+          parent.querySelectorAll("[data-overlap-preview]").forEach((panel) => panel.remove());
+
+          const panel = document.createElement("div");
+          panel.dataset.overlapPreview = badgeKey;
+          panel.className = "absolute z-[70] w-[240px] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl";
+          panel.style.top = `${Math.max(112, top + 42)}px`;
+          panel.style.right = "0.5rem";
+
+          const header = document.createElement("div");
+          header.className = "mb-1 flex items-center justify-between px-1";
+          header.innerHTML = `<span class="text-xs font-black text-slate-700">Hidden events</span><span class="text-[10px] font-bold text-slate-400">Tap to open</span>`;
+          panel.appendChild(header);
+
+          hiddenItems.forEach((item) => {
+            const preview = document.createElement("button");
+            preview.type = "button";
+            preview.className = "mb-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold text-slate-700 hover:border-blue-300 hover:bg-blue-50";
+            preview.textContent = eventPreviewLabel(item.button);
+            preview.onclick = (previewEvent) => {
+              previewEvent.stopPropagation();
+              panel.remove();
+              clickHiddenEventButton(item.button);
+            };
+            panel.appendChild(preview);
+          });
+
+          parent.appendChild(panel);
+        };
         badge.style.display = "block";
         badge.style.top = `${Math.max(112, top + 8)}px`;
         badge.style.right = "0.5rem";
@@ -438,7 +494,7 @@ export default function Calendar() {
         hideDuplicateSummary();
         decoratePersonFilterFamilyDots();
         if (viewMode === "week" || viewMode === "day") {
-          layoutOverlappingTimedEvents();
+          layoutOverlappingTimedEvents(viewMode);
         }
       });
     };
