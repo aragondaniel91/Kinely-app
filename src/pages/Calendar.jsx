@@ -17,16 +17,32 @@ const compactCalendarStyles = `
 }
 `;
 
+function calendarButtons() {
+  return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
+}
+
+function clickButtonByText(pattern) {
+  const button = calendarButtons().find((item) => pattern.test(item.textContent || ""));
+  button?.click();
+}
+
+function clickIconButton(index) {
+  const buttons = calendarButtons().filter((item) => {
+    const text = (item.textContent || "").trim();
+    return !text && item.querySelector("svg");
+  });
+  buttons[index]?.click();
+}
+
 function triggerHiddenAddEventButton() {
-  const buttons = Array.from(document.querySelectorAll(".family-calendar-live-body button"));
-  const addButton = buttons.find((button) => /add\s*event/i.test(button.textContent || ""));
+  const addButton = calendarButtons().find((button) => /add\s*event/i.test(button.textContent || ""));
 
   if (addButton) {
     addButton.click();
     return;
   }
 
-  const todayCell = buttons.find((button) => button.querySelector("svg") && /\d+/.test(button.textContent || ""));
+  const todayCell = calendarButtons().find((button) => button.querySelector("svg") && /\d+/.test(button.textContent || ""));
   todayCell?.click();
 }
 
@@ -47,7 +63,13 @@ export default function Calendar() {
         />
       ) : (
         <div className="mx-auto max-w-none overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
-          <FamilyCalendarHeader viewMode={viewMode} onViewModeChange={setViewMode} />
+          <FamilyCalendarHeader
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onPrevious={() => clickIconButton(0)}
+            onToday={() => clickButtonByText(/^today$/i)}
+            onNext={() => clickIconButton(1)}
+          />
           <div className="family-calendar-live-body">
             <FamilyCalendarView
               activeCalendar={activeCalendar}
