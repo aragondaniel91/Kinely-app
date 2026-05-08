@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshCw, Tags, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Tags, User } from "lucide-react";
 
 const people = [
   { name: "Daniel Aragon", color: "bg-blue-500" },
@@ -80,10 +80,14 @@ export default function FamilyCalendarHeader() {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-5 pb-1">
-          <div className="flex items-center gap-4">
-            <button className="text-xl font-black text-slate-400">‹</button>
+          <div className="flex items-center gap-3">
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
             <button className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
-            <button className="text-xl font-black text-slate-400">›</button>
+            <button className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
 
           <div className="flex overflow-hidden rounded-xl border border-slate-200 shadow-sm">
