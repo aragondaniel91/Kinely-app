@@ -57,7 +57,7 @@ const weatherCodeMap = {
   99: { emoji: "⛈️", label: "Storm / hail" },
 };
 
-const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const monthShortNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function calendarButtons() {
   return Array.from(document.querySelectorAll(".family-calendar-live-body button"));
@@ -65,16 +65,6 @@ function calendarButtons() {
 
 function cleanText(element) {
   return (element?.textContent || "").replace(/\s+/g, " ").trim();
-}
-
-function monthIndexFromLabel(label) {
-  const [month, year] = String(label || "").split(/\s+/);
-  const monthIndex = monthNames.findIndex((item) => item.toLowerCase().startsWith(String(month || "").toLowerCase()));
-
-  return {
-    monthIndex: monthIndex >= 0 ? monthIndex : new Date().getMonth(),
-    year: Number(year) || new Date().getFullYear(),
-  };
 }
 
 function clickButtonByText(pattern) {
@@ -181,6 +171,15 @@ function triggerHiddenAddEventButton() {
   todayCell?.click();
 }
 
+function findMonthYearPickerPanel() {
+  const body = document.querySelector(".family-calendar-live-body");
+  const panels = Array.from(body?.querySelectorAll("div.absolute") || []);
+  return panels.find((panel) => {
+    const text = cleanText(panel);
+    return monthShortNames.every((month) => text.includes(month)) && /\d{4}/.test(text);
+  });
+}
+
 function formatClock(date) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).toLowerCase();
 }
@@ -242,18 +241,55 @@ export default function Calendar() {
 
   const weatherInfo = useMemo(() => weatherLabels(weather), [weather]);
 
-  const handleMonthSelect = (targetMonthIndex, targetYear) => {
-    const current = monthIndexFromLabel(calendarMeta.monthLabel);
-    const monthDiff = (targetYear - current.year) * 12 + (targetMonthIndex - current.monthIndex);
+  const handleDateSelect = (dateValue) => {
+    const targetDate = new Date(`${dateValue}T00:00:00`);
+    if (Number.isNaN(targetDate.getTime())) return;
 
-    if (monthDiff === 0) return;
+    const targetYear = targetDate.getFullYear();
+    const targetMonth = targetDate.getMonth();
+    const targetDay = targetDate.getDate();
+    const targetMonthLabel = monthShortNames[targetMonth];
 
-    const directionIndex = monthDiff > 0 ? 1 : 0;
-    const steps = Math.min(Math.abs(monthDiff), 120);
+    setViewMode("month");
 
-    for (let index = 0; index < steps; index += 1) {
-      window.setTimeout(() => clickIconButton(directionIndex), index * 35);
-    }
+    window.setTimeout(() => {
+      const realMonthPickerButton = calendarButtons().find((button) => /^[A-Za-z]+\s+\d{4}$/.test(cleanText(button)));
+      realMonthPickerButton?.click();
+
+      window.setTimeout(() => {
+        const panel = findMonthYearPickerPanel();
+        if (!panel) return;
+
+        const visibleYearText = Array.from(panel.querySelectorAll("p, span"))
+          .map(cleanText)
+          .find((text) => /^\d{4}$/.test(text));
+        const visibleYear = Number(visibleYearText) || targetYear;
+        const yearDiff = Math.max(-20, Math.min(20, targetYear - visibleYear));
+        const yearButtons = Array.from(panel.querySelectorAll("button")).filter((button) => !cleanText(button) && button.querySelector("svg"));
+        const yearBack = yearButtons[0];
+        const yearForward = yearButtons[1];
+        const yearButton = yearDiff > 0 ? yearForward : yearBack;
+
+        for (let index = 0; index < Math.abs(yearDiff); index += 1) {
+          window.setTimeout(() => yearButton?.click(), index * 25);
+        }
+
+        window.setTimeout(() => {
+          const updatedPanel = findMonthYearPickerPanel() || panel;
+          const monthButton = Array.from(updatedPanel.querySelectorAll("button")).find((button) => cleanText(button) === targetMonthLabel);
+          monthButton?.click();
+
+          window.setTimeout(() => {
+            setViewMode("day");
+            window.setTimeout(() => {
+              for (let index = 1; index < targetDay; index += 1) {
+                window.setTimeout(() => clickIconButton(1), index * 30);
+              }
+            }, 80);
+          }, 80);
+        }, Math.abs(yearDiff) * 25 + 80);
+      }, 40);
+    }, 40);
   };
 
   useEffect(() => {
@@ -342,7 +378,7 @@ export default function Calendar() {
             onPrevious={() => clickIconButton(0)}
             onToday={() => clickButtonByText(/^today$/i)}
             onNext={() => clickIconButton(1)}
-            onMonthSelect={handleMonthSelect}
+            onDateSelect={handleDateSelect}
             onPersonFilterClick={() => clickButtonContainingText(/^Person/i)}
             onCategoryFilterClick={() => clickButtonContainingText(/^Category/i)}
             onLegendPersonClick={selectPersonFromExistingChip}
