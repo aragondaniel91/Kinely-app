@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, RefreshCw, Tags, User } from "lucide-react";
+import { Check, RefreshCw, Tags, User } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
@@ -18,17 +18,9 @@ const viewOptions = [
   { value: "month", label: "Month" },
 ];
 
-const monthOptions = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-function parseMonthLabel(label) {
-  const [rawMonth, rawYear] = String(label || "").split(/\s+/);
-  const monthIndex = monthOptions.findIndex((month) => month.toLowerCase().startsWith(String(rawMonth || "").toLowerCase()));
-  const year = Number(rawYear) || new Date().getFullYear();
-
-  return {
-    monthIndex: monthIndex >= 0 ? monthIndex : new Date().getMonth(),
-    year,
-  };
+function todayInputValue() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
 function familyDisplayName(family) {
@@ -82,16 +74,15 @@ export default function FamilyCalendarHeader({
   onPrevious = () => {},
   onToday = () => {},
   onNext = () => {},
-  onMonthSelect = () => {},
+  onDateSelect = () => {},
   onPersonFilterClick = () => {},
   onCategoryFilterClick = () => {},
   onLegendPersonClick = () => {},
 }) {
   const { user, profile } = useFamily();
-  const parsedMonth = useMemo(() => parseMonthLabel(monthLabel), [monthLabel]);
-  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(parsedMonth.year);
+  const [dateInput, setDateInput] = useState(todayInputValue());
   const familyOptions = families.length > 0 ? families : [{ id: activeFamilyId || "active-family", family_name: familyName }];
   const activeFamily = familyOptions.find((family) => family.id === activeFamilyId) || familyOptions[0];
 
@@ -113,6 +104,12 @@ export default function FamilyCalendarHeader({
       ? dedupePeopleByLabel([...mappedPeople, { label: "Everyone", color: "family" }])
       : fallbackPeople;
   }, [familyPeople]);
+
+  const applyDateSelection = () => {
+    if (!dateInput) return;
+    onDateSelect(dateInput);
+    setDatePickerOpen(false);
+  };
 
   return (
     <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
@@ -189,8 +186,8 @@ export default function FamilyCalendarHeader({
           <button
             type="button"
             onClick={() => {
-              setPickerYear(parsedMonth.year);
-              setMonthPickerOpen((open) => !open);
+              setDatePickerOpen((open) => !open);
+              setFamilyPickerOpen(false);
             }}
             className="flex w-fit items-center gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50"
           >
@@ -199,37 +196,22 @@ export default function FamilyCalendarHeader({
             <span className="text-base text-slate-400">⌄</span>
           </button>
 
-          {monthPickerOpen && (
+          {datePickerOpen && (
             <div className="absolute left-0 top-11 z-[120] w-[340px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
-              <div className="mb-3 flex items-center justify-between">
-                <button type="button" onClick={() => setPickerYear((year) => year - 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <p className="text-lg font-black text-slate-900">{pickerYear}</p>
-                <button type="button" onClick={() => setPickerYear((year) => year + 1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 hover:bg-slate-50">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {monthOptions.map((month, index) => {
-                  const active = parsedMonth.monthIndex === index && parsedMonth.year === pickerYear;
-                  return (
-                    <button
-                      key={month}
-                      type="button"
-                      onClick={() => {
-                        onMonthSelect(index, pickerYear);
-                        setMonthPickerOpen(false);
-                      }}
-                      className={cn(
-                        "rounded-2xl px-3 py-3 text-sm font-extrabold",
-                        active ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-                      )}
-                    >
-                      {month.slice(0, 3)}
-                    </button>
-                  );
-                })}
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Jump to date</p>
+              <p className="mt-1 text-sm font-bold text-slate-500">Select an exact day to move the calendar there.</p>
+              <input
+                type="date"
+                value={dateInput}
+                onChange={(event) => setDateInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") applyDateSelection();
+                }}
+                className="mt-4 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-800 outline-none focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-50"
+              />
+              <div className="mt-4 flex justify-end gap-2">
+                <button type="button" onClick={() => setDatePickerOpen(false)} className="rounded-2xl px-4 py-2 text-sm font-black text-slate-500 hover:bg-slate-50">Cancel</button>
+                <button type="button" onClick={applyDateSelection} className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-black text-white shadow-sm hover:bg-blue-700">Go</button>
               </div>
             </div>
           )}
@@ -279,11 +261,11 @@ export default function FamilyCalendarHeader({
         <div className="flex flex-wrap items-center justify-end gap-5 pb-1">
           <div className="flex items-center gap-3">
             <button type="button" onClick={onPrevious} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
-              <ChevronLeft className="h-5 w-5" />
+              ‹
             </button>
             <button type="button" onClick={onToday} className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50">Today</button>
             <button type="button" onClick={onNext} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-50 hover:text-slate-800">
-              <ChevronRight className="h-5 w-5" />
+              ›
             </button>
           </div>
 
