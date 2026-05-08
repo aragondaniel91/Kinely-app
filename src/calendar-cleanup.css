@@ -1,0 +1,43 @@
+/* Calendar cleanup branch visual overrides.
+   Keep these isolated while we stabilize the family calendar layout. */
+
+/* Week view has 7 day columns. Give it enough horizontal room so overlap clusters stay readable. */
+.family-calendar-live-body div.relative.overflow-x-auto > div:has(> div.grid.border-b.border-slate-200 > div:nth-child(8)) {
+  min-width: max(2600px, 100%) !important;
+}
+
+/* Make the horizontal scroll feel intentional and tablet-friendly. */
+.family-calendar-live-body div.relative.overflow-x-auto {
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar {
+  height: 10px;
+}
+
+.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.65);
+  border-radius: 999px;
+}
+
+.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.45);
+  border-radius: 999px;
+}
+
+.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.6);
+}
+
+@media (max-width: 1280px) {
+  .family-calendar-live-body div.relative.overflow-x-auto > div:has(> div.grid.border-b.border-slate-200 > div:nth-child(8)) {
+    min-width: 2200px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .family-calendar-live-body div.relative.overflow-x-auto > div:has(> div.grid.border-b.border-slate-200 > div:nth-child(8)) {
+    min-width: 1800px !important;
+  }
+}
