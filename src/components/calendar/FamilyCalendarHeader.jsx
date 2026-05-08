@@ -18,10 +18,14 @@ export default function FamilyCalendarHeader({
   viewMode = "week",
   monthLabel = "May 2026",
   eventSummary = "17 events · May 2026",
+  selectedPersonLabel = "All People",
+  selectedCategoryLabel = "All Categories",
   onViewModeChange = () => {},
   onPrevious = () => {},
   onToday = () => {},
   onNext = () => {},
+  onPersonFilterClick = () => {},
+  onCategoryFilterClick = () => {},
 }) {
   return (
     <div className="border-b border-slate-100 bg-white px-10 pb-2 pt-7">
@@ -66,16 +70,16 @@ export default function FamilyCalendarHeader({
         </button>
 
         <div className="flex flex-wrap items-center justify-end gap-4">
-          <button className="flex h-11 min-w-[220px] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 text-left text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+          <button type="button" onClick={onPersonFilterClick} className="flex h-11 min-w-[220px] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 text-left text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
             <User className="h-4 w-4 text-slate-500" />
             Person
-            <span className="text-xs font-semibold text-slate-400">All People</span>
+            <span className="text-xs font-semibold text-slate-400">{selectedPersonLabel}</span>
             <span className="ml-auto text-slate-400">⌄</span>
           </button>
-          <button className="flex h-11 min-w-[230px] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 text-left text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
+          <button type="button" onClick={onCategoryFilterClick} className="flex h-11 min-w-[230px] items-center gap-3 rounded-xl border border-slate-100 bg-white px-3 text-left text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
             <Tags className="h-4 w-4 text-slate-500" />
             Category
-            <span className="text-xs font-semibold text-slate-400">All Categories</span>
+            <span className="text-xs font-semibold text-slate-400">{selectedCategoryLabel}</span>
             <span className="ml-auto text-slate-400">⌄</span>
           </button>
         </div>
