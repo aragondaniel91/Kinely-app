@@ -16,6 +16,8 @@ const viewOptions = [
 
 export default function FamilyCalendarHeader({
   viewMode = "week",
+  monthLabel = "May 2026",
+  eventSummary = "17 events · May 2026",
   onViewModeChange = () => {},
   onPrevious = () => {},
   onToday = () => {},
@@ -59,7 +61,7 @@ export default function FamilyCalendarHeader({
 
         <button className="flex w-fit items-center mt-2 gap-2 rounded-xl px-1 text-2xl font-bold text-slate-800 hover:bg-slate-50">
           <span className="text-xl leading-none">🗓️</span>
-          May 2026
+          {monthLabel}
           <span className="text-base text-slate-400">⌄</span>
         </button>
 
@@ -88,7 +90,7 @@ export default function FamilyCalendarHeader({
         </div>
 
         <div className="self-center mt-3 pb-1 text-base font-semibold text-slate-600">
-          17 events · May 2026
+          {eventSummary}
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-5 pb-1">
