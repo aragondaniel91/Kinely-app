@@ -220,6 +220,56 @@ function eventPreviewLabel(button) {
   return `${match[1].trim()} · ${match[2].trim()}`;
 }
 
+function closeActiveOverlapPreview() {
+  if (typeof window !== "undefined" && typeof window.__familyCalendarOverlapCleanup === "function") {
+    window.__familyCalendarOverlapCleanup();
+    return;
+  }
+
+  document.querySelectorAll("[data-overlap-preview]").forEach((panel) => panel.remove());
+  document.querySelectorAll("[data-overlap-more-badge]").forEach((badge) => {
+    badge.setAttribute("aria-expanded", "false");
+  });
+}
+
+function applyPreviewEventColors(preview, sourceButton) {
+  if (!preview || !sourceButton) return;
+
+  const sourceClass = String(sourceButton.className || "").toLowerCase();
+  const sourceText = cleanText(sourceButton).toLowerCase();
+  const computedStyle = window.getComputedStyle(sourceButton);
+  const computedBackground = computedStyle.backgroundColor;
+  const computedColor = computedStyle.color;
+  const computedBorder = computedStyle.borderLeftColor || computedStyle.borderTopColor || computedBackground;
+
+  const colorHints = [
+    { pattern: /(yellow|amber|mom|mama|mamá)/, classes: "border-yellow-300 bg-yellow-50 text-yellow-950 hover:border-yellow-400 hover:bg-yellow-100" },
+    { pattern: /(blue|dad|papa|papá)/, classes: "border-blue-300 bg-blue-50 text-blue-950 hover:border-blue-400 hover:bg-blue-100" },
+    { pattern: /(green|family|familia)/, classes: "border-emerald-300 bg-emerald-50 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100" },
+    { pattern: /(purple|school|escuela|activity|actividad)/, classes: "border-purple-300 bg-purple-50 text-purple-950 hover:border-purple-400 hover:bg-purple-100" },
+    { pattern: /(red|medical|doctor|médico|medico|important|urgent)/, classes: "border-rose-300 bg-rose-50 text-rose-950 hover:border-rose-400 hover:bg-rose-100" },
+  ];
+
+  const matchingHint = colorHints.find((hint) => hint.pattern.test(sourceClass) || hint.pattern.test(sourceText));
+
+  if (matchingHint) {
+    preview.className = `${preview.className} ${matchingHint.classes}`;
+    return;
+  }
+
+  if (computedBackground && computedBackground !== "rgba(0, 0, 0, 0)" && computedBackground !== "transparent") {
+    preview.style.backgroundColor = computedBackground;
+  }
+
+  if (computedColor) {
+    preview.style.color = computedColor;
+  }
+
+  if (computedBorder && computedBorder !== "rgba(0, 0, 0, 0)" && computedBorder !== "transparent") {
+    preview.style.borderLeft = `4px solid ${computedBorder}`;
+  }
+}
+
 function layoutOverlappingTimedEvents(viewMode = "week") {
   const body = document.querySelector(".family-calendar-live-body");
   if (!body) return;
@@ -230,7 +280,9 @@ function layoutOverlappingTimedEvents(viewMode = "week") {
 
   body.querySelectorAll("[data-overlap-more-badge]").forEach((badge) => {
     badge.style.display = "none";
+    badge.setAttribute("aria-expanded", "false");
   });
+  closeActiveOverlapPreview();
 
   timedEvents.forEach((button) => {
     const parent = button.parentElement;
@@ -296,6 +348,8 @@ function layoutOverlappingTimedEvents(viewMode = "week") {
           badge.type = "button";
           badge.dataset.overlapMoreBadge = badgeKey;
           badge.className = "absolute rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-black text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700";
+          badge.setAttribute("aria-haspopup", "dialog");
+          badge.setAttribute("aria-expanded", "false");
           parent.appendChild(badge);
         }
 
@@ -303,33 +357,93 @@ function layoutOverlappingTimedEvents(viewMode = "week") {
         badge.title = `${hiddenItems.length} more events`;
         badge.onclick = (event) => {
           event.stopPropagation();
-          parent.querySelectorAll("[data-overlap-preview]").forEach((panel) => panel.remove());
+          closeActiveOverlapPreview();
 
           const panel = document.createElement("div");
           panel.dataset.overlapPreview = badgeKey;
-          panel.className = "absolute z-[70] w-[240px] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl";
+          panel.className = "absolute z-[70] w-[280px] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl ring-1 ring-black/5";
+          panel.setAttribute("role", "dialog");
+          panel.setAttribute("aria-label", "Hidden calendar events");
           panel.style.top = `${Math.max(112, top + 42)}px`;
           panel.style.right = "0.5rem";
 
           const header = document.createElement("div");
-          header.className = "mb-1 flex items-center justify-between px-1";
-          header.innerHTML = `<span class="text-xs font-black text-slate-700">Hidden events</span><span class="text-[10px] font-bold text-slate-400">Tap to open</span>`;
+          header.className = "mb-2 flex items-start justify-between gap-3 border-b border-slate-100 pb-2";
+
+          const titleGroup = document.createElement("div");
+          titleGroup.className = "min-w-0";
+          const title = document.createElement("div");
+          title.className = "text-xs font-black uppercase tracking-wide text-slate-700";
+          title.textContent = "More events";
+          const subtitle = document.createElement("div");
+          subtitle.className = "mt-0.5 text-[11px] font-semibold text-slate-400";
+          subtitle.textContent = "Tap an event to open details";
+          titleGroup.appendChild(title);
+          titleGroup.appendChild(subtitle);
+
+          const closeButton = document.createElement("button");
+          closeButton.type = "button";
+          closeButton.className = "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base font-black leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700";
+          closeButton.textContent = "×";
+          closeButton.setAttribute("aria-label", "Close hidden events panel");
+
+          header.appendChild(titleGroup);
+          header.appendChild(closeButton);
           panel.appendChild(header);
 
           hiddenItems.forEach((item) => {
             const preview = document.createElement("button");
             preview.type = "button";
-            preview.className = "mb-1 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold text-slate-700 hover:border-blue-300 hover:bg-blue-50";
+            preview.className = "mb-1.5 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold text-slate-700 shadow-sm transition hover:scale-[1.01] hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300";
             preview.textContent = eventPreviewLabel(item.button);
+            applyPreviewEventColors(preview, item.button);
             preview.onclick = (previewEvent) => {
               previewEvent.stopPropagation();
-              panel.remove();
+              closeActiveOverlapPreview();
               clickHiddenEventButton(item.button);
             };
             panel.appendChild(preview);
           });
 
+          const footer = document.createElement("div");
+          footer.className = "mt-2 rounded-xl bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-500";
+          footer.textContent = "Use Esc or click outside to close.";
+          panel.appendChild(footer);
+
+          const cleanup = () => {
+            document.removeEventListener("pointerdown", handlePointerDownOutside, true);
+            document.removeEventListener("keydown", handleEscapeKey, true);
+            if (panel.isConnected) panel.remove();
+            if (badge.isConnected) badge.setAttribute("aria-expanded", "false");
+            if (window.__familyCalendarOverlapCleanup === cleanup) {
+              window.__familyCalendarOverlapCleanup = null;
+            }
+          };
+
+          const handlePointerDownOutside = (outsideEvent) => {
+            if (panel.contains(outsideEvent.target) || badge.contains(outsideEvent.target)) return;
+            cleanup();
+          };
+
+          const handleEscapeKey = (keyboardEvent) => {
+            if (keyboardEvent.key === "Escape") {
+              cleanup();
+            }
+          };
+
+          closeButton.onclick = (closeEvent) => {
+            closeEvent.stopPropagation();
+            cleanup();
+          };
+
           parent.appendChild(panel);
+          badge.setAttribute("aria-expanded", "true");
+          window.__familyCalendarOverlapCleanup = cleanup;
+
+          window.setTimeout(() => {
+            document.addEventListener("pointerdown", handlePointerDownOutside, true);
+            document.addEventListener("keydown", handleEscapeKey, true);
+          }, 0);
         };
         badge.style.display = "block";
         badge.style.top = `${Math.max(112, top + 8)}px`;
