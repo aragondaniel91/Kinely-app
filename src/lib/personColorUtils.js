@@ -8,19 +8,20 @@ export const PERSON_COLOR_OPTIONS = [
   { id: "red", label: "Red", dot: "bg-red-500", bg: "bg-red-50", border: "border-red-300", stripe: "bg-red-500", ring: "ring-red-200", text: "text-red-700", hex: "#ef4444", softHex: "#fef2f2" },
   { id: "teal", label: "Teal", dot: "bg-teal-500", bg: "bg-teal-50", border: "border-teal-300", stripe: "bg-teal-500", ring: "ring-teal-200", text: "text-teal-700", hex: "#14b8a6", softHex: "#f0fdfa" },
   { id: "slate", label: "Slate", dot: "bg-slate-500", bg: "bg-slate-50", border: "border-slate-300", stripe: "bg-slate-500", ring: "ring-slate-200", text: "text-slate-700", hex: "#64748b", softHex: "#f8fafc" },
-  {
-    id: "family",
-    label: "Family",
-    dot: "bg-[image:var(--family-gradient)]",
-    bg: "bg-[image:var(--family-soft-gradient)]",
-    border: "border-blue-200",
-    stripe: "bg-[image:var(--family-gradient-vertical)]",
-    ring: "ring-blue-200",
-    text: "text-slate-800",
-    hex: "#3b82f6",
-    softHex: "#eff6ff",
-  },
 ];
+
+const FAMILY_COLOR_META = {
+  id: "family",
+  label: "Family",
+  dot: "bg-[image:var(--family-gradient)]",
+  bg: "bg-[image:var(--family-soft-gradient)]",
+  border: "border-blue-200",
+  stripe: "bg-[image:var(--family-gradient-vertical)]",
+  ring: "ring-blue-200",
+  text: "text-slate-800",
+  hex: "#3b82f6",
+  softHex: "#eff6ff",
+};
 
 export const DEFAULT_PERSON_COLORS = {
   dad: "blue",
@@ -35,6 +36,7 @@ export function normalizeName(value) {
 }
 
 export function getColorMeta(colorId, fallback = "blue") {
+  if (colorId === "family") return FAMILY_COLOR_META;
   return PERSON_COLOR_OPTIONS.find((color) => color.id === colorId) || PERSON_COLOR_OPTIONS.find((color) => color.id === fallback) || PERSON_COLOR_OPTIONS[0];
 }
 
@@ -203,7 +205,7 @@ export function resolveEventColor(event = {}, profile = {}, fallbackType = "all"
   if (isEveryoneEvent(event)) return map.all;
 
   const storedColor = event.eventColor || event.event_color || event.color || event.familyColor || event.family_color;
-  if (storedColor && storedColor !== "slate" && PERSON_COLOR_OPTIONS.some((color) => color.id === storedColor)) return storedColor;
+  if (storedColor && storedColor !== "slate" && (storedColor === "family" || PERSON_COLOR_OPTIONS.some((color) => color.id === storedColor))) return storedColor;
 
   const possibleKeys = [
     event.assignedTo,
