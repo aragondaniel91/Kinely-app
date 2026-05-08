@@ -1,9 +1,14 @@
 /* Calendar cleanup branch visual overrides.
    Keep these isolated while we stabilize the family calendar layout. */
 
-/* Week view has 7 day columns. Give it enough horizontal room so overlap clusters stay readable. */
-.family-calendar-live-body div.relative.overflow-x-auto > div:has(> div.grid.border-b.border-slate-200 > div:nth-child(8)) {
-  min-width: max(2600px, 100%) !important;
+/* Give the week grid enough horizontal room so overlap clusters stay readable. */
+.family-calendar-live-body div.relative.overflow-x-auto > div {
+  min-width: 2600px !important;
+}
+
+/* Keep day view usable. */
+.family-calendar-live-body div.relative.overflow-x-auto.flex > div {
+  min-width: min(760px, 100%) !important;
 }
 
 /* Make the horizontal scroll feel intentional and tablet-friendly. */
@@ -31,13 +36,21 @@
 }
 
 @media (max-width: 1280px) {
-  .family-calendar-live-body div.relative.overflow-x-auto > div:has(> div.grid.border-b.border-slate-200 > div:nth-child(8)) {
+  .family-calendar-live-body div.relative.overflow-x-auto > div {
     min-width: 2200px !important;
+  }
+
+  .family-calendar-live-body div.relative.overflow-x-auto.flex > div {
+    min-width: min(760px, 100%) !important;
   }
 }
 
 @media (max-width: 768px) {
-  .family-calendar-live-body div.relative.overflow-x-auto > div:has(> div.grid.border-b.border-slate-200 > div:nth-child(8)) {
+  .family-calendar-live-body div.relative.overflow-x-auto > div {
     min-width: 1800px !important;
+  }
+
+  .family-calendar-live-body div.relative.overflow-x-auto.flex > div {
+    min-width: min(760px, 100%) !important;
   }
 }
