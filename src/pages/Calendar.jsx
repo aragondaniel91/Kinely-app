@@ -247,7 +247,6 @@ export default function Calendar() {
 
     const targetYear = targetDate.getFullYear();
     const targetMonth = targetDate.getMonth();
-    const targetDay = targetDate.getDate();
     const targetMonthLabel = monthShortNames[targetMonth];
 
     setViewMode("month");
@@ -278,15 +277,6 @@ export default function Calendar() {
           const updatedPanel = findMonthYearPickerPanel() || panel;
           const monthButton = Array.from(updatedPanel.querySelectorAll("button")).find((button) => cleanText(button) === targetMonthLabel);
           monthButton?.click();
-
-          window.setTimeout(() => {
-            setViewMode("day");
-            window.setTimeout(() => {
-              for (let index = 1; index < targetDay; index += 1) {
-                window.setTimeout(() => clickIconButton(1), index * 30);
-              }
-            }, 80);
-          }, 80);
         }, Math.abs(yearDiff) * 25 + 80);
       }, 40);
     }, 40);
