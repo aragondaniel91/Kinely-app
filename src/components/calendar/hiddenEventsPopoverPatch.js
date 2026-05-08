@@ -1,3 +1,6 @@
+const MAX_WEEK_VISIBLE_PER_START_TIME = 3;
+let layoutScheduled = false;
+
 function cleanText(element) {
   return (element?.textContent || "").replace(/\s+/g, " ").trim();
 }
@@ -68,14 +71,94 @@ function applyEventColor(preview, sourceButton) {
   }
 }
 
+function activeCalendarView() {
+  const buttons = Array.from(document.querySelectorAll("button"));
+  const viewButton = buttons.find((button) => {
+    const text = cleanText(button).toLowerCase();
+    const className = String(button.className || "");
+    return ["month", "week", "day"].includes(text) && /bg-blue-600|text-white/.test(className);
+  });
+
+  return cleanText(viewButton).toLowerCase();
+}
+
+function isWeekView() {
+  return activeCalendarView() === "week";
+}
+
+function getTimedEventItems(parent) {
+  return Array.from(parent.querySelectorAll("button.absolute.left-2.right-2"))
+    .map((button, originalIndex) => {
+      const top = Number.parseFloat(button.style.top || "0");
+      const height = Number.parseFloat(button.style.height || "0");
+      if (!top || !height) return null;
+      return {
+        button,
+        originalIndex,
+        top,
+        bottom: top + height,
+        startKey: String(Math.round(top)),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.top - b.top || b.bottom - a.bottom || a.originalIndex - b.originalIndex);
+}
+
+function eventsOverlap(a, b) {
+  return a.top < b.bottom && b.top < a.bottom;
+}
+
+function assignColumns(items) {
+  const columns = [];
+
+  items.forEach((item) => {
+    let columnIndex = columns.findIndex((columnEnd) => columnEnd <= item.top);
+    if (columnIndex === -1) {
+      columnIndex = columns.length;
+      columns.push(item.bottom);
+    } else {
+      columns[columnIndex] = item.bottom;
+    }
+    item.columnIndex = columnIndex;
+  });
+
+  let maxColumnCount = 1;
+  items.forEach((item) => {
+    const overlappingColumnIndexes = items
+      .filter((other) => other === item || eventsOverlap(item, other))
+      .map((other) => other.columnIndex);
+    const localColumnCount = Math.max(...overlappingColumnIndexes) + 1;
+    maxColumnCount = Math.max(maxColumnCount, localColumnCount);
+  });
+
+  return Math.max(1, maxColumnCount, columns.length);
+}
+
+function positionVisibleEvents(items) {
+  const visibleItems = items.filter((item) => !item.hiddenByStartTime);
+  if (visibleItems.length === 0) return;
+
+  const columnCount = assignColumns(visibleItems);
+  const width = 100 / columnCount;
+
+  visibleItems.forEach((item) => {
+    item.button.style.display = "";
+    item.button.style.left = `calc(${width * item.columnIndex}% + 0.5rem)`;
+    item.button.style.right = "auto";
+    item.button.style.width = `calc(${width}% - 0.7rem)`;
+    item.button.style.zIndex = String(20 + item.columnIndex);
+  });
+}
+
 function buildPanel(badge) {
   const parent = badge.parentElement;
   if (!parent) return null;
 
-  const hiddenEvents = Array.from(parent.querySelectorAll("button.absolute.left-2.right-2")).filter((button) => {
-    const style = window.getComputedStyle(button);
-    return button.style.display === "none" || style.display === "none";
-  });
+  const startKey = badge.dataset.startKey;
+  const hiddenEvents = getTimedEventItems(parent)
+    .filter((item) => item.startKey === startKey && item.hiddenByStartTime !== false)
+    .map((item) => item.button)
+    .filter((button) => button.style.display === "none" || window.getComputedStyle(button).display === "none");
 
   if (hiddenEvents.length === 0) return null;
 
@@ -94,7 +177,7 @@ function buildPanel(badge) {
   header.innerHTML = `
     <div class="min-w-0">
       <div class="text-xs font-black uppercase tracking-wide text-slate-700">More events</div>
-      <div class="mt-0.5 text-[11px] font-semibold text-slate-400">Tap an event to open details</div>
+      <div class="mt-0.5 text-[11px] font-semibold text-slate-400">Same start time · tap to open</div>
     </div>
   `;
 
@@ -131,6 +214,89 @@ function buildPanel(badge) {
   panel.appendChild(footer);
 
   return panel;
+}
+
+function renderStartTimeBadge(parent, startKey, hiddenItems) {
+  const firstHidden = hiddenItems[0];
+  if (!firstHidden) return;
+
+  const badgeKey = `start-${startKey}`;
+  let badge = parent.querySelector(`[data-overlap-more-badge="${badgeKey}"]`);
+
+  if (!badge) {
+    badge = document.createElement("button");
+    badge.type = "button";
+    badge.dataset.overlapMoreBadge = badgeKey;
+    badge.dataset.startKey = startKey;
+    badge.className = "absolute rounded-full border border-slate-300 bg-white px-2 py-1 text-xs font-black text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700";
+    badge.setAttribute("aria-haspopup", "dialog");
+    badge.setAttribute("aria-expanded", "false");
+    parent.appendChild(badge);
+  }
+
+  badge.dataset.startKey = startKey;
+  badge.textContent = `+${hiddenItems.length}`;
+  badge.title = `${hiddenItems.length} more events starting at the same time`;
+  badge.style.display = "block";
+  badge.style.top = `${Math.max(112, firstHidden.top + 8)}px`;
+  badge.style.right = "0.5rem";
+  badge.style.zIndex = "65";
+}
+
+function layoutWeekEventsByStartTime() {
+  if (!isWeekView()) return;
+
+  const body = document.querySelector(".family-calendar-live-body");
+  if (!body) return;
+
+  const parents = Array.from(new Set(
+    Array.from(body.querySelectorAll("button.absolute.left-2.right-2"))
+      .map((button) => button.parentElement)
+      .filter(Boolean)
+  ));
+
+  parents.forEach((parent) => {
+    const items = getTimedEventItems(parent);
+    const startGroups = new Map();
+
+    parent.querySelectorAll("[data-overlap-more-badge]").forEach((badge) => {
+      badge.style.display = "none";
+      badge.setAttribute("aria-expanded", "false");
+    });
+
+    items.forEach((item) => {
+      item.hiddenByStartTime = false;
+      item.button.style.display = "";
+      item.button.style.right = "auto";
+      const list = startGroups.get(item.startKey) || [];
+      list.push(item);
+      startGroups.set(item.startKey, list);
+    });
+
+    startGroups.forEach((group, startKey) => {
+      const hiddenItems = group.slice(MAX_WEEK_VISIBLE_PER_START_TIME);
+      hiddenItems.forEach((item) => {
+        item.hiddenByStartTime = true;
+        item.button.style.display = "none";
+      });
+
+      if (hiddenItems.length > 0) {
+        renderStartTimeBadge(parent, startKey, hiddenItems);
+      }
+    });
+
+    positionVisibleEvents(items);
+  });
+}
+
+function scheduleWeekLayout() {
+  if (layoutScheduled) return;
+  layoutScheduled = true;
+
+  window.requestAnimationFrame(() => {
+    layoutScheduled = false;
+    layoutWeekEventsByStartTime();
+  });
 }
 
 if (typeof window !== "undefined" && !window.__familyCalendarHiddenEventsPatchLoaded) {
@@ -172,5 +338,18 @@ if (typeof window !== "undefined" && !window.__familyCalendarHiddenEventsPatchLo
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeHiddenEventsPanel();
+  });
+
+  const observer = new MutationObserver(scheduleWeekLayout);
+
+  window.addEventListener("load", scheduleWeekLayout);
+  window.setInterval(scheduleWeekLayout, 600);
+
+  window.requestAnimationFrame(() => {
+    const body = document.querySelector(".family-calendar-live-body");
+    if (body) {
+      observer.observe(body, { childList: true, subtree: true });
+    }
+    scheduleWeekLayout();
   });
 }
