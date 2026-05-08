@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, RefreshCw, Tags, User } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, RefreshCw, Tags, User } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
@@ -90,8 +90,10 @@ export default function FamilyCalendarHeader({
   const { user, profile } = useFamily();
   const parsedMonth = useMemo(() => parseMonthLabel(monthLabel), [monthLabel]);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(parsedMonth.year);
   const familyOptions = families.length > 0 ? families : [{ id: activeFamilyId || "active-family", family_name: familyName }];
+  const activeFamily = familyOptions.find((family) => family.id === activeFamilyId) || familyOptions[0];
 
   const { people: familyPeople } = useMemo(
     () => familyPersonColorMap(profile || {}, user, user?.email || ""),
@@ -117,26 +119,47 @@ export default function FamilyCalendarHeader({
       <div className="grid grid-cols-[1fr_auto] items-start gap-x-10 gap-y-3">
         <div className="flex items-center gap-3 text-slate-500">
           <span className="text-xl leading-none">🏠</span>
-          <div className="min-w-[260px]">
+          <div className="relative">
             <p className="text-lg font-black leading-tight text-slate-900">Family Wall</p>
-            <label className="mt-2 block text-[10px] font-black uppercase tracking-wide text-slate-400">
-              Active family
-            </label>
-            <div className="relative mt-1">
-              <select
-                value={activeFamilyId || familyOptions[0]?.id || ""}
-                onChange={(event) => onFamilyChange(event.target.value)}
-                disabled={familyOptions.length <= 1}
-                className="h-11 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-10 text-sm font-black text-slate-800 shadow-sm outline-none transition hover:bg-slate-50 disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500"
-              >
-                {familyOptions.map((family) => (
-                  <option key={family.id} value={family.id}>
-                    {familyDisplayName(family)}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">⌄</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => familyOptions.length > 1 && setFamilyPickerOpen((open) => !open)}
+              className="flex max-w-[280px] items-center gap-1 rounded-lg px-1 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+            >
+              <span className="truncate">{familyDisplayName(activeFamily)}</span>
+              {familyOptions.length > 1 && <span className="shrink-0 text-slate-400">⌄</span>}
+            </button>
+
+            {familyPickerOpen && familyOptions.length > 1 && (
+              <div className="absolute left-0 top-14 z-[130] w-[300px] rounded-3xl border border-slate-200 bg-white p-2 shadow-2xl">
+                <p className="px-3 pb-2 pt-2 text-[10px] font-black uppercase tracking-wide text-slate-400">Switch family</p>
+                <div className="space-y-1">
+                  {familyOptions.map((family) => {
+                    const active = family.id === activeFamilyId;
+                    return (
+                      <button
+                        key={family.id}
+                        type="button"
+                        onClick={() => {
+                          onFamilyChange(family.id);
+                          setFamilyPickerOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-3 text-left transition",
+                          active ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black">{familyDisplayName(family)}</p>
+                          <p className="text-[11px] font-semibold text-slate-400">Family space</p>
+                        </div>
+                        {active && <Check className="h-4 w-4 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
