@@ -57,6 +57,20 @@ function clickIconButton(index) {
   buttons[index]?.click();
 }
 
+function selectPersonFromMenu(label) {
+  clickButtonContainingText(/^Person/i);
+
+  window.setTimeout(() => {
+    const menuButtons = Array.from(document.querySelectorAll("button"));
+    const target = menuButtons.find((button) => {
+      const text = cleanText(button);
+      return text === label || text.startsWith(`${label} `);
+    });
+
+    target?.click();
+  }, 0);
+}
+
 function readCalendarMeta() {
   const body = document.querySelector(".family-calendar-live-body");
   const monthText = Array.from(body?.querySelectorAll("button") || [])
@@ -156,6 +170,7 @@ export default function Calendar() {
             onNext={() => clickIconButton(1)}
             onPersonFilterClick={() => clickButtonContainingText(/^Person/i)}
             onCategoryFilterClick={() => clickButtonContainingText(/^Category/i)}
+            onLegendPersonClick={selectPersonFromMenu}
           />
           <div className="family-calendar-live-body">
             <FamilyCalendarView
