@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import FamilyCalendarHeader from "@/components/calendar/FamilyCalendarHeader";
 import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV9";
@@ -34,6 +34,22 @@ function clickIconButton(index) {
   buttons[index]?.click();
 }
 
+function readCalendarMeta() {
+  const body = document.querySelector(".family-calendar-live-body");
+  const monthText = Array.from(body?.querySelectorAll("button") || [])
+    .map((button) => (button.textContent || "").trim())
+    .find((text) => /^[A-Za-z]+\s+\d{4}$/.test(text));
+
+  const summaryText = Array.from(body?.querySelectorAll("p") || [])
+    .map((item) => (item.textContent || "").trim())
+    .find((text) => /^\d+\s+events?\s*\|/.test(text));
+
+  return {
+    monthLabel: monthText || "May 2026",
+    eventSummary: summaryText ? summaryText.replace(" | ", " · ") : "17 events · May 2026",
+  };
+}
+
 function triggerHiddenAddEventButton() {
   const addButton = calendarButtons().find((button) => /add\s*event/i.test(button.textContent || ""));
 
@@ -49,6 +65,20 @@ function triggerHiddenAddEventButton() {
 export default function Calendar() {
   const [activeCalendar, setActiveCalendar] = useState("family");
   const [viewMode, setViewMode] = useState("week");
+  const [calendarMeta, setCalendarMeta] = useState(() => readCalendarMeta());
+
+  useEffect(() => {
+    const updateMeta = () => setCalendarMeta(readCalendarMeta());
+    updateMeta();
+
+    const body = document.querySelector(".family-calendar-live-body");
+    if (!body) return undefined;
+
+    const observer = new MutationObserver(updateMeta);
+    observer.observe(body, { childList: true, subtree: true, characterData: true });
+
+    return () => observer.disconnect();
+  }, [activeCalendar, viewMode]);
 
   return (
     <div className="family-calendar-shell relative min-h-full bg-background pb-28 md:pb-6">
@@ -65,6 +95,8 @@ export default function Calendar() {
         <div className="mx-auto max-w-none overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
           <FamilyCalendarHeader
             viewMode={viewMode}
+            monthLabel={calendarMeta.monthLabel}
+            eventSummary={calendarMeta.eventSummary}
             onViewModeChange={setViewMode}
             onPrevious={() => clickIconButton(0)}
             onToday={() => clickButtonByText(/^today$/i)}
