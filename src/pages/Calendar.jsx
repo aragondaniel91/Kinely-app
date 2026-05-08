@@ -7,16 +7,20 @@ import { useFamily } from "@/lib/FamilyContext";
 import { familyColorIds, colorHex, colorSoftHex } from "@/lib/personColorUtils";
 
 const compactCalendarStyles = `
-.family-calendar-live-body > div > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child {
+.family-calendar-live-body > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child,
+.family-calendar-live-body > div > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child,
+.family-calendar-live-body .family-calendar-internal-toolbar {
   position: absolute !important;
   left: -9999px !important;
   top: 0 !important;
   width: 1px !important;
   height: 1px !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   padding: 0 !important;
   margin: 0 !important;
   border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .family-calendar-live-body p.mt-4,
@@ -25,11 +29,15 @@ const compactCalendarStyles = `
   display: none !important;
 }
 
+.family-calendar-live-body > div.mx-auto,
 .family-calendar-live-body > div > div.mx-auto {
   max-width: none !important;
+  width: 100% !important;
   min-height: calc(100vh - 1rem) !important;
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
+  border-top-width: 0 !important;
+  box-shadow: none !important;
 }
 `;
 
