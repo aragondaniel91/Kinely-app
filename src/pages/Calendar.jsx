@@ -6,7 +6,17 @@ import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 
 const compactCalendarStyles = `
 .family-calendar-live-body > div > div.mx-auto > div.border-b.border-slate-200.bg-white:first-child {
-  display: none !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: auto !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
 }
 
 .family-calendar-live-body p.mt-4,
@@ -33,7 +43,7 @@ function clickButtonByText(pattern) {
 }
 
 function clickButtonContainingText(pattern) {
-  const button = calendarButtons().find((item) => pattern.test((item.textContent || "").trim()));
+  const button = calendarButtons().find((item) => pattern.test((item.textContent || "").replace(/\s+/g, " ").trim()));
   button?.click();
 }
 
