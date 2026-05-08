@@ -3,10 +3,21 @@ export const PERSON_COLOR_OPTIONS = [
   { id: "green", label: "Green", dot: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-300", stripe: "bg-emerald-500", ring: "ring-emerald-200", text: "text-emerald-700" },
   { id: "purple", label: "Purple", dot: "bg-violet-500", bg: "bg-violet-50", border: "border-violet-300", stripe: "bg-violet-500", ring: "ring-violet-200", text: "text-violet-700" },
   { id: "orange", label: "Orange", dot: "bg-orange-500", bg: "bg-orange-50", border: "border-orange-300", stripe: "bg-orange-500", ring: "ring-orange-200", text: "text-orange-700" },
+  { id: "yellow", label: "Yellow", dot: "bg-yellow-500", bg: "bg-yellow-50", border: "border-yellow-300", stripe: "bg-yellow-500", ring: "ring-yellow-200", text: "text-yellow-700" },
   { id: "pink", label: "Pink", dot: "bg-pink-500", bg: "bg-pink-50", border: "border-pink-300", stripe: "bg-pink-500", ring: "ring-pink-200", text: "text-pink-700" },
   { id: "red", label: "Red", dot: "bg-red-500", bg: "bg-red-50", border: "border-red-300", stripe: "bg-red-500", ring: "ring-red-200", text: "text-red-700" },
   { id: "teal", label: "Teal", dot: "bg-teal-500", bg: "bg-teal-50", border: "border-teal-300", stripe: "bg-teal-500", ring: "ring-teal-200", text: "text-teal-700" },
   { id: "slate", label: "Slate", dot: "bg-slate-500", bg: "bg-slate-50", border: "border-slate-300", stripe: "bg-slate-500", ring: "ring-slate-200", text: "text-slate-700" },
+  {
+    id: "family",
+    label: "Family",
+    dot: "bg-gradient-to-r from-blue-500 via-yellow-500 to-emerald-500",
+    bg: "bg-gradient-to-r from-blue-50 via-yellow-50 to-emerald-50",
+    border: "border-blue-200",
+    stripe: "bg-gradient-to-b from-blue-500 via-yellow-500 to-emerald-500",
+    ring: "ring-blue-200",
+    text: "text-slate-800",
+  },
 ];
 
 export const DEFAULT_PERSON_COLORS = {
@@ -14,7 +25,7 @@ export const DEFAULT_PERSON_COLORS = {
   mom: "orange",
   child: "green",
   member: "teal",
-  all: "slate",
+  all: "family",
 };
 
 export function normalizeName(value) {
@@ -60,6 +71,7 @@ export function familyPersonColorMap(profile = {}, user = null, myEmail = "") {
     parent1: profile.parent1_color || profile.parent1Color || DEFAULT_PERSON_COLORS.dad,
     parent2: profile.parent2_color || profile.parent2Color || DEFAULT_PERSON_COLORS.mom,
     all: DEFAULT_PERSON_COLORS.all,
+    everyone: DEFAULT_PERSON_COLORS.all,
   };
 
   const people = [
@@ -157,6 +169,7 @@ export function resolveEventColor(event = {}, profile = {}, fallbackType = "all"
 
   if (event.assignedTo === "dad" || event.assignedToType === "dad") return map.dad;
   if (event.assignedTo === "mom" || event.assignedToType === "mom") return map.mom;
+  if (event.assignedTo === "all" || event.assignedToType === "all" || event.assignedTo === "everyone" || event.assignedToType === "everyone") return map.all;
   if (event.assignedToType === "child" || event.childName || event.childId) return DEFAULT_PERSON_COLORS.child;
 
   return map[fallbackType] || DEFAULT_PERSON_COLORS.all;
