@@ -23,6 +23,17 @@ function LegendDot({ color }) {
   return <span className={cn("h-4 w-4 rounded-full", meta.dot)} />;
 }
 
+function dedupePeopleByLabel(people) {
+  const seen = new Set();
+
+  return people.filter((person) => {
+    const key = String(person.label || "").trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function FamilyCalendarHeader({
   viewMode = "week",
   monthLabel = "May 2026",
@@ -49,7 +60,7 @@ export default function FamilyCalendarHeader({
     }));
 
     return mappedPeople.length > 0
-      ? [...mappedPeople, { label: "Everyone", color: "lime" }]
+      ? dedupePeopleByLabel([...mappedPeople, { label: "Everyone", color: "lime" }])
       : fallbackPeople;
   }, [familyPeople]);
 
