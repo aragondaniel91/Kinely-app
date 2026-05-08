@@ -1,5 +1,6 @@
 const MAX_WEEK_VISIBLE_PER_START_TIME = 3;
 let layoutScheduled = false;
+let lastLayoutSignature = "";
 
 function cleanText(element) {
   return (element?.textContent || "").replace(/\s+/g, " ").trim();
@@ -134,6 +135,12 @@ function assignColumns(items) {
   return Math.max(1, maxColumnCount, columns.length);
 }
 
+function setStyleValue(element, property, value) {
+  if (element.style[property] !== value) {
+    element.style[property] = value;
+  }
+}
+
 function positionVisibleEvents(items) {
   const visibleItems = items.filter((item) => !item.hiddenByStartTime);
   if (visibleItems.length === 0) return;
@@ -142,11 +149,11 @@ function positionVisibleEvents(items) {
   const width = 100 / columnCount;
 
   visibleItems.forEach((item) => {
-    item.button.style.display = "";
-    item.button.style.left = `calc(${width * item.columnIndex}% + 0.5rem)`;
-    item.button.style.right = "auto";
-    item.button.style.width = `calc(${width}% - 0.7rem)`;
-    item.button.style.zIndex = String(20 + item.columnIndex);
+    setStyleValue(item.button, "display", "");
+    setStyleValue(item.button, "left", `calc(${width * item.columnIndex}% + 0.5rem)`);
+    setStyleValue(item.button, "right", "auto");
+    setStyleValue(item.button, "width", `calc(${width}% - 0.7rem)`);
+    setStyleValue(item.button, "zIndex", String(20 + item.columnIndex));
   });
 }
 
@@ -156,7 +163,7 @@ function buildPanel(badge) {
 
   const startKey = badge.dataset.startKey;
   const hiddenEvents = getTimedEventItems(parent)
-    .filter((item) => item.startKey === startKey && item.hiddenByStartTime !== false)
+    .filter((item) => item.startKey === startKey)
     .map((item) => item.button)
     .filter((button) => button.style.display === "none" || window.getComputedStyle(button).display === "none");
 
@@ -237,10 +244,10 @@ function renderStartTimeBadge(parent, startKey, hiddenItems) {
   badge.dataset.startKey = startKey;
   badge.textContent = `+${hiddenItems.length}`;
   badge.title = `${hiddenItems.length} more events starting at the same time`;
-  badge.style.display = "block";
-  badge.style.top = `${Math.max(112, firstHidden.top + 8)}px`;
-  badge.style.right = "0.5rem";
-  badge.style.zIndex = "65";
+  setStyleValue(badge, "display", "block");
+  setStyleValue(badge, "top", `${Math.max(112, firstHidden.top + 8)}px`);
+  setStyleValue(badge, "right", "0.5rem");
+  setStyleValue(badge, "zIndex", "65");
 }
 
 function layoutWeekEventsByStartTime() {
@@ -255,19 +262,26 @@ function layoutWeekEventsByStartTime() {
       .filter(Boolean)
   ));
 
+  const signature = parents
+    .map((parent, parentIndex) => `${parentIndex}:${getTimedEventItems(parent).map((item) => `${item.startKey}-${Math.round(item.bottom)}-${cleanText(item.button)}`).join("|")}`)
+    .join("::");
+
+  if (signature === lastLayoutSignature) return;
+  lastLayoutSignature = signature;
+
   parents.forEach((parent) => {
     const items = getTimedEventItems(parent);
     const startGroups = new Map();
 
     parent.querySelectorAll("[data-overlap-more-badge]").forEach((badge) => {
-      badge.style.display = "none";
+      setStyleValue(badge, "display", "none");
       badge.setAttribute("aria-expanded", "false");
     });
 
     items.forEach((item) => {
       item.hiddenByStartTime = false;
-      item.button.style.display = "";
-      item.button.style.right = "auto";
+      setStyleValue(item.button, "display", "");
+      setStyleValue(item.button, "right", "auto");
       const list = startGroups.get(item.startKey) || [];
       list.push(item);
       startGroups.set(item.startKey, list);
@@ -277,7 +291,7 @@ function layoutWeekEventsByStartTime() {
       const hiddenItems = group.slice(MAX_WEEK_VISIBLE_PER_START_TIME);
       hiddenItems.forEach((item) => {
         item.hiddenByStartTime = true;
-        item.button.style.display = "none";
+        setStyleValue(item.button, "display", "none");
       });
 
       if (hiddenItems.length > 0) {
@@ -343,7 +357,16 @@ if (typeof window !== "undefined" && !window.__familyCalendarHiddenEventsPatchLo
   const observer = new MutationObserver(scheduleWeekLayout);
 
   window.addEventListener("load", scheduleWeekLayout);
-  window.setInterval(scheduleWeekLayout, 600);
+  window.addEventListener("resize", () => {
+    lastLayoutSignature = "";
+    scheduleWeekLayout();
+  });
+  document.addEventListener("click", () => {
+    window.setTimeout(() => {
+      lastLayoutSignature = "";
+      scheduleWeekLayout();
+    }, 80);
+  });
 
   window.requestAnimationFrame(() => {
     const body = document.querySelector(".family-calendar-live-body");
