@@ -2,9 +2,16 @@
    Keep these isolated while we stabilize the family calendar layout. */
 
 /* The week calendar should remain a normal full-width seven-day view.
-   Event overflow is handled inside React with +X per start-time slot. */
+   Event overflow is handled inside React with active-hour +X groups. */
 .family-calendar-live-body div.relative.overflow-x-auto > div {
   min-width: 100% !important;
+}
+
+/* Day view should stay centered and readable, not stretched across the full screen. */
+.family-calendar-live-body div.relative.overflow-x-auto.flex.justify-center > div {
+  width: min(760px, 100%) !important;
+  max-width: 760px !important;
+  min-width: 0 !important;
 }
 
 .family-calendar-live-body div.relative.overflow-x-auto {
