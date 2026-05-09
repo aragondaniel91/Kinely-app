@@ -57,27 +57,31 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
   if (!groups.length) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
+    <div className="flex gap-2 overflow-x-auto pb-1">
       {groups.map((group) => {
         const active = group.id === selectedGroupId;
         const children = groupChildren(group);
         const parents = groupParents(group);
         const { custodyDadName, custodyMomName } = resolveCustodyParentNames(group, "Dad", "Mom");
+        const parentNames = parents.length > 0
+          ? parents.map(parentLabel).filter(Boolean).join(" & ")
+          : `${custodyDadName} & ${custodyMomName}`;
+        const childNames = children.join(", ") || "Child not selected";
 
         return (
           <button
             key={group.id}
             type="button"
             onClick={() => onSelect(group.id)}
-            className={`min-w-[260px] rounded-3xl border p-4 text-left transition ${
+            className={`min-w-[280px] rounded-2xl border px-4 py-3 text-left transition ${
               active
                 ? "border-blue-300 bg-blue-50 shadow-sm"
                 : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
             }`}
           >
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white">
-                <Baby className="h-5 w-5" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                <Baby className="h-4 w-4" />
               </div>
 
               <div className="min-w-0 flex-1">
@@ -91,13 +95,8 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
                     </Badge>
                   )}
                 </div>
-                <p className="mt-1 truncate text-xs font-semibold text-slate-500">
-                  {children.join(", ") || "Child not selected"}
-                </p>
-                <p className="mt-1 truncate text-xs font-semibold text-slate-400">
-                  {parents.length > 0
-                    ? parents.map(parentLabel).filter(Boolean).join(" & ")
-                    : `${custodyDadName} & ${custodyMomName}`}
+                <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                  {childNames} · {parentNames}
                 </p>
               </div>
             </div>
@@ -223,40 +222,17 @@ export default function CustodyCalendarView({
   return (
     <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
       <div className="mx-auto max-w-none rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-8">
-          <div>
-            {loadingGroups ? (
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                Loading custody groups...
-              </div>
-            ) : (
-              <CustodyGroupSelector
-                groups={availableGroups}
-                selectedGroupId={selectedGroup?.id}
-                onSelect={setSelectedGroupId}
-              />
-            )}
-          </div>
-
-          {!loadingGroups && selectedGroup && (
-            <div className="mt-3 grid grid-cols-1 gap-2 text-xs font-semibold text-slate-500 md:grid-cols-3">
-              <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <span className="font-black uppercase tracking-wide text-slate-400">Selected</span>
-                <p className="mt-0.5 text-slate-700">{selectedGroup.name || "Custody Group"}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <span className="font-black uppercase tracking-wide text-slate-400">Children</span>
-                <p className="mt-0.5 text-slate-700">{selectedChildren.join(", ") || "Not selected"}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-3 py-2">
-                <span className="font-black uppercase tracking-wide text-slate-400">Co-parents</span>
-                <p className="mt-0.5 truncate text-slate-700">
-                  {selectedParents.length > 0
-                    ? selectedParents.map(parentLabel).filter(Boolean).join(" & ")
-                    : `${custodyParentNames.custodyDadName} & ${custodyParentNames.custodyMomName}`}
-                </p>
-              </div>
+        <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
+          {loadingGroups ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+              Loading custody groups...
             </div>
+          ) : (
+            <CustodyGroupSelector
+              groups={availableGroups}
+              selectedGroupId={selectedGroup?.id}
+              onSelect={setSelectedGroupId}
+            />
           )}
         </div>
 
