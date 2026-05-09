@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import FamilyCalendarHeader from "@/components/calendar/FamilyCalendarHeader";
-import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV14";
+import FamilyCalendarView from "@/components/calendar/FamilyCalendarViewV15";
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import { useFamily } from "@/lib/FamilyContext";
 import { familyColorIds, colorHex, colorSoftHex } from "@/lib/personColorUtils";
