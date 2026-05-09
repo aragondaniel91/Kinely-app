@@ -69,10 +69,10 @@ function visibleTextEvents(body) {
 }
 
 function hiddenBadgeCount(body) {
-  return Array.from(body.querySelectorAll("button"))
-    .filter((button) => isVisible(button))
-    .filter((button) => !button.closest("[data-family-wall-hour-panel]"))
-    .map((button) => textOf(button).match(/^\+(\d+)(?:\s+more)?$/i))
+  return Array.from(body.querySelectorAll("button, p, span, div"))
+    .filter((element) => isVisible(element))
+    .filter((element) => !element.closest("[data-family-wall-hour-panel]"))
+    .map((element) => textOf(element).match(/^\+(\d+)(?:\s+more)?$/i))
     .filter(Boolean)
     .reduce((total, match) => total + Number(match[1] || 0), 0);
 }
