@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
+import CustodyScopeMetadataBackfill from "@/components/calendar/CustodyScopeMetadataBackfill";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -338,20 +339,22 @@ export default function CustodyCalendarView({
         <div className="custody-original-calendar-wrapper bg-[#f8fbff]">
           {canRenderCalendar ? (
             <FamilyContext.Provider value={scopedFamilyContext}>
-              <CustodyCalendar
-                viewMode={viewMode === "mixed" ? "month" : viewMode}
-                setViewMode={setViewMode}
-                showFilters
-                selectedCustodyGroup={selectedGroup}
-                selectedCustodyGroupId={selectedCustodyGroupId}
-                custodyDadName={custodyParentNames.custodyDadName}
-                custodyMomName={custodyParentNames.custodyMomName}
-                custodyDadEmail={custodyParentNames.custodyDadEmail}
-                custodyMomEmail={custodyParentNames.custodyMomEmail}
-                custodyChildren={selectedChildren}
-                custodyChildIds={selectedChildIds}
-                custodyCoParents={selectedParents}
-              />
+              <CustodyScopeMetadataBackfill>
+                <CustodyCalendar
+                  viewMode={viewMode === "mixed" ? "month" : viewMode}
+                  setViewMode={setViewMode}
+                  showFilters
+                  selectedCustodyGroup={selectedGroup}
+                  selectedCustodyGroupId={selectedCustodyGroupId}
+                  custodyDadName={custodyParentNames.custodyDadName}
+                  custodyMomName={custodyParentNames.custodyMomName}
+                  custodyDadEmail={custodyParentNames.custodyDadEmail}
+                  custodyMomEmail={custodyParentNames.custodyMomEmail}
+                  custodyChildren={selectedChildren}
+                  custodyChildIds={selectedChildIds}
+                  custodyCoParents={selectedParents}
+                />
+              </CustodyScopeMetadataBackfill>
             </FamilyContext.Provider>
           ) : (
             <div className="p-8 text-center text-sm font-bold text-slate-400">
