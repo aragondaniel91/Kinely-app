@@ -1,56 +1,17 @@
 /* Calendar cleanup branch visual overrides.
    Keep these isolated while we stabilize the family calendar layout. */
 
-/* Give the week grid enough horizontal room so overlap clusters stay readable. */
+/* The week calendar should remain a normal full-width seven-day view.
+   Event overflow is handled inside React with +X per start-time slot. */
 .family-calendar-live-body div.relative.overflow-x-auto > div {
-  min-width: 2600px !important;
+  min-width: 100% !important;
 }
 
-/* Keep day view usable. */
-.family-calendar-live-body div.relative.overflow-x-auto.flex > div {
-  min-width: min(760px, 100%) !important;
-}
-
-/* Make the horizontal scroll feel intentional and tablet-friendly. */
 .family-calendar-live-body div.relative.overflow-x-auto {
-  scrollbar-width: thin;
-  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  overscroll-behavior-x: auto;
 }
 
 .family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar {
-  height: 10px;
-}
-
-.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar-track {
-  background: rgba(226, 232, 240, 0.65);
-  border-radius: 999px;
-}
-
-.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.45);
-  border-radius: 999px;
-}
-
-.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.6);
-}
-
-@media (max-width: 1280px) {
-  .family-calendar-live-body div.relative.overflow-x-auto > div {
-    min-width: 2200px !important;
-  }
-
-  .family-calendar-live-body div.relative.overflow-x-auto.flex > div {
-    min-width: min(760px, 100%) !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .family-calendar-live-body div.relative.overflow-x-auto > div {
-    min-width: 1800px !important;
-  }
-
-  .family-calendar-live-body div.relative.overflow-x-auto.flex > div {
-    min-width: min(760px, 100%) !important;
-  }
+  display: none;
 }
