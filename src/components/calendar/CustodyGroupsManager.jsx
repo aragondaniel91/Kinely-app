@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Baby, Eye, Plus, ShieldCheck, Users } from "lucide-react";
+import { Baby, Eye, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 
@@ -16,6 +18,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+
+const EMPTY_FORM = {
+  name: "",
+  children: "",
+  dadName: "",
+  dadEmail: "",
+  momName: "",
+  momEmail: "",
+  viewerEmails: "",
+};
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -50,16 +62,29 @@ function groupChildNames(group) {
   return [];
 }
 
-function parentNames(group) {
-  const parents = Array.isArray(group?.parents)
-    ? group.parents
-    : Array.isArray(group?.coParents)
-    ? group.coParents
-    : [];
+function groupParents(group) {
+  if (Array.isArray(group?.parents)) return group.parents;
+  if (Array.isArray(group?.coParents)) return group.coParents;
+  return [];
+}
 
-  return parents
+function parentNames(group) {
+  return groupParents(group)
     .map((parent) => parent.name || parent.displayName || parent.email)
     .filter(Boolean);
+}
+
+function groupViewerEmails(group) {
+  const viewerEmails = Array.isArray(group?.viewerEmails) ? group.viewerEmails : [];
+  const legacyViewerEmails = Array.isArray(group?.viewer_emails) ? group.viewer_emails : [];
+  return [...new Set([...viewerEmails, ...legacyViewerEmails].map(normalizeEmail).filter(Boolean))];
+}
+
+function groupMemberEmails(group) {
+  const memberEmails = Array.isArray(group?.memberEmails) ? group.memberEmails : [];
+  const legacyMemberEmails = Array.isArray(group?.member_emails) ? group.member_emails : [];
+  const parentEmails = groupParents(group).map((parent) => parent.email).filter(Boolean);
+  return [...new Set([...memberEmails, ...legacyMemberEmails, ...parentEmails].map(normalizeEmail).filter(Boolean))];
 }
 
 function mergeGroups(...groupLists) {
@@ -70,9 +95,9 @@ function mergeGroups(...groupLists) {
   return Array.from(map.values());
 }
 
-function GroupCard({ group, myEmail }) {
-  const memberEmails = Array.isArray(group.memberEmails) ? group.memberEmails.map(normalizeEmail) : [];
-  const viewerEmails = Array.isArray(group.viewerEmails) ? group.viewerEmails.map(normalizeEmail) : [];
+function GroupCard({ group, myEmail, onEdit, onDelete }) {
+  const memberEmails = groupMemberEmails(group);
+  const viewerEmails = groupViewerEmails(group);
   const isMember = memberEmails.includes(normalizeEmail(myEmail));
   const isViewerOnly = !isMember && viewerEmails.includes(normalizeEmail(myEmail));
   const children = groupChildNames(group);
@@ -129,6 +154,24 @@ function GroupCard({ group, myEmail }) {
           </p>
         </div>
       </div>
+
+      {isMember && (
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => onEdit(group)} className="gap-2 rounded-2xl">
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onDelete(group)}
+            className="gap-2 rounded-2xl border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }
@@ -139,15 +182,8 @@ export default function CustodyGroupsManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    children: "",
-    dadName: "",
-    dadEmail: "",
-    momName: "",
-    momEmail: "",
-    viewerEmails: "",
-  });
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const familyChildren = useMemo(() => {
     if (Array.isArray(profile?.children)) return profile.children.map(childLabel).filter(Boolean);
@@ -200,7 +236,42 @@ export default function CustodyGroupsManager() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const createGroup = async (event) => {
+  const resetForm = () => {
+    setForm(EMPTY_FORM);
+    setEditingGroupId(null);
+    setShowForm(false);
+  };
+
+  const startCreate = () => {
+    if (showForm && !editingGroupId) {
+      resetForm();
+      return;
+    }
+
+    setForm(EMPTY_FORM);
+    setEditingGroupId(null);
+    setShowForm(true);
+  };
+
+  const startEdit = (group) => {
+    const parents = groupParents(group);
+    const dadParent = parents.find((parent) => parent.role === "dad") || parents[0] || {};
+    const momParent = parents.find((parent) => parent.role === "mom") || parents[1] || {};
+
+    setEditingGroupId(group.id);
+    setForm({
+      name: group.name || "",
+      children: groupChildNames(group).join(", "),
+      dadName: dadParent.name || dadParent.displayName || "",
+      dadEmail: dadParent.email || groupMemberEmails(group)[0] || myEmail || "",
+      momName: momParent.name || momParent.displayName || "",
+      momEmail: momParent.email || groupMemberEmails(group)[1] || "",
+      viewerEmails: groupViewerEmails(group).join(", "),
+    });
+    setShowForm(true);
+  };
+
+  const saveGroup = async (event) => {
     event.preventDefault();
 
     if (!user || !myEmail || saving) return;
@@ -230,9 +301,7 @@ export default function CustodyGroupsManager() {
     setSaving(true);
 
     try {
-      const groupRef = doc(collection(db, "custodyGroups"));
       const now = serverTimestamp();
-
       const parents = [
         {
           role: "dad",
@@ -258,28 +327,46 @@ export default function CustodyGroupsManager() {
         member_emails: memberEmails,
         viewerEmails,
         viewer_emails: viewerEmails,
-        createdBy: user.uid,
-        createdByEmail: user.email || myEmail,
-        createdAt: now,
         updatedAt: now,
       };
 
-      await setDoc(groupRef, payload);
+      if (editingGroupId) {
+        await updateDoc(doc(db, "custodyGroups", editingGroupId), payload);
+      } else {
+        const groupRef = doc(collection(db, "custodyGroups"));
+        await setDoc(groupRef, {
+          ...payload,
+          createdBy: user.uid,
+          createdByEmail: user.email || myEmail,
+          createdAt: now,
+        });
+      }
 
-      setForm({
-        name: "",
-        children: "",
-        dadName: "",
-        dadEmail: "",
-        momName: "",
-        momEmail: "",
-        viewerEmails: "",
-      });
-      setShowForm(false);
+      resetForm();
       await loadGroups();
     } catch (error) {
-      console.error("Error creating custody group:", error);
-      window.alert(`Could not create custody group: ${error.message}`);
+      console.error("Error saving custody group:", error);
+      window.alert(`Could not save custody group: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteGroup = async (group) => {
+    const confirmed = window.confirm(
+      `Delete ${group.name || "this custody group"}? This removes the group profile. Existing custody days are not deleted.`
+    );
+
+    if (!confirmed) return;
+
+    setSaving(true);
+
+    try {
+      await deleteDoc(doc(db, "custodyGroups", group.id));
+      await loadGroups();
+    } catch (error) {
+      console.error("Error deleting custody group:", error);
+      window.alert(`Could not delete custody group: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -298,14 +385,25 @@ export default function CustodyGroupsManager() {
           </p>
         </div>
 
-        <Button type="button" onClick={() => setShowForm((value) => !value)} className="w-fit gap-2 rounded-2xl">
+        <Button type="button" onClick={startCreate} className="w-fit gap-2 rounded-2xl">
           <Plus className="h-4 w-4" />
-          {showForm ? "Close" : "New custody group"}
+          {showForm && !editingGroupId ? "Close" : "New custody group"}
         </Button>
       </div>
 
       {showForm && (
-        <form onSubmit={createGroup} className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <form onSubmit={saveGroup} className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-slate-950">
+                {editingGroupId ? "Edit custody group" : "Create custody group"}
+              </p>
+              <p className="text-xs font-semibold text-slate-500">
+                Members can edit. Viewers can only see this custody calendar.
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <div className="md:col-span-2">
               <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Group name</label>
@@ -381,19 +479,19 @@ export default function CustodyGroupsManager() {
           </div>
 
           <div className="mt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setShowForm(false)} disabled={saving}>
+            <Button type="button" variant="outline" onClick={resetForm} disabled={saving}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving} className="gap-2">
               <Users className="h-4 w-4" />
-              {saving ? "Creating..." : "Create custody group"}
+              {saving ? "Saving..." : editingGroupId ? "Save changes" : "Create custody group"}
             </Button>
           </div>
         </form>
       )}
 
       <div className="mt-5 grid gap-3 xl:grid-cols-2">
-        {loading && [0, 1].map((item) => <div key={item} className="h-36 animate-pulse rounded-3xl bg-slate-100" />)}
+        {loading && [0, 1].map((item) => <div key={item} className="h-44 animate-pulse rounded-3xl bg-slate-100" />)}
 
         {!loading && groups.length === 0 && (
           <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500 xl:col-span-2">
@@ -401,7 +499,15 @@ export default function CustodyGroupsManager() {
           </div>
         )}
 
-        {!loading && groups.map((group) => <GroupCard key={group.id} group={group} myEmail={myEmail} />)}
+        {!loading && groups.map((group) => (
+          <GroupCard
+            key={group.id}
+            group={group}
+            myEmail={myEmail}
+            onEdit={startEdit}
+            onDelete={deleteGroup}
+          />
+        ))}
       </div>
     </Card>
   );
