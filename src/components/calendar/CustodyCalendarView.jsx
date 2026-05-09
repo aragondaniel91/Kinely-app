@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Baby } from "lucide-react";
+import { Baby, CalendarDays } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import CustodyScopeMetadataBackfill from "@/components/calendar/CustodyScopeMetadataBackfill";
 import CustodyStatusSummaryLoader from "@/components/calendar/CustodyStatusSummaryLoader";
+import CustodyUpcomingListLoader from "@/components/calendar/CustodyUpcomingListLoader";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -161,10 +163,10 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
   );
 }
 
-function CustodyDashboardMode({ selectedGroup, custodyAccess }) {
+function CustodyDashboardMode({ selectedGroup, custodyAccess, onOpenSchedule }) {
   return (
     <div className="px-4 py-5 md:px-8 md:py-6">
-      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">
             Custody Dashboard
@@ -173,27 +175,30 @@ function CustodyDashboardMode({ selectedGroup, custodyAccess }) {
             {selectedGroup?.name || "Custody overview"}
           </h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Quick status for today, next custody change, and current-period balance.
+            Quick status for today, next custody change, upcoming days, and current-period balance.
           </p>
         </div>
 
-        {custodyAccess?.isViewerOnly && (
-          <Badge variant="outline" className="w-fit border-slate-200 bg-white text-slate-500">
-            View only
-          </Badge>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {custodyAccess?.isViewerOnly && (
+            <Badge variant="outline" className="w-fit border-slate-200 bg-white text-slate-500">
+              View only
+            </Badge>
+          )}
+
+          <Button type="button" onClick={onOpenSchedule} className="gap-2 rounded-2xl">
+            <CalendarDays className="h-4 w-4" />
+            Open Schedule
+          </Button>
+        </div>
       </div>
 
       <CustodyStatusSummaryLoader />
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Card className="rounded-3xl border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Next</p>
-          <h3 className="mt-2 text-lg font-black text-slate-950">Upcoming days</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            A compact upcoming custody list will live here next.
-          </p>
-        </Card>
+      <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="xl:row-span-2">
+          <CustodyUpcomingListLoader limit={6} />
+        </div>
 
         <Card className="rounded-3xl border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Exchange</p>
@@ -212,6 +217,14 @@ function CustodyDashboardMode({ selectedGroup, custodyAccess }) {
             Permissions are based on the selected custody group.
           </p>
         </Card>
+
+        <Card className="rounded-3xl border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Notes</p>
+          <h3 className="mt-2 text-lg font-black text-slate-950">Quick reminders</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Later this area can show exchange reminders, packing alerts, school notes, and custody-related tasks.
+          </p>
+        </Card>
       </div>
     </div>
   );
@@ -221,6 +234,7 @@ export default function CustodyCalendarView({
   viewMode = "month",
   setViewMode,
   mode = "calendar",
+  onOpenSchedule,
 }) {
   const familyContext = useFamily();
   const { myEmail, profile, familyId, dadName, momName, perms } = familyContext;
@@ -400,7 +414,11 @@ export default function CustodyCalendarView({
             <FamilyContext.Provider value={scopedFamilyContext}>
               <CustodyScopeMetadataBackfill>
                 {mode === "dashboard" ? (
-                  <CustodyDashboardMode selectedGroup={selectedGroup} custodyAccess={custodyAccess} />
+                  <CustodyDashboardMode
+                    selectedGroup={selectedGroup}
+                    custodyAccess={custodyAccess}
+                    onOpenSchedule={onOpenSchedule}
+                  />
                 ) : (
                   <CustodyCalendar
                     viewMode={viewMode === "mixed" ? "month" : viewMode}
