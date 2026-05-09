@@ -295,6 +295,7 @@ export default function Custody() {
           setActiveCalendar={setActiveCalendar}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          onOpenSchedule={() => setActiveModule("schedule")}
         />
       )}
 
