@@ -6,14 +6,31 @@ import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
-import CustodyStatusSummaryLoader from "@/components/calendar/CustodyStatusSummaryLoader";
+
+function childLabel(child) {
+  if (!child) return "";
+  if (typeof child === "string") return child;
+  return child.name || child.fullName || child.displayName || child.childName || child.firstName || child.email || "Child";
+}
+
+function parentLabel(parent) {
+  if (!parent) return "";
+  if (typeof parent === "string") return parent;
+  return parent.name || parent.fullName || parent.displayName || parent.email || "Parent";
+}
 
 function groupChildren(group) {
   if (!group) return [];
-  if (Array.isArray(group.children) && group.children.length) return group.children;
-  if (Array.isArray(group.childNames) && group.childNames.length) return group.childNames;
-  if (group.childName) return [group.childName];
-  return [];
+
+  const children = Array.isArray(group.children) && group.children.length
+    ? group.children
+    : Array.isArray(group.childNames) && group.childNames.length
+    ? group.childNames
+    : group.childName
+    ? [group.childName]
+    : [];
+
+  return children.map(childLabel).filter(Boolean);
 }
 
 function groupParents(group) {
@@ -29,8 +46,8 @@ function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
   const momParent = parents.find((parent) => parent.role === "mom");
 
   return {
-    custodyDadName: dadParent?.name || parents[0]?.name || fallbackDadName || "Dad",
-    custodyMomName: momParent?.name || parents[1]?.name || fallbackMomName || "Mom",
+    custodyDadName: parentLabel(dadParent) || parentLabel(parents[0]) || fallbackDadName || "Dad",
+    custodyMomName: parentLabel(momParent) || parentLabel(parents[1]) || fallbackMomName || "Mom",
     custodyDadEmail: dadParent?.email || parents[0]?.email || "",
     custodyMomEmail: momParent?.email || parents[1]?.email || "",
   };
@@ -79,7 +96,7 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
                 </p>
                 <p className="mt-1 truncate text-xs font-semibold text-slate-400">
                   {parents.length > 0
-                    ? parents.map((parent) => parent.name || parent.email).filter(Boolean).join(" & ")
+                    ? parents.map(parentLabel).filter(Boolean).join(" & ")
                     : `${custodyDadName} & ${custodyMomName}`}
                 </p>
               </div>
@@ -235,7 +252,7 @@ export default function CustodyCalendarView({
                 <span className="font-black uppercase tracking-wide text-slate-400">Co-parents</span>
                 <p className="mt-0.5 truncate text-slate-700">
                   {selectedParents.length > 0
-                    ? selectedParents.map((parent) => parent.name || parent.email).filter(Boolean).join(" & ")
+                    ? selectedParents.map(parentLabel).filter(Boolean).join(" & ")
                     : `${custodyParentNames.custodyDadName} & ${custodyParentNames.custodyMomName}`}
                 </p>
               </div>
@@ -246,9 +263,6 @@ export default function CustodyCalendarView({
         <div className="custody-original-calendar-wrapper bg-[#f8fbff]">
           {canRenderCalendar ? (
             <FamilyContext.Provider value={scopedFamilyContext}>
-              <div className="px-4 pt-4 md:px-8">
-                <CustodyStatusSummaryLoader />
-              </div>
               <CustodyCalendar
                 viewMode={viewMode === "mixed" ? "month" : viewMode}
                 setViewMode={setViewMode}
