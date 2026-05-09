@@ -280,7 +280,7 @@ export default function CustodyCalendarView({
       householdFamilyId: familyId,
       custodyScopeId: selectedCustodyGroupId,
       custodyGroupId: selectedCustodyGroupId,
-      selectedCustodyGroup,
+      selectedCustodyGroup: selectedGroup,
       selectedCustodyGroupId,
       custodyModuleActive: true,
       custodyAccess,
