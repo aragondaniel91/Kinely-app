@@ -44,6 +44,8 @@ export default function CustodyDayDialog({
   onDelete,
   onClose,
   isSaving = false,
+  dadLabel = "Dad",
+  momLabel = "Mom",
 }) {
   const [isSplit, setIsSplit] = useState(
     existingData?.is_split || existingData?.isSplit || false
@@ -140,8 +142,8 @@ export default function CustodyDayDialog({
                 </SelectTrigger>
 
                 <SelectContent>
-                  <SelectItem value="dad">👨 Dad</SelectItem>
-                  <SelectItem value="mom">👩 Mom</SelectItem>
+                  <SelectItem value="dad">👨 {dadLabel}</SelectItem>
+                  <SelectItem value="mom">👩 {momLabel}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -157,8 +159,8 @@ export default function CustodyDayDialog({
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="dad">👨 Dad</SelectItem>
-                    <SelectItem value="mom">👩 Mom</SelectItem>
+                    <SelectItem value="dad">👨 {dadLabel}</SelectItem>
+                    <SelectItem value="mom">👩 {momLabel}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -171,8 +173,8 @@ export default function CustodyDayDialog({
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="dad">👨 Dad</SelectItem>
-                    <SelectItem value="mom">👩 Mom</SelectItem>
+                    <SelectItem value="dad">👨 {dadLabel}</SelectItem>
+                    <SelectItem value="mom">👩 {momLabel}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
