@@ -6,7 +6,9 @@ import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import CustodyScopeMetadataBackfill from "@/components/calendar/CustodyScopeMetadataBackfill";
+import CustodyStatusSummaryLoader from "@/components/calendar/CustodyStatusSummaryLoader";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -159,9 +161,66 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
   );
 }
 
+function CustodyDashboardMode({ selectedGroup, custodyAccess }) {
+  return (
+    <div className="px-4 py-5 md:px-8 md:py-6">
+      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">
+            Custody Dashboard
+          </p>
+          <h2 className="text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+            {selectedGroup?.name || "Custody overview"}
+          </h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Quick status for today, next custody change, and current-period balance.
+          </p>
+        </div>
+
+        {custodyAccess?.isViewerOnly && (
+          <Badge variant="outline" className="w-fit border-slate-200 bg-white text-slate-500">
+            View only
+          </Badge>
+        )}
+      </div>
+
+      <CustodyStatusSummaryLoader />
+
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Card className="rounded-3xl border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Next</p>
+          <h3 className="mt-2 text-lg font-black text-slate-950">Upcoming days</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            A compact upcoming custody list will live here next.
+          </p>
+        </Card>
+
+        <Card className="rounded-3xl border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Exchange</p>
+          <h3 className="mt-2 text-lg font-black text-slate-950">Handoff notes</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Pickup/dropoff notes can be surfaced here later.
+          </p>
+        </Card>
+
+        <Card className="rounded-3xl border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Access</p>
+          <h3 className="mt-2 text-lg font-black text-slate-950">
+            {custodyAccess?.canWrite ? "Can edit" : "View only"}
+          </h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Permissions are based on the selected custody group.
+          </p>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function CustodyCalendarView({
   viewMode = "month",
   setViewMode,
+  mode = "calendar",
 }) {
   const familyContext = useFamily();
   const { myEmail, profile, familyId, dadName, momName, perms } = familyContext;
@@ -340,20 +399,24 @@ export default function CustodyCalendarView({
           {canRenderCalendar ? (
             <FamilyContext.Provider value={scopedFamilyContext}>
               <CustodyScopeMetadataBackfill>
-                <CustodyCalendar
-                  viewMode={viewMode === "mixed" ? "month" : viewMode}
-                  setViewMode={setViewMode}
-                  showFilters
-                  selectedCustodyGroup={selectedGroup}
-                  selectedCustodyGroupId={selectedCustodyGroupId}
-                  custodyDadName={custodyParentNames.custodyDadName}
-                  custodyMomName={custodyParentNames.custodyMomName}
-                  custodyDadEmail={custodyParentNames.custodyDadEmail}
-                  custodyMomEmail={custodyParentNames.custodyMomEmail}
-                  custodyChildren={selectedChildren}
-                  custodyChildIds={selectedChildIds}
-                  custodyCoParents={selectedParents}
-                />
+                {mode === "dashboard" ? (
+                  <CustodyDashboardMode selectedGroup={selectedGroup} custodyAccess={custodyAccess} />
+                ) : (
+                  <CustodyCalendar
+                    viewMode={viewMode === "mixed" ? "month" : viewMode}
+                    setViewMode={setViewMode}
+                    showFilters
+                    selectedCustodyGroup={selectedGroup}
+                    selectedCustodyGroupId={selectedCustodyGroupId}
+                    custodyDadName={custodyParentNames.custodyDadName}
+                    custodyMomName={custodyParentNames.custodyMomName}
+                    custodyDadEmail={custodyParentNames.custodyDadEmail}
+                    custodyMomEmail={custodyParentNames.custodyMomEmail}
+                    custodyChildren={selectedChildren}
+                    custodyChildIds={selectedChildIds}
+                    custodyCoParents={selectedParents}
+                  />
+                )}
               </CustodyScopeMetadataBackfill>
             </FamilyContext.Provider>
           ) : (
