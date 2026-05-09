@@ -18,6 +18,7 @@ import Groceries from "@/pages/Groceries";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Profile from "@/pages/ProfileV5";
+import ProfileCustodySettings from "@/pages/ProfileCustodySettings";
 import FamilyCalendarHeaderPreview from "@/pages/FamilyCalendarHeaderPreview";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
@@ -96,6 +97,7 @@ function AppRoutes() {
         <Route path="/meals" element={<Meals />} />
         <Route path="/groceries" element={<Groceries />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/custody" element={<ProfileCustodySettings />} />
       </Route>
 
       <Route path="*" element={<PageNotFound />} />
