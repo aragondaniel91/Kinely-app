@@ -13,24 +13,36 @@ function childLabel(child) {
   return child.name || child.fullName || child.displayName || child.childName || child.firstName || child.email || "Child";
 }
 
+function childId(child) {
+  if (!child) return "";
+  if (typeof child === "string") return child;
+  return child.id || child.uid || child.childId || child.child_id || child.name || child.fullName || "";
+}
+
 function parentLabel(parent) {
   if (!parent) return "";
   if (typeof parent === "string") return parent;
   return parent.name || parent.fullName || parent.displayName || parent.email || "Parent";
 }
 
-function groupChildren(group) {
+function groupChildrenRaw(group) {
   if (!group) return [];
 
-  const children = Array.isArray(group.children) && group.children.length
-    ? group.children
-    : Array.isArray(group.childNames) && group.childNames.length
-    ? group.childNames
-    : group.childName
-    ? [group.childName]
-    : [];
+  if (Array.isArray(group.children) && group.children.length) return group.children;
+  if (Array.isArray(group.childNames) && group.childNames.length) return group.childNames;
+  if (Array.isArray(group.childIds) && group.childIds.length) return group.childIds;
+  if (group.childName) return [group.childName];
+  if (group.childId) return [group.childId];
 
-  return children.map(childLabel).filter(Boolean);
+  return [];
+}
+
+function groupChildren(group) {
+  return groupChildrenRaw(group).map(childLabel).filter(Boolean);
+}
+
+function groupChildIds(group) {
+  return groupChildrenRaw(group).map(childId).filter(Boolean);
 }
 
 function groupParents(group) {
@@ -161,10 +173,12 @@ export default function CustodyCalendarView({
       id: "legacy-family-custody",
       name: `${profile?.family_name || profile?.familyName || "Family"} Custody`,
       children: profile?.children || [],
+      childIds: Array.isArray(profile?.children) ? profile.children.map(childId).filter(Boolean) : [],
       coParents: [
         { name: dadName || "Dad", email: myEmail || "", role: "dad" },
         { name: momName || "Mom", email: profile?.parent2_email || profile?.parent2Email || "", role: "mom" },
       ],
+      memberEmails: [myEmail, profile?.parent2_email || profile?.parent2Email].filter(Boolean),
       legacy: true,
     }),
     [profile, dadName, momName, myEmail]
@@ -182,6 +196,7 @@ export default function CustodyCalendarView({
   );
 
   const selectedChildren = groupChildren(selectedGroup);
+  const selectedChildIds = groupChildIds(selectedGroup);
   const selectedParents = groupParents(selectedGroup);
   const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
   const selectedCustodyGroupId = selectedGroup?.legacy ? "" : selectedGroup?.id || "";
@@ -193,8 +208,15 @@ export default function CustodyCalendarView({
       ...familyContext,
       familyId: scopedFamilyId,
       actualFamilyId: familyId,
+      householdFamilyId: familyId,
       custodyScopeId: selectedCustodyGroupId,
+      custodyGroupId: selectedCustodyGroupId,
+      selectedCustodyGroup,
+      selectedCustodyGroupId,
       custodyModuleActive: true,
+      custodyChildren: selectedChildren,
+      custodyChildIds: selectedChildIds,
+      custodyCoParents: selectedParents,
       dadName: custodyParentNames.custodyDadName,
       momName: custodyParentNames.custodyMomName,
       custodyParentOverride: {
@@ -211,6 +233,10 @@ export default function CustodyCalendarView({
       scopedFamilyId,
       familyId,
       selectedCustodyGroupId,
+      selectedGroup,
+      selectedChildren,
+      selectedChildIds,
+      selectedParents,
       custodyParentNames.custodyDadName,
       custodyParentNames.custodyMomName,
       custodyParentNames.custodyDadEmail,
@@ -250,6 +276,7 @@ export default function CustodyCalendarView({
                 custodyDadEmail={custodyParentNames.custodyDadEmail}
                 custodyMomEmail={custodyParentNames.custodyMomEmail}
                 custodyChildren={selectedChildren}
+                custodyChildIds={selectedChildIds}
                 custodyCoParents={selectedParents}
               />
             </FamilyContext.Provider>
