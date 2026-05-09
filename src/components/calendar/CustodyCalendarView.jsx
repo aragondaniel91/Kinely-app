@@ -7,6 +7,10 @@ import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
 
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function childLabel(child) {
   if (!child) return "";
   if (typeof child === "string") return child;
@@ -52,6 +56,35 @@ function groupParents(group) {
   return [];
 }
 
+function groupMemberEmails(group) {
+  const explicitMembers = Array.isArray(group?.memberEmails) ? group.memberEmails : [];
+  const legacyMembers = Array.isArray(group?.member_emails) ? group.member_emails : [];
+  const parentEmails = groupParents(group).map((parent) => parent.email).filter(Boolean);
+  return [...new Set([...explicitMembers, ...legacyMembers, ...parentEmails].map(normalizeEmail).filter(Boolean))];
+}
+
+function groupViewerEmails(group) {
+  const viewerEmails = Array.isArray(group?.viewerEmails) ? group.viewerEmails : [];
+  const legacyViewerEmails = Array.isArray(group?.viewer_emails) ? group.viewer_emails : [];
+  return [...new Set([...viewerEmails, ...legacyViewerEmails].map(normalizeEmail).filter(Boolean))];
+}
+
+function resolveCustodyAccess(group, myEmail) {
+  if (!group || group.legacy) return { canRead: true, canWrite: true, isViewerOnly: false };
+
+  const email = normalizeEmail(myEmail);
+  const members = groupMemberEmails(group);
+  const viewers = groupViewerEmails(group);
+  const isMember = members.includes(email);
+  const isViewer = viewers.includes(email);
+
+  return {
+    canRead: isMember || isViewer,
+    canWrite: isMember,
+    isViewerOnly: !isMember && isViewer,
+  };
+}
+
 function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
   const parents = groupParents(group);
   const dadParent = parents.find((parent) => parent.role === "dad");
@@ -65,7 +98,7 @@ function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
   };
 }
 
-function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
+function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
   if (!groups.length) return null;
 
   return (
@@ -74,6 +107,7 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
         const active = group.id === selectedGroupId;
         const children = groupChildren(group);
         const parents = groupParents(group);
+        const access = resolveCustodyAccess(group, myEmail);
         const { custodyDadName, custodyMomName } = resolveCustodyParentNames(group, "Dad", "Mom");
         const parentNames = parents.length > 0
           ? parents.map(parentLabel).filter(Boolean).join(" & ")
@@ -106,6 +140,11 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect }) {
                       Legacy
                     </Badge>
                   )}
+                  {access.isViewerOnly && (
+                    <Badge variant="outline" className="border-slate-200 bg-white text-[10px] text-slate-500">
+                      View only
+                    </Badge>
+                  )}
                 </div>
                 <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
                   {childNames} · {parentNames}
@@ -124,7 +163,7 @@ export default function CustodyCalendarView({
   setViewMode,
 }) {
   const familyContext = useFamily();
-  const { myEmail, profile, familyId, dadName, momName } = familyContext;
+  const { myEmail, profile, familyId, dadName, momName, perms } = familyContext;
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -142,12 +181,30 @@ export default function CustodyCalendarView({
       setLoadingGroups(true);
 
       try {
-        const custodyQuery = query(
-          collection(db, "custodyGroups"),
-          where("memberEmails", "array-contains", myEmail)
-        );
-        const snap = await getDocs(custodyQuery);
-        const data = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        const collectionRef = collection(db, "custodyGroups");
+        const memberQuery = query(collectionRef, where("memberEmails", "array-contains", myEmail));
+        const viewerQuery = query(collectionRef, where("viewerEmails", "array-contains", myEmail));
+
+        const [memberSnap, viewerSnap] = await Promise.allSettled([
+          getDocs(memberQuery),
+          getDocs(viewerQuery),
+        ]);
+
+        const groupMap = new Map();
+
+        if (memberSnap.status === "fulfilled") {
+          memberSnap.value.docs.forEach((docSnap) => {
+            groupMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+          });
+        }
+
+        if (viewerSnap.status === "fulfilled") {
+          viewerSnap.value.docs.forEach((docSnap) => {
+            groupMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+          });
+        }
+
+        const data = Array.from(groupMap.values());
 
         if (!cancelled) {
           setGroups(data);
@@ -179,6 +236,7 @@ export default function CustodyCalendarView({
         { name: momName || "Mom", email: profile?.parent2_email || profile?.parent2Email || "", role: "mom" },
       ],
       memberEmails: [myEmail, profile?.parent2_email || profile?.parent2Email].filter(Boolean),
+      viewerEmails: [],
       legacy: true,
     }),
     [profile, dadName, momName, myEmail]
@@ -198,10 +256,20 @@ export default function CustodyCalendarView({
   const selectedChildren = groupChildren(selectedGroup);
   const selectedChildIds = groupChildIds(selectedGroup);
   const selectedParents = groupParents(selectedGroup);
+  const custodyAccess = resolveCustodyAccess(selectedGroup, myEmail);
   const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
   const selectedCustodyGroupId = selectedGroup?.legacy ? "" : selectedGroup?.id || "";
   const scopedFamilyId = selectedCustodyGroupId || familyId;
-  const canRenderCalendar = !loadingGroups && selectedGroup && scopedFamilyId;
+  const canRenderCalendar = !loadingGroups && selectedGroup && scopedFamilyId && custodyAccess.canRead;
+
+  const custodyPerms = useMemo(() => ({
+    ...perms,
+    calendar: {
+      ...(perms?.calendar || {}),
+      read: custodyAccess.canRead,
+      write: Boolean(perms?.calendar?.write !== false && custodyAccess.canWrite),
+    },
+  }), [perms, custodyAccess.canRead, custodyAccess.canWrite]);
 
   const scopedFamilyContext = useMemo(
     () => ({
@@ -214,6 +282,8 @@ export default function CustodyCalendarView({
       selectedCustodyGroup,
       selectedCustodyGroupId,
       custodyModuleActive: true,
+      custodyAccess,
+      perms: custodyPerms,
       custodyChildren: selectedChildren,
       custodyChildIds: selectedChildIds,
       custodyCoParents: selectedParents,
@@ -234,6 +304,8 @@ export default function CustodyCalendarView({
       familyId,
       selectedCustodyGroupId,
       selectedGroup,
+      custodyAccess,
+      custodyPerms,
       selectedChildren,
       selectedChildIds,
       selectedParents,
@@ -258,6 +330,7 @@ export default function CustodyCalendarView({
               groups={availableGroups}
               selectedGroupId={selectedGroup?.id}
               onSelect={setSelectedGroupId}
+              myEmail={myEmail}
             />
           )}
         </div>
@@ -282,7 +355,7 @@ export default function CustodyCalendarView({
             </FamilyContext.Provider>
           ) : (
             <div className="p-8 text-center text-sm font-bold text-slate-400">
-              Loading custody calendar...
+              {loadingGroups ? "Loading custody calendar..." : "You do not have access to this custody calendar."}
             </div>
           )}
         </div>
