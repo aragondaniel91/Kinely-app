@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import { Badge } from "@/components/ui/badge";
+import CustodyStatusSummaryLoader from "@/components/calendar/CustodyStatusSummaryLoader";
 
 function groupChildren(group) {
   if (!group) return [];
@@ -245,6 +246,9 @@ export default function CustodyCalendarView({
         <div className="custody-original-calendar-wrapper bg-[#f8fbff]">
           {canRenderCalendar ? (
             <FamilyContext.Provider value={scopedFamilyContext}>
+              <div className="px-4 pt-4 md:px-8">
+                <CustodyStatusSummaryLoader />
+              </div>
               <CustodyCalendar
                 viewMode={viewMode === "mixed" ? "month" : viewMode}
                 setViewMode={setViewMode}
