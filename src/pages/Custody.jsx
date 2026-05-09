@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CalendarDays,
   CreditCard,
+  LayoutDashboard,
   MessageCircle,
   Shirt,
   Sun,
@@ -17,6 +18,13 @@ import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
 
 const custodyModules = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    description: "Quick custody status, next change, parent balance, and selected custody group overview.",
+    accent: "bg-slate-50 text-slate-700 border-slate-200",
+  },
   {
     id: "schedule",
     label: "Schedule",
@@ -231,7 +239,7 @@ export default function Custody() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {custodyModules.map((module) => (
               <ModuleCard
                 key={module.id}
@@ -279,6 +287,16 @@ export default function Custody() {
           <WeatherTimeBadge />
         </div>
       </div>
+
+      {activeModule === "dashboard" && (
+        <CustodyCalendarView
+          mode="dashboard"
+          activeCalendar={activeCalendar}
+          setActiveCalendar={setActiveCalendar}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
+      )}
 
       {activeModule === "schedule" && (
         <CustodyCalendarView
