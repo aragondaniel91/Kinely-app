@@ -13,6 +13,16 @@ export function normalizeEmailList(values = []) {
   return [...new Set(values.map(normalizeEmail).filter(Boolean))];
 }
 
+export function normalizeKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function normalizeChildName(child) {
   if (!child) return "";
   if (typeof child === "string") return child.trim();
@@ -24,6 +34,32 @@ export function normalizeChildNames(children = []) {
   return [...new Set(children.map(normalizeChildName).filter(Boolean))];
 }
 
+export function normalizeChildRecord(child, index = 0) {
+  const name = normalizeChildName(child);
+  const id =
+    child?.id ||
+    child?.uid ||
+    child?.childId ||
+    child?.child_id ||
+    child?.refId ||
+    child?.docId ||
+    (name ? `child-${normalizeKey(name) || index + 1}` : `child-${index + 1}`);
+
+  return {
+    id,
+    childId: id,
+    name,
+    childName: name,
+    nameKey: child?.nameKey || child?.name_key || normalizeKey(name),
+    color: child?.color || child?.childColor || child?.child_color || "green",
+    relationshipType:
+      child?.relationshipType ||
+      child?.relationship_type ||
+      child?.custodyRelationshipType ||
+      CHILD_RELATIONSHIP_TYPES.HOUSEHOLD_ONLY,
+  };
+}
+
 export function getHouseholdChildren(profile) {
   if (!profile) return [];
   if (Array.isArray(profile.children)) return profile.children;
@@ -32,18 +68,10 @@ export function getHouseholdChildren(profile) {
 }
 
 export function normalizeHouseholdChild(child) {
-  const name = normalizeChildName(child);
-  const relationshipType =
-    child?.relationshipType ||
-    child?.relationship_type ||
-    child?.custodyRelationshipType ||
-    CHILD_RELATIONSHIP_TYPES.HOUSEHOLD_ONLY;
+  const normalized = normalizeChildRecord(child);
 
   return {
-    id: child?.id || child?.childId || child?.child_id || name.toLowerCase().replace(/\s+/g, "-"),
-    name,
-    color: child?.color || child?.childColor || child?.child_color || "green",
-    relationshipType,
+    ...normalized,
     custodyGroupIds: Array.isArray(child?.custodyGroupIds)
       ? child.custodyGroupIds
       : Array.isArray(child?.custody_group_ids)
@@ -67,8 +95,17 @@ export function getCustodyGroupChildren(group) {
   if (!group) return [];
   if (Array.isArray(group.children) && group.children.length) return normalizeChildNames(group.children);
   if (Array.isArray(group.childNames) && group.childNames.length) return normalizeChildNames(group.childNames);
-  if (Array.isArray(group.childIds) && group.childIds.length) return normalizeChildNames(group.childIds);
   if (group.childName) return [String(group.childName).trim()].filter(Boolean);
+  if (Array.isArray(group.childIds) && group.childIds.length) return group.childIds;
+  return [];
+}
+
+export function getCustodyGroupChildIds(group) {
+  if (!group) return [];
+  if (Array.isArray(group.childIds) && group.childIds.length) return [...new Set(group.childIds.filter(Boolean))];
+  if (Array.isArray(group.children) && group.children.length) {
+    return [...new Set(group.children.map((child, index) => normalizeChildRecord(child, index).id).filter(Boolean))];
+  }
   return [];
 }
 
@@ -97,6 +134,7 @@ export function buildCustodyGroupPayload({
   familyId,
   childName,
   children,
+  childRecords,
   currentUser,
   currentEmail,
   parentName,
@@ -110,7 +148,14 @@ export function buildCustodyGroupPayload({
   viewerEmails = [],
   now,
 }) {
-  const cleanChildren = normalizeChildNames(children?.length ? children : [childName]);
+  const normalizedChildRecords = Array.isArray(childRecords) && childRecords.length
+    ? childRecords.map(normalizeChildRecord).filter((child) => child.name)
+    : normalizeChildNames(children?.length ? children : [childName]).map((name, index) =>
+        normalizeChildRecord({ name, relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY }, index)
+      );
+
+  const cleanChildren = normalizedChildRecords.map((child) => child.name).filter(Boolean);
+  const childIds = [...new Set(normalizedChildRecords.map((child) => child.id).filter(Boolean))];
   const ownerEmail = normalizeEmail(parentEmail || currentEmail || currentUser?.email);
   const otherEmail = normalizeEmail(coparentEmail);
   const cleanViewerEmails = normalizeEmailList(viewerEmails).filter(
@@ -148,11 +193,15 @@ export function buildCustodyGroupPayload({
     familyId: familyId || null,
     householdFamilyId: familyId || null,
     linkedFamilyIds: [familyId].filter(Boolean),
-    children: cleanChildren.map((name) => ({
-      name,
-      color: "green",
+    children: normalizedChildRecords.map((child) => ({
+      id: child.id,
+      childId: child.id,
+      name: child.name,
+      nameKey: child.nameKey,
+      color: child.color || "green",
       relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
     })),
+    childIds,
     childNames: cleanChildren,
     relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
     parents,
