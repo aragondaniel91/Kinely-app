@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
-import CustodyGroupsManager from "@/components/calendar/CustodyGroupsManager";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
@@ -249,8 +248,6 @@ export default function Custody() {
               />
             ))}
           </div>
-
-          <CustodyGroupsManager />
 
           <ManagementPanel
             canResetCustody={canResetCustody}
