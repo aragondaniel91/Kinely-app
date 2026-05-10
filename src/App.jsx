@@ -17,6 +17,7 @@ import Meals from "@/pages/Meals";
 import Groceries from "@/pages/Groceries";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+// Keep the active profile route on ProfileV5 until the cleanup page is committed and verified in GitHub.
 import Profile from "@/pages/ProfileV5";
 import FamilyCalendarHeaderPreview from "@/pages/FamilyCalendarHeaderPreview";
 
