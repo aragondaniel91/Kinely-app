@@ -25,6 +25,7 @@ import {
   mergeCustodyGroups,
   normalizeEmail,
 } from "@/lib/custodyGroupUtils";
+import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,8 +36,10 @@ const EMPTY_FORM = {
   children: "",
   dadName: "",
   dadEmail: "",
+  dadColor: "blue",
   momName: "",
   momEmail: "",
+  momColor: "orange",
   viewerEmails: "",
 };
 
@@ -76,6 +79,34 @@ function canManageCustodyGroup(group, user, myEmail) {
   );
 }
 
+function ColorSelector({ label, value, onChange }) {
+  return (
+    <div>
+      <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</label>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {PERSON_COLOR_OPTIONS.map((color) => {
+          const active = value === color.id;
+          return (
+            <button
+              key={color.id}
+              type="button"
+              onClick={() => onChange(color.id)}
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition ${
+                active
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <span className={`h-3 w-3 rounded-full ${color.dot}`} />
+              {color.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function GroupCard({ group, user, myEmail, onEdit, onDelete }) {
   const memberEmails = getCustodyGroupMemberEmails(group);
   const viewerEmails = getCustodyGroupViewerEmails(group);
@@ -83,7 +114,8 @@ function GroupCard({ group, user, myEmail, onEdit, onDelete }) {
   const canManage = canManageCustodyGroup(group, user, myEmail);
   const isViewerOnly = !canManage && !isMember && viewerEmails.includes(normalizeEmail(myEmail));
   const children = getCustodyGroupChildren(group);
-  const parents = parentNames(group);
+  const parents = getCustodyGroupParents(group);
+  const parentLabels = parentNames(group);
 
   return (
     <Card className="rounded-3xl border-slate-200 bg-white p-4 shadow-sm">
@@ -129,9 +161,23 @@ function GroupCard({ group, user, myEmail, onEdit, onDelete }) {
             <ShieldCheck className="h-3.5 w-3.5" />
             Parents / Members
           </div>
-          <p className="mt-2 text-sm font-bold text-slate-600">
-            {parents.length ? parents.join(" & ") : memberEmails.join(", ") || "Not configured"}
-          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {parents.length > 0 ? parents.map((parent, index) => {
+              const color = getColorMeta(parent.color || parent.custodyColor || (index === 0 ? "blue" : "orange"));
+              return (
+                <span
+                  key={`${parent.email || parent.name}-${index}`}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-black ${color.bg} ${color.text} ${color.border}`}
+                >
+                  {parent.name || parent.email || "Parent"}
+                </span>
+              );
+            }) : (
+              <p className="text-sm font-bold text-slate-600">
+                {parentLabels.length ? parentLabels.join(" & ") : memberEmails.join(", ") || "Not configured"}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -252,8 +298,10 @@ export default function CustodyGroupsManager() {
       children: getCustodyGroupChildren(group).join(", "),
       dadName: dadParent.name || dadParent.displayName || "",
       dadEmail: dadParent.email || memberEmails[0] || myEmail || "",
+      dadColor: dadParent.color || dadParent.custodyColor || "blue",
       momName: momParent.name || momParent.displayName || "",
       momEmail: momParent.email || memberEmails[1] || "",
+      momColor: momParent.color || momParent.custodyColor || "orange",
       viewerEmails: getCustodyGroupViewerEmails(group).join(", "),
     });
     setShowForm(true);
@@ -299,11 +347,11 @@ export default function CustodyGroupsManager() {
         parentName: form.dadName.trim() || user.displayName || "Dad",
         parentEmail: dadEmail,
         parentRole: "dad",
-        parentColor: "blue",
+        parentColor: form.dadColor || "blue",
         coparentName: form.momName.trim() || "Mom",
         coparentEmail: momEmail,
         coparentRole: "mom",
-        coparentColor: "orange",
+        coparentColor: form.momColor || "orange",
         viewerEmails,
         now,
       });
@@ -450,6 +498,14 @@ export default function CustodyGroupsManager() {
               />
             </div>
 
+            <div className="md:col-span-2">
+              <ColorSelector
+                label="Parent A custody color"
+                value={form.dadColor}
+                onChange={(color) => updateForm("dadColor", color)}
+              />
+            </div>
+
             <div>
               <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Parent B name</label>
               <Input
@@ -467,6 +523,14 @@ export default function CustodyGroupsManager() {
                 onChange={(event) => updateForm("momEmail", event.target.value)}
                 placeholder="amanda@email.com"
                 className="mt-1"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <ColorSelector
+                label="Parent B custody color"
+                value={form.momColor}
+                onChange={(color) => updateForm("momColor", color)}
               />
             </div>
 
