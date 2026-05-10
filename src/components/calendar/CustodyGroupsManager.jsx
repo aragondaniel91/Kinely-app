@@ -68,12 +68,24 @@ function parentNames(group) {
     .filter(Boolean);
 }
 
-function canManageCustodyGroup(group, user, myEmail) {
+function isGroupLinkedToFamily(group, familyId) {
+  if (!group || !familyId) return false;
+  return Boolean(
+    group.familyId === familyId ||
+      group.householdFamilyId === familyId ||
+      group.actualFamilyId === familyId ||
+      (Array.isArray(group.linkedFamilyIds) && group.linkedFamilyIds.includes(familyId))
+  );
+}
+
+function canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId } = {}) {
   const email = normalizeEmail(myEmail || user?.email);
   const memberEmails = getCustodyGroupMemberEmails(group);
+  const householdAdminCanManage = Boolean((isOwner || isAdmin) && isGroupLinkedToFamily(group, familyId));
 
   return Boolean(
-    memberEmails.includes(email) ||
+    householdAdminCanManage ||
+      memberEmails.includes(email) ||
       group?.createdBy === user?.uid ||
       group?.ownerId === user?.uid ||
       normalizeEmail(group?.createdByEmail) === email ||
@@ -109,11 +121,11 @@ function ColorSelector({ label, value, onChange }) {
   );
 }
 
-function GroupCard({ group, user, myEmail, onEdit, onDelete }) {
+function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, onDelete }) {
   const memberEmails = getCustodyGroupMemberEmails(group);
   const viewerEmails = getCustodyGroupViewerEmails(group);
   const isMember = memberEmails.includes(normalizeEmail(myEmail));
-  const canManage = canManageCustodyGroup(group, user, myEmail);
+  const canManage = canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId });
   const isViewerOnly = !canManage && !isMember && viewerEmails.includes(normalizeEmail(myEmail));
   const children = getCustodyGroupChildren(group);
   const parents = getCustodyGroupParents(group);
@@ -215,7 +227,7 @@ function GroupCard({ group, user, myEmail, onEdit, onDelete }) {
 }
 
 export default function CustodyGroupsManager() {
-  const { user, myEmail, profile, familyId } = useFamily();
+  const { user, myEmail, profile, familyId, isOwner, isAdmin } = useFamily();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -451,7 +463,7 @@ export default function CustodyGroupsManager() {
   };
 
   const deleteGroup = async (group) => {
-    if (!canManageCustodyGroup(group, user, myEmail)) {
+    if (!canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId })) {
       window.alert("You do not have permission to delete this custody group.");
       return;
     }
@@ -642,6 +654,9 @@ export default function CustodyGroupsManager() {
             group={group}
             user={user}
             myEmail={myEmail}
+            isOwner={isOwner}
+            isAdmin={isAdmin}
+            familyId={familyId}
             onEdit={startEdit}
             onDelete={deleteGroup}
           />
