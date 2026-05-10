@@ -63,11 +63,25 @@ function parentNames(group) {
     .filter(Boolean);
 }
 
-function GroupCard({ group, myEmail, onEdit, onDelete }) {
+function canManageCustodyGroup(group, user, myEmail) {
+  const email = normalizeEmail(myEmail || user?.email);
+  const memberEmails = getCustodyGroupMemberEmails(group);
+
+  return Boolean(
+    memberEmails.includes(email) ||
+      group?.createdBy === user?.uid ||
+      group?.ownerId === user?.uid ||
+      normalizeEmail(group?.createdByEmail) === email ||
+      normalizeEmail(group?.ownerEmail) === email
+  );
+}
+
+function GroupCard({ group, user, myEmail, onEdit, onDelete }) {
   const memberEmails = getCustodyGroupMemberEmails(group);
   const viewerEmails = getCustodyGroupViewerEmails(group);
   const isMember = memberEmails.includes(normalizeEmail(myEmail));
-  const isViewerOnly = !isMember && viewerEmails.includes(normalizeEmail(myEmail));
+  const canManage = canManageCustodyGroup(group, user, myEmail);
+  const isViewerOnly = !canManage && !isMember && viewerEmails.includes(normalizeEmail(myEmail));
   const children = getCustodyGroupChildren(group);
   const parents = parentNames(group);
 
@@ -85,6 +99,11 @@ function GroupCard({ group, myEmail, onEdit, onDelete }) {
             {isViewerOnly && (
               <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-500">
                 View only
+              </Badge>
+            )}
+            {canManage && !isMember && (
+              <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
+                Manager
               </Badge>
             )}
             {isMember && (
@@ -126,7 +145,7 @@ function GroupCard({ group, myEmail, onEdit, onDelete }) {
         </div>
       </div>
 
-      {isMember && (
+      {canManage && (
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onEdit(group)} className="gap-2 rounded-2xl">
             <Pencil className="h-4 w-4" />
@@ -315,6 +334,11 @@ export default function CustodyGroupsManager() {
   };
 
   const deleteGroup = async (group) => {
+    if (!canManageCustodyGroup(group, user, myEmail)) {
+      window.alert("You do not have permission to delete this custody group.");
+      return;
+    }
+
     const confirmed = window.confirm(
       `Delete ${group.name || "this custody group"}? This removes the group profile. Existing custody days are not deleted.`
     );
@@ -454,7 +478,7 @@ export default function CustodyGroupsManager() {
                 placeholder="mary@email.com"
                 className="mt-1"
               />
-              <p className="mt-1 text-xs font-semibold text-slate-500">Viewers can see this custody group but cannot edit it.</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">Viewers can see this custody group but cannot edit it unless they created or manage this group.</p>
             </div>
           </div>
 
@@ -483,6 +507,7 @@ export default function CustodyGroupsManager() {
           <GroupCard
             key={group.id}
             group={group}
+            user={user}
             myEmail={myEmail}
             onEdit={startEdit}
             onDelete={deleteGroup}
