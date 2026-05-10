@@ -47,6 +47,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import ProfileCustodySection from "@/components/profile/ProfileCustodySection";
 
 const ACTIVE_TAB_KEY = "familyWall.profile.activeTab";
 
@@ -798,24 +799,9 @@ export default function ProfileV5() {
           </div>
         )}
 
-        {activeTab === "custody" && (
-          <div className="space-y-5">
-            <Card className="border-blue-100 bg-blue-50 p-5"><h2 className="text-xl font-black text-slate-950">Custody Management</h2><p className="mt-1 text-sm font-semibold text-slate-500">Custody colors are separate from family colors.</p></Card>
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_420px]">
-              <Card className="p-5">
-                <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><CalendarHeart className="h-4 w-4" /> Custody Groups</h2>{loadingCustody && <span className="text-xs font-bold text-slate-400">Loading...</span>}</div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {!loadingCustody && custodyGroups.map((group) => <CustodyGroupCard key={group.id} group={group} onEdit={openCustodyEditor} onReset={(item) => setConfirmAction({ title: "Reset custody data?", description: `This deletes custody schedule days for ${item.name || "this custody group"}, but keeps the group itself.`, confirmText: "Reset data", tone: "warning", onConfirm: () => resetCustodyGroup(item) })} onDelete={(item) => setConfirmAction({ title: "Delete custody group?", description: `Delete ${item.name || "this custody group"}? This removes the shared custody group.`, confirmText: "Delete group", tone: "danger", showDeleteDaysOption: true, deleteDays: false, onConfirm: (deleteDays) => deleteCustodyGroup(item, deleteDays) })} />)}
-                  {!loadingCustody && custodyGroups.length === 0 && <p className="text-sm font-semibold text-slate-400">No custody groups yet.</p>}
-                </div>
-              </Card>
-              <Card className="p-5">
-                <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm font-black uppercase tracking-wider text-slate-500">Create Custody Group</p><p className="text-xs font-semibold text-slate-400">Example: Joaquin Custody shared with Amanda.</p></div><Button variant="outline" onClick={() => setShowCreateCustody((current) => !current)}>{showCreateCustody ? "Close" : "New"}</Button></div>
-                {showCreateCustody ? <div className="space-y-3"><div><Label>Child</Label><select value={custodyChild} onChange={(e) => setCustodyChild(e.target.value)} className="mt-1 w-full rounded-xl border bg-white px-3 py-2">{children.map((child) => <option key={child.id} value={child.name}>{child.name}</option>)}</select></div><div><Label>Custody group name</Label><Input value={custodyName} onChange={(e) => setCustodyName(e.target.value)} placeholder={custodyChild ? `${custodyChild} Custody` : "Joaquin Custody"} className="mt-1" /></div><div><Label>Co-parent name</Label><Input value={custodyCoparentName} onChange={(e) => setCustodyCoparentName(e.target.value)} placeholder="Amanda" className="mt-1" /></div><div><Label>Co-parent email</Label><Input type="email" value={custodyCoparentEmail} onChange={(e) => setCustodyCoparentEmail(e.target.value)} placeholder="coparent@example.com" className="mt-1" /></div><ColorPicker label="My custody color" value={custodyParentColor} onChange={setCustodyParentColor} /><ColorPicker label="Co-parent custody color" value={custodyCoparentColor} onChange={setCustodyCoparentColor} /><Button onClick={handleCreateCustodyGroup} disabled={creatingCustody || !custodyChild || !custodyCoparentEmail.trim()} className="w-full bg-blue-600 hover:bg-blue-700">{creatingCustody ? "Creating..." : "Create custody group"}</Button></div> : <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm font-semibold text-slate-500">Create a shared custody space without exposing private household data.</div>}
-              </Card>
-            </div>
-          </div>
-        )}
+{activeTab === "custody" && (
+  <ProfileCustodySection />
+)}
 
         {activeTab === "members" && (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_420px]">
