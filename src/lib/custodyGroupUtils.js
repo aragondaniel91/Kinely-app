@@ -1,3 +1,9 @@
+export const CHILD_RELATIONSHIP_TYPES = {
+  JOINT: "joint_child",
+  EXTERNAL_CUSTODY: "external_custody",
+  HOUSEHOLD_ONLY: "household_only",
+};
+
 export function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -16,6 +22,45 @@ export function normalizeChildName(child) {
 export function normalizeChildNames(children = []) {
   if (!Array.isArray(children)) return [];
   return [...new Set(children.map(normalizeChildName).filter(Boolean))];
+}
+
+export function getHouseholdChildren(profile) {
+  if (!profile) return [];
+  if (Array.isArray(profile.children)) return profile.children;
+  if (profile.child_name || profile.childName) return [{ name: profile.child_name || profile.childName }];
+  return [];
+}
+
+export function normalizeHouseholdChild(child) {
+  const name = normalizeChildName(child);
+  const relationshipType =
+    child?.relationshipType ||
+    child?.relationship_type ||
+    child?.custodyRelationshipType ||
+    CHILD_RELATIONSHIP_TYPES.HOUSEHOLD_ONLY;
+
+  return {
+    id: child?.id || child?.childId || child?.child_id || name.toLowerCase().replace(/\s+/g, "-"),
+    name,
+    color: child?.color || child?.childColor || child?.child_color || "green",
+    relationshipType,
+    custodyGroupIds: Array.isArray(child?.custodyGroupIds)
+      ? child.custodyGroupIds
+      : Array.isArray(child?.custody_group_ids)
+      ? child.custody_group_ids
+      : [],
+    parents: Array.isArray(child?.parents) ? child.parents : [],
+  };
+}
+
+export function childNeedsCustodyGroup(child) {
+  const normalized = normalizeHouseholdChild(child);
+  return normalized.relationshipType === CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY;
+}
+
+export function childIsJointHouseholdChild(child) {
+  const normalized = normalizeHouseholdChild(child);
+  return normalized.relationshipType === CHILD_RELATIONSHIP_TYPES.JOINT;
 }
 
 export function getCustodyGroupChildren(group) {
@@ -103,8 +148,13 @@ export function buildCustodyGroupPayload({
     familyId: familyId || null,
     householdFamilyId: familyId || null,
     linkedFamilyIds: [familyId].filter(Boolean),
-    children: cleanChildren.map((name) => ({ name, color: "green" })),
+    children: cleanChildren.map((name) => ({
+      name,
+      color: "green",
+      relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
+    })),
     childNames: cleanChildren,
+    relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
     parents,
     coParents: parents,
     memberEmails,
