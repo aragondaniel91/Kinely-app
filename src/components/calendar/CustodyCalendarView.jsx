@@ -34,6 +34,10 @@ function parentLabel(parent) {
   return parent.name || parent.fullName || parent.displayName || parent.email || "Parent";
 }
 
+function parentColor(parent, fallback) {
+  return parent?.color || parent?.custodyColor || parent?.custody_color || fallback;
+}
+
 function groupChildrenRaw(group) {
   if (!group) return [];
 
@@ -100,6 +104,8 @@ function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
     custodyMomName: parentLabel(momParent) || parentLabel(parents[1]) || fallbackMomName || "Mom",
     custodyDadEmail: dadParent?.email || parents[0]?.email || "",
     custodyMomEmail: momParent?.email || parents[1]?.email || "",
+    custodyDadColor: parentColor(dadParent || parents[0], "blue"),
+    custodyMomColor: parentColor(momParent || parents[1], "orange"),
   };
 }
 
@@ -363,11 +369,17 @@ export default function CustodyCalendarView({
       custodyCoParents: selectedParents,
       dadName: custodyParentNames.custodyDadName,
       momName: custodyParentNames.custodyMomName,
+      dadColor: custodyParentNames.custodyDadColor,
+      momColor: custodyParentNames.custodyMomColor,
+      custodyDadColor: custodyParentNames.custodyDadColor,
+      custodyMomColor: custodyParentNames.custodyMomColor,
       custodyParentOverride: {
         dadName: custodyParentNames.custodyDadName,
         momName: custodyParentNames.custodyMomName,
         dadEmail: custodyParentNames.custodyDadEmail,
         momEmail: custodyParentNames.custodyMomEmail,
+        dadColor: custodyParentNames.custodyDadColor,
+        momColor: custodyParentNames.custodyMomColor,
         custodyGroupId: selectedCustodyGroupId,
         custodyGroupName: selectedGroup?.name || "",
       },
@@ -387,6 +399,8 @@ export default function CustodyCalendarView({
       custodyParentNames.custodyMomName,
       custodyParentNames.custodyDadEmail,
       custodyParentNames.custodyMomEmail,
+      custodyParentNames.custodyDadColor,
+      custodyParentNames.custodyMomColor,
       selectedGroup?.name,
     ]
   );
@@ -430,6 +444,8 @@ export default function CustodyCalendarView({
                     custodyMomName={custodyParentNames.custodyMomName}
                     custodyDadEmail={custodyParentNames.custodyDadEmail}
                     custodyMomEmail={custodyParentNames.custodyMomEmail}
+                    custodyDadColor={custodyParentNames.custodyDadColor}
+                    custodyMomColor={custodyParentNames.custodyMomColor}
                     custodyChildren={selectedChildren}
                     custodyChildIds={selectedChildIds}
                     custodyCoParents={selectedParents}
