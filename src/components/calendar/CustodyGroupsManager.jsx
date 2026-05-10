@@ -14,6 +14,17 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import {
+  CHILD_RELATIONSHIP_TYPES,
+  buildCustodyGroupPayload,
+  getCustodyGroupChildren,
+  getCustodyGroupMemberEmails,
+  getCustodyGroupParents,
+  getCustodyGroupViewerEmails,
+  getHouseholdChildren,
+  mergeCustodyGroups,
+  normalizeEmail,
+} from "@/lib/custodyGroupUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,10 +39,6 @@ const EMPTY_FORM = {
   momEmail: "",
   viewerEmails: "",
 };
-
-function normalizeEmail(value) {
-  return String(value || "").trim().toLowerCase();
-}
 
 function splitCsv(value) {
   return String(value || "")
@@ -50,57 +57,18 @@ function childLabel(child) {
   return child.name || child.fullName || child.displayName || child.childName || child.firstName || "Child";
 }
 
-function groupChildNames(group) {
-  if (Array.isArray(group?.children) && group.children.length) {
-    return group.children.map(childLabel).filter(Boolean);
-  }
-
-  if (Array.isArray(group?.childNames) && group.childNames.length) return group.childNames;
-  if (Array.isArray(group?.childIds) && group.childIds.length) return group.childIds;
-  if (group?.childName) return [group.childName];
-
-  return [];
-}
-
-function groupParents(group) {
-  if (Array.isArray(group?.parents)) return group.parents;
-  if (Array.isArray(group?.coParents)) return group.coParents;
-  return [];
-}
-
 function parentNames(group) {
-  return groupParents(group)
+  return getCustodyGroupParents(group)
     .map((parent) => parent.name || parent.displayName || parent.email)
     .filter(Boolean);
 }
 
-function groupViewerEmails(group) {
-  const viewerEmails = Array.isArray(group?.viewerEmails) ? group.viewerEmails : [];
-  const legacyViewerEmails = Array.isArray(group?.viewer_emails) ? group.viewer_emails : [];
-  return [...new Set([...viewerEmails, ...legacyViewerEmails].map(normalizeEmail).filter(Boolean))];
-}
-
-function groupMemberEmails(group) {
-  const memberEmails = Array.isArray(group?.memberEmails) ? group.memberEmails : [];
-  const legacyMemberEmails = Array.isArray(group?.member_emails) ? group.member_emails : [];
-  const parentEmails = groupParents(group).map((parent) => parent.email).filter(Boolean);
-  return [...new Set([...memberEmails, ...legacyMemberEmails, ...parentEmails].map(normalizeEmail).filter(Boolean))];
-}
-
-function mergeGroups(...groupLists) {
-  const map = new Map();
-  groupLists.flat().forEach((group) => {
-    if (group?.id) map.set(group.id, group);
-  });
-  return Array.from(map.values());
-}
-
 function GroupCard({ group, myEmail, onEdit, onDelete }) {
-  const memberEmails = groupMemberEmails(group);
-  const viewerEmails = groupViewerEmails(group);
+  const memberEmails = getCustodyGroupMemberEmails(group);
+  const viewerEmails = getCustodyGroupViewerEmails(group);
   const isMember = memberEmails.includes(normalizeEmail(myEmail));
   const isViewerOnly = !isMember && viewerEmails.includes(normalizeEmail(myEmail));
-  const children = groupChildNames(group);
+  const children = getCustodyGroupChildren(group);
   const parents = parentNames(group);
 
   return (
@@ -111,13 +79,16 @@ function GroupCard({ group, myEmail, onEdit, onDelete }) {
             <h3 className="truncate text-lg font-black text-slate-950">
               {group.name || "Custody Group"}
             </h3>
+            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+              External custody
+            </Badge>
             {isViewerOnly && (
               <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-500">
                 View only
               </Badge>
             )}
             {isMember && (
-              <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
                 Member
               </Badge>
             )}
@@ -185,11 +156,8 @@ export default function CustodyGroupsManager() {
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const familyChildren = useMemo(() => {
-    if (Array.isArray(profile?.children)) return profile.children.map(childLabel).filter(Boolean);
-    if (profile?.child_name) return [profile.child_name];
-    return [];
-  }, [profile]);
+  const householdChildren = useMemo(() => getHouseholdChildren(profile), [profile]);
+  const familyChildren = useMemo(() => householdChildren.map(childLabel).filter(Boolean), [householdChildren]);
 
   const loadGroups = async () => {
     if (!myEmail) {
@@ -218,7 +186,7 @@ export default function CustodyGroupsManager() {
         ? viewerSnap.value.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
         : [];
 
-      setGroups(mergeGroups(memberGroups, viewerGroups));
+      setGroups(mergeCustodyGroups(memberGroups, viewerGroups));
     } catch (error) {
       console.error("Error loading custody groups:", error);
       setGroups([]);
@@ -254,19 +222,20 @@ export default function CustodyGroupsManager() {
   };
 
   const startEdit = (group) => {
-    const parents = groupParents(group);
+    const parents = getCustodyGroupParents(group);
     const dadParent = parents.find((parent) => parent.role === "dad") || parents[0] || {};
     const momParent = parents.find((parent) => parent.role === "mom") || parents[1] || {};
+    const memberEmails = getCustodyGroupMemberEmails(group);
 
     setEditingGroupId(group.id);
     setForm({
       name: group.name || "",
-      children: groupChildNames(group).join(", "),
+      children: getCustodyGroupChildren(group).join(", "),
       dadName: dadParent.name || dadParent.displayName || "",
-      dadEmail: dadParent.email || groupMemberEmails(group)[0] || myEmail || "",
+      dadEmail: dadParent.email || memberEmails[0] || myEmail || "",
       momName: momParent.name || momParent.displayName || "",
-      momEmail: momParent.email || groupMemberEmails(group)[1] || "",
-      viewerEmails: groupViewerEmails(group).join(", "),
+      momEmail: momParent.email || memberEmails[1] || "",
+      viewerEmails: getCustodyGroupViewerEmails(group).join(", "),
     });
     setShowForm(true);
   };
@@ -302,42 +271,35 @@ export default function CustodyGroupsManager() {
 
     try {
       const now = serverTimestamp();
-      const parents = [
-        {
-          role: "dad",
-          name: form.dadName.trim() || user.displayName || "Dad",
-          email: dadEmail,
-        },
-        {
-          role: "mom",
-          name: form.momName.trim() || "Mom",
-          email: momEmail,
-        },
-      ];
-
-      const payload = {
-        name: cleanName,
-        familyId: familyId || null,
-        householdFamilyId: familyId || null,
+      const payload = buildCustodyGroupPayload({
+        groupName: cleanName,
+        familyId,
         children,
-        childNames: children,
-        parents,
-        coParents: parents,
-        memberEmails,
-        member_emails: memberEmails,
+        currentUser: user,
+        currentEmail: myEmail,
+        parentName: form.dadName.trim() || user.displayName || "Dad",
+        parentEmail: dadEmail,
+        parentRole: "dad",
+        parentColor: "blue",
+        coparentName: form.momName.trim() || "Mom",
+        coparentEmail: momEmail,
+        coparentRole: "mom",
+        coparentColor: "orange",
         viewerEmails,
-        viewer_emails: viewerEmails,
-        updatedAt: now,
+        now,
+      });
+
+      const finalPayload = {
+        ...payload,
+        relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
       };
 
       if (editingGroupId) {
-        await updateDoc(doc(db, "custodyGroups", editingGroupId), payload);
+        await updateDoc(doc(db, "custodyGroups", editingGroupId), finalPayload);
       } else {
         const groupRef = doc(collection(db, "custodyGroups"));
         await setDoc(groupRef, {
-          ...payload,
-          createdBy: user.uid,
-          createdByEmail: user.email || myEmail,
+          ...finalPayload,
           createdAt: now,
         });
       }
@@ -379,9 +341,9 @@ export default function CustodyGroupsManager() {
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
             Custody Groups
           </p>
-          <h2 className="text-lg font-black text-slate-950">Manage child custody profiles</h2>
+          <h2 className="text-lg font-black text-slate-950">Manage external custody profiles</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Create separate custody groups so Joaquin and Mady can have independent schedules and permissions.
+            Create custody groups only for children who need a separate custody schedule with another parent. Joint household children do not require a custody group.
           </p>
         </div>
 
@@ -391,12 +353,30 @@ export default function CustodyGroupsManager() {
         </Button>
       </div>
 
+      {familyChildren.length > 0 && (
+        <div className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+            Household children
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {familyChildren.map((child) => (
+              <span key={child} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600">
+                {child}
+              </span>
+            ))}
+          </div>
+          <p className="mt-2 text-xs font-semibold text-slate-500">
+            These children can appear in family calendar, tasks, meals, and groceries. Add a custody group only when a child has custody with another parent outside this household.
+          </p>
+        </div>
+      )}
+
       {showForm && (
         <form onSubmit={saveGroup} className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-black text-slate-950">
-                {editingGroupId ? "Edit custody group" : "Create custody group"}
+                {editingGroupId ? "Edit external custody group" : "Create external custody group"}
               </p>
               <p className="text-xs font-semibold text-slate-500">
                 Members can edit. Viewers can only see this custody calendar.
@@ -416,18 +396,18 @@ export default function CustodyGroupsManager() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Children</label>
+              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Child / Children</label>
               <Input
                 value={form.children}
                 onChange={(event) => updateForm("children", event.target.value)}
                 placeholder={familyChildren.length ? familyChildren.join(", ") : "Joaquin"}
                 className="mt-1"
               />
-              <p className="mt-1 text-xs font-semibold text-slate-500">Use commas for multiple children.</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">Use commas for multiple children. Only add children that need this external custody schedule.</p>
             </div>
 
             <div>
-              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Dad / Parent A name</label>
+              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Parent A name</label>
               <Input
                 value={form.dadName}
                 onChange={(event) => updateForm("dadName", event.target.value)}
@@ -437,7 +417,7 @@ export default function CustodyGroupsManager() {
             </div>
 
             <div>
-              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Dad / Parent A email</label>
+              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Parent A email</label>
               <Input
                 value={form.dadEmail}
                 onChange={(event) => updateForm("dadEmail", event.target.value)}
@@ -447,7 +427,7 @@ export default function CustodyGroupsManager() {
             </div>
 
             <div>
-              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Mom / Parent B name</label>
+              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Parent B name</label>
               <Input
                 value={form.momName}
                 onChange={(event) => updateForm("momName", event.target.value)}
@@ -457,7 +437,7 @@ export default function CustodyGroupsManager() {
             </div>
 
             <div>
-              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Mom / Parent B email</label>
+              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Parent B email</label>
               <Input
                 value={form.momEmail}
                 onChange={(event) => updateForm("momEmail", event.target.value)}
@@ -495,7 +475,7 @@ export default function CustodyGroupsManager() {
 
         {!loading && groups.length === 0 && (
           <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm font-bold text-slate-500 xl:col-span-2">
-            No custody groups yet. Create Joaquin custody, Mady custody, or any separate custody profile you need.
+            No external custody groups yet. Create one only if a child needs a separate custody calendar with another parent.
           </div>
         )}
 
