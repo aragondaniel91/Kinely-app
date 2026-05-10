@@ -23,7 +23,9 @@ import {
   getCustodyGroupViewerEmails,
   getHouseholdChildren,
   mergeCustodyGroups,
+  normalizeChildRecord,
   normalizeEmail,
+  normalizeKey,
 } from "@/lib/custodyGroupUtils";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
@@ -307,6 +309,56 @@ export default function CustodyGroupsManager() {
     setShowForm(true);
   };
 
+  const ensureChildRecords = async (childNames, now) => {
+    const cleanNames = splitCsv(childNames.join(","));
+    const records = [];
+
+    for (const name of cleanNames) {
+      const nameKey = normalizeKey(name);
+      let existing = null;
+
+      try {
+        const q = query(
+          collection(db, "children"),
+          where("householdFamilyId", "==", familyId),
+          where("nameKey", "==", nameKey)
+        );
+        const snap = await getDocs(q);
+        existing = snap.docs[0] || null;
+      } catch (error) {
+        console.warn("Could not query child record, creating a new one:", error);
+      }
+
+      if (existing) {
+        records.push(normalizeChildRecord({ id: existing.id, ...existing.data() }));
+        continue;
+      }
+
+      const childRef = doc(collection(db, "children"));
+      const childPayload = {
+        id: childRef.id,
+        childId: childRef.id,
+        name,
+        childName: name,
+        nameKey,
+        householdFamilyId: familyId || null,
+        familyId: familyId || null,
+        linkedFamilyIds: [familyId].filter(Boolean),
+        relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
+        custodyGroupIds: [],
+        createdBy: user.uid,
+        createdByEmail: user.email || myEmail || null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await setDoc(childRef, childPayload);
+      records.push(normalizeChildRecord(childPayload));
+    }
+
+    return records;
+  };
+
   const saveGroup = async (event) => {
     event.preventDefault();
 
@@ -338,10 +390,11 @@ export default function CustodyGroupsManager() {
 
     try {
       const now = serverTimestamp();
+      const childRecords = await ensureChildRecords(children, now);
       const payload = buildCustodyGroupPayload({
         groupName: cleanName,
         familyId,
-        children,
+        childRecords,
         currentUser: user,
         currentEmail: myEmail,
         parentName: form.dadName.trim() || user.displayName || "Dad",
@@ -361,15 +414,31 @@ export default function CustodyGroupsManager() {
         relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
       };
 
+      let groupId = editingGroupId;
+
       if (editingGroupId) {
         await updateDoc(doc(db, "custodyGroups", editingGroupId), finalPayload);
       } else {
         const groupRef = doc(collection(db, "custodyGroups"));
+        groupId = groupRef.id;
         await setDoc(groupRef, {
           ...finalPayload,
           createdAt: now,
         });
       }
+
+      await Promise.all(
+        childRecords.map((child) =>
+          setDoc(
+            doc(db, "children", child.id),
+            {
+              custodyGroupIds: [...new Set([...(child.custodyGroupIds || []), groupId].filter(Boolean))],
+              updatedAt: now,
+            },
+            { merge: true }
+          )
+        )
+      );
 
       resetForm();
       await loadGroups();
@@ -475,7 +544,7 @@ export default function CustodyGroupsManager() {
                 placeholder={familyChildren.length ? familyChildren.join(", ") : "Joaquin"}
                 className="mt-1"
               />
-              <p className="mt-1 text-xs font-semibold text-slate-500">Use commas for multiple children. Only add children that need this external custody schedule.</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">Use commas for multiple children. The app will reuse an existing child record in this household or create one with a unique childId.</p>
             </div>
 
             <div>
