@@ -2,6 +2,7 @@ import React from "react";
 import { CalendarHeart } from "lucide-react";
 
 import CustodyGroupsManager from "@/components/calendar/CustodyGroupsManager";
+import CustodyInviteHelper from "@/components/profile/CustodyInviteHelper";
 import { Card } from "@/components/ui/card";
 
 export default function ProfileCustodySection() {
@@ -27,6 +28,7 @@ export default function ProfileCustodySection() {
         </div>
       </Card>
 
+      <CustodyInviteHelper />
       <CustodyGroupsManager />
     </div>
   );
