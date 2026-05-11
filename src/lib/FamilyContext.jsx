@@ -40,6 +40,55 @@ const READ_ONLY_PERMS = {
   groceries: { read: true, write: false },
 };
 
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function childDisplayName(child, index = 0) {
+  if (!child) return "";
+  if (typeof child === "string") return child.trim();
+  return String(child.name || child.fullName || child.displayName || child.childName || child.firstName || `Child ${index + 1}`).trim();
+}
+
+function normalizeFamilyChild(child, index = 0) {
+  const name = childDisplayName(child, index);
+  if (!name) return null;
+
+  if (typeof child === "object" && child !== null) {
+    const id = child.id || child.uid || child.childId || child.child_id || `child-${slugify(name) || index + 1}`;
+    return {
+      ...child,
+      id,
+      childId: child.childId || child.child_id || id,
+      name,
+      childName: child.childName || child.child_name || name,
+      nameKey: child.nameKey || child.name_key || slugify(name),
+      color: child.color || child.familyColor || child.family_color || child.calendarColor || child.calendar_color || "green",
+    };
+  }
+
+  const id = `child-${slugify(name) || index + 1}`;
+  return {
+    id,
+    childId: id,
+    name,
+    childName: name,
+    nameKey: slugify(name),
+    color: "green",
+  };
+}
+
+function normalizeFamilyChildren(children = []) {
+  if (!Array.isArray(children)) return [];
+  return children.map(normalizeFamilyChild).filter(Boolean);
+}
+
 function normalizePermissions(member) {
   if (!member) return READ_ONLY_PERMS;
 
@@ -103,10 +152,16 @@ function normalizeFamilyProfile(family, user) {
     family.family_name ||
     `${user?.displayName || "Family"}'s Family`;
 
-  const children =
-    family.children ||
-    (family.childName ? [family.childName] : []) ||
-    (family.child_name ? [family.child_name] : []);
+  const rawChildren =
+    Array.isArray(family.children) && family.children.length
+      ? family.children
+      : family.childName
+      ? [family.childName]
+      : family.child_name
+      ? [family.child_name]
+      : [];
+
+  const children = normalizeFamilyChildren(rawChildren);
 
   return {
     ...family,
@@ -375,7 +430,7 @@ export function FamilyProvider({ children }) {
   const momName = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_name : activeProfile?.parent2_name;
   const dadColor = activeProfile?.parent1_role === "dad" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "blue" : activeProfile?.parent2_color || activeProfile?.parent2Color || "blue";
   const momColor = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "amber" : activeProfile?.parent2_color || activeProfile?.parent2Color || "amber";
-  const familyChildren = activeProfile?.children || (activeProfile?.child_name ? [activeProfile.child_name] : []);
+  const familyChildren = normalizeFamilyChildren(activeProfile?.children || (activeProfile?.child_name ? [activeProfile.child_name] : []));
 
   const refreshFamilies = async () => {
     if (!user) return;
@@ -415,7 +470,7 @@ export function FamilyProvider({ children }) {
     if (!user) throw new Error("You must be logged in to create a family.");
 
     const name = familyName?.trim() || `${user.displayName || "My"} Family`;
-    const cleanChildren = Array.isArray(children) ? children.map((child) => String(child).trim()).filter(Boolean) : [];
+    const cleanChildren = normalizeFamilyChildren(children);
     const familyRef = doc(collection(db, "families"));
     const userRef = doc(db, "users", user.uid);
 
@@ -488,6 +543,10 @@ export function FamilyProvider({ children }) {
     if (!activeProfile?.id) return;
 
     const payload = { ...data, updatedAt: serverTimestamp() };
+
+    if (data.children !== undefined) {
+      payload.children = normalizeFamilyChildren(data.children);
+    }
 
     if (data.family_name !== undefined) payload.familyName = data.family_name;
     if (data.parent1_name !== undefined) payload.parent1Name = data.parent1_name;
