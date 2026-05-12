@@ -3,7 +3,6 @@ import {
   Calendar,
   CheckSquare,
   HeartHandshake,
-  HeartPulse,
   UtensilsCrossed,
   ShoppingCart,
   Home,
@@ -41,37 +40,10 @@ function AppShellLoader() {
   );
 }
 
-function ProfileShortcutBar() {
-  return (
-    <div className="border-b border-border bg-slate-50 px-4 py-3">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 rounded-2xl border border-indigo-100 bg-white p-3 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-            <HeartPulse className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-sm font-black text-slate-950">Child Care Profiles</p>
-            <p className="text-xs font-semibold text-slate-500">
-              Manage kids health info, allergies, medications, sizes, and emergency notes.
-            </p>
-          </div>
-        </div>
-        <Link
-          to="/children"
-          className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white transition hover:bg-indigo-700"
-        >
-          Open Care Profiles
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 export default function AppShell() {
   const location = useLocation();
   const { isLoading, profile, familyId } = useFamily();
   const hideFamilyHeader = location.pathname === "/calendar" || location.pathname === "/custody";
-  const showProfileShortcut = location.pathname === "/profile";
 
   if (isLoading || !profile || !familyId) {
     return <AppShellLoader />;
@@ -86,7 +58,6 @@ export default function AppShell() {
       )}
 
       <main className="flex-1 overflow-auto pb-20">
-        {showProfileShortcut && <ProfileShortcutBar />}
         <Outlet />
       </main>
 
