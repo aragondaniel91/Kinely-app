@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Baby, ChevronDown, Eye, HeartPulse, Plus } from "lucide-react";
+import { Baby, ChevronDown, Eye, Plus } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { useFamily } from "@/lib/FamilyContext";
@@ -214,13 +214,6 @@ export default function FamilySelector() {
         )}
 
         <DropdownMenuSeparator />
-
-        <DropdownMenuItem asChild>
-          <Link to="/children" className="flex items-center gap-2 cursor-pointer">
-            <HeartPulse className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="text-sm">Child care profiles</span>
-          </Link>
-        </DropdownMenuItem>
 
         <DropdownMenuItem asChild>
           <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
