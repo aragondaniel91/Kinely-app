@@ -18,8 +18,7 @@ import Groceries from "@/pages/Groceries";
 import ChildProfiles from "@/pages/ChildProfiles";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-// Keep the active profile route on ProfileV5 until the cleanup page is committed and verified in GitHub.
-import Profile from "@/pages/ProfileV5";
+import Profile from "@/pages/ProfileV6";
 import FamilyCalendarHeaderPreview from "@/pages/FamilyCalendarHeaderPreview";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
