@@ -15,6 +15,7 @@ import Custody from "@/pages/Custody";
 import Tasks from "@/pages/Tasks";
 import Meals from "@/pages/Meals";
 import Groceries from "@/pages/Groceries";
+import ChildProfiles from "@/pages/ChildProfiles";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 // Keep the active profile route on ProfileV5 until the cleanup page is committed and verified in GitHub.
@@ -93,6 +94,7 @@ function AppRoutes() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/custody" element={<Custody />} />
+        <Route path="/children" element={<ChildProfiles />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/meals" element={<Meals />} />
         <Route path="/groceries" element={<Groceries />} />
