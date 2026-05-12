@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Baby, CalendarDays } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
@@ -60,9 +60,19 @@ function groupChildIds(group) {
 
 function groupParents(group) {
   if (!group) return [];
-  if (Array.isArray(group.coParents)) return group.coParents;
-  if (Array.isArray(group.parents)) return group.parents;
-  return [];
+  const parents = Array.isArray(group.parents) ? group.parents : [];
+  const coParents = Array.isArray(group.coParents) ? group.coParents : [];
+
+  if (!parents.length) return coParents;
+  if (!coParents.length) return parents;
+
+  const merged = new Map();
+  [...coParents, ...parents].forEach((parent, index) => {
+    const key = normalizeEmail(parent?.email) || parent?.role || `parent-${index}`;
+    merged.set(key, { ...(merged.get(key) || {}), ...parent });
+  });
+
+  return Array.from(merged.values());
 }
 
 function groupMemberEmails(group) {
@@ -305,6 +315,35 @@ export default function CustodyCalendarView({
     };
   }, [myEmail, familyId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshSelectedGroup() {
+      if (!selectedGroupId || selectedGroupId === "legacy-family-custody") return;
+
+      try {
+        const groupRef = doc(db, "custodyGroups", selectedGroupId);
+        const snap = await getDoc(groupRef);
+        if (!snap.exists() || cancelled) return;
+
+        const freshGroup = { id: snap.id, ...snap.data() };
+        setGroups((current) => {
+          const exists = current.some((group) => group.id === freshGroup.id);
+          if (!exists) return [...current, freshGroup];
+          return current.map((group) => group.id === freshGroup.id ? freshGroup : group);
+        });
+      } catch (error) {
+        console.warn("Could not refresh selected custody group:", error);
+      }
+    }
+
+    refreshSelectedGroup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroupId]);
+
   const legacyGroup = useMemo(
     () => ({
       id: "legacy-family-custody",
@@ -356,7 +395,7 @@ export default function CustodyCalendarView({
       ...familyContext,
       familyId: scopedFamilyId,
       actualFamilyId: familyId,
-      householdFamilyId: familyId,
+      householdFamilyId: selectedGroup?.householdFamilyId || selectedGroup?.actualFamilyId || familyId,
       custodyScopeId: selectedCustodyGroupId,
       custodyGroupId: selectedCustodyGroupId,
       selectedCustodyGroup: selectedGroup,
@@ -402,6 +441,8 @@ export default function CustodyCalendarView({
       custodyParentNames.custodyDadColor,
       custodyParentNames.custodyMomColor,
       selectedGroup?.name,
+      selectedGroup?.householdFamilyId,
+      selectedGroup?.actualFamilyId,
     ]
   );
 
@@ -435,6 +476,7 @@ export default function CustodyCalendarView({
                   />
                 ) : (
                   <CustodyCalendar
+                    key={`${selectedCustodyGroupId}-${custodyParentNames.custodyDadColor}-${custodyParentNames.custodyMomColor}`}
                     viewMode={viewMode === "mixed" ? "month" : viewMode}
                     setViewMode={setViewMode}
                     showFilters
