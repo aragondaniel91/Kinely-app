@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Baby,
+  Bell,
   CalendarHeart,
   Home,
   LogOut,
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ProfileV5 from "@/pages/ProfileV5";
 import ChildProfiles from "@/pages/ChildProfiles";
+import NotificationPreferences from "@/pages/NotificationPreferences";
 
 const ACTIVE_TAB_KEY = "familyWall.profile.activeTab";
 
@@ -25,6 +27,7 @@ const tabs = [
   { id: "children", label: "Children", icon: Baby },
   { id: "custody", label: "Custody", icon: CalendarHeart },
   { id: "members", label: "Members", icon: Shield },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -128,6 +131,8 @@ export default function ProfileV6() {
 
         {activeTab === "children" ? (
           <ChildProfiles />
+        ) : activeTab === "notifications" ? (
+          <NotificationPreferences />
         ) : (
           <div className="profile-v5-embedded">
             <style>{`
