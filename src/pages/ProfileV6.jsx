@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Baby,
@@ -28,6 +28,11 @@ const tabs = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
+function safeInitialTab() {
+  const stored = window.localStorage.getItem(ACTIVE_TAB_KEY) || "overview";
+  return tabs.some((tab) => tab.id === stored) ? stored : "overview";
+}
+
 function TabButton({ tab, active, onClick }) {
   const Icon = tab.icon;
   return (
@@ -50,12 +55,12 @@ export default function ProfileV6() {
   const { logout } = useAuth();
   const { profile, familyId, isOwner, isAdmin } = useFamily();
   const navigate = useNavigate();
-  const initialTab = window.localStorage.getItem(ACTIVE_TAB_KEY) || "overview";
-  const [activeTab, setActiveTab] = useState(initialTab === "children" ? "children" : initialTab);
+  const [activeTab, setActiveTab] = useState(safeInitialTab);
 
-  useEffect(() => {
-    window.localStorage.setItem(ACTIVE_TAB_KEY, activeTab);
-  }, [activeTab]);
+  function selectOuterTab(tabId) {
+    window.localStorage.setItem(ACTIVE_TAB_KEY, tabId);
+    setActiveTab(tabId);
+  }
 
   async function handleLogout() {
     await logout();
@@ -116,7 +121,7 @@ export default function ProfileV6() {
               key={tab.id}
               tab={tab}
               active={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectOuterTab(tab.id)}
             />
           ))}
         </div>
