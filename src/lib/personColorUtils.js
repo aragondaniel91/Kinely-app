@@ -1,3 +1,5 @@
+import { getFamilyPersonColorMap as getNormalizedFamilyPersonColorMap } from "@/lib/familyPeopleUtils";
+
 export const PERSON_COLOR_OPTIONS = [
   { id: "blue", label: "Blue", dot: "bg-blue-500", bg: "bg-blue-50", border: "border-blue-300", stripe: "bg-blue-500", ring: "ring-blue-200", text: "text-blue-700", hex: "#3b82f6", softHex: "#eff6ff" },
   { id: "green", label: "Green", dot: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-300", stripe: "bg-emerald-500", ring: "ring-emerald-200", text: "text-emerald-700", hex: "#10b981", softHex: "#ecfdf5" },
@@ -127,95 +129,30 @@ export function normalizeChildren(children = []) {
 
 export function familyPersonColorMap(profile = {}, user = null, myEmail = "") {
   const children = normalizeChildren(profile.children || []);
+  const normalized = getNormalizedFamilyPersonColorMap(profile, user, myEmail);
   const map = {
-    dad: profile.parent1_color || profile.parent1Color || DEFAULT_PERSON_COLORS.dad,
-    mom: profile.parent2_color || profile.parent2Color || DEFAULT_PERSON_COLORS.mom,
-    parent1: profile.parent1_color || profile.parent1Color || DEFAULT_PERSON_COLORS.dad,
-    parent2: profile.parent2_color || profile.parent2Color || DEFAULT_PERSON_COLORS.mom,
+    ...normalized.map,
+    dad: profile.parent1_color || profile.parent1Color || normalized.map.dad || DEFAULT_PERSON_COLORS.dad,
+    mom: profile.parent2_color || profile.parent2Color || normalized.map.mom || DEFAULT_PERSON_COLORS.mom,
+    parent1: profile.parent1_color || profile.parent1Color || normalized.map.parent1 || DEFAULT_PERSON_COLORS.dad,
+    parent2: profile.parent2_color || profile.parent2Color || normalized.map.parent2 || DEFAULT_PERSON_COLORS.mom,
     all: DEFAULT_PERSON_COLORS.all,
     everyone: DEFAULT_PERSON_COLORS.all,
   };
 
-  const people = [];
-  const seenPeople = new Set();
+  const people = (normalized.people || []).map((person) => ({
+    ...person,
+    value: person.id || person.email || person.name,
+    label: person.label || person.name,
+    type: person.type === "group" ? "all" : person.type,
+  }));
 
-  function addPerson(person) {
-    const email = normalizeEmail(person.email);
-    const label = String(person.label || "").trim();
-    const labelKey = normalizePersonLabel(label);
-    const key = email ? `email:${email}` : `${person.type || "person"}:${labelKey || person.value}`;
-
-    if (!label || seenPeople.has(key)) return;
-    seenPeople.add(key);
-
-    if (email) map[email] = person.color;
-    if (labelKey) map[labelKey] = person.color;
-
-    people.push(person);
-  }
-
-  const ownerEmail = normalizeEmail(profile.owner_email || profile.ownerEmail || profile.parent1_email || profile.parent1Email || myEmail || user?.email);
-  const parent2Email = normalizeEmail(profile.parent2_email || profile.parent2Email);
-  const parent1Name = profile.parent1_name || profile.parent1Name || user?.displayName || "Dad";
-  const parent2Name = profile.parent2_name || profile.parent2Name || "Mom";
-
-  addPerson({
-    value: "dad",
-    label: parent1Name,
-    color: map.dad,
-    type: "adult",
-    email: ownerEmail,
-  });
-
-  addPerson({
-    value: "mom",
-    label: parent2Name,
-    color: map.mom,
-    type: "adult",
-    email: parent2Email,
-  });
-
-  children.forEach((child, index) => {
+  children.forEach((child) => {
     const key = `child:${child.name}`;
     const normalizedKey = `child:${normalizeName(child.name)}`;
     map[key] = child.color;
     map[normalizedKey] = child.color;
     map[child.id] = child.color;
-    addPerson({
-      value: `child:${child.id}`,
-      childId: child.id,
-      label: child.name,
-      color: child.color,
-      type: "child",
-      index,
-    });
-  });
-
-  const reservedEmails = new Set([ownerEmail, parent2Email, normalizeEmail(myEmail), normalizeEmail(user?.email)].filter(Boolean));
-  const reservedNames = new Set([parent1Name, parent2Name].map(normalizePersonLabel).filter(Boolean));
-  const members = Array.isArray(profile.members) ? profile.members : [];
-
-  members.forEach((member, index) => {
-    const email = normalizeEmail(member.email || member.emailAddress || member.memberEmail);
-    const label = member.name || member.displayName || member.fullName || member.memberName || member.email || `Member ${index + 1}`;
-    const labelKey = normalizePersonLabel(label);
-
-    if ((email && reservedEmails.has(email)) || (labelKey && reservedNames.has(labelKey))) {
-      const color = member.color || member.familyColor || member.family_color;
-      if (email && color) map[email] = color;
-      return;
-    }
-
-    const color = member.color || member.familyColor || member.family_color || DEFAULT_PERSON_COLORS.member;
-    if (email) map[email] = color;
-    if (member.name) map[normalizeName(member.name)] = color;
-    addPerson({
-      value: email ? `member:${email}` : `member:${index}`,
-      label,
-      color,
-      type: "member",
-      email,
-    });
   });
 
   if (myEmail) map[normalizeEmail(myEmail)] = map.dad;
