@@ -18,7 +18,7 @@ import Groceries from "@/pages/Groceries";
 import ChildProfiles from "@/pages/ChildProfiles";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-import Profile from "@/pages/ProfileV5";
+import Profile from "@/pages/ProfileV6";
 import FamilyCalendarHeaderPreview from "@/pages/FamilyCalendarHeaderPreview";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
