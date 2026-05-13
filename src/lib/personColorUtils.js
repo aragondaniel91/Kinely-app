@@ -1,37 +1,20 @@
 import { getFamilyPersonColorMap as getNormalizedFamilyPersonColorMap } from "@/lib/familyPeopleUtils";
+import {
+  APP_COLORS,
+  FAMILY_COLOR,
+  getAppColor,
+  getColorClasses,
+  getColorHex,
+  getColorSoftHex,
+  isValidAppColor,
+  normalizeColorId,
+} from "@/lib/appColorUtils";
 
-export const PERSON_COLOR_OPTIONS = [
-  { id: "blue", label: "Blue", dot: "bg-blue-500", bg: "bg-blue-50", border: "border-blue-300", stripe: "bg-blue-500", ring: "ring-blue-200", text: "text-blue-700", hex: "#3b82f6", softHex: "#eff6ff" },
-  { id: "green", label: "Green", dot: "bg-emerald-500", bg: "bg-emerald-50", border: "border-emerald-300", stripe: "bg-emerald-500", ring: "ring-emerald-200", text: "text-emerald-700", hex: "#10b981", softHex: "#ecfdf5" },
-  { id: "purple", label: "Purple", dot: "bg-violet-500", bg: "bg-violet-50", border: "border-violet-300", stripe: "bg-violet-500", ring: "ring-violet-200", text: "text-violet-700", hex: "#8b5cf6", softHex: "#f5f3ff" },
-  { id: "violet", label: "Violet", dot: "bg-violet-500", bg: "bg-violet-50", border: "border-violet-300", stripe: "bg-violet-500", ring: "ring-violet-200", text: "text-violet-700", hex: "#8b5cf6", softHex: "#f5f3ff" },
-  { id: "orange", label: "Orange", dot: "bg-orange-500", bg: "bg-orange-50", border: "border-orange-300", stripe: "bg-orange-500", ring: "ring-orange-200", text: "text-orange-700", hex: "#f97316", softHex: "#fff7ed" },
-  { id: "yellow", label: "Yellow", dot: "bg-yellow-500", bg: "bg-yellow-50", border: "border-yellow-300", stripe: "bg-yellow-500", ring: "ring-yellow-200", text: "text-yellow-700", hex: "#eab308", softHex: "#fefce8" },
-  { id: "amber", label: "Amber", dot: "bg-amber-500", bg: "bg-amber-50", border: "border-amber-300", stripe: "bg-amber-500", ring: "ring-amber-200", text: "text-amber-700", hex: "#f59e0b", softHex: "#fffbeb" },
-  { id: "pink", label: "Pink", dot: "bg-pink-500", bg: "bg-pink-50", border: "border-pink-300", stripe: "bg-pink-500", ring: "ring-pink-200", text: "text-pink-700", hex: "#ec4899", softHex: "#fdf2f8" },
-  { id: "rose", label: "Rose", dot: "bg-rose-500", bg: "bg-rose-50", border: "border-rose-300", stripe: "bg-rose-500", ring: "ring-rose-200", text: "text-rose-700", hex: "#f43f5e", softHex: "#fff1f2" },
-  { id: "red", label: "Red", dot: "bg-red-500", bg: "bg-red-50", border: "border-red-300", stripe: "bg-red-500", ring: "ring-red-200", text: "text-red-700", hex: "#ef4444", softHex: "#fef2f2" },
-  { id: "teal", label: "Teal", dot: "bg-teal-500", bg: "bg-teal-50", border: "border-teal-300", stripe: "bg-teal-500", ring: "ring-teal-200", text: "text-teal-700", hex: "#14b8a6", softHex: "#f0fdfa" },
-  { id: "indigo", label: "Indigo", dot: "bg-indigo-500", bg: "bg-indigo-50", border: "border-indigo-300", stripe: "bg-indigo-500", ring: "ring-indigo-200", text: "text-indigo-700", hex: "#6366f1", softHex: "#eef2ff" },
-  { id: "slate", label: "Slate", dot: "bg-slate-500", bg: "bg-slate-50", border: "border-slate-300", stripe: "bg-slate-500", ring: "ring-slate-200", text: "text-slate-700", hex: "#64748b", softHex: "#f8fafc" },
-];
-
-const FAMILY_COLOR_META = {
-  id: "family",
-  label: "Family",
-  dot: "bg-[image:var(--family-gradient)]",
-  bg: "bg-[image:var(--family-soft-gradient)]",
-  border: "border-blue-200",
-  stripe: "bg-[image:var(--family-gradient-vertical)]",
-  ring: "ring-blue-200",
-  text: "text-slate-800",
-  hex: "#3b82f6",
-  softHex: "#eff6ff",
-};
+export const PERSON_COLOR_OPTIONS = APP_COLORS;
 
 export const DEFAULT_PERSON_COLORS = {
   dad: "blue",
-  mom: "orange",
+  mom: "amber",
   child: "green",
   member: "teal",
   all: "family",
@@ -49,41 +32,27 @@ function normalizePersonLabel(value) {
   return normalizeName(value).replace(/\s+/g, " ");
 }
 
-function normalizeColorId(colorId) {
-  const value = String(colorId || "").trim().toLowerCase();
-  if (value === "all" || value === "everyone") return "family";
-  if (value === "mom-yellow") return "amber";
-  if (value === "dad-blue") return "blue";
-  return value;
-}
-
 export function getColorMeta(colorId, fallback = "blue") {
-  const normalizedColorId = normalizeColorId(colorId);
-  if (normalizedColorId === "family") return FAMILY_COLOR_META;
-  return PERSON_COLOR_OPTIONS.find((color) => color.id === normalizedColorId) || PERSON_COLOR_OPTIONS.find((color) => color.id === normalizeColorId(fallback)) || PERSON_COLOR_OPTIONS[0];
+  return getAppColor(colorId, fallback);
 }
 
 export function colorHex(colorId, fallback = "blue") {
-  return getColorMeta(colorId, fallback).hex;
+  return getColorHex(colorId, fallback);
 }
 
 export function colorSoftHex(colorId, fallback = "blue") {
-  return getColorMeta(colorId, fallback).softHex;
+  return getColorSoftHex(colorId, fallback);
 }
 
 function uniqueColors(colors = []) {
   const seen = new Set();
-  return colors.filter((color) => {
-    const key = normalizeColorId(color);
-    if (!key || key === "family" || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function isValidColor(colorId) {
-  const normalizedColorId = normalizeColorId(colorId);
-  return normalizedColorId === "family" || PERSON_COLOR_OPTIONS.some((color) => color.id === normalizedColorId);
+  return colors
+    .map((color) => normalizeColorId(color))
+    .filter((color) => {
+      if (!color || color === "family" || seen.has(color)) return false;
+      seen.add(color);
+      return true;
+    });
 }
 
 function isManualColorSource(event = {}) {
@@ -122,11 +91,11 @@ export function childName(child, index = 0) {
 
 export function childColor(child, index = 0) {
   if (!child || typeof child === "string") {
-    const fallbackColors = ["green", "pink", "purple", "teal", "orange"];
+    const fallbackColors = ["green", "rose", "violet", "teal", "orange"];
     return fallbackColors[index % fallbackColors.length];
   }
 
-  return normalizeColorId(child.color || child.familyColor || child.family_color || child.calendarColor || child.calendar_color || DEFAULT_PERSON_COLORS.child);
+  return normalizeColorId(child.colorId || child.color || child.familyColor || child.family_color || child.calendarColor || child.calendar_color || DEFAULT_PERSON_COLORS.child);
 }
 
 export function normalizeChild(child, index = 0) {
@@ -134,6 +103,7 @@ export function normalizeChild(child, index = 0) {
     id: typeof child === "object" ? child.id || child.uid || child.childId || child.child_id || `child-${index + 1}` : `child-${index + 1}`,
     name: childName(child, index),
     color: childColor(child, index),
+    colorId: childColor(child, index),
   };
 }
 
@@ -165,38 +135,42 @@ export function familyPersonColorMap(profile = {}, user = null, myEmail = "") {
         label: "ALL",
         name: "ALL",
         color: DEFAULT_PERSON_COLORS.all,
+        colorId: DEFAULT_PERSON_COLORS.all,
         type: "all",
       };
     }
 
-    const normalizedColor = normalizeColorId(person.color);
     if (person.source === "owner" || person.source === "parent1") {
-      map[person.email] = parent1Color;
-      map[normalizePersonLabel(person.name)] = parent1Color;
+      if (person.email) map[person.email] = parent1Color;
+      if (person.name) map[normalizePersonLabel(person.name)] = parent1Color;
       return {
         ...person,
         value: person.email || person.id || person.name,
         label: person.label || person.name,
         color: parent1Color,
+        colorId: parent1Color,
       };
     }
 
     if (person.source === "parent2") {
-      map[person.email] = parent2Color;
-      map[normalizePersonLabel(person.name)] = parent2Color;
+      if (person.email) map[person.email] = parent2Color;
+      if (person.name) map[normalizePersonLabel(person.name)] = parent2Color;
       return {
         ...person,
         value: person.email || person.id || person.name,
         label: person.label || person.name,
         color: parent2Color,
+        colorId: parent2Color,
       };
     }
 
+    const normalizedColor = normalizeColorId(person.colorId || person.color || DEFAULT_PERSON_COLORS.member);
     return {
       ...person,
       value: person.id || person.email || person.name,
       label: person.label || person.name,
       color: normalizedColor,
+      colorId: normalizedColor,
       type: person.type === "group" ? "all" : person.type,
     };
   });
@@ -218,7 +192,7 @@ export function custodyPersonColorMap(custodyGroup = {}) {
   const parents = Array.isArray(custodyGroup.coParents) ? custodyGroup.coParents : [];
   const map = {};
   const people = parents.map((parent, index) => {
-    const color = normalizeColorId(parent.color || parent.custodyColor || parent.custody_color || (index === 0 ? DEFAULT_PERSON_COLORS.dad : DEFAULT_PERSON_COLORS.mom));
+    const color = normalizeColorId(parent.colorId || parent.color || parent.custodyColor || parent.custody_color || (index === 0 ? DEFAULT_PERSON_COLORS.dad : DEFAULT_PERSON_COLORS.mom));
     const email = normalizeEmail(parent.email);
     if (email) map[email] = color;
     if (parent.name) map[normalizeName(parent.name)] = color;
@@ -228,6 +202,7 @@ export function custodyPersonColorMap(custodyGroup = {}) {
       value: email ? `custody:${email}` : `custody:${index}`,
       label: parent.name || parent.email || `Parent ${index + 1}`,
       color,
+      colorId: color,
       type: index === 0 ? "dad" : "mom",
       email,
     };
@@ -246,9 +221,9 @@ function isEveryoneEvent(event = {}) {
 
 export function resolveEventColor(event = {}, profile = {}, fallbackType = "all") {
   const { map } = familyPersonColorMap(profile);
-  const storedColor = normalizeColorId(event.eventColor || event.event_color || event.color || event.familyColor || event.family_color);
+  const storedColor = normalizeColorId(event.eventColor || event.event_color || event.colorId || event.color || event.familyColor || event.family_color);
 
-  if (storedColor && isManualColorSource(event) && isValidColor(storedColor)) return storedColor;
+  if (storedColor && isManualColorSource(event) && isValidAppColor(storedColor)) return storedColor;
 
   if (isEveryoneEvent(event)) return map.all;
 
@@ -256,6 +231,8 @@ export function resolveEventColor(event = {}, profile = {}, fallbackType = "all"
     event.assignedTo,
     event.assignedToName,
     event.assignedToEmail,
+    event.assignedPersonId,
+    event.assignedPersonIds?.[0],
     event.childId,
     event.childName,
     event.assignee,
@@ -271,19 +248,21 @@ export function resolveEventColor(event = {}, profile = {}, fallbackType = "all"
   if (event.assignedTo === "dad" || event.assignedToType === "dad") return map.dad;
   if (event.assignedTo === "mom" || event.assignedToType === "mom") return map.mom;
   if (event.assignedToType === "child" || event.childName || event.childId) return DEFAULT_PERSON_COLORS.child;
-  if (storedColor && isValidColor(storedColor)) return storedColor;
+  if (storedColor && isValidAppColor(storedColor)) return storedColor;
 
   return map[fallbackType] || DEFAULT_PERSON_COLORS.all;
 }
 
 export function colorClasses(colorId, fallback = "blue") {
-  const color = getColorMeta(colorId, fallback);
+  const classes = getColorClasses(colorId, fallback);
   return {
-    dot: color.dot,
-    bg: color.bg,
-    border: color.border,
-    stripe: color.stripe,
-    ring: color.ring,
-    text: color.text,
+    dot: classes.dot,
+    bg: classes.bg,
+    border: classes.border,
+    stripe: classes.stripe,
+    ring: classes.ring,
+    text: classes.text,
   };
 }
+
+export { FAMILY_COLOR, normalizeColorId };
