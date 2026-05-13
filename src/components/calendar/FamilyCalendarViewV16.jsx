@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
 import { colorClasses, familyPersonColorMap, getColorMeta, resolveEventColor } from "@/lib/personColorUtils";
+import { normalizeAndFilterFamilyEvents } from "@/lib/familyEventUtils";
 import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
 
 const HOURS = Array.from({ length: 15 }, (_, index) => index + 7);
@@ -480,7 +481,7 @@ export default function FamilyCalendarViewV16({ viewMode = "week", setViewMode }
     try {
       const eventsQuery = query(collection(db, "familyEvents"), where("familyId", "==", familyId));
       const snapshot = await getDocs(eventsQuery);
-      setEvents(snapshot.docs.map(normalizeEvent));
+      setEvents(normalizeAndFilterFamilyEvents(snapshot.docs, user?.email || ""));
     } catch (error) {
       console.error("Error loading family events:", error);
       setEvents([]);
@@ -489,7 +490,7 @@ export default function FamilyCalendarViewV16({ viewMode = "week", setViewMode }
     }
   };
 
-  useEffect(() => { loadEvents(); }, [familyId]);
+  useEffect(() => { loadEvents(); }, [familyId, user?.email]);
 
   const visibleDays = useMemo(() => {
     if (viewMode === "day") return [anchorDate];
