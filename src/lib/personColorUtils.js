@@ -35,6 +35,14 @@ export function normalizeName(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizePersonLabel(value) {
+  return normalizeName(value).replace(/\s+/g, " ");
+}
+
 export function getColorMeta(colorId, fallback = "blue") {
   if (colorId === "family") return FAMILY_COLOR_META;
   return PERSON_COLOR_OPTIONS.find((color) => color.id === colorId) || PERSON_COLOR_OPTIONS.find((color) => color.id === fallback) || PERSON_COLOR_OPTIONS[0];
@@ -128,20 +136,44 @@ export function familyPersonColorMap(profile = {}, user = null, myEmail = "") {
     everyone: DEFAULT_PERSON_COLORS.all,
   };
 
-  const people = [
-    {
-      value: "dad",
-      label: profile.parent1_name || profile.parent1Name || user?.displayName || "Dad",
-      color: map.dad,
-      type: "adult",
-    },
-    {
-      value: "mom",
-      label: profile.parent2_name || profile.parent2Name || "Mom",
-      color: map.mom,
-      type: "adult",
-    },
-  ];
+  const people = [];
+  const seenPeople = new Set();
+
+  function addPerson(person) {
+    const email = normalizeEmail(person.email);
+    const label = String(person.label || "").trim();
+    const labelKey = normalizePersonLabel(label);
+    const key = email ? `email:${email}` : `${person.type || "person"}:${labelKey || person.value}`;
+
+    if (!label || seenPeople.has(key)) return;
+    seenPeople.add(key);
+
+    if (email) map[email] = person.color;
+    if (labelKey) map[labelKey] = person.color;
+
+    people.push(person);
+  }
+
+  const ownerEmail = normalizeEmail(profile.owner_email || profile.ownerEmail || profile.parent1_email || profile.parent1Email || myEmail || user?.email);
+  const parent2Email = normalizeEmail(profile.parent2_email || profile.parent2Email);
+  const parent1Name = profile.parent1_name || profile.parent1Name || user?.displayName || "Dad";
+  const parent2Name = profile.parent2_name || profile.parent2Name || "Mom";
+
+  addPerson({
+    value: "dad",
+    label: parent1Name,
+    color: map.dad,
+    type: "adult",
+    email: ownerEmail,
+  });
+
+  addPerson({
+    value: "mom",
+    label: parent2Name,
+    color: map.mom,
+    type: "adult",
+    email: parent2Email,
+  });
 
   children.forEach((child, index) => {
     const key = `child:${child.name}`;
@@ -149,7 +181,7 @@ export function familyPersonColorMap(profile = {}, user = null, myEmail = "") {
     map[key] = child.color;
     map[normalizedKey] = child.color;
     map[child.id] = child.color;
-    people.push({
+    addPerson({
       value: `child:${child.id}`,
       childId: child.id,
       label: child.name,
@@ -159,22 +191,34 @@ export function familyPersonColorMap(profile = {}, user = null, myEmail = "") {
     });
   });
 
+  const reservedEmails = new Set([ownerEmail, parent2Email, normalizeEmail(myEmail), normalizeEmail(user?.email)].filter(Boolean));
+  const reservedNames = new Set([parent1Name, parent2Name].map(normalizePersonLabel).filter(Boolean));
   const members = Array.isArray(profile.members) ? profile.members : [];
+
   members.forEach((member, index) => {
-    const email = String(member.email || "").toLowerCase();
+    const email = normalizeEmail(member.email || member.emailAddress || member.memberEmail);
+    const label = member.name || member.displayName || member.fullName || member.memberName || member.email || `Member ${index + 1}`;
+    const labelKey = normalizePersonLabel(label);
+
+    if ((email && reservedEmails.has(email)) || (labelKey && reservedNames.has(labelKey))) {
+      const color = member.color || member.familyColor || member.family_color;
+      if (email && color) map[email] = color;
+      return;
+    }
+
     const color = member.color || member.familyColor || member.family_color || DEFAULT_PERSON_COLORS.member;
     if (email) map[email] = color;
     if (member.name) map[normalizeName(member.name)] = color;
-    people.push({
+    addPerson({
       value: email ? `member:${email}` : `member:${index}`,
-      label: member.name || member.email || `Member ${index + 1}`,
+      label,
       color,
       type: "member",
       email,
     });
   });
 
-  if (myEmail) map[String(myEmail).toLowerCase()] = map.dad;
+  if (myEmail) map[normalizeEmail(myEmail)] = map.dad;
 
   return { map, people, children };
 }
@@ -184,7 +228,7 @@ export function custodyPersonColorMap(custodyGroup = {}) {
   const map = {};
   const people = parents.map((parent, index) => {
     const color = parent.color || parent.custodyColor || parent.custody_color || (index === 0 ? DEFAULT_PERSON_COLORS.dad : DEFAULT_PERSON_COLORS.mom);
-    const email = String(parent.email || "").toLowerCase();
+    const email = normalizeEmail(parent.email);
     if (email) map[email] = color;
     if (parent.name) map[normalizeName(parent.name)] = color;
     map[index === 0 ? "dad" : "mom"] = color;
