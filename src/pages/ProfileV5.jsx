@@ -77,6 +77,15 @@ const defaultPermissions = {
   groceries: { read: true, write: true },
 };
 
+const roleValues = new Set(roleOptions.map((role) => role.value));
+
+function normalizeMemberRole(role, fallback = "caregiver") {
+  const value = String(role || "").trim().toLowerCase();
+  if (value === "member") return "family";
+  if (roleValues.has(value)) return value;
+  return fallback;
+}
+
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
@@ -106,7 +115,7 @@ function getMembers(profile, user, myEmail) {
     source: "owner",
     name: profile?.parent1_name || profile?.parent1Name || user?.displayName || "Me",
     email: profile?.owner_email || profile?.ownerEmail || myEmail || user?.email || "",
-    role: profile?.parent1_role || profile?.parent1Role || "parent",
+    role: normalizeMemberRole(profile?.parent1_role || profile?.parent1Role, "parent"),
     color: profile?.parent1_color || profile?.parent1Color || "blue",
     admin: true,
     locked: true,
@@ -117,7 +126,7 @@ function getMembers(profile, user, myEmail) {
       source: "parent2",
       name: profile?.parent2_name || profile?.parent2Name || "Co-parent / caregiver",
       email: profile?.parent2_email || profile?.parent2Email || "",
-      role: profile?.parent2_role || profile?.parent2Role || "parent",
+      role: normalizeMemberRole(profile?.parent2_role || profile?.parent2Role, "parent"),
       color: profile?.parent2_color || profile?.parent2Color || "orange",
       admin: false,
       locked: false,
@@ -130,7 +139,7 @@ function getMembers(profile, user, myEmail) {
       index,
       name: member.name || member.displayName || member.email || "Member",
       email: member.email || "",
-      role: member.role || "member",
+      role: normalizeMemberRole(member.role, "family"),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.isAdmin === true || member.is_admin === true,
       permissions: member.permissions || defaultPermissions,
@@ -665,6 +674,33 @@ export default function ProfileV5() {
     }
   };
 
+  function openAddMemberEditor() {
+  setMemberEditor({
+    mode: "add",
+    source: "member",
+    name: "",
+    email: "",
+    role: "caregiver",
+    color: "teal",
+    admin: false,
+  });
+}
+
+function openMemberEditor(member = {}) {
+  setMemberEditor({
+    ...member,
+    mode: "edit",
+    source: member.source || "member",
+    index: member.index,
+    originalEmail: member.email || "",
+    name: member.name || member.displayName || member.email || "",
+    email: member.email || "",
+    role: normalizeMemberRole(member.role, member.source === "owner" ? "parent" : "caregiver"),
+    color: member.color || member.familyColor || member.family_color || "teal",
+    admin: member.admin === true || member.isAdmin === true || member.is_admin === true,
+    locked: member.locked === true,
+  });
+}
   const deleteCustodyGroup = async (group, deleteDays = false) => {
     clearMessages();
     setSaving(true);
@@ -805,7 +841,7 @@ export default function ProfileV5() {
 
         {activeTab === "members" && (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_420px]">
-            <Card className="p-5"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Shield className="h-4 w-4" /> Members & Permissions</h2><Button type="button" onClick={() => setMemberEditor({ mode: "add", source: "member", name: "", email: "", role: "caregiver", color: "teal", admin: false })} className="gap-2 bg-indigo-600 hover:bg-indigo-700"><Plus className="h-4 w-4" /> Add member</Button></div><div className="grid grid-cols-1 gap-3 md:grid-cols-2">{members.map((member, index) => <MemberCard key={`${member.source}-${member.email || member.name}-${index}`} member={member} onEdit={(item) => setMemberEditor({ ...item, mode: "edit", originalEmail: item.email })} onDelete={(item) => setConfirmAction({ title: "Delete member?", description: `Remove ${item.name || item.email || "this member"} from this family space?`, confirmText: "Delete member", tone: "danger", onConfirm: () => deleteMember(item) })} />)}</div></Card>
+            <Card className="p-5"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Shield className="h-4 w-4" /> Members & Permissions</h2><Button type="button" onClick={openAddMemberEditor} className="gap-2 bg-indigo-600 hover:bg-indigo-700"><Plus className="h-4 w-4" /> Add member</Button></div><div className="grid grid-cols-1 gap-3 md:grid-cols-2">{members.map((member, index) => <MemberCard key={`${member.source}-${member.email || member.name}-${index}`} member={member} onEdit={openMemberEditor} onDelete={(item) => setConfirmAction({ title: "Delete member?", description: `Remove ${item.name || item.email || "this member"} from this family space?`, confirmText: "Delete member", tone: "danger", onConfirm: () => deleteMember(item) })} />)}</div></Card>
             <Card className="p-5"><h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500"><Palette className="h-4 w-4" /> Color rules</h2><div className="space-y-3 text-sm font-semibold text-slate-500"><p>Children, parents, and members have colors inside each private family space.</p><p>Custody colors are separate and belong to each custody group.</p><div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-500">Example: Daniel can be blue in Joaquin Custody but green in Daniel & Mary Family.</div></div></Card>
           </div>
         )}
@@ -813,7 +849,7 @@ export default function ProfileV5() {
         {activeTab === "settings" && <Card className="p-5"><h2 className="text-xl font-black text-slate-950">Settings</h2><p className="mt-2 text-sm font-semibold text-slate-500">More settings will live here: default location, timezone, notification preferences, and permissions.</p></Card>}
       </div>
 
-      {memberEditor && <Modal title={memberEditor.mode === "add" ? "Add family member" : "Edit family member"} description="Add grandparents, babysitters, caregivers, or family members. This is for the private family space." onClose={() => setMemberEditor(null)} footer={<div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setMemberEditor(null)}>Cancel</Button><Button type="button" onClick={saveMemberEditor} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">{saving ? "Saving..." : "Save member"}</Button></div>}><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><Label>Name</Label><Input value={memberEditor.name} onChange={(e) => setMemberEditor((current) => ({ ...current, name: e.target.value }))} className="mt-1" /></div><div><Label>Email</Label><Input value={memberEditor.email} onChange={(e) => setMemberEditor((current) => ({ ...current, email: e.target.value }))} disabled={memberEditor.source === "owner"} className="mt-1" /></div><div><Label>Role</Label><select value={memberEditor.role} onChange={(e) => setMemberEditor((current) => ({ ...current, role: e.target.value }))} className="mt-1 w-full rounded-xl border bg-white px-3 py-2">{roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}</select></div><div className="flex items-end"><label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600"><input type="checkbox" checked={memberEditor.admin === true} onChange={(e) => setMemberEditor((current) => ({ ...current, admin: e.target.checked }))} disabled={memberEditor.source === "owner"} />Admin access</label></div><div className="md:col-span-2"><ColorPicker label="Family color" value={memberEditor.color} onChange={(color) => setMemberEditor((current) => ({ ...current, color }))} /></div></div></Modal>}
+      {memberEditor && <Modal title={memberEditor.mode === "add" ? "Add family member" : "Edit family member"} description="Add grandparents, babysitters, caregivers, or family members. This is for the private family space." onClose={() => setMemberEditor(null)} footer={<div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setMemberEditor(null)}>Cancel</Button><Button type="button" onClick={saveMemberEditor} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">{saving ? "Saving..." : "Save member"}</Button></div>}><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><Label>Name</Label><Input value={memberEditor.name || ""} onChange={(e) => setMemberEditor((current) => ({ ...current, name: e.target.value }))} className="mt-1" /></div><div><Label>Email</Label><Input value={memberEditor.email || ""} onChange={(e) => setMemberEditor((current) => ({ ...current, email: e.target.value }))} disabled={memberEditor.source === "owner"} className="mt-1" /></div><div><Label>Role</Label><select value={normalizeMemberRole(memberEditor.role)} onChange={(e) => setMemberEditor((current) => ({ ...current, role: e.target.value }))} className="mt-1 w-full rounded-xl border bg-white px-3 py-2">{roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}</select></div><div className="flex items-end"><label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600"><input type="checkbox" checked={memberEditor.admin === true} onChange={(e) => setMemberEditor((current) => ({ ...current, admin: e.target.checked }))} disabled={memberEditor.source === "owner"} />Admin access</label></div><div className="md:col-span-2"><ColorPicker label="Family color" value={memberEditor.color || "teal"} onChange={(color) => setMemberEditor((current) => ({ ...current, color }))} /></div></div></Modal>}
 
       {custodyEditor && <Modal title="Edit custody group" description="This is separate from the private family colors." onClose={() => setCustodyEditor(null)} footer={<div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setCustodyEditor(null)}>Cancel</Button><Button type="button" onClick={saveCustodyEditor} disabled={saving} className="bg-blue-600 hover:bg-blue-700">{saving ? "Saving..." : "Save custody group"}</Button></div>}><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><div><Label>Group name</Label><Input value={custodyEditor.name} onChange={(e) => setCustodyEditor((current) => ({ ...current, name: e.target.value }))} className="mt-1" /></div><div><Label>Child</Label><Input value={custodyEditor.child} onChange={(e) => setCustodyEditor((current) => ({ ...current, child: e.target.value }))} className="mt-1" /></div><div><Label>My name</Label><Input value={custodyEditor.parentName} onChange={(e) => setCustodyEditor((current) => ({ ...current, parentName: e.target.value }))} className="mt-1" /></div><div><Label>My email</Label><Input value={custodyEditor.parentEmail} onChange={(e) => setCustodyEditor((current) => ({ ...current, parentEmail: e.target.value }))} className="mt-1" /></div><div><ColorPicker label="My custody color" value={custodyEditor.parentColor} onChange={(color) => setCustodyEditor((current) => ({ ...current, parentColor: color }))} /></div><div><ColorPicker label="Co-parent custody color" value={custodyEditor.coparentColor} onChange={(color) => setCustodyEditor((current) => ({ ...current, coparentColor: color }))} /></div><div><Label>Co-parent name</Label><Input value={custodyEditor.coparentName} onChange={(e) => setCustodyEditor((current) => ({ ...current, coparentName: e.target.value }))} className="mt-1" /></div><div><Label>Co-parent email</Label><Input value={custodyEditor.coparentEmail} onChange={(e) => setCustodyEditor((current) => ({ ...current, coparentEmail: e.target.value }))} className="mt-1" /></div></div></Modal>}
 
