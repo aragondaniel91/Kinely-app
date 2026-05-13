@@ -29,6 +29,7 @@ export function childName(child, index = 0) {
 export function normalizeChildPerson(child, index = 0) {
   const id = typeof child === "object" ? child.id || child.childId || child.child_id || `child-${index + 1}` : `child-${index + 1}`;
   const name = childName(child, index);
+  const color = typeof child === "object" ? child.colorId || child.color || child.familyColor || child.family_color || "green" : "green";
 
   return {
     id,
@@ -37,8 +38,10 @@ export function normalizeChildPerson(child, index = 0) {
     name,
     label: name,
     role: "child",
+    relationship: "child",
     type: "child",
-    color: typeof child === "object" ? child.color || child.familyColor || child.family_color || "green" : "green",
+    color,
+    colorId: color,
     source: "children",
     locked: true,
   };
@@ -46,8 +49,9 @@ export function normalizeChildPerson(child, index = 0) {
 
 function resolveDisplayName(person = {}, email = "", fallback = "Family member") {
   return normalizeName(
-    person.name ||
-      person.displayName ||
+    person.displayName ||
+      person.display_name ||
+      person.name ||
       person.fullName ||
       person.memberName ||
       person.label ||
@@ -61,7 +65,16 @@ function resolveRole(role, fallback = "member") {
   const value = String(role || "").trim().toLowerCase();
   if (!value) return fallback;
   if (value === "member") return "family";
+  if (["dad", "mom", "father", "mother"].includes(value)) return "admin";
   return value;
+}
+
+function resolveRelationship(person = {}, fallback = "family_member") {
+  const value = String(person.relationship || person.memberRelationship || person.role || "").trim().toLowerCase();
+  if (value === "dad") return "father";
+  if (value === "mom") return "mother";
+  if (["father", "mother", "co_parent", "grandmother", "grandfather", "babysitter", "caregiver", "child", "family_member"].includes(value)) return value;
+  return fallback;
 }
 
 function makeAdultPerson({
@@ -69,6 +82,7 @@ function makeAdultPerson({
   email,
   name,
   role,
+  relationship,
   color,
   uid = null,
   admin = false,
@@ -77,6 +91,7 @@ function makeAdultPerson({
 }) {
   const normalizedEmail = normalizeEmail(email);
   const displayName = normalizeName(name) || (normalizedEmail ? nameFromEmail(normalizedEmail) : "Family member");
+  const colorId = color || "teal";
 
   return {
     id: normalizedEmail || `${source}:${normalizeNameKey(displayName)}`,
@@ -85,8 +100,10 @@ function makeAdultPerson({
     name: displayName,
     label: displayName,
     role: resolveRole(role),
+    relationship: relationship || "family_member",
     type: "adult",
-    color: color || "teal",
+    color: colorId,
+    colorId,
     source,
     admin: admin === true,
     locked: locked === true,
@@ -94,31 +111,34 @@ function makeAdultPerson({
   };
 }
 
-function personQuality(person = {}) {
-  let score = 0;
-  if (person.email) score += 10;
-  if (person.uid) score += 10;
-  if (person.name && !["me", "owner", "member", "family member"].includes(normalizeNameKey(person.name))) score += 8;
-  if (person.admin) score += 2;
-  if (person.locked) score += 1;
-  if (person.source === "owner" || person.source === "parent1") score += 2;
-  if (person.source === "members") score += 1;
-  return score;
+function canonicalPriority(source = "") {
+  if (source === "owner" || source === "parent1") return 100;
+  if (source === "parent2") return 90;
+  if (source === "members") return 40;
+  if (source === "memberEmails") return 10;
+  return 20;
 }
 
-function shouldReplacePerson(existing, next) {
-  if (!existing) return true;
-  if (existing.email && next.email && existing.email === next.email) {
-    return personQuality(next) >= personQuality(existing);
-  }
+function mergePeople(existing, next) {
+  const existingPriority = canonicalPriority(existing.source);
+  const nextPriority = canonicalPriority(next.source);
+  const base = nextPriority > existingPriority ? next : existing;
+  const extra = base === next ? existing : next;
 
-  const existingName = normalizeNameKey(existing.name);
-  const nextName = normalizeNameKey(next.name);
-  if (existingName && nextName && existingName === nextName) {
-    return personQuality(next) > personQuality(existing);
-  }
-
-  return false;
+  return {
+    ...base,
+    uid: base.uid || extra.uid || null,
+    email: base.email || extra.email || "",
+    name: base.name && !["me", "owner", "member", "family member"].includes(normalizeNameKey(base.name))
+      ? base.name
+      : extra.name || base.name,
+    label: base.label && !["me", "owner", "member", "family member"].includes(normalizeNameKey(base.label))
+      ? base.label
+      : extra.label || base.label,
+    admin: base.admin === true || extra.admin === true,
+    locked: base.locked === true || extra.locked === true,
+    raw: base.raw || extra.raw || null,
+  };
 }
 
 function addDedupedPerson(store, person) {
@@ -135,10 +155,10 @@ function addDedupedPerson(store, person) {
 
   if (existingKey) {
     const existing = store.byKey.get(existingKey);
-    const chosen = shouldReplacePerson(existing, person) ? { ...existing, ...person } : existing;
-    store.byKey.set(existingKey, chosen);
-    if (emailKey) store.byKey.set(emailKey, chosen);
-    if (nameKey) store.byKey.set(nameKey, chosen);
+    const merged = mergePeople(existing, person);
+    store.byKey.set(existingKey, merged);
+    if (emailKey) store.byKey.set(emailKey, merged);
+    if (nameKey) store.byKey.set(nameKey, merged);
     return;
   }
 
@@ -178,12 +198,15 @@ export function getFamilyAdults(profile = {}, currentUser = null, myEmail = "") 
       currentEmail
   );
 
+  const parent1Relationship = profile.parent1Relationship || profile.parent1_relationship || (profile.parent1Role === "mom" || profile.parent1_role === "mom" ? "mother" : "father");
+  const parent2Relationship = profile.parent2Relationship || profile.parent2_relationship || (profile.parent2Role === "dad" || profile.parent2_role === "dad" ? "father" : "mother");
+
   addDedupedPerson(
     store,
     makeAdultPerson({
       source: "owner",
       email: ownerEmail,
-      uid: profile.ownerUid || profile.owner_uid || profile.createdBy || profile.created_by || currentUser?.uid || null,
+      uid: profile.ownerUid || profile.owner_uid || profile.ownerId || profile.owner_id || profile.createdBy || profile.created_by || currentUser?.uid || null,
       name:
         profile.ownerName ||
         profile.owner_name ||
@@ -194,7 +217,8 @@ export function getFamilyAdults(profile = {}, currentUser = null, myEmail = "") 
         currentUser?.displayName ||
         currentUser?.name ||
         (ownerEmail ? nameFromEmail(ownerEmail) : "Owner"),
-      role: profile.parent1Role || profile.parent1_role || "parent",
+      role: profile.parent1AppRole || profile.parent1_app_role || "owner",
+      relationship: parent1Relationship,
       color: profile.parent1Color || profile.parent1_color || "blue",
       admin: true,
       locked: true,
@@ -209,8 +233,9 @@ export function getFamilyAdults(profile = {}, currentUser = null, myEmail = "") 
         source: "parent2",
         email: parent2Email,
         name: profile.parent2Name || profile.parent2_name || (parent2Email ? nameFromEmail(parent2Email) : "Co-parent / caregiver"),
-        role: profile.parent2Role || profile.parent2_role || "parent",
-        color: profile.parent2Color || profile.parent2_color || "orange",
+        role: profile.parent2AppRole || profile.parent2_app_role || "admin",
+        relationship: parent2Relationship,
+        color: profile.parent2Color || profile.parent2_color || "amber",
       })
     );
   }
@@ -224,8 +249,9 @@ export function getFamilyAdults(profile = {}, currentUser = null, myEmail = "") 
         email,
         uid: member.uid || member.userId || member.user_id || null,
         name: resolveDisplayName(member, email, `Member ${index + 1}`),
-        role: member.role || member.memberRole || member.relationship || "family",
-        color: member.color || member.familyColor || member.family_color || "teal",
+        role: member.appRole || member.app_role || member.role || member.memberRole || "viewer",
+        relationship: resolveRelationship(member, "family_member"),
+        color: member.colorId || member.color || member.familyColor || member.family_color || "teal",
         admin: member.isAdmin === true || member.is_admin === true || member.admin === true,
         raw: member,
       })
@@ -247,7 +273,8 @@ export function getFamilyAdults(profile = {}, currentUser = null, myEmail = "") 
         source: "memberEmails",
         email: normalized,
         name: nameFromEmail(normalized),
-        role: "family",
+        role: "viewer",
+        relationship: "family_member",
         color: "teal",
       })
     );
@@ -277,8 +304,10 @@ export function getFamilyPeople(profile = {}, currentUser = null, myEmail = "", 
       name: "Everyone",
       label: "Everyone",
       role: "all",
+      relationship: "group",
       type: "group",
       color: "family",
+      colorId: "family",
       source: "system",
       locked: true,
     });
@@ -296,9 +325,10 @@ export function getFamilyPersonColorMap(profile = {}, currentUser = null, myEmai
   const people = getFamilyPeople(profile, currentUser, myEmail, { includeChildren: true, includeEveryone: true });
 
   people.forEach((person) => {
-    if (person.email) map[person.email] = person.color;
-    if (person.name) map[normalizeNameKey(person.name)] = person.color;
-    if (person.id) map[person.id] = person.color;
+    const color = person.colorId || person.color;
+    if (person.email) map[person.email] = color;
+    if (person.name) map[normalizeNameKey(person.name)] = color;
+    if (person.id) map[person.id] = color;
   });
 
   map.all = "family";
