@@ -84,19 +84,19 @@ function getSelectableFamilyPeople(profile = {}, createdByEmail = "") {
   return Array.from(people.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function PersonPicker({ title, people, selectedEmails, onToggle, emptyText }) {
+function CompactPersonPicker({ title, people, selectedEmails, onToggle, emptyText }) {
   if (!people.length) {
     return (
-      <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-800">
+      <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-800">
         {emptyText}
-      </div>
+      </p>
     );
   }
 
   return (
-    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-      <Label>{title}</Label>
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="mt-2">
+      <p className="mb-1.5 text-[11px] font-black uppercase tracking-wide text-slate-400">{title}</p>
+      <div className="flex flex-wrap gap-1.5">
         {people.map((person) => {
           const active = selectedEmails.includes(person.email);
           return (
@@ -104,23 +104,15 @@ function PersonPicker({ title, people, selectedEmails, onToggle, emptyText }) {
               key={person.email}
               type="button"
               onClick={() => onToggle(person.email)}
-              className={`flex items-center gap-3 rounded-2xl border px-3 py-2 text-left transition ${
+              className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-black transition ${
                 active
-                  ? "border-indigo-300 bg-indigo-50 text-indigo-900"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  ? "border-indigo-300 bg-indigo-600 text-white shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
               }`}
+              title={`${person.name} · ${person.role}`}
             >
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                  active ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white"
-                }`}
-              >
-                {active && <Check className="h-3.5 w-3.5" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black">{person.name}</span>
-                <span className="block truncate text-[11px] font-semibold text-slate-500">{person.role}</span>
-              </span>
+              {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+              <span className="truncate">{person.name}</span>
             </button>
           );
         })}
@@ -292,6 +284,16 @@ export default function VisibilityAudienceSelector({
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
             {visibilityMeta?.description || "Choose who can see this event."}
           </p>
+
+          {visibility === VISIBILITY_TYPES.SELECTED && (
+            <CompactPersonPicker
+              title="Visible to"
+              people={peopleOptions}
+              selectedEmails={selectedVisibleEmails}
+              onToggle={toggleVisiblePerson}
+              emptyText="No family members are available yet."
+            />
+          )}
         </div>
 
         <div>
@@ -311,30 +313,20 @@ export default function VisibilityAudienceSelector({
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
             {notifyMeta?.description || "Choose who receives an alert."}
           </p>
+
+          {notifyTarget === NOTIFY_TARGETS.SELECTED && (
+            <CompactPersonPicker
+              title="Notify"
+              people={peopleOptions}
+              selectedEmails={selectedNotifyEmails}
+              onToggle={toggleNotifyPerson}
+              emptyText="No family members are available yet."
+            />
+          )}
         </div>
       </div>
 
-      {visibility === VISIBILITY_TYPES.SELECTED && (
-        <PersonPicker
-          title="Visible to selected people"
-          people={peopleOptions}
-          selectedEmails={selectedVisibleEmails}
-          onToggle={toggleVisiblePerson}
-          emptyText="No family members are available yet. Add members to this family before selecting specific people."
-        />
-      )}
-
-      {notifyTarget === NOTIFY_TARGETS.SELECTED && (
-        <PersonPicker
-          title="Notify selected people"
-          people={peopleOptions}
-          selectedEmails={selectedNotifyEmails}
-          onToggle={toggleNotifyPerson}
-          emptyText="No family members are available yet. Add members to this family before selecting notification recipients."
-        />
-      )}
-
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+      <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
         {previewPayload.visibleTo.length} visible · {previewPayload.notify.recipients.length} notification recipients
       </div>
     </Card>
