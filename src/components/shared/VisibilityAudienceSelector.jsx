@@ -29,40 +29,97 @@ function cleanName(value, fallback = "Family member") {
   return name || fallback;
 }
 
-function addPerson(map, person = {}) {
-  const email = normalizeEmail(person.email || person.emailAddress || person.memberEmail);
-  if (!email || map.has(email)) return;
-
-  map.set(email, {
-    email,
-    name: cleanName(
-      person.name || person.displayName || person.fullName || person.memberName || person.label || email,
-      email
-    ),
-    role: cleanName(person.role || person.memberRole || person.relationship || "Member", "Member"),
-  });
+function nameFromEmail(email = "") {
+  const localPart = String(email || "").split("@")[0] || "Family member";
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ") || "Family member";
 }
 
-function getSelectableFamilyPeople(profile = {}, createdByEmail = "") {
+function resolvePersonName(person = {}, email = "") {
+  return cleanName(
+    person.name ||
+      person.displayName ||
+      person.fullName ||
+      person.memberName ||
+      person.label ||
+      person.firstName ||
+      person.first_name ||
+      person.username,
+    nameFromEmail(email)
+  );
+}
+
+function addPerson(map, person = {}) {
+  const email = normalizeEmail(person.email || person.emailAddress || person.memberEmail);
+  if (!email) return;
+
+  const nextPerson = {
+    email,
+    name: resolvePersonName(person, email),
+    role: cleanName(person.role || person.memberRole || person.relationship || "Member", "Member"),
+  };
+
+  const existing = map.get(email);
+  if (!existing) {
+    map.set(email, nextPerson);
+    return;
+  }
+
+  const existingLooksGeneric = ["owner", "parent 1", "parent 2", "member", nameFromEmail(email).toLowerCase()].includes(
+    String(existing.name || "").toLowerCase()
+  );
+  const nextLooksBetter = nextPerson.name && nextPerson.name !== nameFromEmail(email);
+
+  if (existingLooksGeneric && nextLooksBetter) {
+    map.set(email, { ...existing, ...nextPerson, role: existing.role || nextPerson.role });
+  }
+}
+
+function findMemberByEmail(members = [], email = "") {
+  const normalized = normalizeEmail(email);
+  return members.find((member) => normalizeEmail(member?.email || member?.emailAddress || member?.memberEmail) === normalized);
+}
+
+function getSelectableFamilyPeople(profile = {}, createdByEmail = "", currentUser = null) {
   const people = new Map();
+  const members = Array.isArray(profile.members) ? profile.members : [];
+  const ownerEmail = profile.ownerEmail || profile.owner_email || profile.createdByEmail || profile.created_by || currentUser?.email || createdByEmail;
+  const ownerMember = findMemberByEmail(members, ownerEmail);
 
   addPerson(people, {
-    email: profile.ownerEmail || profile.owner_email || profile.createdByEmail || profile.created_by || createdByEmail,
-    name: profile.ownerName || profile.owner_name || profile.createdByName || profile.created_by_name || "Owner",
+    email: ownerEmail,
+    name:
+      ownerMember?.name ||
+      ownerMember?.displayName ||
+      profile.ownerName ||
+      profile.owner_name ||
+      profile.createdByName ||
+      profile.created_by_name ||
+      profile.userName ||
+      profile.user_name ||
+      currentUser?.displayName ||
+      currentUser?.name ||
+      nameFromEmail(ownerEmail),
     role: "Owner",
   });
 
   addPerson(people, {
-    email: profile.parent1Email || profile.parent1_email || profile.ownerEmail || profile.owner_email || createdByEmail,
-    name: profile.parent1Name || profile.parent1_name || profile.dadName || profile.dad_name || "Parent 1",
+    email: profile.parent1Email || profile.parent1_email || ownerEmail,
+    name: profile.parent1Name || profile.parent1_name || profile.dadName || profile.dad_name || currentUser?.displayName || nameFromEmail(ownerEmail),
     role: profile.parent1Role || profile.parent1_role || "Parent",
   });
 
   addPerson(people, {
     email: profile.parent2Email || profile.parent2_email,
-    name: profile.parent2Name || profile.parent2_name || profile.momName || profile.mom_name || "Parent 2",
+    name: profile.parent2Name || profile.parent2_name || profile.momName || profile.mom_name,
     role: profile.parent2Role || profile.parent2_role || "Parent",
   });
+
+  members.forEach((member) => addPerson(people, member));
 
   const memberEmails = Array.isArray(profile.memberEmails)
     ? profile.memberEmails
@@ -70,14 +127,14 @@ function getSelectableFamilyPeople(profile = {}, createdByEmail = "") {
     ? profile.member_emails
     : [];
 
-  memberEmails.forEach((email) => addPerson(people, { email, name: email, role: "Member" }));
-
-  const members = Array.isArray(profile.members) ? profile.members : [];
-  members.forEach((member) => addPerson(people, member));
+  memberEmails.forEach((email) => {
+    const member = findMemberByEmail(members, email);
+    addPerson(people, member || { email, name: nameFromEmail(email), role: "Member" });
+  });
 
   addPerson(people, {
-    email: createdByEmail,
-    name: profile.currentUserName || profile.displayName || "You",
+    email: currentUser?.email || createdByEmail,
+    name: currentUser?.displayName || currentUser?.name || profile.currentUserName || profile.displayName || nameFromEmail(currentUser?.email || createdByEmail),
     role: "You",
   });
 
@@ -125,6 +182,7 @@ export default function VisibilityAudienceSelector({
   value,
   onChange,
   createdByEmail = "",
+  currentUser = null,
   familyProfile = null,
   custodyGroup = null,
   coParentEmails = [],
@@ -134,8 +192,8 @@ export default function VisibilityAudienceSelector({
   const isCustodyMode = mode === "custody";
 
   const peopleOptions = useMemo(
-    () => getSelectableFamilyPeople(familyProfile || {}, createdByEmail),
-    [familyProfile, createdByEmail]
+    () => getSelectableFamilyPeople(familyProfile || {}, createdByEmail, currentUser),
+    [familyProfile, createdByEmail, currentUser]
   );
 
   const visibilityOptions = useMemo(
