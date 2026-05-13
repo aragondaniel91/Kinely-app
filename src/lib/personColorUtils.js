@@ -32,6 +32,33 @@ function normalizePersonLabel(value) {
   return normalizeName(value).replace(/\s+/g, " ");
 }
 
+function childAliases(child = {}) {
+  const aliases = new Set();
+  const values = [
+    child.id,
+    child.childId,
+    child.child_id,
+    child.name,
+    child.childName,
+    child.child_name,
+    child.displayName,
+    child.fullName,
+    child.firstName,
+  ].filter(Boolean);
+
+  values.forEach((value) => {
+    const raw = String(value || "").trim();
+    const normalized = normalizeName(raw);
+    if (!raw) return;
+    aliases.add(raw);
+    aliases.add(normalized);
+    aliases.add(`child:${raw}`);
+    aliases.add(`child:${normalized}`);
+  });
+
+  return Array.from(aliases).filter(Boolean);
+}
+
 export function getColorMeta(colorId, fallback = "blue") {
   return getAppColor(colorId, fallback);
 }
@@ -99,11 +126,18 @@ export function childColor(child, index = 0) {
 }
 
 export function normalizeChild(child, index = 0) {
+  const id = typeof child === "object" ? child.id || child.uid || child.childId || child.child_id || `child-${index + 1}` : `child-${index + 1}`;
+  const name = childName(child, index);
+  const color = childColor(child, index);
+
   return {
-    id: typeof child === "object" ? child.id || child.uid || child.childId || child.child_id || `child-${index + 1}` : `child-${index + 1}`,
-    name: childName(child, index),
-    color: childColor(child, index),
-    colorId: childColor(child, index),
+    ...(typeof child === "object" && child !== null ? child : {}),
+    id,
+    childId: typeof child === "object" ? child.childId || child.child_id || id : id,
+    name,
+    childName: typeof child === "object" ? child.childName || child.child_name || name : name,
+    color,
+    colorId: color,
   };
 }
 
@@ -176,11 +210,9 @@ export function familyPersonColorMap(profile = {}, user = null, myEmail = "") {
   });
 
   children.forEach((child) => {
-    const key = `child:${child.name}`;
-    const normalizedKey = `child:${normalizeName(child.name)}`;
-    map[key] = child.color;
-    map[normalizedKey] = child.color;
-    map[child.id] = child.color;
+    childAliases(child).forEach((alias) => {
+      map[alias] = child.color;
+    });
   });
 
   if (myEmail) map[normalizeEmail(myEmail)] = parent1Color;
@@ -228,26 +260,41 @@ export function resolveEventColor(event = {}, profile = {}, fallbackType = "all"
   if (isEveryoneEvent(event)) return map.all;
 
   const possibleKeys = [
-    event.assignedTo,
-    event.assignedToName,
-    event.assignedToEmail,
     event.assignedPersonId,
     event.assignedPersonIds?.[0],
     event.childId,
     event.childName,
+    event.assignedToName,
+    event.assignedTo,
+    event.assignedToEmail,
     event.assignee,
   ].filter(Boolean);
 
   for (const key of possibleKeys) {
-    const direct = map[key];
-    const normalized = map[normalizeName(key)];
-    const child = map[`child:${normalizeName(key)}`];
-    if (direct || normalized || child) return direct || normalized || child;
+    const raw = String(key || "").trim();
+    const normalized = normalizeName(raw);
+    const unprefixed = raw.startsWith("child:") ? raw.replace("child:", "") : raw;
+    const normalizedUnprefixed = normalizeName(unprefixed);
+    const direct = map[raw];
+    const normalizedMatch = map[normalized];
+    const childRaw = map[`child:${raw}`];
+    const childNormalized = map[`child:${normalized}`];
+    const childUnprefixed = map[`child:${unprefixed}`];
+    const childNormalizedUnprefixed = map[`child:${normalizedUnprefixed}`];
+
+    if (direct || normalizedMatch || childRaw || childNormalized || childUnprefixed || childNormalizedUnprefixed) {
+      return direct || normalizedMatch || childRaw || childNormalized || childUnprefixed || childNormalizedUnprefixed;
+    }
   }
 
   if (event.assignedTo === "dad" || event.assignedToType === "dad") return map.dad;
   if (event.assignedTo === "mom" || event.assignedToType === "mom") return map.mom;
-  if (event.assignedToType === "child" || event.childName || event.childId) return DEFAULT_PERSON_COLORS.child;
+
+  if (event.assignedToType === "child" || event.childName || event.childId) {
+    const childFallback = normalizeChildren(profile.children || [])[0]?.color;
+    return childFallback || DEFAULT_PERSON_COLORS.child;
+  }
+
   if (storedColor && isValidAppColor(storedColor)) return storedColor;
 
   return map[fallbackType] || DEFAULT_PERSON_COLORS.all;
