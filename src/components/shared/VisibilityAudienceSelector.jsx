@@ -27,6 +27,17 @@ const NOTIFY_ICONS = {
   [NOTIFY_TARGETS.SELECTED]: Send,
 };
 
+const SHORT_DESCRIPTIONS = {
+  [VISIBILITY_TYPES.PRIVATE]: "Only you.",
+  [VISIBILITY_TYPES.HOUSEHOLD]: "Your household.",
+  [VISIBILITY_TYPES.CUSTODY_SHARED]: "Custody audience.",
+  [VISIBILITY_TYPES.SELECTED]: "Specific people.",
+  [NOTIFY_TARGETS.NO_ONE]: "No alerts.",
+  [NOTIFY_TARGETS.CO_PARENT]: "Co-parent only.",
+  [NOTIFY_TARGETS.ALL_VISIBLE]: "Everyone visible.",
+  [NOTIFY_TARGETS.SELECTED]: "Specific people.",
+};
+
 function parseEmails(value) {
   return normalizeEmailList(String(value || "").split(/[,;\n]+/g));
 }
@@ -37,20 +48,20 @@ function OptionButton({ option, active, onClick, iconMap }) {
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border p-3 text-left transition ${
+      className={`flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
         active
           ? "border-indigo-300 bg-indigo-50 text-indigo-900 shadow-sm"
           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
       }`}
     >
-      <div className="flex items-start gap-3">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500"}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-black">{option.label}</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{option.description}</p>
-        </div>
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black">{option.shortLabel || option.label}</p>
+        <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+          {SHORT_DESCRIPTIONS[option.id] || option.description}
+        </p>
       </div>
     </button>
   );
@@ -124,22 +135,22 @@ export default function VisibilityAudienceSelector({
   }
 
   return (
-    <Card className={`rounded-[2rem] border-slate-200 bg-white p-4 shadow-sm md:p-5 ${className}`}>
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+    <Card className={`rounded-3xl border-slate-200 bg-slate-50/70 p-3 shadow-none md:p-4 ${className}`}>
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">Visibility & Notifications</p>
-          <h3 className="mt-1 text-xl font-black text-slate-950">Who can see this?</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-            Visibility controls access. Notifications are separate and only go to people you choose.
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-500">Visibility</p>
+          <h3 className="mt-1 text-lg font-black text-slate-950">Who can see this?</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+            Choose access first. Notifications are separate.
           </p>
         </div>
-        <div className="flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+        <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-black text-slate-600">
           <Eye className="h-3.5 w-3.5" />
-          {previewPayload.visibleTo.length} visible
+          {previewPayload.visibleTo.length}
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {VISIBILITY_OPTIONS.map((option) => (
           <OptionButton
             key={option.id}
@@ -152,33 +163,32 @@ export default function VisibilityAudienceSelector({
       </div>
 
       {visibility === VISIBILITY_TYPES.SELECTED && (
-        <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50/50 p-4">
-          <Label>Selected people who can see this</Label>
+        <div className="mt-3 rounded-2xl border border-indigo-100 bg-white p-3">
+          <Label>Visible to selected emails</Label>
           <Input
             value={selectedVisibleText}
             onChange={(event) => updateSelectedVisibleText(event.target.value)}
             placeholder="person1@email.com, person2@email.com"
             className="mt-1 bg-white"
           />
-          <p className="mt-1 text-xs font-semibold text-indigo-700">Separate multiple emails with commas.</p>
         </div>
       )}
 
-      <div className="mt-6 border-t border-slate-100 pt-5">
-        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+      <div className="mt-4 border-t border-slate-200 pt-4">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-xl font-black text-slate-950">Who should be notified?</h3>
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              A person can see an item without receiving a notification.
+            <h3 className="text-lg font-black text-slate-950">Who gets notified?</h3>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+              Seeing an event does not always mean getting an alert.
             </p>
           </div>
-          <div className="flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+          <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-black text-slate-600">
             <Mail className="h-3.5 w-3.5" />
-            {previewPayload.notify.recipients.length} recipients
+            {previewPayload.notify.recipients.length}
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {NOTIFY_OPTIONS.map((option) => (
             <OptionButton
               key={option.id}
@@ -191,30 +201,22 @@ export default function VisibilityAudienceSelector({
         </div>
 
         {notifyTarget === NOTIFY_TARGETS.SELECTED && (
-          <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50/50 p-4">
-            <Label>Selected people to notify</Label>
+          <div className="mt-3 rounded-2xl border border-blue-100 bg-white p-3">
+            <Label>Notify selected emails</Label>
             <Input
               value={selectedNotifyText}
               onChange={(event) => updateSelectedNotifyText(event.target.value)}
               placeholder="person1@email.com, person2@email.com"
               className="mt-1 bg-white"
             />
-            <p className="mt-1 text-xs font-semibold text-blue-700">Separate multiple emails with commas.</p>
           </div>
         )}
       </div>
 
-      <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Preview payload</p>
-        <div className="mt-3 grid gap-3 text-xs font-semibold text-slate-600 md:grid-cols-2">
-          <div>
-            <p className="font-black text-slate-950">Visible to</p>
-            <p className="mt-1 break-words">{previewPayload.visibleTo.join(", ") || "No one selected"}</p>
-          </div>
-          <div>
-            <p className="font-black text-slate-950">Notify recipients</p>
-            <p className="mt-1 break-words">{previewPayload.notify.recipients.join(", ") || "No notifications"}</p>
-          </div>
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <span>{previewPayload.visibleTo.length} visible</span>
+          <span>{previewPayload.notify.recipients.length} notification recipients</span>
         </div>
       </div>
     </Card>
