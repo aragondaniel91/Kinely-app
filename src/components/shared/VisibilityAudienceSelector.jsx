@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Bell, Eye, EyeOff, Home, Lock, Mail, Send, Shield, Users } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,8 +28,7 @@ const NOTIFY_ICONS = {
 };
 
 function parseEmails(value) {
-  return normalizeEmailList(String(value || "").split(/[,
-;]/g));
+  return normalizeEmailList(String(value || "").split(/[,;\n]+/g));
 }
 
 function OptionButton({ option, active, onClick, iconMap }) {
