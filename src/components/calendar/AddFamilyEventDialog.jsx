@@ -21,6 +21,8 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
 import { resolveEventColor } from "@/lib/personColorUtils";
+import { buildAudiencePayload, NOTIFY_TARGETS, VISIBILITY_TYPES } from "@/lib/visibilityUtils";
+import VisibilityAudienceSelector from "@/components/shared/VisibilityAudienceSelector";
 
 import {
   Dialog,
@@ -199,6 +201,33 @@ function addOneHour(parts) {
   return timeToParts(`${String(nextHour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
 }
 
+function defaultAudience(editEvent, user, profile) {
+  if (editEvent?.visibility || editEvent?.audience || editEvent?.notify) {
+    return {
+      visibility: editEvent.visibility || editEvent.audience?.type || VISIBILITY_TYPES.HOUSEHOLD,
+      visibleTo: editEvent.visibleTo || editEvent.visible_to || editEvent.audience?.visibleTo || [],
+      audience: editEvent.audience || {
+        type: editEvent.visibility || VISIBILITY_TYPES.HOUSEHOLD,
+        visibleTo: editEvent.visibleTo || editEvent.visible_to || [],
+        selectedVisibleEmails: editEvent.audience?.selectedVisibleEmails || [],
+      },
+      notify: editEvent.notify || {
+        enabled: false,
+        target: NOTIFY_TARGETS.NO_ONE,
+        recipients: [],
+        selectedRecipients: [],
+      },
+    };
+  }
+
+  return buildAudiencePayload({
+    visibility: VISIBILITY_TYPES.HOUSEHOLD,
+    notifyTarget: NOTIFY_TARGETS.NO_ONE,
+    createdByEmail: user?.email || "",
+    familyProfile: profile || {},
+  });
+}
+
 function TabletTimePicker({ label, value, onChange }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
@@ -349,6 +378,7 @@ export default function AddFamilyEventDialog({
   const [category, setCategory] = useState(editEvent?.category || "family");
   const [assignedTo, setAssignedTo] = useState(getInitialAssignedTo(editEvent));
   const [location, setLocation] = useState(editEvent?.location || "");
+  const [audiencePayload, setAudiencePayload] = useState(() => defaultAudience(editEvent, user, profile));
   const [saving, setSaving] = useState(false);
 
   const isEditing = Boolean(editEvent?.id);
@@ -426,6 +456,8 @@ export default function AddFamilyEventDialog({
         family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
         module: "family",
+
+        ...audiencePayload,
 
         updatedAt: serverTimestamp(),
       };
@@ -581,6 +613,13 @@ export default function AddFamilyEventDialog({
               </SelectContent>
             </Select>
           </div>
+
+          <VisibilityAudienceSelector
+            value={audiencePayload}
+            onChange={setAudiencePayload}
+            createdByEmail={user?.email || ""}
+            familyProfile={profile || {}}
+          />
 
           <div>
             <Label>Location</Label>
