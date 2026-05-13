@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Baby,
   Bell,
   CalendarHeart,
   Home,
@@ -19,10 +20,13 @@ import ProfileFamiliesSection from "@/components/profile/ProfileFamiliesSection"
 import ProfileMembersSection from "@/components/profile/ProfileMembersSection";
 import ProfileCustodySection from "@/components/profile/ProfileCustodySection";
 import ProfileSettingsSection from "@/components/profile/ProfileSettingsSection";
+import ChildProfiles from "@/pages/ChildProfiles";
+import NotificationPreferences from "@/pages/NotificationPreferences";
 
 const tabs = [
   { id: "overview", label: "Overview", icon: Home },
   { id: "families", label: "Families", icon: Users },
+  { id: "children", label: "Children", icon: Baby },
   { id: "members", label: "Members", icon: Shield },
   { id: "custody", label: "Custody", icon: CalendarHeart },
   { id: "notifications", label: "Notifications", icon: Bell },
@@ -51,18 +55,6 @@ function TabButton({ tab, active, onClick }) {
   );
 }
 
-function NotificationPlaceholder() {
-  return (
-    <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Profile / Notifications</p>
-      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Notification preferences</h2>
-      <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-        This section will connect to the existing Notification Preferences module after the profile cleanup is stable.
-      </p>
-    </div>
-  );
-}
-
 export default function ProfileModular() {
   const { logout } = useAuth();
   const { profile, familyId, isOwner, isAdmin } = useFamily();
@@ -85,7 +77,7 @@ export default function ProfileModular() {
             <div>
               <h1 className="text-3xl font-black tracking-tight text-slate-950">{familyNameOf(profile)}</h1>
               <p className="text-sm font-semibold text-slate-500">
-                Modular family profile: overview, family spaces, members, custody, and settings.
+                Modular family profile: overview, family spaces, children, members, custody, notifications, and settings.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {isOwner && <Badge variant="secondary" className="gap-1"><Shield className="h-3 w-3" /> Owner</Badge>}
@@ -108,9 +100,10 @@ export default function ProfileModular() {
 
         {activeTab === "overview" && <ProfileOverview />}
         {activeTab === "families" && <ProfileFamiliesSection />}
+        {activeTab === "children" && <ChildProfiles />}
         {activeTab === "members" && <ProfileMembersSection />}
         {activeTab === "custody" && <ProfileCustodySection />}
-        {activeTab === "notifications" && <NotificationPlaceholder />}
+        {activeTab === "notifications" && <NotificationPreferences />}
         {activeTab === "settings" && <ProfileSettingsSection />}
       </div>
     </div>
