@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { Eye, Mail } from "lucide-react";
+import { Check, Eye, Mail } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -17,15 +16,117 @@ import {
   VISIBILITY_OPTIONS,
   VISIBILITY_TYPES,
   buildAudiencePayload,
+  normalizeEmail,
   normalizeEmailList,
 } from "@/lib/visibilityUtils";
 
-function parseEmails(value) {
-  return normalizeEmailList(String(value || "").split(/[,;\n]+/g));
-}
-
 function optionById(options, id) {
   return options.find((option) => option.id === id);
+}
+
+function cleanName(value, fallback = "Family member") {
+  const name = String(value || "").trim();
+  return name || fallback;
+}
+
+function addPerson(map, person = {}) {
+  const email = normalizeEmail(person.email || person.emailAddress || person.memberEmail);
+  if (!email || map.has(email)) return;
+
+  map.set(email, {
+    email,
+    name: cleanName(
+      person.name || person.displayName || person.fullName || person.memberName || person.label || email,
+      email
+    ),
+    role: cleanName(person.role || person.memberRole || person.relationship || "Member", "Member"),
+  });
+}
+
+function getSelectableFamilyPeople(profile = {}, createdByEmail = "") {
+  const people = new Map();
+
+  addPerson(people, {
+    email: profile.ownerEmail || profile.owner_email || profile.createdByEmail || profile.created_by || createdByEmail,
+    name: profile.ownerName || profile.owner_name || profile.createdByName || profile.created_by_name || "Owner",
+    role: "Owner",
+  });
+
+  addPerson(people, {
+    email: profile.parent1Email || profile.parent1_email || profile.ownerEmail || profile.owner_email || createdByEmail,
+    name: profile.parent1Name || profile.parent1_name || profile.dadName || profile.dad_name || "Parent 1",
+    role: profile.parent1Role || profile.parent1_role || "Parent",
+  });
+
+  addPerson(people, {
+    email: profile.parent2Email || profile.parent2_email,
+    name: profile.parent2Name || profile.parent2_name || profile.momName || profile.mom_name || "Parent 2",
+    role: profile.parent2Role || profile.parent2_role || "Parent",
+  });
+
+  const memberEmails = Array.isArray(profile.memberEmails)
+    ? profile.memberEmails
+    : Array.isArray(profile.member_emails)
+    ? profile.member_emails
+    : [];
+
+  memberEmails.forEach((email) => addPerson(people, { email, name: email, role: "Member" }));
+
+  const members = Array.isArray(profile.members) ? profile.members : [];
+  members.forEach((member) => addPerson(people, member));
+
+  addPerson(people, {
+    email: createdByEmail,
+    name: profile.currentUserName || profile.displayName || "You",
+    role: "You",
+  });
+
+  return Array.from(people.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function PersonPicker({ title, people, selectedEmails, onToggle, emptyText }) {
+  if (!people.length) {
+    return (
+      <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-800">
+        {emptyText}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+      <Label>{title}</Label>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {people.map((person) => {
+          const active = selectedEmails.includes(person.email);
+          return (
+            <button
+              key={person.email}
+              type="button"
+              onClick={() => onToggle(person.email)}
+              className={`flex items-center gap-3 rounded-2xl border px-3 py-2 text-left transition ${
+                active
+                  ? "border-indigo-300 bg-indigo-50 text-indigo-900"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                  active ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white"
+                }`}
+              >
+                {active && <Check className="h-3.5 w-3.5" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-black">{person.name}</span>
+                <span className="block truncate text-[11px] font-semibold text-slate-500">{person.role}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function VisibilityAudienceSelector({
@@ -39,6 +140,11 @@ export default function VisibilityAudienceSelector({
   mode = "family",
 }) {
   const isCustodyMode = mode === "custody";
+
+  const peopleOptions = useMemo(
+    () => getSelectableFamilyPeople(familyProfile || {}, createdByEmail),
+    [familyProfile, createdByEmail]
+  );
 
   const visibilityOptions = useMemo(
     () =>
@@ -67,15 +173,12 @@ export default function VisibilityAudienceSelector({
     ? initialNotifyTarget
     : NOTIFY_TARGETS.NO_ONE;
 
-  const [selectedVisibleText, setSelectedVisibleText] = useState(
-    (value?.audience?.selectedVisibleEmails || value?.selectedVisibleEmails || []).join(", ")
+  const [selectedVisibleEmails, setSelectedVisibleEmails] = useState(() =>
+    normalizeEmailList(value?.audience?.selectedVisibleEmails || value?.selectedVisibleEmails || [])
   );
-  const [selectedNotifyText, setSelectedNotifyText] = useState(
-    (value?.notify?.selectedRecipients || value?.selectedNotifyEmails || []).join(", ")
+  const [selectedNotifyEmails, setSelectedNotifyEmails] = useState(() =>
+    normalizeEmailList(value?.notify?.selectedRecipients || value?.selectedNotifyEmails || [])
   );
-
-  const selectedVisibleEmails = useMemo(() => parseEmails(selectedVisibleText), [selectedVisibleText]);
-  const selectedNotifyEmails = useMemo(() => parseEmails(selectedNotifyText), [selectedNotifyText]);
 
   const previewPayload = useMemo(
     () =>
@@ -95,6 +198,11 @@ export default function VisibilityAudienceSelector({
   const visibilityMeta = optionById(visibilityOptions, visibility);
   const notifyMeta = optionById(notifyOptions, notifyTarget);
 
+  function peopleForEmails(emails = []) {
+    const emailSet = new Set(normalizeEmailList(emails));
+    return peopleOptions.filter((person) => emailSet.has(person.email));
+  }
+
   function emit(next = {}) {
     const nextVisibility = next.visibility ?? visibility;
     const nextNotifyTarget = next.notifyTarget ?? notifyTarget;
@@ -112,17 +220,36 @@ export default function VisibilityAudienceSelector({
       coParentEmails,
     });
 
+    payload.audience = {
+      ...payload.audience,
+      selectedPeople: peopleForEmails(nextSelectedVisibleEmails),
+    };
+    payload.notify = {
+      ...payload.notify,
+      selectedPeople: peopleForEmails(nextSelectedNotifyEmails),
+    };
+
     onChange?.(payload);
   }
 
-  function updateSelectedVisibleText(text) {
-    setSelectedVisibleText(text);
-    emit({ selectedVisibleEmails: parseEmails(text) });
+  function toggleVisiblePerson(email) {
+    const normalized = normalizeEmail(email);
+    const next = selectedVisibleEmails.includes(normalized)
+      ? selectedVisibleEmails.filter((item) => item !== normalized)
+      : [...selectedVisibleEmails, normalized];
+
+    setSelectedVisibleEmails(next);
+    emit({ selectedVisibleEmails: next });
   }
 
-  function updateSelectedNotifyText(text) {
-    setSelectedNotifyText(text);
-    emit({ selectedNotifyEmails: parseEmails(text) });
+  function toggleNotifyPerson(email) {
+    const normalized = normalizeEmail(email);
+    const next = selectedNotifyEmails.includes(normalized)
+      ? selectedNotifyEmails.filter((item) => item !== normalized)
+      : [...selectedNotifyEmails, normalized];
+
+    setSelectedNotifyEmails(next);
+    emit({ selectedNotifyEmails: next });
   }
 
   return (
@@ -188,27 +315,23 @@ export default function VisibilityAudienceSelector({
       </div>
 
       {visibility === VISIBILITY_TYPES.SELECTED && (
-        <div className="mt-3 rounded-2xl border border-indigo-100 bg-white p-3">
-          <Label>Visible to selected emails</Label>
-          <Input
-            value={selectedVisibleText}
-            onChange={(event) => updateSelectedVisibleText(event.target.value)}
-            placeholder="person1@email.com, person2@email.com"
-            className="mt-1 bg-white"
-          />
-        </div>
+        <PersonPicker
+          title="Visible to selected people"
+          people={peopleOptions}
+          selectedEmails={selectedVisibleEmails}
+          onToggle={toggleVisiblePerson}
+          emptyText="No family members are available yet. Add members to this family before selecting specific people."
+        />
       )}
 
       {notifyTarget === NOTIFY_TARGETS.SELECTED && (
-        <div className="mt-3 rounded-2xl border border-blue-100 bg-white p-3">
-          <Label>Notify selected emails</Label>
-          <Input
-            value={selectedNotifyText}
-            onChange={(event) => updateSelectedNotifyText(event.target.value)}
-            placeholder="person1@email.com, person2@email.com"
-            className="mt-1 bg-white"
-          />
-        </div>
+        <PersonPicker
+          title="Notify selected people"
+          people={peopleOptions}
+          selectedEmails={selectedNotifyEmails}
+          onToggle={toggleNotifyPerson}
+          emptyText="No family members are available yet. Add members to this family before selecting notification recipients."
+        />
       )}
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
