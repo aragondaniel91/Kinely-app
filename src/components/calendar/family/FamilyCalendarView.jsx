@@ -12,7 +12,7 @@ import {
   startOfWeek,
   subMonths,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -130,68 +130,83 @@ export default function FamilyCalendarView({ viewMode = "month", setViewMode }) 
   }
 
   return (
-    <div className="min-h-full bg-[#f8fbff] p-4 md:p-6">
-      <div className="mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">{familyName(profile)}</p>
-              <h1 className="mt-1 text-4xl font-black tracking-tight text-slate-950">Family Calendar</h1>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
-                {visibleEvents.length} event{visibleEvents.length === 1 ? "" : "s"} · {format(anchorDate, "MMMM yyyy")}
+    <div className="min-h-full bg-[#f7faff] px-3 pb-6 md:px-6">
+      <div className="mx-auto max-w-[1440px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-white px-5 py-4 md:px-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-blue-500">
+                {familyName(profile)}
               </p>
+              <div className="mt-1 flex flex-wrap items-end gap-3">
+                <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+                  Family Calendar
+                </h1>
+                <span className="mb-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+                  {visibleEvents.length} event{visibleEvents.length === 1 ? "" : "s"} · {format(anchorDate, "MMMM yyyy")}
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={goPrevious} className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50">
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button type="button" onClick={() => setAnchorDate(new Date())} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-50">
-                Today
-              </button>
-              <button type="button" onClick={goNext} className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50">
-                <ChevronRight className="h-5 w-5" />
-              </button>
-              {["day", "week", "month"].map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setViewMode?.(mode)}
-                  className={cn(
-                    "rounded-xl px-4 py-2 text-sm font-black capitalize transition",
-                    viewMode === mode ? "bg-blue-600 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  )}
-                >
-                  {mode}
+              <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <button type="button" onClick={goPrevious} className="rounded-xl p-2 text-slate-600 hover:bg-white hover:shadow-sm">
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
-              ))}
-              <button type="button" onClick={() => setAddDate(new Date(anchorDate))} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-blue-700">
+                <button type="button" onClick={() => setAnchorDate(new Date())} className="rounded-xl px-4 py-2 text-sm font-black text-slate-700 hover:bg-white hover:shadow-sm">
+                  Today
+                </button>
+                <button type="button" onClick={goNext} className="rounded-xl p-2 text-slate-600 hover:bg-white hover:shadow-sm">
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                {["day", "week", "month"].map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode?.(mode)}
+                    className={cn(
+                      "rounded-xl px-4 py-2 text-sm font-black capitalize transition",
+                      viewMode === mode ? "bg-blue-600 text-white shadow-sm" : "text-slate-500 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+                    )}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+
+              <button type="button" onClick={() => setAddDate(new Date(anchorDate))} className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 active:scale-95">
                 <Plus className="mr-1 inline h-4 w-4" /> Add Event
               </button>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <FamilyCalendarLegend people={people} selectedPersonId={selectedPersonId} onSelectPerson={setSelectedPersonId} />
 
-            <select
-              value={selectedCategory}
-              onChange={(event) => setSelectedCategory(event.target.value)}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-600"
-            >
-              {categoryOptions.map((category) => (
-                <option key={category.value} value={category.value}>{category.label}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+              <CalendarDays className="ml-2 h-4 w-4 text-slate-400" />
+              <select
+                value={selectedCategory}
+                onChange={(event) => setSelectedCategory(event.target.value)}
+                className="h-10 rounded-xl border-0 bg-transparent px-2 text-sm font-black text-slate-600 outline-none"
+              >
+                {categoryOptions.map((category) => (
+                  <option key={category.value} value={category.value}>{category.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex min-h-[420px] items-center justify-center text-sm font-black text-slate-400">Loading family events...</div>
+          <div className="flex min-h-[520px] items-center justify-center text-sm font-black text-slate-400">Loading family events...</div>
         ) : (
-          <div className="p-4">
+          <div className="bg-[#fbfdff] p-3 md:p-4">
             {viewMode !== "day" && (
-              <div className="mb-2 grid grid-cols-7 gap-2">
+              <div className="mb-2 grid grid-cols-7 gap-2 px-1">
                 {dayLabels.map((label) => (
                   <div key={label} className="text-center text-xs font-black uppercase tracking-wide text-slate-400">{label}</div>
                 ))}
@@ -202,14 +217,18 @@ export default function FamilyCalendarView({ viewMode = "month", setViewMode }) 
               {daysToRender.map((day) => {
                 const key = dateKey(day);
                 const dayEvents = eventsByDay.get(key) || [];
+                const outsideMonth = viewMode === "month" && !isSameMonth(day, anchorDate);
+                const today = isToday(day);
+
                 return (
                   <div
                     key={key}
                     className={cn(
-                      "min-h-[145px] rounded-2xl border border-slate-200 bg-white p-2 transition hover:border-blue-200 hover:bg-blue-50/20",
-                      isToday(day) && "ring-2 ring-blue-300",
-                      viewMode === "month" && !isSameMonth(day, anchorDate) && "opacity-45",
-                      viewMode === "day" && "min-h-[560px]"
+                      "group min-h-[148px] rounded-2xl border bg-white p-2 transition hover:border-blue-200 hover:shadow-sm",
+                      today ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-200",
+                      outsideMonth && "bg-slate-50/70 opacity-60",
+                      viewMode === "week" && "min-h-[560px]",
+                      viewMode === "day" && "min-h-[620px]"
                     )}
                   >
                     <button
@@ -217,16 +236,16 @@ export default function FamilyCalendarView({ viewMode = "month", setViewMode }) 
                       onClick={() => setAddDate(day)}
                       className="mb-2 flex w-full items-center justify-between rounded-xl px-2 py-1 text-left hover:bg-slate-50"
                     >
-                      <span className="text-sm font-black text-slate-900">{format(day, viewMode === "day" ? "EEEE, MMM d" : "d")}</span>
-                      <Plus className="h-4 w-4 text-slate-300" />
+                      <span className={cn("text-sm font-black", today ? "text-blue-700" : "text-slate-900")}>{format(day, viewMode === "day" ? "EEEE, MMM d" : "d")}</span>
+                      <Plus className="h-4 w-4 text-slate-300 opacity-0 transition group-hover:opacity-100" />
                     </button>
 
-                    <div className="space-y-2">
-                      {dayEvents.slice(0, viewMode === "month" ? 4 : 12).map((event) => (
+                    <div className="space-y-1.5">
+                      {dayEvents.slice(0, viewMode === "month" ? 4 : 16).map((event) => (
                         <FamilyEventCard key={event.id} event={event} people={people} compact={viewMode === "month"} />
                       ))}
-                      {dayEvents.length > (viewMode === "month" ? 4 : 12) && (
-                        <p className="rounded-xl bg-slate-50 px-2 py-1 text-xs font-black text-slate-400">+{dayEvents.length - (viewMode === "month" ? 4 : 12)} more</p>
+                      {dayEvents.length > (viewMode === "month" ? 4 : 16) && (
+                        <p className="rounded-xl bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">+{dayEvents.length - (viewMode === "month" ? 4 : 16)} more</p>
                       )}
                     </div>
                   </div>
