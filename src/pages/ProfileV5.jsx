@@ -152,8 +152,8 @@ function getMembers(profile, user, myEmail) {
 
 function Modal({ title, description, children, footer, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-[2rem] border border-slate-200 bg-white shadow-2xl">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
+      <div className="relative z-[10000] w-full max-w-2xl rounded-[2rem] border border-slate-200 bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-950">{title}</h2>
