@@ -20,9 +20,15 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
-import { resolveEventColor } from "@/lib/personColorUtils";
 import { buildAudiencePayload, NOTIFY_TARGETS, VISIBILITY_TYPES } from "@/lib/visibilityUtils";
 import VisibilityAudienceSelector from "@/components/shared/VisibilityAudienceSelector";
+import {
+  EVENT_COLOR_MODES,
+  buildFamilyEventPayload,
+  getEventAssignedPerson,
+  resolveEventColorId,
+} from "@/core/events/eventCore";
+import { PERSON_TYPES } from "@/core/people/peopleCore";
 
 import {
   Dialog,
@@ -59,6 +65,7 @@ const hourOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 const minuteOptions = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
 const meridiemOptions = ["AM", "PM"];
 const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const FAMILY_ASSIGNMENT_ID = "family";
 
 let googleMapsPlacesPromise = null;
 
@@ -89,83 +96,14 @@ function loadGoogleMapsPlaces() {
   return googleMapsPlacesPromise;
 }
 
-function getChildName(child) {
-  if (!child) return "";
-  if (typeof child === "string") return child;
-  return (
-    child.name ||
-    child.displayName ||
-    child.fullName ||
-    child.firstName ||
-    child.childName ||
-    ""
-  );
-}
+function initialAssignedPersonId(editEvent, people = []) {
+  const corePersonId = editEvent?.assignedPersonIds?.[0] || editEvent?.assigned_person_ids?.[0] || editEvent?.assignedPersonId || editEvent?.assigned_person_id;
+  if (corePersonId && people.some((person) => person.id === corePersonId)) return corePersonId;
 
-function getInitialAssignedTo(editEvent) {
-  if (!editEvent) return "all";
+  const snapshotId = editEvent?.assignedPersonSnapshot?.id || editEvent?.assigned_person_snapshot?.id;
+  if (snapshotId && people.some((person) => person.id === snapshotId)) return snapshotId;
 
-  if (editEvent.assignedTo) return editEvent.assignedTo;
-
-  if (editEvent.assignedToType === "dad") return "dad";
-  if (editEvent.assignedToType === "mom") return "mom";
-
-  if (editEvent.assignedToType === "child" && editEvent.assignedToName) {
-    return `child:${editEvent.assignedToName}`;
-  }
-
-  if (editEvent.childName) return `child:${editEvent.childName}`;
-
-  return "all";
-}
-
-function parseAssignedTo(value, dadName, momName) {
-  if (value === "dad") {
-    return {
-      assignedTo: "dad",
-      assignedToType: "dad",
-      assignedToName: dadName || "Papá",
-      childName: "",
-      childId: "",
-    };
-  }
-
-  if (value === "mom") {
-    return {
-      assignedTo: "mom",
-      assignedToType: "mom",
-      assignedToName: momName || "Mamá",
-      childName: "",
-      childId: "",
-    };
-  }
-
-  if (value.startsWith("child:")) {
-    const child = value.replace("child:", "");
-
-    return {
-      assignedTo: value,
-      assignedToType: "child",
-      assignedToName: child,
-      childName: child,
-      childId: child,
-    };
-  }
-
-  return {
-    assignedTo: "all",
-    assignedToType: "all",
-    assignedToName: "",
-    childName: "",
-    childId: "",
-  };
-}
-
-function getEventColorSource(assignment) {
-  if (assignment.assignedToType === "dad") return "parent1";
-  if (assignment.assignedToType === "mom") return "parent2";
-  if (assignment.assignedToType === "child") return "child";
-  return "family";
+  return FAMILY_ASSIGNMENT_ID;
 }
 
 function timeToParts(value, fallback = "09:00") {
@@ -243,9 +181,7 @@ function TabletTimePicker({ label, value, onChange }) {
           </SelectTrigger>
           <SelectContent className="z-[230] max-h-72">
             {hourOptions.map((hour) => (
-              <SelectItem key={hour} value={hour}>
-                {hour}
-              </SelectItem>
+              <SelectItem key={hour} value={hour}>{hour}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -256,9 +192,7 @@ function TabletTimePicker({ label, value, onChange }) {
           </SelectTrigger>
           <SelectContent className="z-[230] max-h-72">
             {minuteOptions.map((minute) => (
-              <SelectItem key={minute} value={minute}>
-                {minute}
-              </SelectItem>
+              <SelectItem key={minute} value={minute}>{minute}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -271,9 +205,7 @@ function TabletTimePicker({ label, value, onChange }) {
               onClick={() => onChange({ ...value, meridiem: option })}
               className={cn(
                 "text-sm font-black transition",
-                value.meridiem === option
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-500 hover:bg-slate-50"
+                value.meridiem === option ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-50"
               )}
             >
               {option}
@@ -346,40 +278,38 @@ function AddressAutocompleteInput({ value, onChange }) {
   );
 }
 
-export default function AddFamilyEventDialog({
-  date,
-  onClose,
-  onSuccess,
-  editEvent = null,
-}) {
-  const { user, familyId, profile, children, dadName, momName } = useFamily();
+function personEmoji(person) {
+  if (person.type === PERSON_TYPES.CHILD) return "👶";
+  if (person.relationship === "mother") return "👩";
+  if (person.relationship === "father") return "👨";
+  if (person.relationship === "babysitter" || person.relationship === "caregiver") return "🧑‍🍼";
+  return "👤";
+}
 
-  const initialStartParts = useMemo(
-    () => timeToParts(editEvent?.startTime, "09:00"),
-    [editEvent?.startTime]
-  );
-  const initialEndParts = useMemo(
-    () => timeToParts(editEvent?.endTime, "10:00"),
-    [editEvent?.endTime]
-  );
+export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEvent = null }) {
+  const { user, familyId, profile, familyPeople } = useFamily();
+  const people = familyPeople || [];
+
+  const initialStartParts = useMemo(() => timeToParts(editEvent?.startTime, "09:00"), [editEvent?.startTime]);
+  const initialEndParts = useMemo(() => timeToParts(editEvent?.endTime, "10:00"), [editEvent?.endTime]);
 
   const [title, setTitle] = useState(editEvent?.title || "");
-  const [description, setDescription] = useState(
-    editEvent?.description || editEvent?.notes || ""
-  );
-  const [eventDate, setEventDate] = useState(
-    editEvent?.date || format(date || new Date(), "yyyy-MM-dd")
-  );
-  const [isAllDay, setIsAllDay] = useState(
-    Boolean(editEvent?.isAllDay) || (!editEvent?.startTime && !editEvent?.endTime)
-  );
+  const [description, setDescription] = useState(editEvent?.description || editEvent?.notes || "");
+  const [eventDate, setEventDate] = useState(editEvent?.date || format(date || new Date(), "yyyy-MM-dd"));
+  const [isAllDay, setIsAllDay] = useState(Boolean(editEvent?.isAllDay) || (!editEvent?.startTime && !editEvent?.endTime));
   const [startParts, setStartParts] = useState(initialStartParts);
   const [endParts, setEndParts] = useState(initialEndParts);
   const [category, setCategory] = useState(editEvent?.category || "family");
-  const [assignedTo, setAssignedTo] = useState(getInitialAssignedTo(editEvent));
+  const [assignedPersonId, setAssignedPersonId] = useState(() => initialAssignedPersonId(editEvent, people));
   const [location, setLocation] = useState(editEvent?.location || "");
   const [audiencePayload, setAudiencePayload] = useState(() => defaultAudience(editEvent, user, profile));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (assignedPersonId !== FAMILY_ASSIGNMENT_ID && !people.some((person) => person.id === assignedPersonId)) {
+      setAssignedPersonId(FAMILY_ASSIGNMENT_ID);
+    }
+  }, [assignedPersonId, people]);
 
   const isEditing = Boolean(editEvent?.id);
   const startTime = partsToTime(startParts);
@@ -399,12 +329,9 @@ export default function AddFamilyEventDialog({
 
   const handleStartChange = (nextStart) => {
     setStartParts(nextStart);
-
     const nextStartTime = partsToTime(nextStart);
     const currentEndTime = partsToTime(endParts);
-    if (currentEndTime <= nextStartTime) {
-      setEndParts(addOneHour(nextStart));
-    }
+    if (currentEndTime <= nextStartTime) setEndParts(addOneHour(nextStart));
   };
 
   const handleSave = async () => {
@@ -423,42 +350,61 @@ export default function AddFamilyEventDialog({
     setSaving(true);
 
     try {
-      const assignment = parseAssignedTo(assignedTo, dadName, momName);
-      const eventColor = resolveEventColor(assignment, profile || {});
-      const eventColorSource = getEventColorSource(assignment);
+      const assignedPersonIds = assignedPersonId === FAMILY_ASSIGNMENT_ID ? [] : [assignedPersonId];
+      const corePayload = buildFamilyEventPayload(
+        {
+          title: title.trim(),
+          description: description.trim(),
+          notes: description.trim(),
+          date: eventDate,
+          isAllDay,
+          startTime: isAllDay ? "" : startTime,
+          endTime: isAllDay ? "" : endTime,
+          category,
+          location: location.trim(),
+          assignedPersonIds,
+          colorMode: assignedPersonIds.length ? EVENT_COLOR_MODES.PERSON : EVENT_COLOR_MODES.FAMILY,
+          visibility: audiencePayload?.visibilityCore || undefined,
+          notifications: audiencePayload?.notificationsCore || undefined,
+        },
+        {
+          familyId,
+          people,
+          createdByUid: user?.uid || null,
+          createdByEmail: user?.email || null,
+        }
+      );
+
+      const assignedPerson = getEventAssignedPerson(corePayload, people);
+      const resolvedColorId = resolveEventColorId(corePayload, people, "family");
 
       const payload = {
-        title: title.trim(),
-        description: description.trim(),
-        notes: description.trim(),
-
-        date: eventDate,
-        isAllDay,
-        startTime: isAllDay ? "" : startTime,
-        endTime: isAllDay ? "" : endTime,
-
-        category,
-        location: location.trim(),
-
-        assignedTo: assignment.assignedTo,
-        assignedToType: assignment.assignedToType,
-        assignedToName: assignment.assignedToName,
-
-        childName: assignment.childName,
-        childId: assignment.childId,
-
-        eventColor,
-        event_color: eventColor,
-        eventColorSource,
-        event_color_source: eventColorSource,
-
-        familyId,
-        family_id: familyId,
+        ...corePayload,
+        colorId: resolvedColorId,
+        color_id: resolvedColorId,
         familyName: profile?.family_name || profile?.familyName || "",
-        module: "family",
-
+        family_name: profile?.family_name || profile?.familyName || "",
         ...audiencePayload,
-
+        assignedPersonSnapshot: assignedPerson
+          ? {
+              id: assignedPerson.id,
+              displayName: assignedPerson.displayName,
+              type: assignedPerson.type,
+              role: assignedPerson.role,
+              relationship: assignedPerson.relationship,
+              colorId: assignedPerson.colorId,
+            }
+          : null,
+        assigned_person_snapshot: assignedPerson
+          ? {
+              id: assignedPerson.id,
+              displayName: assignedPerson.displayName,
+              type: assignedPerson.type,
+              role: assignedPerson.role,
+              relationship: assignedPerson.relationship,
+              colorId: assignedPerson.colorId,
+            }
+          : null,
         updatedAt: serverTimestamp(),
       };
 
@@ -513,26 +459,16 @@ export default function AddFamilyEventDialog({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>Date</Label>
-              <Input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className="mt-1 h-11 text-base"
-              />
+              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1 h-11 text-base" />
             </div>
 
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1 h-11">
-                  <SelectValue />
-                </SelectTrigger>
-
+                <SelectTrigger className="mt-1 h-11"><SelectValue /></SelectTrigger>
                 <SelectContent className="z-[220]">
                   {categories.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.emoji} {cat.label}
-                    </SelectItem>
+                    <SelectItem key={cat.value} value={cat.value}>{cat.emoji} {cat.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -544,72 +480,39 @@ export default function AddFamilyEventDialog({
             onClick={toggleAllDay}
             className={cn(
               "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
-              isAllDay
-                ? "border-blue-200 bg-blue-50 text-blue-700"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              isAllDay ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             )}
           >
             <span>
               <span className="block text-sm font-black">All-day event</span>
-              <span className="block text-xs font-semibold text-muted-foreground">
-                Use this when the event does not need a specific time.
-              </span>
+              <span className="block text-xs font-semibold text-muted-foreground">Use this when the event does not need a specific time.</span>
             </span>
-
-            <span
-              className={cn(
-                "relative h-8 w-14 shrink-0 rounded-full transition",
-                isAllDay ? "bg-blue-600" : "bg-slate-300"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition",
-                  isAllDay ? "left-7 text-blue-600" : "left-1 text-slate-400"
-                )}
-              >
-                {isAllDay && <Check className="h-3.5 w-3.5" />}
-              </span>
+            <span className={cn("relative h-8 w-14 shrink-0 rounded-full transition", isAllDay ? "bg-blue-600" : "bg-slate-300")}>
+              <span className={cn("absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition", isAllDay ? "left-7 text-blue-600" : "left-1 text-slate-400")}>{isAllDay && <Check className="h-3.5 w-3.5" />}</span>
             </span>
           </button>
 
           {!isAllDay && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <TabletTimePicker
-                label="Start time"
-                value={startParts}
-                onChange={handleStartChange}
-              />
-
-              <TabletTimePicker
-                label="End time"
-                value={endParts}
-                onChange={setEndParts}
-              />
+              <TabletTimePicker label="Start time" value={startParts} onChange={handleStartChange} />
+              <TabletTimePicker label="End time" value={endParts} onChange={setEndParts} />
             </div>
           )}
 
           <div>
             <Label>Assign To</Label>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
+            <Select value={assignedPersonId} onValueChange={setAssignedPersonId}>
               <SelectTrigger className="mt-1 h-11">
                 <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
-
               <SelectContent className="z-[220]">
-                <SelectItem value="all">👨‍👩‍👧‍👦 Family / General</SelectItem>
-                <SelectItem value="dad">👨 {dadName || "Papá"}</SelectItem>
-                <SelectItem value="mom">👩 {momName || "Mamá"}</SelectItem>
-
-                {(children || []).map((child, index) => {
-                  const childName = getChildName(child) || `Child ${index + 1}`;
-                  return (
-                    <SelectItem key={childName} value={`child:${childName}`}>
-                      👶 {childName}
-                    </SelectItem>
-                  );
-                })}
+                <SelectItem value={FAMILY_ASSIGNMENT_ID}>👨‍👩‍👧‍👦 Family / General</SelectItem>
+                {people.map((person) => (
+                  <SelectItem key={person.id} value={person.id}>
+                    {personEmoji(person)} {person.displayName}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -618,6 +521,7 @@ export default function AddFamilyEventDialog({
             value={audiencePayload}
             onChange={setAudiencePayload}
             createdByEmail={user?.email || ""}
+            currentUser={user}
             familyProfile={profile || {}}
           />
 
@@ -629,11 +533,8 @@ export default function AddFamilyEventDialog({
           <div>
             <div className="mb-1 flex items-center justify-between gap-3">
               <Label>Description / Notes</Label>
-              <span className="text-xs font-semibold text-slate-400">
-                {description.length}/500
-              </span>
+              <span className="text-xs font-semibold text-slate-400">{description.length}/500</span>
             </div>
-
             <div className="relative mt-1">
               <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
               <textarea
@@ -643,21 +544,13 @@ export default function AddFamilyEventDialog({
                 className="min-h-[108px] w-full resize-none rounded-xl border border-input bg-background px-3 py-3 pl-9 text-base leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
-
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              These notes will show in the event details panel.
-            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-400">These notes will show in the event details panel.</p>
           </div>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-
-          <Button onClick={handleSave} disabled={!title.trim() || saving}>
-            {saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}
-          </Button>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!title.trim() || saving}>{saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
