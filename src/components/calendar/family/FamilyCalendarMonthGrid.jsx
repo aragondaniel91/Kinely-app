@@ -4,16 +4,20 @@ import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FamilyEventCard from "@/components/calendar/family/FamilyEventCard";
 
+const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
 export default function FamilyCalendarMonthGrid({ monthDays = [], anchorDate, eventsByDay, people = [], onAddDate }) {
   return (
-    <div className="border-t border-slate-100 bg-white">
-      <div className="grid grid-cols-7 border-b border-slate-100 text-center text-[11px] font-black uppercase tracking-wide text-slate-400">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-          <div key={day} className="py-3">{day}</div>
+    <div className="rounded-b-[2rem] border-t border-slate-100 bg-white p-3 md:p-4">
+      <div className="grid grid-cols-7 gap-2 pb-2">
+        {weekdayLabels.map((day) => (
+          <div key={day} className="text-center text-xs font-extrabold uppercase tracking-wide text-slate-500">
+            {day}
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 bg-slate-100/70">
+      <div className="grid grid-cols-7 gap-2">
         {monthDays.map((day) => {
           const key = format(day, "yyyy-MM-dd");
           const dayEvents = eventsByDay.get(key) || [];
@@ -21,21 +25,41 @@ export default function FamilyCalendarMonthGrid({ monthDays = [], anchorDate, ev
           const today = isToday(day);
 
           return (
-            <div key={key} className="min-h-[128px] border-b border-r border-slate-100 bg-white p-2 last:border-r-0">
-              <button type="button" onClick={() => onAddDate?.(day)} className="mb-2 flex w-full items-center justify-between">
-                <span className={cn("text-xs font-black", today ? "rounded-full bg-blue-600 px-2 py-1 text-white" : outsideMonth ? "text-slate-300" : "text-slate-800")}>{format(day, "d")}</span>
-                <Plus className="h-3.5 w-3.5 text-slate-300" />
-              </button>
+            <button
+              key={key}
+              type="button"
+              onClick={() => onAddDate?.(day)}
+              className={cn(
+                "group min-h-[128px] rounded-2xl border border-slate-200 bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-sm",
+                today && "ring-2 ring-blue-400",
+                outsideMonth && "opacity-45"
+              )}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full text-sm font-extrabold",
+                    today ? "bg-blue-600 text-white" : "text-slate-800"
+                  )}
+                >
+                  {format(day, "d")}
+                </span>
+                <Plus className="h-4 w-4 text-slate-300 opacity-70 transition group-hover:text-blue-400 group-hover:opacity-100" />
+              </div>
 
               <div className="space-y-1">
-                {dayEvents.slice(0, 4).map((event) => (
-                  <FamilyEventCard key={event.id} event={event} people={people} variant="pill" />
+                {dayEvents.slice(0, 3).map((event) => (
+                  <div key={event.id} onClick={(e) => e.stopPropagation()}>
+                    <FamilyEventCard event={event} people={people} variant="pill" />
+                  </div>
                 ))}
-                {dayEvents.length > 4 && (
-                  <p className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-500">+{dayEvents.length - 4} more</p>
+                {dayEvents.length > 3 && (
+                  <p className="w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-2 py-1 text-left text-[10px] font-black text-slate-500">
+                    +{dayEvents.length - 3} more
+                  </p>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
