@@ -96,6 +96,10 @@ function loadGoogleMapsPlaces() {
   return googleMapsPlacesPromise;
 }
 
+function familyEventDocumentId(event = {}) {
+  return event.firestoreId || event.firestore_id || event.docId || event.doc_id || event.documentId || event.document_id || event.id || "";
+}
+
 function initialAssignedPersonId(editEvent, people = []) {
   const corePersonId = editEvent?.assignedPersonIds?.[0] || editEvent?.assigned_person_ids?.[0] || editEvent?.assignedPersonId || editEvent?.assigned_person_id;
   if (corePersonId && people.some((person) => person.id === corePersonId)) return corePersonId;
@@ -311,7 +315,8 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
     }
   }, [assignedPersonId, people]);
 
-  const isEditing = Boolean(editEvent?.id);
+  const documentId = familyEventDocumentId(editEvent || {});
+  const isEditing = Boolean(documentId);
   const startTime = partsToTime(startParts);
   const endTime = partsToTime(endParts);
 
@@ -380,6 +385,9 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
 
       const payload = {
         ...corePayload,
+        id: documentId || corePayload.id,
+        firestoreId: documentId || corePayload.id,
+        firestore_id: documentId || corePayload.id,
         colorId: resolvedColorId,
         color_id: resolvedColorId,
         familyName: profile?.family_name || profile?.familyName || "",
@@ -409,7 +417,7 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
       };
 
       if (isEditing) {
-        await updateDoc(doc(db, "familyEvents", editEvent.id), payload);
+        await updateDoc(doc(db, "familyEvents", documentId), payload);
       } else {
         await addDoc(collection(db, "familyEvents"), {
           ...payload,
