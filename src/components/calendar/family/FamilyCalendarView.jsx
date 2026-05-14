@@ -24,12 +24,22 @@ import FamilyEventDetailsPopover, { buildEventPanelState } from "@/components/ca
 import FamilyEventOverflowPopover, { buildOverflowPanelState } from "@/components/calendar/family/FamilyEventOverflowPopover";
 import { FAMILY_CALENDAR_CATEGORIES } from "@/components/calendar/family/familyCalendarUi";
 
+const ALL_ASSIGNMENT_ID = "all";
 const FAMILY_ASSIGNMENT_ID = "family";
 const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
 
+function eventAssignedPersonIds(event = {}) {
+  return event.assignedPersonIds || event.assigned_person_ids || [];
+}
+
+function isFamilyAssignedEvent(event = {}) {
+  return eventAssignedPersonIds(event).length === 0;
+}
+
 function eventMatchesPerson(event, selectedPersonId) {
-  if (!selectedPersonId || selectedPersonId === FAMILY_ASSIGNMENT_ID) return true;
-  return (event.assignedPersonIds || event.assigned_person_ids || []).includes(selectedPersonId);
+  if (!selectedPersonId || selectedPersonId === ALL_ASSIGNMENT_ID) return true;
+  if (selectedPersonId === FAMILY_ASSIGNMENT_ID) return isFamilyAssignedEvent(event);
+  return eventAssignedPersonIds(event).includes(selectedPersonId);
 }
 
 function eventMatchesCategory(event, selectedCategory) {
@@ -56,7 +66,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [editEvent, setEditEvent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOverflow, setSelectedOverflow] = useState(null);
-  const [selectedPersonId, setSelectedPersonId] = useState(FAMILY_ASSIGNMENT_ID);
+  const [selectedPersonId, setSelectedPersonId] = useState(ALL_ASSIGNMENT_ID);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [now, setNow] = useState(() => new Date());
 
