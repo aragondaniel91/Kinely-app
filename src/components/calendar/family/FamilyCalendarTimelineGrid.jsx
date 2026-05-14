@@ -5,32 +5,11 @@ import { cn } from "@/lib/utils";
 import FamilyEventCard from "@/components/calendar/family/FamilyEventCard";
 import {
   FAMILY_CALENDAR_ALL_DAY_HEIGHT,
-  FAMILY_CALENDAR_DAY_START_MINUTES,
   FAMILY_CALENDAR_HOUR_HEIGHT,
   FAMILY_CALENDAR_HOURS,
-  FAMILY_CALENDAR_MIN_EVENT_HEIGHT,
   hourLabel,
-  parseEventMinutes,
 } from "@/components/calendar/family/familyCalendarUi";
-
-function eventHeight(event = {}) {
-  if (event.isAllDay || event.is_all_day) return 24;
-  const start = parseEventMinutes(event.startTime || event.start_time);
-  const rawEnd = parseEventMinutes(event.endTime || event.end_time);
-  if (start === null) return FAMILY_CALENDAR_MIN_EVENT_HEIGHT;
-  const end = rawEnd && rawEnd > start ? rawEnd : start + 45;
-  return Math.max(
-    FAMILY_CALENDAR_MIN_EVENT_HEIGHT,
-    ((end - start) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT - 8
-  );
-}
-
-function eventTop(event = {}) {
-  if (event.isAllDay || event.is_all_day) return 0;
-  const start = parseEventMinutes(event.startTime || event.start_time);
-  if (start === null) return 0;
-  return Math.max(0, ((start - FAMILY_CALENDAR_DAY_START_MINUTES) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 4);
-}
+import { buildTimelineLayout } from "@/components/calendar/family/familyCalendarLayout";
 
 function columnClass(viewMode) {
   return viewMode === "day"
@@ -94,6 +73,7 @@ export default function FamilyCalendarTimelineGrid({ viewMode = "week", timeline
               const dayEvents = eventsByDay.get(key) || [];
               const allDayEvents = dayEvents.filter((event) => event.isAllDay || event.is_all_day || !event.startTime);
               const timedEvents = dayEvents.filter((event) => !(event.isAllDay || event.is_all_day) && event.startTime);
+              const layoutMap = buildTimelineLayout(timedEvents);
 
               return (
                 <div
@@ -135,20 +115,16 @@ export default function FamilyCalendarTimelineGrid({ viewMode = "week", timeline
                     <div key={hour} className="border-b border-slate-100" style={{ height: FAMILY_CALENDAR_HOUR_HEIGHT }} />
                   ))}
 
-                  {timedEvents.map((event, index) => {
-                    const lane = index % 3;
+                  {timedEvents.map((event) => {
+                    const layout = layoutMap.get(event.id);
+                    if (!layout) return null;
+
                     return (
                       <div
                         key={event.id}
                         className="absolute"
                         onClick={(e) => e.stopPropagation()}
-                        style={{
-                          top: FAMILY_CALENDAR_ALL_DAY_HEIGHT + eventTop(event),
-                          height: eventHeight(event),
-                          left: 8 + lane * 10,
-                          right: 8,
-                          zIndex: 30 + lane,
-                        }}
+                        style={layout}
                       >
                         <FamilyEventCard event={event} people={people} variant="timeline" />
                       </div>
