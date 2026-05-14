@@ -10,6 +10,8 @@ import FamilyCalendarWeatherWidget from "@/components/calendar/family/FamilyCale
 import FamilyCalendarFamilySelector from "@/components/calendar/family/FamilyCalendarFamilySelector";
 import { ALL_ASSIGNMENT_ID, FAMILY_ASSIGNMENT_ID } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
 
+const FAMILY_FILTER_COLOR_CLASS = "bg-gradient-to-r from-blue-500 via-emerald-500 to-orange-500";
+
 export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
   if (viewMode === "day") return format(anchorDate, "MMM d, yyyy");
   if (viewMode === "week") return `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
@@ -18,8 +20,8 @@ export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
 
 function buildPersonFilterOptions(people = []) {
   return [
-    { value: ALL_ASSIGNMENT_ID, label: "All", colorClass: "bg-gradient-to-r from-blue-500 via-emerald-500 to-orange-500" },
-    { value: FAMILY_ASSIGNMENT_ID, label: "Family", colorClass: "bg-slate-400" },
+    { value: ALL_ASSIGNMENT_ID, label: "All", colorClass: FAMILY_FILTER_COLOR_CLASS },
+    { value: FAMILY_ASSIGNMENT_ID, label: "Family", colorClass: FAMILY_FILTER_COLOR_CLASS },
     ...people.map((person) => ({
       value: person.id,
       label: person.displayName,
