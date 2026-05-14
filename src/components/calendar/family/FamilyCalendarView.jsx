@@ -14,7 +14,7 @@ import { collection, deleteDoc, doc, getDocs, query, where } from "firebase/fire
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { adaptFamilyEvents } from "@/core/events/familyEventAdapter";
+import { adaptFamilyEvents, getFamilyEventFirestoreId } from "@/core/events/familyEventAdapter";
 import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
@@ -45,6 +45,18 @@ function buildEventsByDay(events = []) {
   return map;
 }
 
+function firestoreEventFromSnapshot(docSnap) {
+  const data = docSnap.data() || {};
+  return {
+    ...data,
+    id: docSnap.id,
+    firestoreId: docSnap.id,
+    firestore_id: docSnap.id,
+    legacyEventId: data.id || data.eventId || data.event_id || "",
+    legacy_event_id: data.id || data.eventId || data.event_id || "",
+  };
+}
+
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { familyId, profile, familyPeople } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
@@ -72,7 +84,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     try {
       const q = query(collection(db, "familyEvents"), where("familyId", "==", familyId));
       const snap = await getDocs(q);
-      const rawEvents = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+      const rawEvents = snap.docs.map(firestoreEventFromSnapshot);
       setEvents(adaptFamilyEvents(rawEvents, people));
     } catch (error) {
       console.error("Error loading family events", error);
@@ -132,13 +144,14 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     setAddDate(event?.date ? new Date(`${event.date}T00:00:00`) : new Date(anchorDate));
   }
 
-  async function handleDeleteEvent(eventId) {
-    if (!eventId) return;
+  async function handleDeleteEvent(eventOrId) {
+    const documentId = typeof eventOrId === "string" ? eventOrId : getFamilyEventFirestoreId(eventOrId || {});
+    if (!documentId) return;
     const confirmed = window.confirm("Delete this event?");
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, "familyEvents", eventId));
+      await deleteDoc(doc(db, "familyEvents", documentId));
       setSelectedEvent(null);
       await loadEvents();
     } catch (error) {
