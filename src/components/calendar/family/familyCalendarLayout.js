@@ -1,14 +1,19 @@
 import {
   FAMILY_CALENDAR_ALL_DAY_HEIGHT,
-  FAMILY_CALENDAR_DAY_START_MINUTES,
+  FAMILY_CALENDAR_DEFAULT_START_HOUR,
   FAMILY_CALENDAR_HOUR_HEIGHT,
   FAMILY_CALENDAR_MIN_EVENT_HEIGHT,
+  buildTimelineHourRange,
   parseEventMinutes,
 } from "@/components/calendar/family/familyCalendarUi";
 
 export const TIMELINE_MAX_VISIBLE_COLUMNS = 3;
 
-export function getEventTimelinePosition(event = {}) {
+function defaultTimelineRange() {
+  return buildTimelineHourRange([]);
+}
+
+export function getEventTimelinePosition(event = {}, timelineRange = defaultTimelineRange()) {
   if (event.isAllDay || event.is_all_day) return null;
 
   const start = parseEventMinutes(event.startTime || event.start_time);
@@ -16,8 +21,9 @@ export function getEventTimelinePosition(event = {}) {
 
   if (start === null) return null;
 
+  const rangeStartMinutes = timelineRange?.startMinutes ?? FAMILY_CALENDAR_DEFAULT_START_HOUR * 60;
   const end = rawEnd && rawEnd > start ? rawEnd : start + 45;
-  const top = FAMILY_CALENDAR_ALL_DAY_HEIGHT + ((start - FAMILY_CALENDAR_DAY_START_MINUTES) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 4;
+  const top = FAMILY_CALENDAR_ALL_DAY_HEIGHT + ((start - rangeStartMinutes) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 4;
   const height = Math.max(FAMILY_CALENDAR_MIN_EVENT_HEIGHT, ((end - start) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT - 8);
 
   return {
@@ -68,12 +74,13 @@ function groupItemsByStartHour(items = []) {
   );
 }
 
-function buildOverflowBadge(hiddenItems = []) {
+function buildOverflowBadge(hiddenItems = [], timelineRange = defaultTimelineRange()) {
   if (!hiddenItems.length) return null;
 
   const firstHidden = hiddenItems[0];
+  const rangeStartMinutes = timelineRange?.startMinutes ?? FAMILY_CALENDAR_DEFAULT_START_HOUR * 60;
   const overflowHourStart = firstHidden.overflowHourStart ?? eventHourStartMinutes(firstHidden.start);
-  const startTop = FAMILY_CALENDAR_ALL_DAY_HEIGHT + ((overflowHourStart - FAMILY_CALENDAR_DAY_START_MINUTES) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 8;
+  const startTop = FAMILY_CALENDAR_ALL_DAY_HEIGHT + ((overflowHourStart - rangeStartMinutes) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 8;
 
   return {
     id: `overflow-hour-${overflowHourStart}-${firstHidden.event.id || firstHidden.originalIndex}`,
@@ -90,9 +97,10 @@ function buildOverflowBadge(hiddenItems = []) {
 
 export function buildTimelineLayout(events = [], options = {}) {
   const maxVisibleColumns = options.maxVisibleColumns || TIMELINE_MAX_VISIBLE_COLUMNS;
+  const timelineRange = options.timelineRange || buildTimelineHourRange(events);
   const items = events
     .map((event, originalIndex) => {
-      const position = getEventTimelinePosition(event);
+      const position = getEventTimelinePosition(event, timelineRange);
       if (!position) return null;
       return { event, originalIndex, ...position };
     })
@@ -137,7 +145,7 @@ export function buildTimelineLayout(events = [], options = {}) {
     });
 
     groupItemsByStartHour(hiddenItems).forEach((hiddenHourGroup) => {
-      const badge = buildOverflowBadge(hiddenHourGroup);
+      const badge = buildOverflowBadge(hiddenHourGroup, timelineRange);
       if (badge) overflowBadges.push(badge);
     });
   });
@@ -145,5 +153,6 @@ export function buildTimelineLayout(events = [], options = {}) {
   return {
     layoutMap,
     overflowBadges,
+    timelineRange,
   };
 }
