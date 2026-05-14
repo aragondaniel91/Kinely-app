@@ -21,6 +21,7 @@ import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCale
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
 import FamilyCalendarTimelineGrid from "@/components/calendar/family/FamilyCalendarTimelineGrid";
 import FamilyEventDetailsPopover, { buildEventPanelState } from "@/components/calendar/family/FamilyEventDetailsPopover";
+import FamilyEventOverflowPopover, { buildOverflowPanelState } from "@/components/calendar/family/FamilyEventOverflowPopover";
 import { FAMILY_CALENDAR_CATEGORIES } from "@/components/calendar/family/familyCalendarUi";
 
 const FAMILY_ASSIGNMENT_ID = "family";
@@ -54,6 +55,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [addDate, setAddDate] = useState(null);
   const [editEvent, setEditEvent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedOverflow, setSelectedOverflow] = useState(null);
   const [selectedPersonId, setSelectedPersonId] = useState(FAMILY_ASSIGNMENT_ID);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [now, setNow] = useState(() => new Date());
@@ -124,11 +126,18 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   }
 
   function handleEventSelect(event, anchorRect) {
+    setSelectedOverflow(null);
     setSelectedEvent(buildEventPanelState(event, anchorRect));
+  }
+
+  function handleOverflowSelect(badge, anchorRect) {
+    setSelectedEvent(null);
+    setSelectedOverflow(buildOverflowPanelState(badge, anchorRect));
   }
 
   function handleEditEvent(event) {
     setSelectedEvent(null);
+    setSelectedOverflow(null);
     setEditEvent(event);
     setAddDate(event?.date ? new Date(`${event.date}T00:00:00`) : new Date(anchorDate));
   }
@@ -142,6 +151,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     try {
       await deleteDoc(doc(db, "familyEvents", documentId));
       setSelectedEvent(null);
+      setSelectedOverflow(null);
       await loadEvents();
     } catch (error) {
       console.error("Error deleting family event", error);
@@ -205,6 +215,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
               people={people}
               onAddDate={setAddDate}
               onEventSelect={handleEventSelect}
+              onOverflowSelect={handleOverflowSelect}
             />
           )}
         </div>
@@ -218,6 +229,13 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
       >
         <Plus className="h-8 w-8" />
       </button>
+
+      <FamilyEventOverflowPopover
+        selected={selectedOverflow}
+        people={people}
+        onClose={() => setSelectedOverflow(null)}
+        onSelectEvent={handleEventSelect}
+      />
 
       <FamilyEventDetailsPopover
         selected={selectedEvent}
