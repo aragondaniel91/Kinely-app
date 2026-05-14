@@ -6,7 +6,7 @@ import FamilyEventCard from "@/components/calendar/family/FamilyEventCard";
 import {
   FAMILY_CALENDAR_ALL_DAY_HEIGHT,
   FAMILY_CALENDAR_HOUR_HEIGHT,
-  FAMILY_CALENDAR_HOURS,
+  buildTimelineHourRange,
   hourLabel,
 } from "@/components/calendar/family/familyCalendarUi";
 import { buildTimelineLayout } from "@/components/calendar/family/familyCalendarLayout";
@@ -21,6 +21,12 @@ function minWidthClass(viewMode) {
   return viewMode === "day" ? "min-w-[760px]" : "min-w-[980px]";
 }
 
+function splitDayEvents(dayEvents = []) {
+  const allDayEvents = dayEvents.filter((event) => event.isAllDay || event.is_all_day || !event.startTime);
+  const timedEvents = dayEvents.filter((event) => !(event.isAllDay || event.is_all_day) && event.startTime);
+  return { allDayEvents, timedEvents };
+}
+
 export default function FamilyCalendarTimelineGrid({
   viewMode = "week",
   timelineDays = [],
@@ -30,6 +36,15 @@ export default function FamilyCalendarTimelineGrid({
   onEventSelect,
   onOverflowSelect,
 }) {
+  const allTimedEvents = timelineDays.flatMap((day) => {
+    const key = format(day, "yyyy-MM-dd");
+    const dayEvents = eventsByDay.get(key) || [];
+    return splitDayEvents(dayEvents).timedEvents;
+  });
+  const timelineRange = buildTimelineHourRange(allTimedEvents);
+  const timelineHours = timelineRange.hours;
+  const timelineHeight = FAMILY_CALENDAR_ALL_DAY_HEIGHT + timelineHours.length * FAMILY_CALENDAR_HOUR_HEIGHT;
+
   return (
     <div className="relative overflow-x-auto rounded-b-[2rem] bg-white">
       <div className={cn(viewMode === "day" && "flex justify-center")}>
@@ -55,7 +70,7 @@ export default function FamilyCalendarTimelineGrid({
 
           <div
             className={cn("grid", columnClass(viewMode))}
-            style={{ height: FAMILY_CALENDAR_ALL_DAY_HEIGHT + FAMILY_CALENDAR_HOURS.length * FAMILY_CALENDAR_HOUR_HEIGHT }}
+            style={{ height: timelineHeight }}
           >
             <div className="relative border-r border-slate-200 bg-white">
               <div
@@ -64,7 +79,7 @@ export default function FamilyCalendarTimelineGrid({
               >
                 All-day
               </div>
-              {FAMILY_CALENDAR_HOURS.map((hour) => (
+              {timelineHours.map((hour) => (
                 <div
                   key={hour}
                   className="border-b border-slate-100 pr-2 pt-2 text-right text-sm font-semibold text-slate-500"
@@ -79,9 +94,8 @@ export default function FamilyCalendarTimelineGrid({
               const key = format(day, "yyyy-MM-dd");
               const today = isToday(day);
               const dayEvents = eventsByDay.get(key) || [];
-              const allDayEvents = dayEvents.filter((event) => event.isAllDay || event.is_all_day || !event.startTime);
-              const timedEvents = dayEvents.filter((event) => !(event.isAllDay || event.is_all_day) && event.startTime);
-              const { layoutMap, overflowBadges } = buildTimelineLayout(timedEvents);
+              const { allDayEvents, timedEvents } = splitDayEvents(dayEvents);
+              const { layoutMap, overflowBadges } = buildTimelineLayout(timedEvents, { timelineRange });
 
               return (
                 <div
@@ -124,7 +138,7 @@ export default function FamilyCalendarTimelineGrid({
                     <Plus className="h-3.5 w-3.5" />
                   </button>
 
-                  {FAMILY_CALENDAR_HOURS.map((hour) => (
+                  {timelineHours.map((hour) => (
                     <div key={hour} className="border-b border-slate-100" style={{ height: FAMILY_CALENDAR_HOUR_HEIGHT }} />
                   ))}
 
