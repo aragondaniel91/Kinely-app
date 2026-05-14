@@ -21,7 +21,14 @@ function minWidthClass(viewMode) {
   return viewMode === "day" ? "min-w-[760px]" : "min-w-[980px]";
 }
 
-export default function FamilyCalendarTimelineGrid({ viewMode = "week", timelineDays = [], eventsByDay, people = [], onAddDate }) {
+export default function FamilyCalendarTimelineGrid({
+  viewMode = "week",
+  timelineDays = [],
+  eventsByDay,
+  people = [],
+  onAddDate,
+  onEventSelect,
+}) {
   return (
     <div className="relative overflow-x-auto rounded-b-[2rem] bg-white">
       <div className={cn(viewMode === "day" && "flex justify-center")}>
@@ -90,7 +97,12 @@ export default function FamilyCalendarTimelineGrid({ viewMode = "week", timeline
                   >
                     {allDayEvents.slice(0, 2).map((event) => (
                       <div key={event.id} onClick={(e) => e.stopPropagation()}>
-                        <FamilyEventCard event={event} people={people} variant="pill" />
+                        <FamilyEventCard
+                          event={event}
+                          people={people}
+                          variant="pill"
+                          onClick={(selectedEvent, anchorRect) => onEventSelect?.(selectedEvent, anchorRect)}
+                        />
                       </div>
                     ))}
                     {allDayEvents.length > 2 && (
@@ -126,7 +138,12 @@ export default function FamilyCalendarTimelineGrid({ viewMode = "week", timeline
                         onClick={(e) => e.stopPropagation()}
                         style={layout}
                       >
-                        <FamilyEventCard event={event} people={people} variant="timeline" />
+                        <FamilyEventCard
+                          event={event}
+                          people={people}
+                          variant="timeline"
+                          onClick={(selectedEvent, anchorRect) => onEventSelect?.(selectedEvent, anchorRect)}
+                        />
                       </div>
                     );
                   })}
