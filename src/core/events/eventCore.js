@@ -35,10 +35,17 @@ export function normalizeAssignedPersonIds(value = []) {
   return [];
 }
 
+function resolveDefaultColorMode(raw = {}, assignedPersonIds = []) {
+  if (raw.colorMode || raw.color_mode) return raw.colorMode || raw.color_mode;
+  if (raw.colorId || raw.color_id || raw.eventColor || raw.event_color || raw.color) return EVENT_COLOR_MODES.MANUAL;
+  if (!assignedPersonIds.length) return EVENT_COLOR_MODES.FAMILY;
+  return EVENT_COLOR_MODES.PERSON;
+}
+
 export function normalizeEvent(raw = {}, context = {}) {
   const scope = raw.scope || raw.module || context.scope || EVENT_SCOPES.FAMILY;
   const assignedPersonIds = normalizeAssignedPersonIds(raw.assignedPersonIds || raw.assigned_person_ids || raw.assignedPersonId || raw.assigned_person_id);
-  const colorMode = raw.colorMode || raw.color_mode || (raw.colorId || raw.color_id ? EVENT_COLOR_MODES.MANUAL : EVENT_COLOR_MODES.PERSON);
+  const colorMode = resolveDefaultColorMode(raw, assignedPersonIds);
   const colorId = raw.colorId || raw.color_id || raw.eventColor || raw.event_color || raw.color || "";
 
   return {
@@ -93,7 +100,7 @@ export function resolveEventColorId(event = {}, people = [], fallback = "family"
     return normalizeColorId(normalized.colorId, fallback);
   }
 
-  if (normalized.colorMode === EVENT_COLOR_MODES.FAMILY) {
+  if (normalized.colorMode === EVENT_COLOR_MODES.FAMILY || !normalized.assignedPersonIds.length) {
     return "family";
   }
 
@@ -137,7 +144,7 @@ export function buildEventAssignmentPayload(personId = "", people = []) {
 export function buildFamilyEventPayload(input = {}, context = {}) {
   const people = context.people || [];
   const assignment = buildEventAssignmentPayload(input.assignedPersonId || input.assignedPersonIds?.[0] || "", people);
-  const colorMode = input.colorMode || EVENT_COLOR_MODES.PERSON;
+  const colorMode = input.colorMode || (assignment.assignedPersonIds.length ? EVENT_COLOR_MODES.PERSON : EVENT_COLOR_MODES.FAMILY);
   const event = normalizeEvent(
     {
       ...input,
