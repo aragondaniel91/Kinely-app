@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CloudSun, MapPin, RefreshCcw, Tag, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCcw, Tag, UserRound } from "lucide-react";
 import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { colorClasses } from "@/lib/personColorUtils";
 import FamilyCalendarLegend from "@/components/calendar/family/FamilyCalendarLegend";
 import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalendarMonthPicker";
 import FamilyCalendarFilterDropdown from "@/components/calendar/family/FamilyCalendarFilterDropdown";
+import FamilyCalendarWeatherWidget from "@/components/calendar/family/FamilyCalendarWeatherWidget";
 
 const FAMILY_ASSIGNMENT_ID = "family";
 
@@ -131,9 +132,8 @@ export default function FamilyCalendarPlannerHeader({
           <div className="text-right">
             <p className="text-2xl font-black leading-none text-slate-950">{format(now, "h:mm a")}</p>
             <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">{format(now, "EEE, MMM d")}</p>
-            <div className="mt-3 flex items-center justify-end gap-4 text-xs font-bold text-slate-500">
-              <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-pink-500" /> Allow Location</span>
-              <span className="inline-flex items-center gap-1"><CloudSun className="h-4 w-4" /> --°</span>
+            <div className="mt-3">
+              <FamilyCalendarWeatherWidget />
             </div>
             <button type="button" onClick={onSync} className="mt-5 inline-flex items-center gap-1.5 text-xs font-black text-slate-500 hover:text-blue-600">
               <RefreshCcw className="h-3.5 w-3.5" /> Sync calendar
