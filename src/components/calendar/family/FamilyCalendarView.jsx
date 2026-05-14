@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { addDays, addMonths, subMonths } from "date-fns";
 import { Plus } from "lucide-react";
-import { collection, deleteDoc, doc, getDocs, query, where } from "firebase/firestore";
+import { deleteDoc, doc } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFirestoreDocumentId, mapFirestoreDoc } from "@/core/firestore/firestoreDocUtils";
-import { adaptFamilyEvents } from "@/core/events/familyEventAdapter";
+import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
+import { getFamilyEvents } from "@/services/familyEventsService";
 import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
@@ -59,10 +59,8 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
 
     setLoading(true);
     try {
-      const q = query(collection(db, "familyEvents"), where("familyId", "==", familyId));
-      const snap = await getDocs(q);
-      const rawEvents = snap.docs.map((docSnap) => mapFirestoreDoc(docSnap, { type: "familyEvent" }));
-      setEvents(adaptFamilyEvents(rawEvents, people));
+      const familyEvents = await getFamilyEvents({ familyId, people });
+      setEvents(familyEvents);
     } catch (error) {
       console.error("Error loading family events", error);
       setEvents([]);
