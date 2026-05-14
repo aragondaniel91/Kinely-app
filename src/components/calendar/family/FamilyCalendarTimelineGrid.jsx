@@ -80,7 +80,7 @@ export default function FamilyCalendarTimelineGrid({
               const dayEvents = eventsByDay.get(key) || [];
               const allDayEvents = dayEvents.filter((event) => event.isAllDay || event.is_all_day || !event.startTime);
               const timedEvents = dayEvents.filter((event) => !(event.isAllDay || event.is_all_day) && event.startTime);
-              const layoutMap = buildTimelineLayout(timedEvents);
+              const { layoutMap, overflowBadges } = buildTimelineLayout(timedEvents);
 
               return (
                 <div
@@ -147,6 +147,26 @@ export default function FamilyCalendarTimelineGrid({
                       </div>
                     );
                   })}
+
+                  {overflowBadges.map((badge) => (
+                    <button
+                      key={badge.id}
+                      type="button"
+                      aria-label={badge.ariaLabel}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (badge.events?.[0]) onEventSelect?.(badge.events[0], e.currentTarget.getBoundingClientRect());
+                      }}
+                      className="absolute flex h-9 min-w-9 items-center justify-center rounded-full border border-slate-200 bg-white px-2 text-sm font-black text-slate-700 shadow-md shadow-slate-900/10 transition hover:scale-105 hover:bg-slate-50"
+                      style={{
+                        top: badge.top,
+                        right: badge.right,
+                        zIndex: badge.zIndex,
+                      }}
+                    >
+                      +{badge.count}
+                    </button>
+                  ))}
                 </div>
               );
             })}
