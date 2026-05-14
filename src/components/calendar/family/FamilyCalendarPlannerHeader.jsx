@@ -8,8 +8,7 @@ import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalend
 import FamilyCalendarFilterDropdown from "@/components/calendar/family/FamilyCalendarFilterDropdown";
 import FamilyCalendarWeatherWidget from "@/components/calendar/family/FamilyCalendarWeatherWidget";
 import FamilyCalendarFamilySelector from "@/components/calendar/family/FamilyCalendarFamilySelector";
-
-const FAMILY_ASSIGNMENT_ID = "family";
+import { ALL_ASSIGNMENT_ID, FAMILY_ASSIGNMENT_ID } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
 
 export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
   if (viewMode === "day") return format(anchorDate, "MMM d, yyyy");
@@ -19,7 +18,8 @@ export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
 
 function buildPersonFilterOptions(people = []) {
   return [
-    { value: FAMILY_ASSIGNMENT_ID, label: "All", colorClass: "bg-gradient-to-r from-blue-500 via-emerald-500 to-orange-500" },
+    { value: ALL_ASSIGNMENT_ID, label: "All", colorClass: "bg-gradient-to-r from-blue-500 via-emerald-500 to-orange-500" },
+    { value: FAMILY_ASSIGNMENT_ID, label: "Family", colorClass: "bg-slate-400" },
     ...people.map((person) => ({
       value: person.id,
       label: person.displayName,
@@ -78,7 +78,7 @@ export default function FamilyCalendarPlannerHeader({
   anchorDate,
   viewMode,
   visibleEventCount = 0,
-  selectedPersonId = FAMILY_ASSIGNMENT_ID,
+  selectedPersonId = ALL_ASSIGNMENT_ID,
   selectedCategory = "all",
   categoryOptions = [],
   weekStart,
