@@ -14,7 +14,8 @@ import { collection, deleteDoc, doc, getDocs, query, where } from "firebase/fire
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { adaptFamilyEvents, getFamilyEventFirestoreId } from "@/core/events/familyEventAdapter";
+import { getFirestoreDocumentId, mapFirestoreDoc } from "@/core/firestore/firestoreDocUtils";
+import { adaptFamilyEvents } from "@/core/events/familyEventAdapter";
 import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
@@ -45,18 +46,6 @@ function buildEventsByDay(events = []) {
   return map;
 }
 
-function firestoreEventFromSnapshot(docSnap) {
-  const data = docSnap.data() || {};
-  return {
-    ...data,
-    id: docSnap.id,
-    firestoreId: docSnap.id,
-    firestore_id: docSnap.id,
-    legacyEventId: data.id || data.eventId || data.event_id || "",
-    legacy_event_id: data.id || data.eventId || data.event_id || "",
-  };
-}
-
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { familyId, profile, familyPeople } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
@@ -84,7 +73,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     try {
       const q = query(collection(db, "familyEvents"), where("familyId", "==", familyId));
       const snap = await getDocs(q);
-      const rawEvents = snap.docs.map(firestoreEventFromSnapshot);
+      const rawEvents = snap.docs.map((docSnap) => mapFirestoreDoc(docSnap, { type: "familyEvent" }));
       setEvents(adaptFamilyEvents(rawEvents, people));
     } catch (error) {
       console.error("Error loading family events", error);
@@ -145,7 +134,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   }
 
   async function handleDeleteEvent(eventOrId) {
-    const documentId = typeof eventOrId === "string" ? eventOrId : getFamilyEventFirestoreId(eventOrId || {});
+    const documentId = typeof eventOrId === "string" ? eventOrId : getFirestoreDocumentId(eventOrId || {});
     if (!documentId) return;
     const confirmed = window.confirm("Delete this event?");
     if (!confirmed) return;
