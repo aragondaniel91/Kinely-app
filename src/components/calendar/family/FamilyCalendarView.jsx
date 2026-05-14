@@ -276,7 +276,6 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
               people={people}
               onAddDate={setAddDate}
               onEventSelect={handleEventSelect}
-              onOverflowSelect={handleEventSelect}
               onOverflowSelect={handleOverflowSelect}
             />
           )}
