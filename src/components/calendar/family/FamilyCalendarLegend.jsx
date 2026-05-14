@@ -1,22 +1,9 @@
 import { cn } from "@/lib/utils";
-import { colorClasses, colorHex } from "@/lib/personColorUtils";
+import { colorClasses } from "@/lib/personColorUtils";
+import { familyGradientStyle } from "@/components/calendar/family/familyCalendarColorStyles";
 
 const ALL_FILTER_ID = "all";
 const FAMILY_FILTER_ID = "family";
-
-function familyGradientStyle(people = []) {
-  const colors = people
-    .map((person) => colorHex(person.colorId || person.color || "family", "blue"))
-    .filter(Boolean);
-
-  const uniqueColors = Array.from(new Set(colors));
-  const fallback = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
-  const gradientColors = uniqueColors.length ? uniqueColors : fallback;
-
-  return {
-    background: `linear-gradient(90deg, ${gradientColors.join(", ")})`,
-  };
-}
 
 function LegendDot({ colorId = "family", active = false, gradientStyle = null }) {
   const colors = colorClasses(colorId, "slate");
@@ -33,11 +20,11 @@ function LegendDot({ colorId = "family", active = false, gradientStyle = null })
 }
 
 export default function FamilyCalendarLegend({ people = [], selectedPersonId = ALL_FILTER_ID, onSelectPerson }) {
-  const allGradient = familyGradientStyle(people);
+  const sharedFamilyGradient = familyGradientStyle(people);
   const items = [
-    { id: ALL_FILTER_ID, displayName: "ALL", type: "all", gradientStyle: allGradient },
+    { id: ALL_FILTER_ID, displayName: "ALL", type: "all", gradientStyle: sharedFamilyGradient },
     ...people,
-    { id: FAMILY_FILTER_ID, displayName: "Family", colorId: "indigo", type: "family" },
+    { id: FAMILY_FILTER_ID, displayName: "Family", type: "family", gradientStyle: sharedFamilyGradient },
   ];
 
   return (
