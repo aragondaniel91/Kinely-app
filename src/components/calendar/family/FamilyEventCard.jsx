@@ -4,18 +4,45 @@ import { cn } from "@/lib/utils";
 import { colorClasses } from "@/lib/personColorUtils";
 import { getFamilyEventAssignmentLabel } from "@/core/events/familyEventAdapter";
 import { categoryLabel, displayTimeRange } from "@/components/calendar/family/familyCalendarUi";
+import {
+  familyEventCardStyle,
+  familyEventStripeStyle,
+  familyGradientStyle,
+  isFamilyColorId,
+} from "@/components/calendar/family/familyCalendarColorStyles";
 
 function handleCardClick(event, calendarEvent, onClick) {
   calendarEvent.stopPropagation();
   onClick?.(event, calendarEvent.currentTarget.getBoundingClientRect());
 }
 
+function FamilyDot({ people = [], active = false }) {
+  return (
+    <span
+      className={cn(
+        "h-4 w-4 shrink-0 rounded-full border border-white shadow-sm",
+        active && "ring-2 ring-blue-200"
+      )}
+      style={familyGradientStyle(people)}
+    />
+  );
+}
+
+function EventDot({ colorId, people = [] }) {
+  if (isFamilyColorId(colorId)) return <FamilyDot people={people} />;
+  const colors = colorClasses(colorId, "slate");
+  return <span className={cn("h-4 w-4 shrink-0 rounded-full border border-white shadow-sm", colors.dot)} />;
+}
+
 export default function FamilyEventCard({ event, people = [], variant = "month", onClick }) {
   const colorId = event.colorId || event.color_id || event.eventColor || event.event_color || "family";
+  const isFamilyEvent = isFamilyColorId(colorId);
   const colors = colorClasses(colorId, "slate");
   const assignedLabel = event.assignedLabel || event.assigned_label || getFamilyEventAssignmentLabel(event, people, "Family");
   const eventTime = displayTimeRange(event);
   const eventCategory = categoryLabel(event.category);
+  const familyCardStyle = isFamilyEvent ? familyEventCardStyle(people) : undefined;
+  const familyStripeStyle = isFamilyEvent ? familyEventStripeStyle(people) : undefined;
 
   if (variant === "pill") {
     return (
@@ -24,12 +51,13 @@ export default function FamilyEventCard({ event, people = [], variant = "month",
         onClick={(calendarEvent) => handleCardClick(event, calendarEvent, onClick)}
         className={cn(
           "flex h-6 w-full min-w-0 items-center gap-1.5 rounded-lg border px-2 text-left text-[10px] font-extrabold leading-none transition hover:shadow-sm",
-          colors.bg,
-          colors.border,
-          colors.text
+          !isFamilyEvent && colors.bg,
+          !isFamilyEvent && colors.border,
+          isFamilyEvent ? "text-slate-800" : colors.text
         )}
+        style={familyCardStyle}
       >
-        <span className={cn("h-4 w-4 shrink-0 rounded-full border border-white shadow-sm", colors.dot)} />
+        <EventDot colorId={colorId} people={people} />
         <span className="truncate">{event.title || "Untitled"}</span>
       </button>
     );
@@ -42,17 +70,18 @@ export default function FamilyEventCard({ event, people = [], variant = "month",
         onClick={(calendarEvent) => handleCardClick(event, calendarEvent, onClick)}
         className={cn(
           "group relative h-full w-full overflow-hidden rounded-xl border p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
-          colors.bg,
-          colors.border
+          !isFamilyEvent && colors.bg,
+          !isFamilyEvent && colors.border
         )}
+        style={familyCardStyle}
       >
-        <span className={cn("absolute left-0 top-0 h-full w-1.5", colors.stripe)} />
+        <span className={cn("absolute left-0 top-0 h-full w-1.5", !isFamilyEvent && colors.stripe)} style={familyStripeStyle} />
         <div className="flex h-full min-w-0 flex-col pl-1">
           <div className="flex items-start justify-between gap-2">
             <p className="line-clamp-2 text-[11px] font-extrabold leading-tight text-slate-900 md:text-xs">
               {event.title || "Untitled event"}
             </p>
-            <span className={cn("h-4 w-4 shrink-0 rounded-full border border-white shadow-sm", colors.dot)} />
+            <EventDot colorId={colorId} people={people} />
           </div>
           {eventTime && <p className="mt-1 text-[10px] font-semibold text-slate-700 md:text-[11px]">{eventTime}</p>}
           <p className="mt-0.5 truncate text-[10px] text-slate-600">{eventCategory}</p>
@@ -68,12 +97,16 @@ export default function FamilyEventCard({ event, people = [], variant = "month",
       type="button"
       onClick={(calendarEvent) => handleCardClick(event, calendarEvent, onClick)}
       className={cn(
-        "group w-full rounded-2xl border bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
-        colors.border
+        "group w-full rounded-2xl border p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+        isFamilyEvent ? "text-slate-800" : "bg-white",
+        !isFamilyEvent && colors.border
       )}
+      style={familyCardStyle}
     >
       <div className="flex items-start gap-2">
-        <span className={cn("mt-1 h-4 w-4 shrink-0 rounded-full border border-white shadow-sm", colors.dot)} />
+        <span className="mt-1">
+          <EventDot colorId={colorId} people={people} />
+        </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-black text-slate-950">{event.title || "Untitled event"}</p>
           <p className="truncate text-[11px] font-semibold text-slate-500">{eventCategory} · {assignedLabel}</p>
