@@ -49,17 +49,22 @@ function assignClusterColumns(cluster = []) {
   };
 }
 
-function groupItemsByStart(items = []) {
+function eventHourStartMinutes(startMinutes) {
+  return Math.floor(startMinutes / 60) * 60;
+}
+
+function groupItemsByStartHour(items = []) {
   const groups = new Map();
 
   items.forEach((item) => {
-    const key = String(item.start);
+    const hourStart = eventHourStartMinutes(item.start);
+    const key = String(hourStart);
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(item);
+    groups.get(key).push({ ...item, overflowHourStart: hourStart });
   });
 
   return Array.from(groups.values()).map((group) =>
-    group.sort((a, b) => a.end - b.end || a.originalIndex - b.originalIndex)
+    group.sort((a, b) => a.start - b.start || a.end - b.end || a.originalIndex - b.originalIndex)
   );
 }
 
@@ -67,17 +72,18 @@ function buildOverflowBadge(hiddenItems = []) {
   if (!hiddenItems.length) return null;
 
   const firstHidden = hiddenItems[0];
-  const startTop = FAMILY_CALENDAR_ALL_DAY_HEIGHT + ((firstHidden.start - FAMILY_CALENDAR_DAY_START_MINUTES) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 8;
+  const overflowHourStart = firstHidden.overflowHourStart ?? eventHourStartMinutes(firstHidden.start);
+  const startTop = FAMILY_CALENDAR_ALL_DAY_HEIGHT + ((overflowHourStart - FAMILY_CALENDAR_DAY_START_MINUTES) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 8;
 
   return {
-    id: `overflow-${firstHidden.start}-${firstHidden.event.id || firstHidden.originalIndex}`,
+    id: `overflow-hour-${overflowHourStart}-${firstHidden.event.id || firstHidden.originalIndex}`,
     count: hiddenItems.length,
     events: hiddenItems.map((item) => item.event),
     top: Math.max(FAMILY_CALENDAR_ALL_DAY_HEIGHT + 8, startTop),
     right: 8,
     zIndex: 80,
     ariaLabel: `${hiddenItems.length} more events`,
-    start: firstHidden.start,
+    start: overflowHourStart,
     end: Math.max(...hiddenItems.map((item) => item.end)),
   };
 }
@@ -130,8 +136,8 @@ export function buildTimelineLayout(events = [], options = {}) {
       });
     });
 
-    groupItemsByStart(hiddenItems).forEach((hiddenStartGroup) => {
-      const badge = buildOverflowBadge(hiddenStartGroup);
+    groupItemsByStartHour(hiddenItems).forEach((hiddenHourGroup) => {
+      const badge = buildOverflowBadge(hiddenHourGroup);
       if (badge) overflowBadges.push(badge);
     });
   });
