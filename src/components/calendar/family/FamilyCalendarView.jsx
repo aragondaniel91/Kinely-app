@@ -10,7 +10,7 @@ import {
   subMonths,
 } from "date-fns";
 import { Plus } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -19,20 +19,11 @@ import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
 import FamilyCalendarTimelineGrid from "@/components/calendar/family/FamilyCalendarTimelineGrid";
+import FamilyEventDetailsPopover, { buildEventPanelState } from "@/components/calendar/family/FamilyEventDetailsPopover";
+import { FAMILY_CALENDAR_CATEGORIES } from "@/components/calendar/family/familyCalendarUi";
 
 const FAMILY_ASSIGNMENT_ID = "family";
-
-const categoryOptions = [
-  { value: "all", label: "All Categories" },
-  { value: "school", label: "School" },
-  { value: "sports", label: "Sports" },
-  { value: "doctor", label: "Health" },
-  { value: "pickup", label: "Pickup" },
-  { value: "birthday", label: "Birthday" },
-  { value: "family", label: "Family" },
-  { value: "note", label: "Note" },
-  { value: "other", label: "Other" },
-];
+const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
 
 function eventMatchesPerson(event, selectedPersonId) {
   if (!selectedPersonId || selectedPersonId === FAMILY_ASSIGNMENT_ID) return true;
@@ -60,6 +51,8 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addDate, setAddDate] = useState(null);
+  const [editEvent, setEditEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedPersonId, setSelectedPersonId] = useState(FAMILY_ASSIGNMENT_ID);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [now, setNow] = useState(() => new Date());
@@ -129,6 +122,41 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     else setAnchorDate((date) => addDays(date, viewMode === "day" ? 1 : 7));
   }
 
+  function handleEventSelect(event, anchorRect) {
+    setSelectedEvent(buildEventPanelState(event, anchorRect));
+  }
+
+  function handleEditEvent(event) {
+    setSelectedEvent(null);
+    setEditEvent(event);
+    setAddDate(event?.date ? new Date(`${event.date}T00:00:00`) : new Date(anchorDate));
+  }
+
+  async function handleDeleteEvent(eventId) {
+    if (!eventId) return;
+    const confirmed = window.confirm("Delete this event?");
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, "familyEvents", eventId));
+      setSelectedEvent(null);
+      await loadEvents();
+    } catch (error) {
+      console.error("Error deleting family event", error);
+      alert(`There was an error deleting the event: ${error.message}`);
+    }
+  }
+
+  function closeEventDialog() {
+    setAddDate(null);
+    setEditEvent(null);
+  }
+
+  async function handleEventSaved() {
+    closeEventDialog();
+    await loadEvents();
+  }
+
   return (
     <div className="min-h-full bg-white pb-24">
       <FamilyCalendarPlannerHeader
@@ -165,6 +193,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
               eventsByDay={eventsByDay}
               people={people}
               onAddDate={setAddDate}
+              onEventSelect={handleEventSelect}
             />
           ) : (
             <FamilyCalendarTimelineGrid
@@ -173,6 +202,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
               eventsByDay={eventsByDay}
               people={people}
               onAddDate={setAddDate}
+              onEventSelect={handleEventSelect}
             />
           )}
         </div>
@@ -187,14 +217,20 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         <Plus className="h-8 w-8" />
       </button>
 
+      <FamilyEventDetailsPopover
+        selected={selectedEvent}
+        people={people}
+        onClose={() => setSelectedEvent(null)}
+        onEdit={handleEditEvent}
+        onDelete={handleDeleteEvent}
+      />
+
       {addDate && (
         <AddFamilyEventDialog
           date={addDate}
-          onClose={() => setAddDate(null)}
-          onSuccess={() => {
-            setAddDate(null);
-            loadEvents();
-          }}
+          editEvent={editEvent}
+          onClose={closeEventDialog}
+          onSuccess={handleEventSaved}
         />
       )}
     </div>
