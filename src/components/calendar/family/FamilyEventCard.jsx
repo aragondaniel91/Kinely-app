@@ -5,6 +5,11 @@ import { colorClasses } from "@/lib/personColorUtils";
 import { getFamilyEventAssignmentLabel } from "@/core/events/familyEventAdapter";
 import { categoryLabel, displayTimeRange } from "@/components/calendar/family/familyCalendarUi";
 
+function handleCardClick(event, calendarEvent, onClick) {
+  calendarEvent.stopPropagation();
+  onClick?.(event, calendarEvent.currentTarget.getBoundingClientRect());
+}
+
 export default function FamilyEventCard({ event, people = [], variant = "month", onClick }) {
   const colorId = event.colorId || event.color_id || event.eventColor || event.event_color || "family";
   const colors = colorClasses(colorId, "slate");
@@ -16,7 +21,7 @@ export default function FamilyEventCard({ event, people = [], variant = "month",
     return (
       <button
         type="button"
-        onClick={() => onClick?.(event)}
+        onClick={(calendarEvent) => handleCardClick(event, calendarEvent, onClick)}
         className={cn(
           "flex h-6 w-full min-w-0 items-center gap-1.5 rounded-lg border px-2 text-left text-[10px] font-extrabold leading-none transition hover:shadow-sm",
           colors.bg,
@@ -34,7 +39,7 @@ export default function FamilyEventCard({ event, people = [], variant = "month",
     return (
       <button
         type="button"
-        onClick={() => onClick?.(event)}
+        onClick={(calendarEvent) => handleCardClick(event, calendarEvent, onClick)}
         className={cn(
           "group relative h-full w-full overflow-hidden rounded-xl border p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
           colors.bg,
@@ -61,7 +66,7 @@ export default function FamilyEventCard({ event, people = [], variant = "month",
   return (
     <button
       type="button"
-      onClick={() => onClick?.(event)}
+      onClick={(calendarEvent) => handleCardClick(event, calendarEvent, onClick)}
       className={cn(
         "group w-full rounded-2xl border bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
         colors.border
