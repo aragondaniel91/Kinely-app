@@ -6,6 +6,8 @@ import {
   parseEventMinutes,
 } from "@/components/calendar/family/familyCalendarUi";
 
+export const TIMELINE_MAX_VISIBLE_COLUMNS = 3;
+
 export function getEventTimelinePosition(event = {}) {
   if (event.isAllDay || event.is_all_day) return null;
 
@@ -47,7 +49,29 @@ function assignClusterColumns(cluster = []) {
   };
 }
 
-export function buildTimelineLayout(events = []) {
+function buildOverflowBadge(group = [], hiddenItems = []) {
+  if (!hiddenItems.length) return null;
+
+  const firstHidden = hiddenItems[0];
+  const lastHidden = hiddenItems[hiddenItems.length - 1];
+  const groupTop = Math.min(...group.map((item) => item.top));
+  const groupRight = 8;
+
+  return {
+    id: `overflow-${firstHidden.event.id || firstHidden.originalIndex}`,
+    count: hiddenItems.length,
+    events: hiddenItems.map((item) => item.event),
+    top: Math.max(groupTop + 6, firstHidden.top + 6),
+    right: groupRight,
+    zIndex: 80,
+    ariaLabel: `${hiddenItems.length} more events`,
+    start: firstHidden.start,
+    end: Math.max(...hiddenItems.map((item) => item.end), lastHidden.end),
+  };
+}
+
+export function buildTimelineLayout(events = [], options = {}) {
+  const maxVisibleColumns = options.maxVisibleColumns || TIMELINE_MAX_VISIBLE_COLUMNS;
   const items = events
     .map((event, originalIndex) => {
       const position = getEventTimelinePosition(event);
@@ -75,21 +99,31 @@ export function buildTimelineLayout(events = []) {
   if (cluster.length) clusters.push(cluster);
 
   const layoutMap = new Map();
+  const overflowBadges = [];
 
   clusters.forEach((group) => {
     const { columnCount, items: columnItems } = assignClusterColumns(group);
-    const width = 100 / columnCount;
+    const visibleColumnCount = Math.min(columnCount, maxVisibleColumns);
+    const hiddenItems = columnItems.filter((item) => item.columnIndex >= maxVisibleColumns);
+    const visibleItems = columnItems.filter((item) => item.columnIndex < maxVisibleColumns);
+    const width = 100 / visibleColumnCount;
 
-    columnItems.forEach((item) => {
+    visibleItems.forEach((item) => {
       layoutMap.set(item.event.id, {
         top: item.top,
         height: item.height,
         left: `calc(${width * item.columnIndex}% + 0.5rem)`,
-        width: `calc(${width}% - ${columnCount === 1 ? "1rem" : "0.7rem"})`,
+        width: `calc(${width}% - ${visibleColumnCount === 1 ? "1rem" : "0.7rem"})`,
         zIndex: 30 + item.columnIndex,
       });
     });
+
+    const badge = buildOverflowBadge(group, hiddenItems);
+    if (badge) overflowBadges.push(badge);
   });
 
-  return layoutMap;
+  return {
+    layoutMap,
+    overflowBadges,
+  };
 }
