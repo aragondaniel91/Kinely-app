@@ -6,7 +6,6 @@ import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
-import { getFamilyEvents } from "@/services/familyEventsService";
 import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
@@ -16,14 +15,13 @@ import FamilyEventOverflowPopover, { buildOverflowPanelState } from "@/component
 import { FAMILY_CALENDAR_CATEGORIES } from "@/components/calendar/family/familyCalendarUi";
 import { ALL_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
 import { useFamilyCalendarDateRange } from "@/components/calendar/family/hooks/useFamilyCalendarDateRange";
+import { useFamilyCalendarEvents } from "@/components/calendar/family/hooks/useFamilyCalendarEvents";
 
 const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
 
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { familyId, profile, familyPeople } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [addDate, setAddDate] = useState(null);
   const [editEvent, setEditEvent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -33,6 +31,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [now, setNow] = useState(() => new Date());
 
   const people = familyPeople || [];
+  const { events, loading, loadEvents } = useFamilyCalendarEvents({ familyId, people });
   const { filteredEvents, eventsByDay } = useFamilyCalendarFilters({
     events,
     selectedPersonId,
@@ -49,30 +48,6 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     viewMode,
     filteredEvents,
   });
-
-  async function loadEvents() {
-    if (!familyId) {
-      setEvents([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const familyEvents = await getFamilyEvents({ familyId, people });
-      setEvents(familyEvents);
-    } catch (error) {
-      console.error("Error loading family events", error);
-      setEvents([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [familyId, people.map((person) => `${person.id}:${person.colorId}`).join("|")]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
