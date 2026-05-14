@@ -5,8 +5,19 @@ import {
   getEventAssignedLabel,
 } from "@/core/events/eventCore";
 
+export function getFamilyEventFirestoreId(event = {}) {
+  return event.firestoreId || event.firestore_id || event.docId || event.doc_id || event.documentId || event.document_id || event.id || "";
+}
+
 export function adaptFamilyEvent(rawEvent = {}, people = []) {
-  const event = normalizeEvent(rawEvent, {
+  const firestoreId = getFamilyEventFirestoreId(rawEvent);
+  const legacyId = rawEvent.eventId || rawEvent.event_id || rawEvent.legacy?.id || rawEvent.raw?.id || "";
+  const normalizedSource = {
+    ...rawEvent,
+    id: firestoreId || rawEvent.id,
+  };
+
+  const event = normalizeEvent(normalizedSource, {
     familyId: rawEvent.familyId || rawEvent.family_id || "",
   });
 
@@ -16,6 +27,11 @@ export function adaptFamilyEvent(rawEvent = {}, people = []) {
   return {
     ...rawEvent,
     ...event,
+    id: firestoreId || event.id,
+    firestoreId: firestoreId || event.id,
+    firestore_id: firestoreId || event.id,
+    legacyEventId: legacyId,
+    legacy_event_id: legacyId,
     colorId,
     color_id: colorId,
     eventColor: colorId,
