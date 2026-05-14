@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { CloudSun, MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { getCurrentWeatherByCoordinates, hasWeatherApiKey } from "@/core/weather/weatherService";
 
 const LOCATION_STORAGE_KEY = "familyWall.calendar.location";
+const WEATHER_STORAGE_KEY = "familyWall.calendar.weather";
+const WEATHER_CACHE_MS = 1000 * 60 * 20;
 
 function readSavedLocation() {
   if (typeof window === "undefined") return null;
@@ -20,6 +23,21 @@ function saveLocation(location) {
   window.localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(location));
 }
 
+function readSavedWeather() {
+  if (typeof window === "undefined") return null;
+  try {
+    const saved = window.localStorage.getItem(WEATHER_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveWeather(weather) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(WEATHER_STORAGE_KEY, JSON.stringify(weather));
+}
+
 function permissionLabel(status) {
   if (status === "granted") return "Location On";
   if (status === "denied") return "Location Blocked";
@@ -27,11 +45,48 @@ function permissionLabel(status) {
   return "Allow Location";
 }
 
+function isFreshWeather(weather) {
+  if (!weather?.updatedAt) return false;
+  return Date.now() - new Date(weather.updatedAt).getTime() < WEATHER_CACHE_MS;
+}
+
+function weatherText(weather, weatherStatus) {
+  if (weatherStatus === "loading") return "Loading...";
+  if (!hasWeatherApiKey()) return "--°";
+  if (typeof weather?.temperature === "number") return `${weather.temperature}°F`;
+  return "--°";
+}
+
 export default function FamilyCalendarWeatherWidget() {
   const savedLocation = readSavedLocation();
+  const savedWeather = readSavedWeather();
   const [location, setLocation] = useState(() => savedLocation);
+  const [weather, setWeather] = useState(() => (isFreshWeather(savedWeather) ? savedWeather : null));
   const [status, setStatus] = useState(() => (savedLocation ? "granted" : "idle"));
+  const [weatherStatus, setWeatherStatus] = useState("idle");
   const [error, setError] = useState("");
+
+  async function loadWeather(nextLocation = location, options = {}) {
+    if (!nextLocation?.latitude || !nextLocation?.longitude || !hasWeatherApiKey()) return;
+
+    const cachedWeather = readSavedWeather();
+    if (!options.force && isFreshWeather(cachedWeather)) {
+      setWeather(cachedWeather);
+      return;
+    }
+
+    setWeatherStatus("loading");
+    try {
+      const nextWeather = await getCurrentWeatherByCoordinates(nextLocation.latitude, nextLocation.longitude);
+      saveWeather(nextWeather);
+      setWeather(nextWeather);
+      setWeatherStatus("loaded");
+    } catch (weatherError) {
+      console.error("Error loading weather", weatherError);
+      setWeatherStatus("error");
+      setError(weatherError.message || "Unable to load weather.");
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -52,10 +107,15 @@ export default function FamilyCalendarWeatherWidget() {
     };
   }, []);
 
-  const coordinatesText = useMemo(() => {
-    if (!location?.latitude || !location?.longitude) return "--°";
-    return `${location.latitude.toFixed(2)}, ${location.longitude.toFixed(2)}`;
-  }, [location]);
+  useEffect(() => {
+    if (location) loadWeather(location);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.latitude, location?.longitude]);
+
+  const locationText = useMemo(() => {
+    if (weather?.city) return `${weather.city}${weather.country ? `, ${weather.country}` : ""}`;
+    return permissionLabel(status);
+  }, [weather, status]);
 
   function requestLocation() {
     if (!navigator?.geolocation) {
@@ -78,6 +138,7 @@ export default function FamilyCalendarWeatherWidget() {
         saveLocation(nextLocation);
         setLocation(nextLocation);
         setStatus("granted");
+        loadWeather(nextLocation, { force: true });
       },
       (locationError) => {
         setStatus(locationError.code === locationError.PERMISSION_DENIED ? "denied" : "idle");
@@ -102,13 +163,15 @@ export default function FamilyCalendarWeatherWidget() {
             status === "granted" && "text-emerald-600",
             status === "denied" && "text-rose-500"
           )}
+          title={locationText}
         >
-          <MapPin className="h-3.5 w-3.5 text-pink-500" /> {permissionLabel(status)}
+          <MapPin className="h-3.5 w-3.5 text-pink-500" /> {locationText}
         </button>
-        <span className="inline-flex items-center gap-1">
-          <CloudSun className="h-4 w-4" /> {status === "granted" ? coordinatesText : "--°"}
+        <span className="inline-flex items-center gap-1" title={weather?.description || "Weather"}>
+          <CloudSun className="h-4 w-4" /> {weatherText(weather, weatherStatus)}
         </span>
       </div>
+      {weather?.description && <p className="text-right text-[10px] font-semibold capitalize text-slate-400">{weather.description}</p>}
       {error && <p className="max-w-[280px] text-right text-[10px] font-semibold text-rose-400">{error}</p>}
     </div>
   );
