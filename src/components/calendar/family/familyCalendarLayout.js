@@ -49,24 +49,36 @@ function assignClusterColumns(cluster = []) {
   };
 }
 
-function buildOverflowBadge(group = [], hiddenItems = []) {
+function groupItemsByStart(items = []) {
+  const groups = new Map();
+
+  items.forEach((item) => {
+    const key = String(item.start);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+
+  return Array.from(groups.values()).map((group) =>
+    group.sort((a, b) => a.end - b.end || a.originalIndex - b.originalIndex)
+  );
+}
+
+function buildOverflowBadge(hiddenItems = []) {
   if (!hiddenItems.length) return null;
 
   const firstHidden = hiddenItems[0];
-  const lastHidden = hiddenItems[hiddenItems.length - 1];
-  const groupTop = Math.min(...group.map((item) => item.top));
-  const groupRight = 8;
+  const startTop = FAMILY_CALENDAR_ALL_DAY_HEIGHT + ((firstHidden.start - FAMILY_CALENDAR_DAY_START_MINUTES) / 60) * FAMILY_CALENDAR_HOUR_HEIGHT + 8;
 
   return {
-    id: `overflow-${firstHidden.event.id || firstHidden.originalIndex}`,
+    id: `overflow-${firstHidden.start}-${firstHidden.event.id || firstHidden.originalIndex}`,
     count: hiddenItems.length,
     events: hiddenItems.map((item) => item.event),
-    top: Math.max(groupTop + 6, firstHidden.top + 6),
-    right: groupRight,
+    top: Math.max(FAMILY_CALENDAR_ALL_DAY_HEIGHT + 8, startTop),
+    right: 8,
     zIndex: 80,
     ariaLabel: `${hiddenItems.length} more events`,
     start: firstHidden.start,
-    end: Math.max(...hiddenItems.map((item) => item.end), lastHidden.end),
+    end: Math.max(...hiddenItems.map((item) => item.end)),
   };
 }
 
@@ -118,8 +130,10 @@ export function buildTimelineLayout(events = [], options = {}) {
       });
     });
 
-    const badge = buildOverflowBadge(group, hiddenItems);
-    if (badge) overflowBadges.push(badge);
+    groupItemsByStart(hiddenItems).forEach((hiddenStartGroup) => {
+      const badge = buildOverflowBadge(hiddenStartGroup);
+      if (badge) overflowBadges.push(badge);
+    });
   });
 
   return {
