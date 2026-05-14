@@ -1,15 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  addDays,
-  addMonths,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
-  format,
-  startOfMonth,
-  startOfWeek,
-  subMonths,
-} from "date-fns";
+import { useEffect, useState } from "react";
+import { addDays, addMonths, subMonths } from "date-fns";
 import { Plus } from "lucide-react";
 import { collection, deleteDoc, doc, getDocs, query, where } from "firebase/firestore";
 
@@ -24,70 +14,10 @@ import FamilyCalendarTimelineGrid from "@/components/calendar/family/FamilyCalen
 import FamilyEventDetailsPopover, { buildEventPanelState } from "@/components/calendar/family/FamilyEventDetailsPopover";
 import FamilyEventOverflowPopover, { buildOverflowPanelState } from "@/components/calendar/family/FamilyEventOverflowPopover";
 import { FAMILY_CALENDAR_CATEGORIES } from "@/components/calendar/family/familyCalendarUi";
+import { ALL_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
+import { useFamilyCalendarDateRange } from "@/components/calendar/family/hooks/useFamilyCalendarDateRange";
 
-const ALL_ASSIGNMENT_ID = "all";
-const FAMILY_ASSIGNMENT_ID = "family";
 const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
-
-function eventAssignedPersonIds(event = {}) {
-  return event.assignedPersonIds || event.assigned_person_ids || [];
-}
-
-function isFamilyAssignedEvent(event = {}) {
-  return eventAssignedPersonIds(event).length === 0;
-}
-
-function eventMatchesPerson(event, selectedPersonId) {
-  if (!selectedPersonId || selectedPersonId === ALL_ASSIGNMENT_ID) return true;
-  if (selectedPersonId === FAMILY_ASSIGNMENT_ID) return isFamilyAssignedEvent(event);
-  return eventAssignedPersonIds(event).includes(selectedPersonId);
-}
-
-function eventMatchesCategory(event, selectedCategory) {
-  if (!selectedCategory || selectedCategory === "all") return true;
-  return event.category === selectedCategory;
-}
-
-function buildEventsByDay(events = []) {
-  const map = new Map();
-  events.forEach((event) => {
-    if (!event.date) return;
-    if (!map.has(event.date)) map.set(event.date, []);
-    map.get(event.date).push(event);
-  });
-  return map;
-}
-
-function toDateKey(date) {
-  return format(date, "yyyy-MM-dd");
-}
-
-function getSummaryDateRange(viewMode, anchorDate, weekStart, weekEnd) {
-  if (viewMode === "month") {
-    return {
-      startKey: toDateKey(startOfMonth(anchorDate)),
-      endKey: toDateKey(endOfMonth(anchorDate)),
-    };
-  }
-
-  if (viewMode === "day") {
-    const dayKey = toDateKey(anchorDate);
-    return {
-      startKey: dayKey,
-      endKey: dayKey,
-    };
-  }
-
-  return {
-    startKey: toDateKey(weekStart),
-    endKey: toDateKey(weekEnd),
-  };
-}
-
-function eventIsInsideDateRange(event = {}, range = {}) {
-  if (!event.date || !range.startKey || !range.endKey) return false;
-  return event.date >= range.startKey && event.date <= range.endKey;
-}
 
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { familyId, profile, familyPeople } = useFamily();
@@ -103,8 +33,22 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [now, setNow] = useState(() => new Date());
 
   const people = familyPeople || [];
-  const weekStart = useMemo(() => startOfWeek(anchorDate, { weekStartsOn: 1 }), [anchorDate]);
-  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
+  const { filteredEvents, eventsByDay } = useFamilyCalendarFilters({
+    events,
+    selectedPersonId,
+    selectedCategory,
+  });
+  const {
+    weekStart,
+    weekEnd,
+    monthDays,
+    timelineDays,
+    summaryEventsForCurrentView,
+  } = useFamilyCalendarDateRange({
+    anchorDate,
+    viewMode,
+    filteredEvents,
+  });
 
   async function loadEvents() {
     if (!familyId) {
@@ -136,36 +80,6 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
   }, []);
-
-  const filteredEvents = useMemo(
-    () => events.filter((event) => eventMatchesPerson(event, selectedPersonId) && eventMatchesCategory(event, selectedCategory)),
-    [events, selectedPersonId, selectedCategory]
-  );
-
-  const summaryDateRange = useMemo(
-    () => getSummaryDateRange(viewMode, anchorDate, weekStart, weekEnd),
-    [viewMode, anchorDate, weekStart, weekEnd]
-  );
-
-  const summaryEventsForCurrentView = useMemo(
-    () => filteredEvents.filter((event) => eventIsInsideDateRange(event, summaryDateRange)),
-    [filteredEvents, summaryDateRange]
-  );
-
-  const eventsByDay = useMemo(() => buildEventsByDay(filteredEvents), [filteredEvents]);
-
-  const monthDays = useMemo(() => {
-    const start = startOfWeek(startOfMonth(anchorDate), { weekStartsOn: 1 });
-    const end = endOfWeek(endOfMonth(anchorDate), { weekStartsOn: 1 });
-    return eachDayOfInterval({ start, end });
-  }, [anchorDate]);
-
-  const weekDays = useMemo(
-    () => eachDayOfInterval({ start: weekStart, end: weekEnd }),
-    [weekStart, weekEnd]
-  );
-
-  const timelineDays = viewMode === "day" ? [anchorDate] : weekDays;
 
   function goPrevious() {
     if (viewMode === "month") setAnchorDate((date) => subMonths(date, 1));
