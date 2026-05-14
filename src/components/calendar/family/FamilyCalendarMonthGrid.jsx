@@ -6,7 +6,14 @@ import FamilyEventCard from "@/components/calendar/family/FamilyEventCard";
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export default function FamilyCalendarMonthGrid({ monthDays = [], anchorDate, eventsByDay, people = [], onAddDate }) {
+export default function FamilyCalendarMonthGrid({
+  monthDays = [],
+  anchorDate,
+  eventsByDay,
+  people = [],
+  onAddDate,
+  onEventSelect,
+}) {
   return (
     <div className="rounded-b-[2rem] border-t border-slate-100 bg-white p-3 md:p-4">
       <div className="grid grid-cols-7 gap-2 pb-2">
@@ -50,7 +57,12 @@ export default function FamilyCalendarMonthGrid({ monthDays = [], anchorDate, ev
               <div className="space-y-1">
                 {dayEvents.slice(0, 3).map((event) => (
                   <div key={event.id} onClick={(e) => e.stopPropagation()}>
-                    <FamilyEventCard event={event} people={people} variant="pill" />
+                    <FamilyEventCard
+                      event={event}
+                      people={people}
+                      variant="pill"
+                      onClick={(selectedEvent, anchorRect) => onEventSelect?.(selectedEvent, anchorRect)}
+                    />
                   </div>
                 ))}
                 {dayEvents.length > 3 && (
