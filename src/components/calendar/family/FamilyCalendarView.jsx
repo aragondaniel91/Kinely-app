@@ -5,6 +5,7 @@ import {
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
+  format,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -57,6 +58,37 @@ function buildEventsByDay(events = []) {
   return map;
 }
 
+function toDateKey(date) {
+  return format(date, "yyyy-MM-dd");
+}
+
+function getSummaryDateRange(viewMode, anchorDate, weekStart, weekEnd) {
+  if (viewMode === "month") {
+    return {
+      startKey: toDateKey(startOfMonth(anchorDate)),
+      endKey: toDateKey(endOfMonth(anchorDate)),
+    };
+  }
+
+  if (viewMode === "day") {
+    const dayKey = toDateKey(anchorDate);
+    return {
+      startKey: dayKey,
+      endKey: dayKey,
+    };
+  }
+
+  return {
+    startKey: toDateKey(weekStart),
+    endKey: toDateKey(weekEnd),
+  };
+}
+
+function eventIsInsideDateRange(event = {}, range = {}) {
+  if (!event.date || !range.startKey || !range.endKey) return false;
+  return event.date >= range.startKey && event.date <= range.endKey;
+}
+
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { familyId, profile, familyPeople } = useFamily();
   const [anchorDate, setAnchorDate] = useState(new Date());
@@ -105,12 +137,22 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const visibleEvents = useMemo(
+  const filteredEvents = useMemo(
     () => events.filter((event) => eventMatchesPerson(event, selectedPersonId) && eventMatchesCategory(event, selectedCategory)),
     [events, selectedPersonId, selectedCategory]
   );
 
-  const eventsByDay = useMemo(() => buildEventsByDay(visibleEvents), [visibleEvents]);
+  const summaryDateRange = useMemo(
+    () => getSummaryDateRange(viewMode, anchorDate, weekStart, weekEnd),
+    [viewMode, anchorDate, weekStart, weekEnd]
+  );
+
+  const summaryEventsForCurrentView = useMemo(
+    () => filteredEvents.filter((event) => eventIsInsideDateRange(event, summaryDateRange)),
+    [filteredEvents, summaryDateRange]
+  );
+
+  const eventsByDay = useMemo(() => buildEventsByDay(filteredEvents), [filteredEvents]);
 
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(anchorDate), { weekStartsOn: 1 });
@@ -192,7 +234,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         now={now}
         anchorDate={anchorDate}
         viewMode={viewMode}
-        visibleEventCount={visibleEvents.length}
+        visibleEventCount={summaryEventsForCurrentView.length}
         selectedPersonId={selectedPersonId}
         selectedCategory={selectedCategory}
         categoryOptions={categoryOptions}
@@ -234,6 +276,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
               people={people}
               onAddDate={setAddDate}
               onEventSelect={handleEventSelect}
+              onOverflowSelect={handleEventSelect}
               onOverflowSelect={handleOverflowSelect}
             />
           )}
