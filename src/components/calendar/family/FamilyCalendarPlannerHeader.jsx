@@ -1,8 +1,9 @@
-import { CalendarDays, ChevronLeft, ChevronRight, CloudSun, MapPin, RefreshCcw, Tag, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, CloudSun, MapPin, RefreshCcw, Tag, UserRound } from "lucide-react";
 import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";
 import FamilyCalendarLegend from "@/components/calendar/family/FamilyCalendarLegend";
+import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalendarMonthPicker";
 
 const FAMILY_ASSIGNMENT_ID = "family";
 
@@ -87,6 +88,9 @@ export default function FamilyCalendarPlannerHeader({
   onNext,
   onViewModeChange,
   onSync,
+  onChangeMonth,
+  onPreviousMonth,
+  onNextMonth,
 }) {
   const rangeText = calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd);
 
@@ -106,9 +110,14 @@ export default function FamilyCalendarPlannerHeader({
             <h1 className="text-[2.65rem] font-black leading-none tracking-tight text-slate-950">Family Calendar</h1>
           </div>
 
-          <button type="button" className="mt-5 inline-flex items-center gap-2 text-2xl font-black text-slate-900">
-            <CalendarDays className="h-5 w-5 text-blue-500" /> {format(anchorDate, "MMM yyyy")}
-          </button>
+          <div className="mt-5">
+            <FamilyCalendarMonthPicker
+              anchorDate={anchorDate}
+              onChangeMonth={onChangeMonth}
+              onPreviousMonth={onPreviousMonth}
+              onNextMonth={onNextMonth}
+            />
+          </div>
         </div>
 
         <div className="flex min-w-[470px] flex-col items-end justify-between gap-5">
