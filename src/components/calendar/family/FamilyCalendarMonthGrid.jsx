@@ -5,6 +5,16 @@ import { cn } from "@/lib/utils";
 import FamilyEventCard from "@/components/calendar/family/FamilyEventCard";
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTH_VISIBLE_EVENT_LIMIT = 3;
+
+function buildMonthOverflowBadge(dayKey, hiddenEvents = []) {
+  return {
+    id: `month-overflow-${dayKey}`,
+    count: hiddenEvents.length,
+    events: hiddenEvents,
+    ariaLabel: `${hiddenEvents.length} more events`,
+  };
+}
 
 export default function FamilyCalendarMonthGrid({
   monthDays = [],
@@ -13,6 +23,7 @@ export default function FamilyCalendarMonthGrid({
   people = [],
   onAddDate,
   onEventSelect,
+  onOverflowSelect,
 }) {
   return (
     <div className="rounded-b-[2rem] border-t border-slate-100 bg-white p-3 md:p-4">
@@ -28,6 +39,8 @@ export default function FamilyCalendarMonthGrid({
         {monthDays.map((day) => {
           const key = format(day, "yyyy-MM-dd");
           const dayEvents = eventsByDay.get(key) || [];
+          const visibleEvents = dayEvents.slice(0, MONTH_VISIBLE_EVENT_LIMIT);
+          const hiddenEvents = dayEvents.slice(MONTH_VISIBLE_EVENT_LIMIT);
           const outsideMonth = !isSameMonth(day, anchorDate);
           const today = isToday(day);
 
@@ -55,7 +68,7 @@ export default function FamilyCalendarMonthGrid({
               </div>
 
               <div className="space-y-1">
-                {dayEvents.slice(0, 3).map((event) => (
+                {visibleEvents.map((event) => (
                   <div key={event.id} onClick={(e) => e.stopPropagation()}>
                     <FamilyEventCard
                       event={event}
@@ -65,10 +78,18 @@ export default function FamilyCalendarMonthGrid({
                     />
                   </div>
                 ))}
-                {dayEvents.length > 3 && (
-                  <p className="w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-2 py-1 text-left text-[10px] font-black text-slate-500">
-                    +{dayEvents.length - 3} more
-                  </p>
+                {hiddenEvents.length > 0 && (
+                  <button
+                    type="button"
+                    aria-label={`${hiddenEvents.length} more events`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOverflowSelect?.(buildMonthOverflowBadge(key, hiddenEvents), e.currentTarget.getBoundingClientRect());
+                    }}
+                    className="w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-2 py-1 text-left text-[10px] font-black text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    +{hiddenEvents.length} more
+                  </button>
                 )}
               </div>
             </button>
