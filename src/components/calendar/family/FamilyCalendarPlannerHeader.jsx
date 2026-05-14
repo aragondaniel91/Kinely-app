@@ -7,12 +7,9 @@ import FamilyCalendarLegend from "@/components/calendar/family/FamilyCalendarLeg
 import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalendarMonthPicker";
 import FamilyCalendarFilterDropdown from "@/components/calendar/family/FamilyCalendarFilterDropdown";
 import FamilyCalendarWeatherWidget from "@/components/calendar/family/FamilyCalendarWeatherWidget";
+import FamilyCalendarFamilySelector from "@/components/calendar/family/FamilyCalendarFamilySelector";
 
 const FAMILY_ASSIGNMENT_ID = "family";
-
-function familyName(profile) {
-  return profile?.family_name || profile?.familyName || profile?.name || "Family";
-}
 
 export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
   if (viewMode === "day") return format(anchorDate, "MMM d, yyyy");
@@ -76,7 +73,6 @@ function DateNavigation({ onPrevious, onToday, onNext }) {
 }
 
 export default function FamilyCalendarPlannerHeader({
-  profile,
   people = [],
   now,
   anchorDate,
@@ -106,13 +102,7 @@ export default function FamilyCalendarPlannerHeader({
     <header className="bg-white px-7 pt-5">
       <div className="grid grid-cols-[minmax(320px,1fr)_auto] gap-8">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm font-black text-slate-950">
-            <span className="text-base">🏠</span>
-            <div>
-              <p className="leading-none">Family Wall</p>
-              <p className="mt-1 text-[11px] font-semibold text-slate-400">{familyName(profile)}</p>
-            </div>
-          </div>
+          <FamilyCalendarFamilySelector />
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <h1 className="text-[2.65rem] font-black leading-none tracking-tight text-slate-950">Family Calendar</h1>
