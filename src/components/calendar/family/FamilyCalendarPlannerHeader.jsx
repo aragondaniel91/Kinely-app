@@ -2,8 +2,10 @@ import { ChevronLeft, ChevronRight, CloudSun, MapPin, RefreshCcw, Tag, UserRound
 import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";
+import { colorClasses } from "@/lib/personColorUtils";
 import FamilyCalendarLegend from "@/components/calendar/family/FamilyCalendarLegend";
 import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalendarMonthPicker";
+import FamilyCalendarFilterDropdown from "@/components/calendar/family/FamilyCalendarFilterDropdown";
 
 const FAMILY_ASSIGNMENT_ID = "family";
 
@@ -17,20 +19,23 @@ export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
   return format(anchorDate, "MMMM yyyy");
 }
 
-function FilterSelect({ icon: Icon, label, value, onChange, children }) {
-  return (
-    <label className="flex h-11 min-w-[210px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
-      <Icon className="h-4 w-4 text-slate-400" />
-      <span>{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent text-xs font-black text-slate-400 outline-none"
-      >
-        {children}
-      </select>
-    </label>
-  );
+function buildPersonFilterOptions(people = []) {
+  return [
+    { value: FAMILY_ASSIGNMENT_ID, label: "All", colorClass: "bg-gradient-to-r from-blue-500 via-emerald-500 to-orange-500" },
+    ...people.map((person) => ({
+      value: person.id,
+      label: person.displayName,
+      colorClass: colorClasses(person.colorId || "family", "slate").dot,
+    })),
+  ];
+}
+
+function buildCategoryFilterOptions(categoryOptions = []) {
+  return categoryOptions.map((category) => ({
+    value: category.value,
+    label: category.label,
+    icon: category.emoji || "📌",
+  }));
 }
 
 function ViewModeSwitch({ viewMode, onViewModeChange }) {
@@ -93,6 +98,8 @@ export default function FamilyCalendarPlannerHeader({
   onNextMonth,
 }) {
   const rangeText = calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd);
+  const personOptions = buildPersonFilterOptions(people);
+  const categoryFilterOptions = buildCategoryFilterOptions(categoryOptions);
 
   return (
     <header className="bg-white px-7 pt-5">
@@ -134,14 +141,20 @@ export default function FamilyCalendarPlannerHeader({
           </div>
 
           <div className="flex flex-wrap justify-end gap-3">
-            <FilterSelect icon={UserRound} label="Person" value={selectedPersonId} onChange={onSelectPerson}>
-              <option value={FAMILY_ASSIGNMENT_ID}>All</option>
-              {people.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}
-            </FilterSelect>
-
-            <FilterSelect icon={Tag} label="Category" value={selectedCategory} onChange={onSelectCategory}>
-              {categoryOptions.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
-            </FilterSelect>
+            <FamilyCalendarFilterDropdown
+              icon={UserRound}
+              label="Person"
+              value={selectedPersonId}
+              options={personOptions}
+              onChange={onSelectPerson}
+            />
+            <FamilyCalendarFilterDropdown
+              icon={Tag}
+              label="Category"
+              value={selectedCategory}
+              options={categoryFilterOptions}
+              onChange={onSelectCategory}
+            />
           </div>
         </div>
       </div>
