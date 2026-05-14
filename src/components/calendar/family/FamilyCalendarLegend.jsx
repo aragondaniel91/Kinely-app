@@ -1,23 +1,43 @@
 import { cn } from "@/lib/utils";
-import { colorClasses } from "@/lib/personColorUtils";
+import { colorClasses, colorHex } from "@/lib/personColorUtils";
 
-function LegendDot({ colorId = "family", active = false }) {
+const ALL_FILTER_ID = "all";
+const FAMILY_FILTER_ID = "family";
+
+function familyGradientStyle(people = []) {
+  const colors = people
+    .map((person) => colorHex(person.colorId || person.color || "family", "blue"))
+    .filter(Boolean);
+
+  const uniqueColors = Array.from(new Set(colors));
+  const fallback = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6"];
+  const gradientColors = uniqueColors.length ? uniqueColors : fallback;
+
+  return {
+    background: `linear-gradient(90deg, ${gradientColors.join(", ")})`,
+  };
+}
+
+function LegendDot({ colorId = "family", active = false, gradientStyle = null }) {
   const colors = colorClasses(colorId, "slate");
   return (
     <span
       className={cn(
         "h-4 w-4 shrink-0 rounded-full border border-white shadow-sm",
-        colors.dot,
+        !gradientStyle && colors.dot,
         active && "ring-2 ring-blue-200"
       )}
+      style={gradientStyle || undefined}
     />
   );
 }
 
-export default function FamilyCalendarLegend({ people = [], selectedPersonId = "family", onSelectPerson }) {
+export default function FamilyCalendarLegend({ people = [], selectedPersonId = ALL_FILTER_ID, onSelectPerson }) {
+  const allGradient = familyGradientStyle(people);
   const items = [
-    { id: "family", displayName: "ALL", colorId: "family", type: "group" },
+    { id: ALL_FILTER_ID, displayName: "ALL", type: "all", gradientStyle: allGradient },
     ...people,
+    { id: FAMILY_FILTER_ID, displayName: "Family", colorId: "indigo", type: "family" },
   ];
 
   return (
@@ -34,7 +54,7 @@ export default function FamilyCalendarLegend({ people = [], selectedPersonId = "
               active ? "text-slate-950" : "text-slate-700 hover:text-blue-700"
             )}
           >
-            <LegendDot colorId={person.colorId} active={active} />
+            <LegendDot colorId={person.colorId || "family"} active={active} gradientStyle={person.gradientStyle} />
             <span>{person.displayName}</span>
           </button>
         );
