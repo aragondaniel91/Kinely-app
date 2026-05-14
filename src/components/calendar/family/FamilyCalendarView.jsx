@@ -125,6 +125,11 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     else setAnchorDate((date) => addDays(date, viewMode === "day" ? 1 : 7));
   }
 
+  function handleChangeMonth(nextDate) {
+    setAnchorDate(nextDate);
+    setViewMode?.("month");
+  }
+
   function handleEventSelect(event, anchorRect) {
     setSelectedOverflow(null);
     setSelectedEvent(buildEventPanelState(event, anchorRect));
@@ -190,6 +195,9 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         onNext={goNext}
         onViewModeChange={setViewMode}
         onSync={loadEvents}
+        onChangeMonth={handleChangeMonth}
+        onPreviousMonth={() => handleChangeMonth(subMonths(anchorDate, 1))}
+        onNextMonth={() => handleChangeMonth(addMonths(anchorDate, 1))}
       />
 
       {loading ? (
@@ -206,6 +214,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
               people={people}
               onAddDate={setAddDate}
               onEventSelect={handleEventSelect}
+              onOverflowSelect={handleOverflowSelect}
             />
           ) : (
             <FamilyCalendarTimelineGrid
