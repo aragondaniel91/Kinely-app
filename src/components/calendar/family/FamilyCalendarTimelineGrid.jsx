@@ -28,6 +28,7 @@ export default function FamilyCalendarTimelineGrid({
   people = [],
   onAddDate,
   onEventSelect,
+  onOverflowSelect,
 }) {
   return (
     <div className="relative overflow-x-auto rounded-b-[2rem] bg-white">
@@ -155,7 +156,7 @@ export default function FamilyCalendarTimelineGrid({
                       aria-label={badge.ariaLabel}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (badge.events?.[0]) onEventSelect?.(badge.events[0], e.currentTarget.getBoundingClientRect());
+                        onOverflowSelect?.(badge, e.currentTarget.getBoundingClientRect());
                       }}
                       className="absolute flex h-9 min-w-9 items-center justify-center rounded-full border border-slate-200 bg-white px-2 text-sm font-black text-slate-700 shadow-md shadow-slate-900/10 transition hover:scale-105 hover:bg-slate-50"
                       style={{
