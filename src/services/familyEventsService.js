@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { mapFirestoreDoc } from "@/core/firestore/firestoreDocUtils";
@@ -12,4 +12,11 @@ export async function getFamilyEvents({ familyId, people = [] } = {}) {
   const rawEvents = snapshot.docs.map((docSnap) => mapFirestoreDoc(docSnap, { type: "familyEvent" }));
 
   return adaptFamilyEvents(rawEvents, people);
+}
+
+export async function deleteFamilyEventById(documentId) {
+  if (!documentId) return false;
+
+  await deleteDoc(doc(db, "familyEvents", documentId));
+  return true;
 }
