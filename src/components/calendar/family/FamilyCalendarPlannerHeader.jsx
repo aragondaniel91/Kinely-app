@@ -2,40 +2,18 @@ import { ChevronLeft, ChevronRight, RefreshCcw, Tag, UserRound } from "lucide-re
 import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";
-import { colorClasses } from "@/lib/personColorUtils";
 import FamilyCalendarLegend from "@/components/calendar/family/FamilyCalendarLegend";
 import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalendarMonthPicker";
 import FamilyCalendarFilterDropdown from "@/components/calendar/family/FamilyCalendarFilterDropdown";
 import FamilyCalendarWeatherWidget from "@/components/calendar/family/FamilyCalendarWeatherWidget";
 import FamilyCalendarFamilySelector from "@/components/calendar/family/FamilyCalendarFamilySelector";
-import { ALL_ASSIGNMENT_ID, FAMILY_ASSIGNMENT_ID } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
-
-const FAMILY_FILTER_COLOR_CLASS = "bg-gradient-to-r from-blue-500 via-emerald-500 to-orange-500";
+import { ALL_ASSIGNMENT_ID } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
+import { buildCategoryFilterOptions, buildPersonFilterOptions } from "@/components/calendar/family/familyCalendarFilterOptions";
 
 export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
   if (viewMode === "day") return format(anchorDate, "MMM d, yyyy");
   if (viewMode === "week") return `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
   return format(anchorDate, "MMMM yyyy");
-}
-
-function buildPersonFilterOptions(people = []) {
-  return [
-    { value: ALL_ASSIGNMENT_ID, label: "All", colorClass: FAMILY_FILTER_COLOR_CLASS },
-    { value: FAMILY_ASSIGNMENT_ID, label: "Family", colorClass: FAMILY_FILTER_COLOR_CLASS },
-    ...people.map((person) => ({
-      value: person.id,
-      label: person.displayName,
-      colorClass: colorClasses(person.colorId || "family", "slate").dot,
-    })),
-  ];
-}
-
-function buildCategoryFilterOptions(categoryOptions = []) {
-  return categoryOptions.map((category) => ({
-    value: category.value,
-    label: category.label,
-    icon: category.emoji || "📌",
-  }));
 }
 
 function ViewModeSwitch({ viewMode, onViewModeChange }) {
