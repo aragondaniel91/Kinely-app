@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { addDays, addMonths, subMonths } from "date-fns";
 import { Plus } from "lucide-react";
-import { deleteDoc, doc } from "firebase/firestore";
 
-import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
+import { deleteFamilyEventById } from "@/services/familyEventsService";
 import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
@@ -93,7 +92,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, "familyEvents", documentId));
+      await deleteFamilyEventById(documentId);
       setSelectedEvent(null);
       setSelectedOverflow(null);
       await loadEvents();
