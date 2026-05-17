@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  BellRing,
   CalendarDays,
   CreditCard,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import ExchangeHub from "@/components/custody/ExchangeHub";
 import PackingHub from "@/components/custody/PackingHub";
+import SmartNotificationsHub from "@/components/custody/SmartNotificationsHub";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
@@ -49,6 +51,14 @@ const custodyModules = [
     description:
       "Checklist for clothes, backpack, medicine, sports gear, and exchange-day items.",
     accent: "bg-emerald-50 text-emerald-600 border-emerald-100",
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    icon: BellRing,
+    description:
+      "Smart reminders for exchanges, packing, school items, medicine, and transition readiness.",
+    accent: "bg-orange-50 text-orange-600 border-orange-100",
   },
   {
     id: "budget",
@@ -314,6 +324,7 @@ export default function Custody() {
 
       {activeModule === "exchange" && <ExchangeHub />}
       {activeModule === "packing" && <PackingHub />}
+      {activeModule === "notifications" && <SmartNotificationsHub />}
 
       {activeModule === "budget" && (
         <ComingSoonPanel
