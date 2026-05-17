@@ -233,3 +233,62 @@ div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.max-w-3xl
   border-radius: 1.5rem !important;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.065) !important;
 }
+
+/* Kinly shape system refinement for custody.
+   Goal: one soft-rounded visual DNA instead of mixed square/round frames. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.flex.flex-col.overflow-hidden {
+  margin: 0.85rem !important;
+  overflow: visible !important;
+  border-radius: 2rem !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: 0 18px 52px rgba(15, 23, 42, 0.06) !important;
+}
+
+@media (max-width: 1023px) {
+  div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.flex.flex-col.overflow-hidden {
+    margin: 0.5rem !important;
+    border-radius: 1.5rem !important;
+  }
+}
+
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.flex.flex-col.overflow-hidden > div.bg-card.border-b {
+  border-radius: 2rem 2rem 0 0 !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.72) !important;
+}
+
+/* Family/group selector cards at the top of custody should match Kinly cards. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button[class*="border"],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div[class*="border"] {
+  border-color: rgba(226, 232, 240, 0.82);
+}
+
+/* Toolbar buttons: pill/soft, not square. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-8.w-8,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-10.w-10,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button[aria-label="Previous"],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button[aria-label="Next"] {
+  border-radius: 9999px !important;
+}
+
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-8,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-10 {
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045) !important;
+}
+
+/* Compact dropdown trigger and range buttons should be rounded pills. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.rounded-md,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.rounded-lg,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.rounded-xl {
+  border-radius: 9999px !important;
+}
+
+/* Month/week labels should feel like part of a soft surface. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1.mb-1 {
+  margin-bottom: 0.5rem !important;
+  padding: 0 0.25rem !important;
+}
+
+/* Main day grid container consistency. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1:not(.mb-1) {
+  gap: 0.55rem !important;
+}
