@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format, addDays } from "date-fns";
 import {
+  CalendarDays,
   CheckSquare,
   UtensilsCrossed,
   ShoppingCart,
   User,
   Heart,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -37,6 +39,13 @@ function normalizeDate(value) {
   }
 
   return String(value).slice(0, 10);
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Buenos días";
+  if (hour < 18) return "Buenas tardes";
+  return "Buenas noches";
 }
 
 export default function Dashboard() {
@@ -296,244 +305,302 @@ export default function Dashboard() {
     : "No custody info";
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold font-heading">Family Wall</h1>
-        <p className="text-muted-foreground mt-1">
-          {format(new Date(), "EEEE, MMMM d")}
-        </p>
-      </div>
+    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,rgba(91,141,239,0.16),transparent_34%),linear-gradient(180deg,#F8F7F4_0%,#FFFFFF_55%,#F8FAFC_100%)] px-4 py-5 md:px-6 md:py-7">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <section className="rounded-[2rem] border border-white/80 bg-white/85 p-6 shadow-[0_14px_40px_rgba(15,23,42,0.06)] backdrop-blur md:p-8">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+                <Sparkles className="h-3.5 w-3.5" />
+                Kinly
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
+                {getGreeting()}, familia
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-slate-500 md:text-base">
+                Todo lo que tu familia necesita hoy, en un solo lugar calmado y conectado.
+              </p>
+            </div>
 
-      <Link to="/calendar">
-        <Card
-          className={`p-5 mb-6 border-2 hover:shadow-md transition-shadow ${
-            isWithDad
-              ? `${dadTheme.border} ${dadTheme.bg}`
-              : todayCustody
-              ? `${momTheme.border} ${momTheme.bg}`
-              : "border-border bg-white"
-          }`}
-        >
-          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 rounded-3xl bg-slate-50 px-4 py-3">
+              <CalendarDays className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                  Hoy
+                </p>
+                <p className="text-sm font-black text-slate-900">
+                  {format(new Date(), "EEE, MMM d")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <Link to="/calendar" className="block">
+          <Card
+            className={`overflow-hidden rounded-[2rem] border-2 bg-white p-0 shadow-[0_18px_46px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_56px_rgba(15,23,42,0.12)] ${
+              isWithDad
+                ? dadTheme.border
+                : todayCustody
+                ? momTheme.border
+                : "border-slate-200"
+            }`}
+          >
             <div
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                isWithDad ? dadTheme.bg : momTheme.bg
+              className={`p-6 md:p-8 ${
+                isWithDad
+                  ? dadTheme.bg
+                  : todayCustody
+                  ? momTheme.bg
+                  : "bg-slate-50"
               }`}
             >
-              {isWithDad ? (
-                <User className={`w-7 h-7 ${dadTheme.text}`} />
-              ) : (
-                <Heart className={`w-7 h-7 ${momTheme.text}`} />
-              )}
-            </div>
-
-            <div className="flex-1">
-              <p className="text-sm text-muted-foreground">Today</p>
-
-              <p className="text-xl font-bold">{todayLabel}</p>
-
-              {nextChange && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Próximo cambio: en{" "}
-                  <span className="font-semibold">
-                    {nextChange.days} {nextChange.days === 1 ? "día" : "días"}
-                  </span>{" "}
-                  con <span className="font-semibold">{nextChangeLabel}</span>
-                </p>
-              )}
-
-              {todayCustody?.notes && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {todayCustody.notes}
-                </p>
-              )}
-            </div>
-
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </div>
-        </Card>
-      </Link>
-
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold">Próximos 7 días</h2>
-
-          <Link
-            to="/calendar"
-            className="text-primary text-sm flex items-center gap-1"
-          >
-            Ver todo
-            <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-7 gap-3">
-          {nextSevenDays.map(({ date, custody }, index) => {
-            const parent =
-              custody?.is_split || custody?.isSplit
-                ? "split"
-                : custody?.with_whom || custody?.withWhom;
-
-            const bg =
-              parent === "dad"
-                ? `${dadTheme.bg} ${dadTheme.border}`
-                : parent === "mom"
-                ? `${momTheme.bg} ${momTheme.border}`
-                : parent === "split"
-                ? "bg-green-100 border-green-200"
-                : "bg-white border-border";
-
-            return (
-              <Link key={format(date, "yyyy-MM-dd")} to="/calendar">
-                <div
-                  className={`rounded-3xl border p-4 text-center min-h-[96px] hover:shadow-md transition ${
-                    index === 0 ? "ring-2 ring-primary" : ""
-                  } ${bg}`}
-                >
-                  <p className="text-xs text-muted-foreground uppercase">
-                    {format(date, "EEE")}
+              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                    Custodia de hoy
                   </p>
+                  <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
+                    {todayLabel}
+                  </h2>
 
-                  <p className="text-3xl font-bold mt-2">{format(date, "d")}</p>
+                  {nextChange && (
+                    <p className="mt-3 text-sm font-bold text-slate-600 md:text-base">
+                      Próximo cambio: en{" "}
+                      <span className="text-slate-950">
+                        {nextChange.days} {nextChange.days === 1 ? "día" : "días"}
+                      </span>{" "}
+                      con <span className="text-slate-950">{nextChangeLabel}</span>
+                    </p>
+                  )}
 
-                  <div className="mt-2 flex justify-center">
-                    {parent === "split" ? (
-                      <div className="flex">
-                        <span
-                          className={`w-2.5 h-2.5 rounded-full ${dadTheme.dot}`}
-                        />
-                        <span
-                          className={`w-2.5 h-2.5 rounded-full ${momTheme.dot} -ml-1`}
-                        />
-                      </div>
+                  {todayCustody?.notes && (
+                    <p className="mt-3 rounded-2xl bg-white/70 px-4 py-3 text-sm font-semibold text-slate-700">
+                      {todayCustody.notes}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-[1.7rem] border border-white/70 bg-white/80 shadow-sm">
+                    {isWithDad ? (
+                      <User className={`h-10 w-10 ${dadTheme.text}`} />
                     ) : (
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          parent === "dad"
-                            ? dadTheme.dot
-                            : parent === "mom"
-                            ? momTheme.dot
-                            : "bg-gray-300"
-                        }`}
-                      />
+                      <Heart className={`h-10 w-10 ${momTheme.text}`} />
                     )}
                   </div>
+                  <ChevronRight className="h-6 w-6 text-slate-500" />
                 </div>
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_0.9fr]">
+          <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                  Semana familiar
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  Próximos 7 días
+                </h2>
+              </div>
+
+              <Link
+                to="/calendar"
+                className="flex items-center gap-1 text-sm font-black text-primary"
+              >
+                Ver todo
+                <ChevronRight className="h-4 w-4" />
               </Link>
-            );
-          })}
-        </div>
-      </div>
+            </div>
 
-      {loading && (
-        <div className="mb-4 text-sm text-muted-foreground">
-          Loading dashboard...
-        </div>
-      )}
+            <div className="grid grid-cols-7 gap-2 md:gap-3">
+              {nextSevenDays.map(({ date, custody }, index) => {
+                const parent =
+                  custody?.is_split || custody?.isSplit
+                    ? "split"
+                    : custody?.with_whom || custody?.withWhom;
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {canReadTasks && (
-          <Link to="/tasks">
-            <Card className="p-4 hover:shadow-md transition">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                  <CheckSquare className="w-5 h-5 text-amber-600" />
-                </div>
+                const bg =
+                  parent === "dad"
+                    ? `${dadTheme.bg} ${dadTheme.border}`
+                    : parent === "mom"
+                    ? `${momTheme.bg} ${momTheme.border}`
+                    : parent === "split"
+                    ? "bg-green-100 border-green-200"
+                    : "bg-slate-50 border-slate-200";
 
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Pending Tasks</p>
-                  <p className="text-2xl font-bold">{tasks.length}</p>
-
-                  <div className="space-y-1.5 mt-3">
-                    {tasks.slice(0, 3).map((task) => (
-                      <div key={task.id} className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                        <p className="text-sm truncate">{task.title}</p>
+                return (
+                  <Link key={format(date, "yyyy-MM-dd")} to="/calendar">
+                    <div
+                      className={`flex min-h-[108px] flex-col items-center justify-between rounded-[1.5rem] border p-3 text-center transition hover:-translate-y-0.5 hover:shadow-md ${
+                        index === 0 ? "ring-2 ring-primary/40" : ""
+                      } ${bg}`}
+                    >
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                          {format(date, "EEE")}
+                        </p>
+                        <p className="mt-1 text-3xl font-black text-slate-950">
+                          {format(date, "d")}
+                        </p>
                       </div>
+
+                      <div className="flex justify-center">
+                        {parent === "split" ? (
+                          <div className="flex">
+                            <span
+                              className={`h-3 w-3 rounded-full ${dadTheme.dot}`}
+                            />
+                            <span
+                              className={`-ml-1 h-3 w-3 rounded-full ${momTheme.dot}`}
+                            />
+                          </div>
+                        ) : (
+                          <span
+                            className={`h-3 w-3 rounded-full ${
+                              parent === "dad"
+                                ? dadTheme.dot
+                                : parent === "mom"
+                                ? momTheme.dot
+                                : "bg-gray-300"
+                            }`}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-1">
+            {loading && (
+              <div className="rounded-3xl border border-slate-200 bg-white/80 px-5 py-3 text-sm font-bold text-slate-500">
+                Loading dashboard...
+              </div>
+            )}
+
+            {canReadTasks && (
+              <Link to="/tasks">
+                <Card className="rounded-[1.7rem] border-white/80 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-lg">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100">
+                      <CheckSquare className="h-6 w-6 text-amber-700" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-500">Pending Tasks</p>
+                      <p className="mt-1 text-3xl font-black text-slate-950">
+                        {tasks.length}
+                      </p>
+
+                      <div className="mt-3 space-y-1.5">
+                        {tasks.slice(0, 3).map((task) => (
+                          <div key={task.id} className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-amber-400" />
+                            <p className="truncate text-sm font-semibold text-slate-700">
+                              {task.title}
+                            </p>
+                          </div>
+                        ))}
+
+                        {tasks.length === 0 && (
+                          <p className="text-sm font-semibold text-slate-400">
+                            No pending tasks
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            )}
+
+            {canReadMeals && (
+              <Link to="/meals">
+                <Card className="rounded-[1.7rem] border-white/80 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-lg">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100">
+                      <UtensilsCrossed className="h-6 w-6 text-emerald-700" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-500">Today's Meals</p>
+                      <p className="mt-1 text-3xl font-black text-slate-950">
+                        {meals.length}
+                      </p>
+
+                      <div className="mt-3 space-y-1.5">
+                        {meals.slice(0, 3).map((meal) => (
+                          <div key={meal.id} className="flex items-center gap-2">
+                            <Badge variant="secondary" className="rounded-full text-xs font-black">
+                              {meal.meal_type || meal.mealType}
+                            </Badge>
+                            <p className="truncate text-sm font-semibold text-slate-700">
+                              {meal.name}
+                            </p>
+                          </div>
+                        ))}
+
+                        {meals.length === 0 && (
+                          <p className="text-sm font-semibold text-slate-400">
+                            No meals planned for today
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            )}
+
+            {canReadGroceries && (
+              <Link to="/groceries" className="md:col-span-2 xl:col-span-1">
+                <Card className="rounded-[1.7rem] border-white/80 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100">
+                      <ShoppingCart className="h-6 w-6 text-violet-700" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-500">Grocery List</p>
+                      <p className="mt-1 text-3xl font-black text-slate-950">
+                        {groceries.length} items
+                      </p>
+                    </div>
+
+                    <ChevronRight className="h-5 w-5 text-slate-400" />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {groceries.slice(0, 6).map((item) => (
+                      <Badge key={item.id} variant="outline" className="rounded-full bg-white font-bold">
+                        {item.name}
+                      </Badge>
                     ))}
 
-                    {tasks.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No pending tasks
-                      </p>
+                    {groceries.length > 6 && (
+                      <Badge variant="secondary" className="rounded-full font-black">
+                        +{groceries.length - 6} more
+                      </Badge>
+                    )}
+
+                    {groceries.length === 0 && (
+                      <Badge variant="secondary" className="rounded-full">
+                        No grocery items
+                      </Badge>
                     )}
                   </div>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        )}
-
-        {canReadMeals && (
-          <Link to="/meals">
-            <Card className="p-4 hover:shadow-md transition">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                  <UtensilsCrossed className="w-5 h-5 text-emerald-600" />
-                </div>
-
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Today's Meals</p>
-                  <p className="text-2xl font-bold">{meals.length}</p>
-
-                  <div className="space-y-1.5 mt-3">
-                    {meals.slice(0, 3).map((meal) => (
-                      <div key={meal.id} className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {meal.meal_type || meal.mealType}
-                        </Badge>
-                        <p className="text-sm truncate">{meal.name}</p>
-                      </div>
-                    ))}
-
-                    {meals.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No meals planned for today
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        )}
-
-        {canReadGroceries && (
-          <Link to="/groceries" className="md:col-span-2">
-            <Card className="p-4 hover:shadow-md transition">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
-                  <ShoppingCart className="w-5 h-5 text-violet-600" />
-                </div>
-
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Grocery List</p>
-                  <p className="text-2xl font-bold">{groceries.length} items</p>
-                </div>
-
-                <ChevronRight className="w-5 h-5 text-muted-foreground" />
-              </div>
-
-              <div className="flex flex-wrap gap-2 mt-4">
-                {groceries.slice(0, 6).map((item) => (
-                  <Badge key={item.id} variant="outline">
-                    {item.name}
-                  </Badge>
-                ))}
-
-                {groceries.length > 6 && (
-                  <Badge variant="secondary">
-                    +{groceries.length - 6} more
-                  </Badge>
-                )}
-
-                {groceries.length === 0 && (
-                  <Badge variant="secondary">No grocery items</Badge>
-                )}
-              </div>
-            </Card>
-          </Link>
-        )}
+                </Card>
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
