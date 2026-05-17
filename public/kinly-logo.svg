@@ -1,0 +1,27 @@
+<svg width="322" height="150" viewBox="0 0 322 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="322" height="150" fill="#F8F7F4"/>
+  <defs>
+    <linearGradient id="warm" x1="22" y1="41" x2="65" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB24C"/>
+      <stop offset="1" stop-color="#FF7B72"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="67" y1="38" x2="43" y2="110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6FA6F7"/>
+      <stop offset="1" stop-color="#5B8DEF"/>
+    </linearGradient>
+    <linearGradient id="green" x1="37" y1="82" x2="77" y2="127" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7BC9A1"/>
+      <stop offset="1" stop-color="#55B98D"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="32" cy="43" r="10" fill="url(#warm)"/>
+  <circle cx="82" cy="43" r="10" fill="url(#blue)"/>
+
+  <path d="M30.2 60.6C17.1 72.7 19.2 96.8 36.5 110.1L55.5 124.8C57.2 126.1 59.6 126.1 61.3 124.8L80.5 110.1C97.8 96.8 99.9 72.7 86.8 60.6C77.1 51.6 61.2 53.5 58.4 68.6C55.8 53.5 39.9 51.6 30.2 60.6Z" fill="url(#warm)"/>
+  <path d="M86.8 60.6C77.1 51.6 61.2 53.5 58.4 68.6C56.8 59.5 50.3 55.2 43.5 54.8L40.1 91.4L58.4 114.8L80.5 110.1C97.8 96.8 99.9 72.7 86.8 60.6Z" fill="url(#blue)" opacity="0.92"/>
+  <path d="M28.5 89.3C30.5 97.4 36.5 105.3 45.2 112L55.5 120C57.2 121.3 59.6 121.3 61.3 120L71.8 112C74 110.3 75.9 108.5 77.6 106.5C69.5 101.9 63.3 95.2 58.4 86.7C51.7 97.7 41.7 104.2 30.8 109.5C25.8 102.9 24.8 95.3 28.5 89.3Z" fill="url(#green)"/>
+  <path d="M58.4 99.9L48.2 92.2C42.5 87.9 41.8 79.1 46.9 74.6C50.7 71.2 56.6 71.9 58.4 77.4C60.3 71.9 66.2 71.2 70 74.6C75.1 79.1 74.4 87.9 68.7 92.2L58.4 99.9Z" fill="#F8F7F4" opacity="0.96"/>
+
+  <text x="108" y="100" fill="#101D37" font-family="Poppins, Arial, sans-serif" font-size="70" font-weight="800" letter-spacing="-5">kinly</text>
+</svg>
