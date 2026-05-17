@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
+import BudgetHub from "@/components/custody/BudgetHub";
 
 const custodyModules = [
   {
@@ -325,22 +326,7 @@ export default function Custody() {
       {activeModule === "exchange" && <ExchangeHub />}
       {activeModule === "packing" && <PackingHub />}
       {activeModule === "notifications" && <SmartNotificationsHub />}
-
-      {activeModule === "budget" && (
-        <ComingSoonPanel
-          icon={CreditCard}
-          title="Child budget and shared expenses"
-          description="This section will track purchases, split costs, reimbursements, and recurring payments."
-          bullets={[
-            "Who bought it",
-            "Who needs to pay",
-            "50/50 or custom split",
-            "Daycare recurring payment",
-            "Soccer / martial arts / activities",
-            "Suggested purchase list",
-          ]}
-        />
-      )}
+      {activeModule === "budget" && <BudgetHub />}
 
       {activeModule === "chat" && (
         <ComingSoonPanel
