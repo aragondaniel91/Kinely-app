@@ -171,6 +171,15 @@ div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.bg-card.b
   background: rgba(255, 255, 255, 0.88) !important;
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.045) !important;
   backdrop-filter: blur(18px) !important;
+  position: relative !important;
+  z-index: 40 !important;
+}
+
+/* Ensure dropdowns render above custody grid */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] [data-radix-popper-content-wrapper],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div[role="menu"],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div[role="listbox"] {
+  z-index: 9999 !important;
 }
 
 /* Custody grid area */
@@ -205,6 +214,18 @@ div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid
 div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div.rounded {
   border-radius: 0.8rem !important;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.045) !important;
+}
+
+/* Month notes visibility */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button p.text-\[10px\],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button p.text-\[11px\] {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  line-height: 1.15 !important;
+  margin-top: 0.15rem !important;
+  opacity: 0.92 !important;
 }
 
 /* Day detail cards */
