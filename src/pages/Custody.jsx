@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
+import ExchangeHub from "@/components/custody/ExchangeHub";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
@@ -308,21 +309,7 @@ export default function Custody() {
         />
       )}
 
-      {activeModule === "exchange" && (
-        <ComingSoonPanel
-          icon={Truck}
-          title="Exchange"
-          description="This section will organize custody transitions, pickup/dropoff notes, locations, and reminders."
-          bullets={[
-            "Pickup and dropoff location",
-            "Exchange time",
-            "Who is picking up",
-            "Special handoff notes",
-            "Exchange reminder",
-            "Change-day status",
-          ]}
-        />
-      )}
+      {activeModule === "exchange" && <ExchangeHub />}
 
       {activeModule === "packing" && (
         <ComingSoonPanel
