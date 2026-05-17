@@ -22,3 +22,97 @@
 .family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar {
   display: none;
 }
+
+/* Kinly Premium Calendar Grid V1
+   Visual-only surface polish. No calendar logic is changed here. */
+.family-calendar-live-body > div.mx-auto {
+  border-color: rgba(226, 232, 240, 0.82) !important;
+  border-radius: 2rem !important;
+  box-shadow: 0 18px 52px rgba(15, 23, 42, 0.08) !important;
+}
+
+.family-calendar-live-body div.rounded-b-\[2rem\].bg-white {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%) !important;
+  padding: 1rem !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button {
+  border-color: rgba(226, 232, 240, 0.9) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045) !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button:hover {
+  border-color: rgba(91, 141, 239, 0.45) !important;
+  background: rgba(239, 246, 255, 0.78) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.075) !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button span.flex.h-7.w-7,
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button span[class*="h-7"] {
+  background: rgba(248, 250, 252, 0.95) !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button[aria-current="date"],
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button.ring-2 {
+  box-shadow: 0 0 0 2px rgba(91, 141, 239, 0.35), 0 14px 34px rgba(91, 141, 239, 0.12) !important;
+}
+
+/* Month event pills */
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button div[role="button"] {
+  border-radius: 0.9rem !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.055) !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button div[role="button"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Week/day grid surface */
+.family-calendar-live-body div.relative.overflow-x-auto.rounded-b-\[2rem\].bg-white {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+}
+
+.family-calendar-live-body div[style*="grid-template-columns"] > div.border-r.border-slate-200,
+.family-calendar-live-body div[style*="grid-template-columns"] > div.relative.border-r.border-slate-200 {
+  border-color: rgba(226, 232, 240, 0.82) !important;
+}
+
+.family-calendar-live-body div[style*="grid-template-columns"] > div.relative.border-r.border-slate-200 {
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+.family-calendar-live-body div[style*="grid-template-columns"] > div.relative.border-r.border-slate-200:hover {
+  background: rgba(239, 246, 255, 0.4) !important;
+}
+
+/* Timed event cards */
+.family-calendar-live-body button.absolute.overflow-hidden.rounded-xl {
+  border-radius: 1rem !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.075) !important;
+}
+
+.family-calendar-live-body button.absolute.overflow-hidden.rounded-xl:hover {
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.11) !important;
+}
+
+/* All-day event chips */
+.family-calendar-live-body button.w-full.rounded-lg.border {
+  border-radius: 0.9rem !important;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.055) !important;
+}
+
+.family-calendar-live-body button.w-full.rounded-lg.border:hover {
+  box-shadow: 0 9px 20px rgba(15, 23, 42, 0.085) !important;
+}
+
+/* Time gutter softness */
+.family-calendar-live-body div.relative.border-r.border-slate-200.bg-white {
+  background: rgba(248, 250, 252, 0.85) !important;
+}
+
+.family-calendar-live-body div.border-b.border-slate-100 {
+  border-color: rgba(226, 232, 240, 0.62) !important;
+}
