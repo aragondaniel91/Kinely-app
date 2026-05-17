@@ -53,6 +53,28 @@ function QuickAction({ icon: Icon, label, to }) {
   );
 }
 
+function TimelineItem({ icon: Icon, title, text, tone = "blue" }) {
+  const tones = {
+    blue: "bg-blue-50 text-blue-700",
+    amber: "bg-amber-50 text-amber-700",
+    emerald: "bg-emerald-50 text-emerald-700",
+    violet: "bg-violet-50 text-violet-700",
+    rose: "bg-rose-50 text-rose-700",
+  };
+
+  return (
+    <div className="flex gap-3 rounded-[1.35rem] border border-slate-200 bg-white/80 p-4">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tones[tone]}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-black text-slate-950">{title}</p>
+        <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">{text}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function FamilyHomeDashboard({
   todayLabel,
   nextChange,
@@ -119,34 +141,81 @@ export default function FamilyHomeDashboard({
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.85fr]">
-          <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Family flow</p>
-                <h2 className="mt-1 text-2xl font-black text-slate-950">What matters today</h2>
+          <div className="space-y-6">
+            <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Family flow</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">What matters today</h2>
+                </div>
+                <Link to="/calendar" className="flex items-center gap-1 text-sm font-black text-primary">
+                  Open calendar <ChevronRight className="h-4 w-4" />
+                </Link>
               </div>
-              <Link to="/calendar" className="flex items-center gap-1 text-sm font-black text-primary">
-                Open calendar <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-black text-slate-950">Household rhythm</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Tasks, meals, groceries, and family events stay visible without turning the app into a work dashboard.
-                </p>
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-black text-slate-950">Household rhythm</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Tasks, meals, groceries, and family events stay visible without turning the app into a work dashboard.
+                  </p>
+                </div>
+                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-black text-slate-950">Smart family insight</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    {tasks.length > 0
+                      ? `You have ${tasks.length} pending task(s) to review today.`
+                      : "Your family flow looks calm right now."}
+                  </p>
+                </div>
               </div>
-              <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-black text-slate-950">Smart family insight</p>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {tasks.length > 0
-                    ? `You have ${tasks.length} pending task(s) to review today.`
-                    : "Your family flow looks calm right now."}
-                </p>
+            </Card>
+
+            <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Family timeline</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">Recent household pulse</h2>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">Live soon</span>
               </div>
-            </div>
-          </Card>
+
+              <div className="mt-5 space-y-3">
+                {canReadTasks && (
+                  <TimelineItem
+                    icon={CheckSquare}
+                    title={tasks.length > 0 ? "Tasks need attention" : "Tasks are clear"}
+                    text={tasks.length > 0 ? `${tasks.length} pending task(s) are waiting for the family.` : "No pending tasks right now."}
+                    tone="amber"
+                  />
+                )}
+                {canReadMeals && (
+                  <TimelineItem
+                    icon={UtensilsCrossed}
+                    title={meals.length > 0 ? "Meals planned today" : "No meals planned yet"}
+                    text={meals.length > 0 ? `${meals.length} meal(s) are already planned for today.` : "Meal planning can be added when needed."}
+                    tone="emerald"
+                  />
+                )}
+                {canReadGroceries && (
+                  <TimelineItem
+                    icon={ShoppingCart}
+                    title={groceries.length > 0 ? "Groceries still open" : "Groceries look done"}
+                    text={groceries.length > 0 ? `${groceries.length} grocery item(s) are still open.` : "No open grocery items right now."}
+                    tone="violet"
+                  />
+                )}
+                {hasCustody && (
+                  <TimelineItem
+                    icon={Heart}
+                    title="Custody status available"
+                    text={nextChange ? `Today: ${todayLabel}. Next exchange with ${nextChangeLabel} in ${nextChange.days} day(s).` : `Today: ${todayLabel}.`}
+                    tone="rose"
+                  />
+                )}
+              </div>
+            </Card>
+          </div>
 
           <div className="space-y-4">
             {hasCustody && (
