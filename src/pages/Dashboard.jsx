@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { format, addDays } from "date-fns";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
-import HomeProDashboard from "@/components/home/HomeProDashboard";
+import FamilyHomeDashboard from "@/components/home/FamilyHomeDashboard";
 import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -217,14 +217,6 @@ export default function Dashboard() {
 
   const nextChange = getNextChange();
 
-  const nextSevenDays = Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(new Date(), index);
-    const dateKey = format(date, "yyyy-MM-dd");
-    const custody = custodyDays.find((day) => normalizeDate(day.date) === dateKey);
-
-    return { date, custody };
-  });
-
   const nextChangeLabel =
     nextChange?.with === "dad"
       ? dadName || "Papá"
@@ -241,15 +233,11 @@ export default function Dashboard() {
     : "No custody info";
 
   return (
-    <HomeProDashboard
+    <FamilyHomeDashboard
       todayLabel={todayLabel}
       nextChange={nextChange}
       nextChangeLabel={nextChangeLabel}
       todayCustody={todayCustody}
-      isWithDad={isWithDad}
-      dadTheme={dadTheme}
-      momTheme={momTheme}
-      nextSevenDays={nextSevenDays}
       tasks={tasks}
       meals={meals}
       groceries={groceries}
