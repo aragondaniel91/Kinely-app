@@ -25,13 +25,13 @@ const navItems = [
 
 function AppShellLoader() {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card">
-        <div className="mx-auto flex max-w-4xl justify-around px-1 py-2">
+    <div className="min-h-screen bg-[#F8F7F4]">
+      <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
+        <div className="mx-auto flex max-w-4xl justify-around rounded-[1.75rem] border border-white/70 bg-white/85 px-2 py-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           {Array.from({ length: 7 }).map((_, index) => (
             <div key={index} className="flex min-w-[68px] flex-col items-center gap-1 px-3 py-1">
-              <div className="h-6 w-6 animate-pulse rounded-full bg-muted" />
-              <div className="h-2 w-10 animate-pulse rounded bg-muted" />
+              <div className="h-6 w-6 animate-pulse rounded-full bg-slate-200" />
+              <div className="h-2 w-10 animate-pulse rounded bg-slate-200" />
             </div>
           ))}
         </div>
@@ -50,41 +50,43 @@ export default function AppShell() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-[#F8F7F4]">
       {!hideFamilyHeader && (
-        <header className="sticky top-0 z-40 bg-card border-b border-border flex items-center justify-center py-2 px-4">
+        <header className="sticky top-0 z-40 flex items-center justify-center border-b border-white/70 bg-white/85 px-4 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
           <FamilySelector />
         </header>
       )}
 
-      <main className="flex-1 overflow-auto pb-20">
+      <main className="flex-1 overflow-auto pb-24">
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50">
-        <div className="flex justify-around items-center max-w-4xl mx-auto px-1 py-1 overflow-x-auto">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
+      <nav className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
+        <div className="mx-auto max-w-4xl rounded-[1.75rem] border border-white/70 bg-white/90 p-1.5 shadow-[0_18px_44px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+          <div className="flex items-center justify-around gap-1 overflow-x-auto">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all min-w-[68px]",
-                  isActive
-                    ? "text-primary bg-primary/10"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className={cn("w-6 h-6", isActive && "stroke-[2.5]")} />
-                <span className="text-[11px] font-semibold font-heading">
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    "flex min-w-[68px] flex-col items-center gap-1 rounded-[1.25rem] px-3 py-2 text-[11px] font-black transition-all duration-200",
+                    isActive
+                      ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100"
+                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                  )}
+                >
+                  <Icon className={cn("h-5 w-5", isActive && "stroke-[2.6]")} />
+                  <span className="font-heading leading-none">
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </nav>
     </div>
