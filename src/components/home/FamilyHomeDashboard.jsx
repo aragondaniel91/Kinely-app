@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Baby, CalendarDays, CheckSquare, ChevronRight, Heart, Plus, School, ShoppingCart, Sparkles, UtensilsCrossed, Users } from "lucide-react";
+import { Baby, CalendarDays, CheckSquare, ChevronRight, Clock, Heart, Plus, School, ShoppingCart, Sparkles, UtensilsCrossed, Users } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 
@@ -75,6 +75,31 @@ function TimelineItem({ icon: Icon, title, text, tone = "blue" }) {
   );
 }
 
+function CalendarPreviewItem({ icon: Icon, time, title, detail, tone = "blue" }) {
+  const tones = {
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    violet: "bg-violet-50 text-violet-700 border-violet-100",
+    rose: "bg-rose-50 text-rose-700 border-rose-100",
+  };
+
+  return (
+    <div className="flex items-center gap-4 rounded-[1.35rem] border border-slate-200 bg-white/80 p-4">
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${tones[tone]}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">{time}</p>
+        </div>
+        <p className="mt-1 truncate text-sm font-black text-slate-950">{title}</p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-slate-500">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
 function ChildCard({ name, todayLabel, hasCustody, nextChange, nextChangeLabel, tasksCount, mealsCount }) {
   return (
     <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-lg">
@@ -86,7 +111,7 @@ function ChildCard({ name, todayLabel, hasCustody, nextChange, nextChangeLabel, 
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Child focus</p>
-              <h3 className="mt-1 text-2xl font-black text-slate-950">{name}</h3>
+              <h3 className="mt-1 text-2xl font-black text-slate-950">Joaquin</h3>
             </div>
           </div>
           <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-black text-slate-500 shadow-sm">
@@ -151,6 +176,44 @@ export default function FamilyHomeDashboard({
   canReadGroceries,
 }) {
   const hasCustody = Boolean(todayCustody || nextChange);
+  const calendarPreviewItems = [
+    hasCustody
+      ? {
+          icon: Heart,
+          time: "Today",
+          title: todayLabel,
+          detail: nextChange
+            ? `Next exchange with ${nextChangeLabel} in ${nextChange.days} day(s).`
+            : "Custody status is available.",
+          tone: "rose",
+        }
+      : null,
+    canReadMeals
+      ? {
+          icon: UtensilsCrossed,
+          time: "Meals",
+          title: meals.length > 0 ? `${meals.length} meal(s) planned` : "No meals planned yet",
+          detail: meals.length > 0 ? "Today’s meals are ready to review." : "Add breakfast, lunch, snack, or dinner.",
+          tone: "emerald",
+        }
+      : null,
+    canReadTasks
+      ? {
+          icon: CheckSquare,
+          time: "Focus",
+          title: tasks.length > 0 ? `${tasks.length} task(s) pending` : "No pending tasks",
+          detail: tasks.length > 0 ? "Review today’s family priorities." : "Your task list looks calm.",
+          tone: "amber",
+        }
+      : null,
+    {
+      icon: CalendarDays,
+      time: "Calendar",
+      title: "Family schedule",
+      detail: "Open day, week, or month view.",
+      tone: "blue",
+    },
+  ].filter(Boolean);
 
   return (
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,rgba(91,141,239,0.15),transparent_34%),linear-gradient(180deg,#F8F7F4_0%,#FFFFFF_56%,#F8FAFC_100%)] px-4 py-5 md:px-6 md:py-7">
@@ -223,6 +286,45 @@ export default function FamilyHomeDashboard({
                   tasksCount={tasks.length}
                   mealsCount={meals.length}
                 />
+              </div>
+            </Card>
+
+            <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Family calendar</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">Today and upcoming</h2>
+                </div>
+                <Link to="/calendar" className="flex items-center gap-1 text-sm font-black text-primary">
+                  Open calendar <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {calendarPreviewItems.map((item) => (
+                  <CalendarPreviewItem
+                    key={`${item.time}-${item.title}`}
+                    icon={item.icon}
+                    time={item.time}
+                    title={item.title}
+                    detail={item.detail}
+                    tone={item.tone}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4 rounded-[1.35rem] border border-dashed border-slate-200 bg-slate-50/80 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-950">Real calendar events soon</p>
+                    <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+                      This preview is ready to connect with family events, activities, school pickup, and appointments.
+                    </p>
+                  </div>
+                </div>
               </div>
             </Card>
 
