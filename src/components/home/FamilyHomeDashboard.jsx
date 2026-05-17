@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, CheckSquare, ChevronRight, Heart, Plus, ShoppingCart, Sparkles, UtensilsCrossed, Users } from "lucide-react";
+import { Baby, CalendarDays, CheckSquare, ChevronRight, Heart, Plus, School, ShoppingCart, Sparkles, UtensilsCrossed, Users } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 
@@ -75,6 +75,68 @@ function TimelineItem({ icon: Icon, title, text, tone = "blue" }) {
   );
 }
 
+function ChildCard({ name, todayLabel, hasCustody, nextChange, nextChangeLabel, tasksCount, mealsCount }) {
+  return (
+    <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="bg-[linear-gradient(135deg,#eff6ff_0%,#fff7ed_100%)] p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-white/85 text-blue-700 shadow-sm">
+              <Baby className="h-8 w-8" />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Child focus</p>
+              <h3 className="mt-1 text-2xl font-black text-slate-950">{name}</h3>
+            </div>
+          </div>
+          <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-black text-slate-500 shadow-sm">
+            Today
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-[1.25rem] border border-white/80 bg-white/75 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">Status</p>
+            <p className="mt-1 text-sm font-black text-slate-900">
+              {hasCustody ? todayLabel : "Family day"}
+            </p>
+          </div>
+          <div className="rounded-[1.25rem] border border-white/80 bg-white/75 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">Next</p>
+            <p className="mt-1 text-sm font-black text-slate-900">
+              {nextChange ? `${nextChange.days} day(s) with ${nextChangeLabel}` : "No urgent change"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-5 sm:grid-cols-3">
+        <div className="rounded-[1.25rem] bg-slate-50 p-3">
+          <div className="flex items-center gap-2 text-amber-700">
+            <CheckSquare className="h-4 w-4" />
+            <p className="text-xs font-black uppercase">Tasks</p>
+          </div>
+          <p className="mt-1 text-sm font-bold text-slate-600">{tasksCount} pending</p>
+        </div>
+        <div className="rounded-[1.25rem] bg-slate-50 p-3">
+          <div className="flex items-center gap-2 text-emerald-700">
+            <UtensilsCrossed className="h-4 w-4" />
+            <p className="text-xs font-black uppercase">Meals</p>
+          </div>
+          <p className="mt-1 text-sm font-bold text-slate-600">{mealsCount} today</p>
+        </div>
+        <div className="rounded-[1.25rem] bg-slate-50 p-3">
+          <div className="flex items-center gap-2 text-blue-700">
+            <School className="h-4 w-4" />
+            <p className="text-xs font-black uppercase">School</p>
+          </div>
+          <p className="mt-1 text-sm font-bold text-slate-600">Ready</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function FamilyHomeDashboard({
   todayLabel,
   nextChange,
@@ -142,6 +204,28 @@ export default function FamilyHomeDashboard({
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.85fr]">
           <div className="space-y-6">
+            <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Children</p>
+                  <h2 className="mt-1 text-2xl font-black text-slate-950">Child focus cards</h2>
+                </div>
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">V1</span>
+              </div>
+
+              <div className="mt-5 grid gap-4">
+                <ChildCard
+                  name="Joaquin"
+                  todayLabel={todayLabel}
+                  hasCustody={hasCustody}
+                  nextChange={nextChange}
+                  nextChangeLabel={nextChangeLabel}
+                  tasksCount={tasks.length}
+                  mealsCount={meals.length}
+                />
+              </div>
+            </Card>
+
             <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)] md:p-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
