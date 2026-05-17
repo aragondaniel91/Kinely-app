@@ -1,0 +1,64 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap");
+
+:root {
+  --font-heading: "Poppins", sans-serif;
+  --font-body: "Poppins", sans-serif;
+
+  --kinly-blue: #5b8def;
+  --kinly-soft-blue: #e7f0ff;
+  --kinly-yellow: #ffd166;
+  --kinly-coral: #ff7b72;
+  --kinly-green: #7bc9a1;
+  --kinly-warm-bg: #f8f7f4;
+  --kinly-ink: #12203a;
+  --kinly-muted: #64748b;
+
+  --background: 45 27% 96%;
+  --foreground: 220 52% 15%;
+  --primary: 217 83% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 42 100% 89%;
+  --secondary-foreground: 220 52% 15%;
+  --accent: 150 45% 64%;
+  --accent-foreground: 220 52% 15%;
+  --ring: 217 83% 65%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--kinly-warm-bg);
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.kinly-wordmark {
+  font-family: var(--font-heading);
+  letter-spacing: -0.04em;
+  color: var(--kinly-ink);
+}
+
+.kinly-surface {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 52px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.kinly-gradient-bg {
+  background:
+    radial-gradient(circle at top left, rgba(91, 141, 239, 0.15), transparent 34%),
+    linear-gradient(180deg, #f8f7f4 0%, #ffffff 56%, #f8fafc 100%);
+}
+
+.kinly-family-gradient {
+  background:
+    radial-gradient(circle at top left, rgba(255, 209, 102, 0.22), transparent 34%),
+    linear-gradient(135deg, #ffffff 0%, #eff6ff 48%, #f8f7f4 100%);
+}
+
+.kinly-focus-ring:focus-visible {
+  outline: 3px solid rgba(91, 141, 239, 0.35);
+  outline-offset: 3px;
+}
