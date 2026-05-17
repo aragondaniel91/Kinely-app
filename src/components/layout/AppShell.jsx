@@ -11,6 +11,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import FamilySelector from "@/components/layout/FamilySelector";
+import KinlyLogo from "@/components/brand/KinlyLogo";
 import { useFamily } from "@/lib/FamilyContext";
 
 const navItems = [
@@ -26,6 +27,9 @@ const navItems = [
 function AppShellLoader() {
   return (
     <div className="min-h-screen bg-[#F8F7F4]">
+      <div className="fixed left-4 top-4">
+        <KinlyLogo />
+      </div>
       <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
         <div className="mx-auto flex max-w-4xl justify-around rounded-[1.75rem] border border-white/70 bg-white/85 px-2 py-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           {Array.from({ length: 7 }).map((_, index) => (
@@ -52,8 +56,13 @@ export default function AppShell() {
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F7F4]">
       {!hideFamilyHeader && (
-        <header className="sticky top-0 z-40 flex items-center justify-center border-b border-white/70 bg-white/85 px-4 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-          <FamilySelector />
+        <header className="sticky top-0 z-40 border-b border-white/70 bg-white/85 px-4 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+            <Link to="/" className="shrink-0">
+              <KinlyLogo />
+            </Link>
+            <FamilySelector />
+          </div>
         </header>
       )}
 
