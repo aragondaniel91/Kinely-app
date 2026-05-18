@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import {
   BadgeDollarSign,
   CheckCircle2,
   FileText,
   HeartHandshake,
+  Pencil,
   Plus,
   ReceiptText,
   Repeat,
   Scale,
+  Trash2,
   WalletCards,
 } from "lucide-react";
 
@@ -29,6 +31,19 @@ const emptyNewExpense = {
   due: "",
   recurring: false,
 };
+
+function expenseToForm(expense) {
+  return {
+    title: expense?.title || "",
+    category: expense?.category || "School",
+    amount: expense?.amount === 0 || expense?.amount ? String(expense.amount) : "",
+    paidBy: expense?.paidBy || "Shared",
+    split: expense?.split || "50/50",
+    status: expense?.status || "review",
+    due: expense?.due || "",
+    recurring: Boolean(expense?.recurring),
+  };
+}
 
 function statusMeta(status) {
   if (status === "settled") {
@@ -128,17 +143,13 @@ function SummaryCard({ icon: Icon, label, value, helper, tone = "blue" }) {
   );
 }
 
-function ExpenseRow({ expense, onCycle }) {
+function ExpenseRow({ expense, onCycle, onEdit, onDelete }) {
   const meta = statusMeta(expense.status);
 
   return (
-    <button
-      type="button"
-      onClick={() => onCycle(expense.id)}
-      className="w-full rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md"
-    >
+    <div className="w-full rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 items-start gap-4">
+        <button type="button" onClick={() => onCycle(expense.id)} className="flex min-w-0 flex-1 items-start gap-4 text-left">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
             {expense.recurring ? <Repeat className="h-6 w-6" /> : <ReceiptText className="h-6 w-6" />}
           </div>
@@ -155,7 +166,7 @@ function ExpenseRow({ expense, onCycle }) {
               {expense.category} · Paid by {expense.paidBy} · Split {expense.split}
             </p>
           </div>
-        </div>
+        </button>
 
         <div className="flex shrink-0 items-center gap-3 md:justify-end">
           <div className="text-left md:text-right">
@@ -165,22 +176,42 @@ function ExpenseRow({ expense, onCycle }) {
           <span className={`rounded-full border px-3 py-1 text-xs font-black ${meta.className}`}>
             {meta.label}
           </span>
+          <button
+            type="button"
+            onClick={() => onEdit(expense)}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            aria-label={`Edit ${expense.title}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(expense)}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+            aria-label={`Delete ${expense.title}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
-function AddExpenseModal({ open, value, saving, onChange, onClose, onSubmit }) {
+function ExpenseModal({ open, mode, value, saving, onChange, onClose, onSubmit }) {
   if (!open) return null;
+
+  const isEdit = mode === "edit";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
       <form onSubmit={onSubmit} className="w-full max-w-2xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
         <div className="mb-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Budget expense</p>
-          <h3 className="mt-1 text-2xl font-black text-slate-950">Add expense</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Track a child-related cost for this custody group.</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">{isEdit ? "Edit expense" : "Add expense"}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {isEdit ? "Update this child-related cost for the selected custody group." : "Track a child-related cost for this custody group."}
+          </p>
         </div>
 
         <div className="grid gap-4">
@@ -297,7 +328,7 @@ function AddExpenseModal({ open, value, saving, onChange, onClose, onSubmit }) {
             Cancel
           </Button>
           <Button type="submit" disabled={saving} className="rounded-full bg-amber-600 hover:bg-amber-700">
-            {saving ? "Saving..." : "Add expense"}
+            {saving ? "Saving..." : isEdit ? "Save changes" : "Add expense"}
           </Button>
         </div>
       </form>
@@ -342,9 +373,10 @@ export default function BudgetHub() {
   const { user, familyId, dadName, momName } = useFamily();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
-  const [newExpense, setNewExpense] = useState(emptyNewExpense);
+  const [expenseForm, setExpenseForm] = useState(emptyNewExpense);
+  const [editingExpense, setEditingExpense] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -404,6 +436,24 @@ export default function BudgetHub() {
 
   const summary = useMemo(() => getBudgetSummary(expenses), [expenses]);
 
+  const closeExpenseModal = () => {
+    setShowExpenseModal(false);
+    setEditingExpense(null);
+    setExpenseForm(emptyNewExpense);
+  };
+
+  const openAddExpense = () => {
+    setEditingExpense(null);
+    setExpenseForm(emptyNewExpense);
+    setShowExpenseModal(true);
+  };
+
+  const openEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setExpenseForm(expenseToForm(expense));
+    setShowExpenseModal(true);
+  };
+
   const cycleStatus = async (id) => {
     const next = {
       review: "pending",
@@ -437,42 +487,71 @@ export default function BudgetHub() {
     }
   };
 
-  const addExpense = async (event) => {
+  const saveExpense = async (event) => {
     event.preventDefault();
 
-    const cleanTitle = newExpense.title.trim();
-    const cleanAmount = Number(newExpense.amount);
+    const cleanTitle = expenseForm.title.trim();
+    const cleanAmount = Number(expenseForm.amount);
     if (!cleanTitle || Number.isNaN(cleanAmount) || cleanAmount < 0 || !user || !familyId || savingExpense) return;
 
     setSavingExpense(true);
 
     try {
-      const order = expenses.length;
       const payload = {
         title: cleanTitle,
-        category: newExpense.category,
+        category: expenseForm.category,
         amount: cleanAmount,
-        paidBy: newExpense.paidBy,
-        split: newExpense.split,
-        status: newExpense.status,
-        due: newExpense.due.trim(),
-        recurring: Boolean(newExpense.recurring),
-        familyId,
-        createdBy: user.uid,
-        order,
-        createdAt: serverTimestamp(),
+        paidBy: expenseForm.paidBy,
+        split: expenseForm.split,
+        status: expenseForm.status,
+        due: expenseForm.due.trim(),
+        recurring: Boolean(expenseForm.recurring),
         updatedAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, "custodyExpenses"), payload);
-      setExpenses((current) => [...current, { ...payload, id: docRef.id }]);
-      setNewExpense(emptyNewExpense);
-      setShowAddExpense(false);
+      if (editingExpense) {
+        await updateDoc(doc(db, "custodyExpenses", editingExpense.id), payload);
+        setExpenses((current) =>
+          current.map((expense) =>
+            expense.id === editingExpense.id ? { ...expense, ...payload } : expense
+          )
+        );
+      } else {
+        const order = expenses.length;
+        const createPayload = {
+          ...payload,
+          familyId,
+          createdBy: user.uid,
+          order,
+          createdAt: serverTimestamp(),
+        };
+
+        const docRef = await addDoc(collection(db, "custodyExpenses"), createPayload);
+        setExpenses((current) => [...current, { ...createPayload, id: docRef.id }]);
+      }
+
+      closeExpenseModal();
     } catch (error) {
-      console.error("Error adding custody expense:", error);
-      window.alert(`Could not add expense: ${error.message}`);
+      console.error("Error saving custody expense:", error);
+      window.alert(`Could not save expense: ${error.message}`);
     } finally {
       setSavingExpense(false);
+    }
+  };
+
+  const deleteExpense = async (expenseToDelete) => {
+    const confirmed = window.confirm(`Delete "${expenseToDelete.title}" from shared expenses?`);
+    if (!confirmed) return;
+
+    const previousExpenses = expenses;
+    setExpenses((current) => current.filter((expense) => expense.id !== expenseToDelete.id));
+
+    try {
+      await deleteDoc(doc(db, "custodyExpenses", expenseToDelete.id));
+    } catch (error) {
+      console.error("Error deleting custody expense:", error);
+      setExpenses(previousExpenses);
+      window.alert(`Could not delete expense: ${error.message}`);
     }
   };
 
@@ -502,7 +581,7 @@ export default function BudgetHub() {
                 </p>
               </div>
 
-              <Button type="button" onClick={() => setShowAddExpense(true)} className="rounded-full gap-2">
+              <Button type="button" onClick={openAddExpense} className="rounded-full gap-2">
                 <Plus className="h-4 w-4" />
                 Add expense
               </Button>
@@ -510,7 +589,7 @@ export default function BudgetHub() {
 
             <div className="space-y-3">
               {expenses.map((expense) => (
-                <ExpenseRow key={expense.id} expense={expense} onCycle={cycleStatus} />
+                <ExpenseRow key={expense.id} expense={expense} onCycle={cycleStatus} onEdit={openEditExpense} onDelete={deleteExpense} />
               ))}
             </div>
           </Card>
@@ -554,16 +633,14 @@ export default function BudgetHub() {
         </div>
       </div>
 
-      <AddExpenseModal
-        open={showAddExpense}
-        value={newExpense}
+      <ExpenseModal
+        open={showExpenseModal}
+        mode={editingExpense ? "edit" : "add"}
+        value={expenseForm}
         saving={savingExpense}
-        onChange={setNewExpense}
-        onClose={() => {
-          setShowAddExpense(false);
-          setNewExpense(emptyNewExpense);
-        }}
-        onSubmit={addExpense}
+        onChange={setExpenseForm}
+        onClose={closeExpenseModal}
+        onSubmit={saveExpense}
       />
     </div>
   );
