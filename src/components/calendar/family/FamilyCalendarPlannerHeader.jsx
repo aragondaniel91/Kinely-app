@@ -52,9 +52,10 @@ function DateNavigation({ onPrevious, onToday, onNext }) {
   );
 }
 
-function ViewControls({ viewMode, onViewModeChange }) {
+function CalendarControls({ viewMode, onPrevious, onToday, onNext, onViewModeChange }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+      <DateNavigation onPrevious={onPrevious} onToday={onToday} onNext={onNext} />
       <ViewModeSwitch viewMode={viewMode} onViewModeChange={onViewModeChange} />
     </div>
   );
@@ -154,13 +155,16 @@ export default function FamilyCalendarPlannerHeader({
       </div>
 
       <div className="mt-3 flex flex-col gap-3 border-t border-white/70 pt-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <DateNavigation onPrevious={onPrevious} onToday={onToday} onNext={onNext} />
-          <span className="rounded-full bg-white/75 px-3 py-2 text-sm font-black text-slate-500 shadow-sm">
-            {visibleEventCount} events · {rangeText}
-          </span>
-        </div>
-        <ViewControls viewMode={viewMode} onViewModeChange={onViewModeChange} />
+        <span className="w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-black text-slate-500 shadow-sm">
+          {visibleEventCount} events · {rangeText}
+        </span>
+        <CalendarControls
+          viewMode={viewMode}
+          onPrevious={onPrevious}
+          onToday={onToday}
+          onNext={onNext}
+          onViewModeChange={onViewModeChange}
+        />
       </div>
     </header>
   );
