@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import {
   BadgeDollarSign,
-  CalendarDays,
   CheckCircle2,
-  CreditCard,
   FileText,
   HeartHandshake,
   Plus,
@@ -16,62 +15,9 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-
-const initialExpenses = [
-  {
-    id: "daycare",
-    title: "Daycare monthly payment",
-    category: "School",
-    amount: 850,
-    paidBy: "Dad",
-    split: "50/50",
-    status: "pending",
-    due: "May 20",
-    recurring: true,
-  },
-  {
-    id: "soccer",
-    title: "Soccer registration",
-    category: "Activities",
-    amount: 140,
-    paidBy: "Mom",
-    split: "50/50",
-    status: "settled",
-    due: "Paid",
-    recurring: false,
-  },
-  {
-    id: "medicine",
-    title: "Prescription refill",
-    category: "Medical",
-    amount: 38,
-    paidBy: "Dad",
-    split: "50/50",
-    status: "review",
-    due: "May 18",
-    recurring: false,
-  },
-  {
-    id: "school-supplies",
-    title: "School supplies",
-    category: "School",
-    amount: 62,
-    paidBy: "Shared",
-    split: "Custom",
-    status: "pending",
-    due: "May 22",
-    recurring: false,
-  },
-];
-
-function currency(value) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
 
 function statusMeta(status) {
   if (status === "settled") {
@@ -94,7 +40,23 @@ function statusMeta(status) {
   };
 }
 
-function BudgetHero({ total, pending, settled }) {
+function normalizeExpenseDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    title: data.title || "Expense",
+    category: data.category || "General",
+    amount: Number(data.amount || 0),
+    paidBy: data.paidBy || "Shared",
+    split: data.split || "50/50",
+    status: data.status || "review",
+    due: data.due || "",
+    recurring: Boolean(data.recurring),
+    order: data.order ?? 999,
+  };
+}
+
+function BudgetHero({ total, pending, settled, loading }) {
   return (
     <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.08)]">
       <div className="bg-[radial-gradient(circle_at_top_left,rgba(255,209,102,0.28),transparent_34%),linear-gradient(135deg,#ffffff_0%,#fff7ed_46%,#f8f7f4_100%)] p-6 md:p-8">
@@ -116,13 +78,13 @@ function BudgetHero({ total, pending, settled }) {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
               This month
             </p>
-            <p className="mt-2 text-4xl font-black text-slate-950">{currency(total)}</p>
+            <p className="mt-2 text-4xl font-black text-slate-950">{loading ? "..." : currency(total)}</p>
             <div className="mt-3 flex gap-2">
               <Badge className="rounded-full bg-amber-50 text-amber-700 hover:bg-amber-50">
-                {currency(pending)} pending
+                {loading ? "Loading" : `${currency(pending)} pending`}
               </Badge>
               <Badge className="rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                {currency(settled)} settled
+                {loading ? "Loading" : `${currency(settled)} settled`}
               </Badge>
             </div>
           </div>
@@ -198,7 +160,9 @@ function ExpenseRow({ expense, onCycle }) {
   );
 }
 
-function SplitPreview({ dadName, momName, dadOwes, momOwes }) {
+function SplitPreview({ dadName, momName, pending }) {
+  const estimatedShare = Math.round((pending || 0) / 2);
+
   return (
     <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
       <div className="mb-5">
@@ -209,19 +173,19 @@ function SplitPreview({ dadName, momName, dadOwes, momOwes }) {
           Who owes what
         </h3>
         <p className="mt-2 text-sm font-semibold text-slate-500">
-          V1 estimate based on visible demo expenses. Firestore settlement logic comes next.
+          V1 estimate based on pending expenses with a 50/50 default split.
         </p>
       </div>
 
       <div className="space-y-3">
         <div className="rounded-[1.4rem] border border-blue-100 bg-blue-50/80 p-4">
           <p className="text-sm font-black text-blue-900">{dadName || "Dad"}</p>
-          <p className="mt-1 text-3xl font-black text-blue-700">{currency(dadOwes)}</p>
+          <p className="mt-1 text-3xl font-black text-blue-700">{currency(estimatedShare)}</p>
           <p className="mt-1 text-xs font-bold text-blue-700/80">Estimated balance</p>
         </div>
         <div className="rounded-[1.4rem] border border-amber-100 bg-amber-50/80 p-4">
           <p className="text-sm font-black text-amber-900">{momName || "Mom"}</p>
-          <p className="mt-1 text-3xl font-black text-amber-700">{currency(momOwes)}</p>
+          <p className="mt-1 text-3xl font-black text-amber-700">{currency(estimatedShare)}</p>
           <p className="mt-1 text-xs font-bold text-amber-700/80">Estimated balance</p>
         </div>
       </div>
@@ -230,44 +194,110 @@ function SplitPreview({ dadName, momName, dadOwes, momOwes }) {
 }
 
 export default function BudgetHub() {
-  const { dadName, momName } = useFamily();
-  const [expenses, setExpenses] = useState(initialExpenses);
+  const { user, familyId, dadName, momName } = useFamily();
+  const [expenses, setExpenses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const total = useMemo(
-    () => expenses.reduce((sum, expense) => sum + expense.amount, 0),
-    [expenses]
-  );
+  useEffect(() => {
+    let cancelled = false;
 
-  const pending = useMemo(
-    () => expenses.filter((expense) => expense.status !== "settled").reduce((sum, expense) => sum + expense.amount, 0),
-    [expenses]
-  );
+    async function loadExpenses() {
+      if (!user || !familyId) {
+        setExpenses([]);
+        setLoading(false);
+        return;
+      }
 
-  const settled = total - pending;
+      setLoading(true);
 
-  const cycleStatus = (id) => {
+      try {
+        const q = query(collection(db, "custodyExpenses"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          const createdExpenses = await Promise.all(
+            initialCustodyExpenses.map(async (expense, index) => {
+              const docRef = await addDoc(collection(db, "custodyExpenses"), {
+                ...expense,
+                familyId,
+                createdBy: user.uid,
+                order: index,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+
+              return { ...expense, id: docRef.id, order: index };
+            })
+          );
+
+          if (!cancelled) setExpenses(createdExpenses);
+          return;
+        }
+
+        const data = snap.docs
+          .map(normalizeExpenseDoc)
+          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+        if (!cancelled) setExpenses(data);
+      } catch (error) {
+        console.error("Error loading custody expenses:", error);
+        if (!cancelled) setExpenses(initialCustodyExpenses);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadExpenses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
+
+  const summary = useMemo(() => getBudgetSummary(expenses), [expenses]);
+
+  const cycleStatus = async (id) => {
     const next = {
       review: "pending",
       pending: "settled",
       settled: "review",
     };
 
+    const currentExpense = expenses.find((expense) => expense.id === id);
+    if (!currentExpense) return;
+
+    const nextStatus = next[currentExpense.status] || "review";
+
     setExpenses((current) =>
       current.map((expense) =>
-        expense.id === id ? { ...expense, status: next[expense.status] } : expense
+        expense.id === id ? { ...expense, status: nextStatus } : expense
       )
     );
+
+    try {
+      await updateDoc(doc(db, "custodyExpenses", id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error updating custody expense:", error);
+      setExpenses((current) =>
+        current.map((expense) =>
+          expense.id === id ? { ...expense, status: currentExpense.status } : expense
+        )
+      );
+    }
   };
 
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <BudgetHero total={total} pending={pending} settled={settled} />
+        <BudgetHero loading={loading} total={summary.total} pending={summary.pending} settled={summary.settled} />
 
         <div className="grid gap-4 md:grid-cols-3">
-          <SummaryCard icon={WalletCards} label="Monthly total" value={currency(total)} helper="Visible tracked expenses" tone="amber" />
+          <SummaryCard icon={WalletCards} label="Monthly total" value={currency(summary.total)} helper={`${summary.totalCount} tracked expenses`} tone="amber" />
           <SummaryCard icon={Scale} label="Default split" value="50/50" helper="Custom split supported later" tone="blue" />
-          <SummaryCard icon={CheckCircle2} label="Settled" value={currency(settled)} helper="Paid or reimbursed" tone="emerald" />
+          <SummaryCard icon={CheckCircle2} label="Settled" value={currency(summary.settled)} helper={`${summary.settledCount} settled item(s)`} tone="emerald" />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.78fr]">
@@ -299,7 +329,7 @@ export default function BudgetHub() {
           </Card>
 
           <div className="space-y-6">
-            <SplitPreview dadName={dadName} momName={momName} dadOwes={244} momOwes={151} />
+            <SplitPreview dadName={dadName} momName={momName} pending={summary.pending} />
 
             <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
               <div className="flex items-start gap-4">
