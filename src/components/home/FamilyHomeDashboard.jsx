@@ -149,7 +149,7 @@ function SectionHeader({ kicker, title, action, to }) {
 
 function QuickAction({ icon: Icon, label, text, to, tone = "blue" }) {
   return (
-    <Link to={to} className="group flex min-h-[72px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+    <Link to={to} className="group flex min-h-[68px] items-center gap-3 rounded-[1.2rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${getToneClasses(tone)}`}>
         <Icon className="h-5 w-5" />
       </span>
@@ -179,13 +179,13 @@ function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
 
 function StatPill({ icon: Icon, value, label, tone }) {
   return (
-    <div className="flex items-center gap-3 rounded-[1.2rem] border border-white/80 bg-white/75 px-3 py-3">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${getToneClasses(tone)}`}>
+    <div className="flex items-center gap-2 rounded-[1rem] border border-white/80 bg-white/75 px-3 py-2.5">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div>
-        <p className="text-2xl font-black leading-none text-slate-950">{value}</p>
-        <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500">{label}</p>
+        <p className="text-xl font-black leading-none text-slate-950">{value}</p>
+        <p className="mt-0.5 text-[10px] font-bold leading-4 text-slate-500">{label}</p>
       </div>
     </div>
   );
@@ -193,22 +193,22 @@ function StatPill({ icon: Icon, value, label, tone }) {
 
 function HeroPanel({ smartBrief, tasks, meals, groceries, hasCustody }) {
   return (
-    <div className="rounded-[1.8rem] border border-white/80 bg-white/82 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur">
+    <div className="rounded-[1.55rem] border border-white/80 bg-white/82 p-4 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Resumen inteligente</p>
-          <h2 className="mt-2 text-2xl font-black text-slate-950">{smartBrief.title}</h2>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Resumen inteligente</p>
+          <h2 className="mt-1.5 text-xl font-black text-slate-950">{smartBrief.title}</h2>
           <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{smartBrief.text}</p>
         </div>
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.1rem] border ${getToneClasses(smartBrief.tone)}`}>
-          <Users className="h-6 w-6" />
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border ${getToneClasses(smartBrief.tone)}`}>
+          <Users className="h-5 w-5" />
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatPill icon={CheckSquare} value={tasks.length} label="Tareas pendientes" tone="blue" />
-        <StatPill icon={CalendarDays} value={hasCustody ? 1 : meals.length} label="Eventos importantes" tone="blue" />
-        <StatPill icon={ShoppingCart} value={groceries.length} label="Compras abiertas" tone="emerald" />
+      <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+        <StatPill icon={CheckSquare} value={tasks.length} label="Tareas" tone="blue" />
+        <StatPill icon={CalendarDays} value={hasCustody ? 1 : meals.length} label="Eventos" tone="blue" />
+        <StatPill icon={ShoppingCart} value={groceries.length} label="Compras" tone="emerald" />
         <StatPill icon={Heart} value="✓" label="Sin alertas" tone="rose" />
       </div>
     </div>
@@ -217,29 +217,29 @@ function HeroPanel({ smartBrief, tasks, meals, groceries, hasCustody }) {
 
 function Hero({ smartBrief, tasks, meals, groceries, hasCustody }) {
   return (
-    <section className="overflow-hidden rounded-[2.4rem] border border-white/80 bg-white shadow-[0_20px_58px_rgba(15,23,42,0.08)]">
-      <div className="kinly-family-gradient p-5 md:p-8 lg:p-10">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
+    <section className="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
+      <div className="kinly-family-gradient p-5 md:p-7">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
             Kinly Family Home
           </div>
           <WeatherPill />
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[1.12fr_0.88fr] xl:items-end">
+        <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr] xl:items-end">
           <div>
-            <h1 className="max-w-4xl text-5xl font-black tracking-tight text-slate-950 md:text-7xl lg:text-8xl">
+            <h1 className="max-w-2xl text-4xl font-black tracking-tight text-slate-950 md:text-5xl lg:text-6xl">
               {getGreeting()}, familia <span className="text-amber-400">♥</span>
             </h1>
-            <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-slate-600 md:text-xl">
-              Tu familia conectada en un solo lugar: agenda, niños, tareas, comidas y compras.
+            <p className="mt-3 max-w-xl text-base font-semibold leading-7 text-slate-600">
+              Agenda, niños, tareas, comidas y compras en un solo lugar.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/calendar" className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link to="/calendar" className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
                 Abrir calendario
               </Link>
-              <Link to="/tasks" className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:text-blue-700 hover:shadow-md">
+              <Link to="/tasks" className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:text-blue-700 hover:shadow-md">
                 Agregar tarea
               </Link>
             </div>
@@ -256,9 +256,9 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
   const visibleChildren = children.length ? children : [{ name: "Joaquin" }];
 
   return (
-    <Card className="rounded-[2rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+    <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
       <SectionHeader kicker="Niños" title="Perfiles familiares" action="Ver todo" to="/children" />
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {visibleChildren.slice(0, 4).map((child, index) => {
           const name = getChildName(child, index);
           const age = getChildAge(child);
@@ -270,26 +270,26 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
             : "Próximo: revisar calendario";
 
           return (
-            <Link key={`${name}-${index}`} to="/children" className="group overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md">
-              <div className={`h-2 ${isFirst ? "bg-blue-400" : "bg-rose-300"}`} />
-              <div className="p-4">
-                <div className="flex items-start gap-4">
-                  <div className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] text-2xl font-black shadow-sm ${isFirst ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>
+            <Link key={`${name}-${index}`} to="/children" className="group overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md">
+              <div className={`h-1.5 ${isFirst ? "bg-blue-400" : "bg-rose-300"}`} />
+              <div className="p-3.5">
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.15rem] text-lg font-black shadow-sm ${isFirst ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>
                     {getInitials(name)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-2xl font-black text-slate-950">{name}</p>
+                        <p className="truncate text-xl font-black text-slate-950">{name}</p>
                         <p className="mt-0.5 text-sm font-semibold text-slate-500">{age || "Perfil familiar"}</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
                         Sin alertas
                       </span>
                     </div>
-                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3">
-                      <p className="truncate text-sm font-black text-slate-800">{nextText}</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-500">{tasksCount} tareas · {mealsCount} comidas hoy</p>
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-2.5">
+                      <p className="truncate text-xs font-black text-slate-800">{nextText}</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-500">{tasksCount} tareas · {mealsCount} comidas hoy</p>
                     </div>
                   </div>
                 </div>
@@ -311,16 +311,16 @@ function TodayFocusSection({ tasks, meals, groceries, hasCustody, nextChange, ne
   ].filter(Boolean).slice(0, 4);
 
   return (
-    <Card className="rounded-[2rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+    <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
       <SectionHeader kicker="En foco hoy" title="Lo importante" action="Ver todo" to="/calendar" />
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {focusItems.map((item) => (
-          <Link key={item.title} to={item.to} className="flex min-h-[190px] flex-col justify-between rounded-[1.6rem] border border-slate-200 bg-white/80 p-5 transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md">
-            <div className={`flex h-16 w-16 items-center justify-center rounded-[1.35rem] border ${getToneClasses(item.tone)}`}>
-              <item.icon className="h-7 w-7" />
+          <Link key={item.title} to={item.to} className="flex min-h-[128px] flex-col justify-between rounded-[1.35rem] border border-slate-200 bg-white/80 p-4 transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md">
+            <div className={`flex h-11 w-11 items-center justify-center rounded-xl border ${getToneClasses(item.tone)}`}>
+              <item.icon className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-lg font-black text-slate-950">{item.title}</p>
+              <p className="text-base font-black text-slate-950">{item.title}</p>
               <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">{item.text}</p>
             </div>
           </Link>
@@ -421,7 +421,7 @@ export default function FamilyHomeDashboard({
 
   return (
     <div className="kinly-gradient-bg min-h-full px-3 pb-24 pt-2 md:px-5 md:pb-10 lg:px-6">
-      <div className="mx-auto max-w-7xl space-y-5">
+      <div className="mx-auto max-w-7xl space-y-4">
         <Hero smartBrief={smartBrief} tasks={tasks} meals={meals} groceries={groceries} hasCustody={hasCustody} />
 
         <ChildrenSection
