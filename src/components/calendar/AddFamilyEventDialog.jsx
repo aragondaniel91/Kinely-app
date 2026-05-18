@@ -170,24 +170,6 @@ function defaultAudience(editEvent, user, profile) {
   });
 }
 
-function QuickChip({ selected, onClick, children, className = "" }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl border px-3.5 py-2 text-sm font-black transition",
-        selected
-          ? "border-blue-200 bg-blue-600 text-white shadow-md shadow-blue-600/18"
-          : "border-slate-200 bg-white/85 text-slate-600 shadow-sm hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700",
-        className
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 function TabletTimePicker({ label, value, onChange }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
@@ -457,61 +439,66 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="z-[200] max-h-[92vh] max-w-2xl overflow-y-auto rounded-[2rem] border-white/80 bg-white/96 p-0 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-        <DialogHeader className="sticky top-0 z-10 border-b border-slate-100 bg-white/92 px-5 py-4 backdrop-blur-xl sm:px-6">
-          <DialogTitle className="font-heading flex items-center gap-3 text-2xl font-black text-slate-950">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
-              <CalendarDays className="h-5 w-5" />
-            </span>
-            <span>
-              {isEditing ? "Edit event" : "New family event"}
-              <span className="block text-xs font-black uppercase tracking-[0.18em] text-blue-500/80">
-                Kinly Calendar
-              </span>
-            </span>
+      <DialogContent className="z-[200] max-h-[92vh] max-w-lg overflow-y-auto rounded-3xl">
+        <DialogHeader>
+          <DialogTitle className="font-heading flex items-center gap-2 text-xl">
+            <CalendarDays className="h-5 w-5" />
+            {isEditing ? "Edit Family Event" : "Add Family Event"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 px-5 py-4 sm:px-6">
-          <section className="rounded-[1.5rem] border border-blue-100 bg-blue-50/45 p-4">
-            <Label className="text-xs font-black uppercase tracking-[0.18em] text-blue-600/80">What’s happening?</Label>
-            <div className="relative mt-2">
-              <FileText className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+        <div className="space-y-4 py-2">
+          <div>
+            <Label>Title</Label>
+            <div className="relative mt-1">
+              <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Baseball practice, school activity..."
-                className="h-12 rounded-2xl border-blue-200 bg-white pl-9 text-lg font-semibold shadow-sm"
+                className="h-11 pl-9 text-base"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && title.trim()) handleSave();
                 }}
               />
             </div>
-          </section>
+          </div>
 
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label className="text-sm font-black text-slate-700">When</Label>
-              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1 h-12 rounded-2xl text-base font-semibold" />
+              <Label>Date</Label>
+              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1 h-11 text-base" />
             </div>
 
-            <button
-              type="button"
-              onClick={toggleAllDay}
-              className={cn(
-                "flex min-h-12 items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition sm:min-w-[250px]",
-                isAllDay ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              )}
-            >
-              <span>
-                <span className="block text-sm font-black">All-day event</span>
-                <span className="block text-xs font-semibold text-slate-500">No specific time needed.</span>
-              </span>
-              <span className={cn("relative h-8 w-14 shrink-0 rounded-full transition", isAllDay ? "bg-blue-600" : "bg-slate-300")}>
-                <span className={cn("absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition", isAllDay ? "left-7 text-blue-600" : "left-1 text-slate-400")}>{isAllDay && <Check className="h-3.5 w-3.5" />}</span>
-              </span>
-            </button>
-          </section>
+            <div>
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1 h-11"><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[220]">
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>{cat.emoji} {cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={toggleAllDay}
+            className={cn(
+              "flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
+              isAllDay ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            )}
+          >
+            <span>
+              <span className="block text-sm font-black">All-day event</span>
+              <span className="block text-xs font-semibold text-muted-foreground">Use this when the event does not need a specific time.</span>
+            </span>
+            <span className={cn("relative h-8 w-14 shrink-0 rounded-full transition", isAllDay ? "bg-blue-600" : "bg-slate-300")}>
+              <span className={cn("absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition", isAllDay ? "left-7 text-blue-600" : "left-1 text-slate-400")}>{isAllDay && <Check className="h-3.5 w-3.5" />}</span>
+            </span>
+          </button>
 
           {!isAllDay && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -520,39 +507,23 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
             </div>
           )}
 
-          <section className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <Tag className="h-4 w-4 text-blue-500" />
-              <Label className="text-sm font-black text-slate-800">Category</Label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <QuickChip key={cat.value} selected={category === cat.value} onClick={() => setCategory(cat.value)}>
-                  <span>{cat.emoji}</span>
-                  <span>{cat.label}</span>
-                </QuickChip>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
-              <UserRound className="h-4 w-4 text-blue-500" />
-              <Label className="text-sm font-black text-slate-800">Assign to</Label>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <QuickChip selected={assignedPersonId === FAMILY_ASSIGNMENT_ID} onClick={() => setAssignedPersonId(FAMILY_ASSIGNMENT_ID)}>
-                <span>👨‍👩‍👧‍👦</span>
-                <span>Family</span>
-              </QuickChip>
-              {people.map((person) => (
-                <QuickChip key={person.id} selected={assignedPersonId === person.id} onClick={() => setAssignedPersonId(person.id)}>
-                  <span>{personEmoji(person)}</span>
-                  <span>{person.displayName}</span>
-                </QuickChip>
-              ))}
-            </div>
-          </section>
+          <div>
+            <Label>Assign To</Label>
+            <Select value={assignedPersonId} onValueChange={setAssignedPersonId}>
+              <SelectTrigger className="mt-1 h-11">
+                <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[220]">
+                <SelectItem value={FAMILY_ASSIGNMENT_ID}>👨‍👩‍👧‍👦 Family / General</SelectItem>
+                {people.map((person) => (
+                  <SelectItem key={person.id} value={person.id}>
+                    {personEmoji(person)} {person.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <VisibilityAudienceSelector
             value={audiencePayload}
@@ -562,34 +533,32 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
             familyProfile={profile || {}}
           />
 
-          <section className="grid gap-4">
-            <div>
-              <Label className="text-sm font-black text-slate-700">Location</Label>
-              <AddressAutocompleteInput value={location} onChange={setLocation} />
-            </div>
+          <div>
+            <Label>Location</Label>
+            <AddressAutocompleteInput value={location} onChange={setLocation} />
+          </div>
 
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-3">
-                <Label className="text-sm font-black text-slate-700">Description / Notes</Label>
-                <span className="text-xs font-semibold text-slate-400">{description.length}/500</span>
-              </div>
-              <div className="relative mt-1">
-                <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value.slice(0, 500))}
-                  placeholder="Example: Pick up at 3:00 PM after baseball practice. Bring uniform and water bottle."
-                  className="min-h-[104px] w-full resize-none rounded-2xl border border-input bg-background px-3 py-3 pl-9 text-base leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                />
-              </div>
-              <p className="mt-1 text-xs font-semibold text-slate-400">These notes will show in the event details panel.</p>
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <Label>Description / Notes</Label>
+              <span className="text-xs font-semibold text-slate-400">{description.length}/500</span>
             </div>
-          </section>
+            <div className="relative mt-1">
+              <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value.slice(0, 500))}
+                placeholder="Example: Pick up at 3:00 PM after baseball practice. Bring uniform and water bottle."
+                className="min-h-[108px] w-full resize-none rounded-xl border border-input bg-background px-3 py-3 pl-9 text-base leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+            </div>
+            <p className="mt-1 text-xs font-semibold text-slate-400">These notes will show in the event details panel.</p>
+          </div>
         </div>
 
-        <DialogFooter className="sticky bottom-0 z-10 gap-2 border-t border-slate-100 bg-white/92 px-5 py-4 backdrop-blur-xl sm:px-6">
-          <Button variant="outline" onClick={onClose} className="rounded-2xl px-5">Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim() || saving} className="rounded-2xl px-6 font-black">{saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}</Button>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!title.trim() || saving}>{saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
