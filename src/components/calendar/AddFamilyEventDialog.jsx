@@ -439,24 +439,31 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="z-[200] max-h-[92vh] max-w-lg overflow-y-auto rounded-3xl">
-        <DialogHeader>
-          <DialogTitle className="font-heading flex items-center gap-2 text-xl">
-            <CalendarDays className="h-5 w-5" />
-            {isEditing ? "Edit Family Event" : "Add Family Event"}
+      <DialogContent className="z-[200] max-h-[92vh] max-w-lg overflow-y-auto rounded-3xl border-white/80 bg-white/96 shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="font-heading flex items-center gap-3 text-xl font-black text-slate-950">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+              <CalendarDays className="h-5 w-5" />
+            </span>
+            <span>
+              {isEditing ? "Edit family event" : "Add family event"}
+              <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-blue-500/80">
+                Kinly Calendar
+              </span>
+            </span>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-3.5 py-2">
           <div>
-            <Label>Title</Label>
-            <div className="relative mt-1">
+            <Label className="text-sm font-black text-slate-700">What’s happening?</Label>
+            <div className="relative mt-1.5">
               <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Baseball practice, school activity..."
-                className="h-11 pl-9 text-base"
+                className="h-11 rounded-2xl pl-9 text-base font-semibold"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && title.trim()) handleSave();
                 }}
@@ -466,14 +473,14 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label>Date</Label>
-              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1 h-11 text-base" />
+              <Label className="text-sm font-black text-slate-700">Date</Label>
+              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1 h-11 rounded-2xl text-base" />
             </div>
 
             <div>
-              <Label>Category</Label>
+              <Label className="text-sm font-black text-slate-700">Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1 h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 h-11 rounded-2xl"><SelectValue /></SelectTrigger>
                 <SelectContent className="z-[220]">
                   {categories.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>{cat.emoji} {cat.label}</SelectItem>
@@ -508,9 +515,9 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
           )}
 
           <div>
-            <Label>Assign To</Label>
+            <Label className="text-sm font-black text-slate-700">Assign to</Label>
             <Select value={assignedPersonId} onValueChange={setAssignedPersonId}>
-              <SelectTrigger className="mt-1 h-11">
+              <SelectTrigger className="mt-1 h-11 rounded-2xl">
                 <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
@@ -534,13 +541,13 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
           />
 
           <div>
-            <Label>Location</Label>
+            <Label className="text-sm font-black text-slate-700">Location</Label>
             <AddressAutocompleteInput value={location} onChange={setLocation} />
           </div>
 
           <div>
             <div className="mb-1 flex items-center justify-between gap-3">
-              <Label>Description / Notes</Label>
+              <Label className="text-sm font-black text-slate-700">Description / Notes</Label>
               <span className="text-xs font-semibold text-slate-400">{description.length}/500</span>
             </div>
             <div className="relative mt-1">
@@ -549,16 +556,16 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
                 value={description}
                 onChange={(e) => setDescription(e.target.value.slice(0, 500))}
                 placeholder="Example: Pick up at 3:00 PM after baseball practice. Bring uniform and water bottle."
-                className="min-h-[108px] w-full resize-none rounded-xl border border-input bg-background px-3 py-3 pl-9 text-base leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-[108px] w-full resize-none rounded-2xl border border-input bg-background px-3 py-3 pl-9 text-base leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
             <p className="mt-1 text-xs font-semibold text-slate-400">These notes will show in the event details panel.</p>
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim() || saving}>{saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}</Button>
+        <DialogFooter className="gap-2 border-t border-slate-100 pt-3 sm:gap-2">
+          <Button variant="outline" onClick={onClose} className="rounded-2xl px-5">Cancel</Button>
+          <Button onClick={handleSave} disabled={!title.trim() || saving} className="rounded-2xl px-6 font-black">{saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
