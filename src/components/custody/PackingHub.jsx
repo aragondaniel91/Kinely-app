@@ -18,80 +18,25 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  custodyPackingTemplates,
+  getPackingSummary,
+  initialCustodyPackingItems,
+} from "@/data/custodyPacking";
 
-const templates = [
-  {
-    id: "school",
-    label: "School Day",
-    icon: Backpack,
-    description: "Backpack, homework, lunchbox, school forms.",
-    accent: "bg-blue-50 text-blue-700 border-blue-100",
-  },
-  {
-    id: "weekend",
-    label: "Weekend Stay",
-    icon: Shirt,
-    description: "Clothes, pajamas, shoes, comfort items.",
-    accent: "bg-amber-50 text-amber-700 border-amber-100",
-  },
-  {
-    id: "sports",
-    label: "Sports Day",
-    icon: Trophy,
-    description: "Uniform, cleats, water bottle, gear bag.",
-    accent: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  },
-  {
-    id: "medicine",
-    label: "Medicine",
-    icon: Pill,
-    description: "Medication, dosage notes, instructions.",
-    accent: "bg-rose-50 text-rose-700 border-rose-100",
-  },
-];
+const iconMap = {
+  school: Backpack,
+  weekend: Shirt,
+  sports: Trophy,
+  medicine: Pill,
+};
 
-const initialItems = [
-  {
-    id: "backpack",
-    name: "School backpack",
-    category: "School",
-    owner: "Shared",
-    status: "packed",
-    important: true,
-  },
-  {
-    id: "medicine",
-    name: "Medicine bag",
-    category: "Medicine",
-    owner: "Dad",
-    status: "missing",
-    important: true,
-  },
-  {
-    id: "uniform",
-    name: "Soccer uniform",
-    category: "Sports",
-    owner: "Mom",
-    status: "review",
-    important: false,
-  },
-  {
-    id: "pajamas",
-    name: "Pajamas",
-    category: "Clothes",
-    owner: "Shared",
-    status: "packed",
-    important: false,
-  },
-  {
-    id: "comfort",
-    name: "Favorite blanket",
-    category: "Comfort",
-    owner: "Shared",
-    status: "review",
-    important: false,
-  },
-];
+const accentMap = {
+  blue: "bg-blue-50 text-blue-700 border-blue-100",
+  amber: "bg-amber-50 text-amber-700 border-amber-100",
+  emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  rose: "bg-rose-50 text-rose-700 border-rose-100",
+};
 
 function statusMeta(status) {
   if (status === "packed") {
@@ -158,14 +103,15 @@ function PackingHero({ readiness, packedCount, totalCount }) {
 }
 
 function TemplateCard({ template }) {
-  const Icon = template.icon;
+  const Icon = iconMap[template.id] || Backpack;
+  const accent = accentMap[template.tone] || accentMap.blue;
 
   return (
     <button
       type="button"
       className="rounded-[1.6rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.09)]"
     >
-      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${template.accent}`}>
+      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${accent}`}>
         <Icon className="h-6 w-6" />
       </div>
       <h3 className="mt-4 text-base font-black text-slate-950">{template.label}</h3>
@@ -234,19 +180,9 @@ function PeaceOfMindCard() {
 }
 
 export default function PackingHub() {
-  const [items, setItems] = useState(initialItems);
+  const [items, setItems] = useState(initialCustodyPackingItems);
 
-  const packedCount = useMemo(
-    () => items.filter((item) => item.status === "packed").length,
-    [items]
-  );
-
-  const missingCount = useMemo(
-    () => items.filter((item) => item.status === "missing").length,
-    [items]
-  );
-
-  const readiness = Math.round((packedCount / items.length) * 100);
+  const summary = useMemo(() => getPackingSummary(items), [items]);
 
   const cycleStatus = (id) => {
     const next = {
@@ -265,20 +201,20 @@ export default function PackingHub() {
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <PackingHero readiness={readiness} packedCount={packedCount} totalCount={items.length} />
+        <PackingHero readiness={summary.readiness} packedCount={summary.packedCount} totalCount={summary.totalCount} />
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="rounded-[1.6rem] border-white/80 bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Packed</p>
-            <p className="mt-1 text-3xl font-black text-emerald-700">{packedCount}</p>
+            <p className="mt-1 text-3xl font-black text-emerald-700">{summary.packedCount}</p>
           </Card>
           <Card className="rounded-[1.6rem] border-white/80 bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Missing</p>
-            <p className="mt-1 text-3xl font-black text-rose-700">{missingCount}</p>
+            <p className="mt-1 text-3xl font-black text-rose-700">{summary.missingCount}</p>
           </Card>
           <Card className="rounded-[1.6rem] border-white/80 bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Next exchange</p>
-            <p className="mt-1 text-3xl font-black text-slate-950">Tomorrow</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Review</p>
+            <p className="mt-1 text-3xl font-black text-amber-700">{summary.reviewCount}</p>
           </Card>
         </div>
 
@@ -327,7 +263,7 @@ export default function PackingHub() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                {templates.map((template) => (
+                {custodyPackingTemplates.map((template) => (
                   <TemplateCard key={template.id} template={template} />
                 ))}
               </div>
