@@ -89,13 +89,13 @@ function WeatherTimeBadge() {
   }, []);
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-50 text-yellow-500">
-        <Sun className="h-6 w-6" />
+    <div className="hidden items-center gap-2 rounded-full border border-white/80 bg-white px-3 py-2 shadow-[0_8px_22px_rgba(15,23,42,0.05)] sm:flex">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-50 text-yellow-500">
+        <Sun className="h-4 w-4" />
       </div>
       <div className="leading-tight">
-        <p className="text-base font-black text-slate-950">{formatTime(now)}</p>
-        <p className="text-xs font-bold text-slate-500">68° · Sunny</p>
+        <p className="text-sm font-black text-slate-950">{formatTime(now)}</p>
+        <p className="text-[11px] font-bold text-slate-500">68° · Sunny</p>
       </div>
     </div>
   );
@@ -108,7 +108,7 @@ function ModuleCard({ module, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-[2rem] border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md md:p-6"
+      className="group rounded-[2rem] border border-white/80 bg-white p-5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md md:p-6"
     >
       <div className="flex items-start justify-between gap-4">
         <div className={`flex h-14 w-14 items-center justify-center rounded-3xl border ${module.accent}`}>
@@ -133,7 +133,7 @@ function ManagementPanel({ canResetCustody, isResetting, onReset }) {
   if (!canResetCustody) return null;
 
   return (
-    <Card className="mt-5 rounded-[2rem] border-slate-200 bg-white p-4 shadow-sm md:p-5">
+    <Card className="mt-5 rounded-[2rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
@@ -163,7 +163,7 @@ function ManagementPanel({ canResetCustody, isResetting, onReset }) {
 function ComingSoonPanel({ icon: Icon, title, description, bullets }) {
   return (
     <div className="px-3 pb-8 pt-4 md:px-6">
-      <Card className="mx-auto max-w-5xl rounded-[2rem] border-slate-200 bg-white p-6 shadow-sm md:p-8">
+      <Card className="mx-auto max-w-5xl rounded-[2rem] border-white/80 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-start">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-blue-50 text-blue-600">
             <Icon className="h-7 w-7" />
@@ -236,9 +236,9 @@ export default function Custody() {
 
   if (activeModule === "hub") {
     return (
-      <div className="min-h-full bg-background px-4 pb-28 pt-5 md:px-8 md:pb-8">
+      <div className="min-h-full bg-[#F8F7F4] px-4 pb-28 pt-5 md:px-8 md:pb-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:p-7">
+          <div className="mb-6 rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-7">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">
               Custody
             </p>
@@ -271,22 +271,22 @@ export default function Custody() {
   }
 
   return (
-    <div className="min-h-full bg-background pb-28 md:pb-6">
-      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur md:px-6">
+    <div className="min-h-full bg-[#F8F7F4] pb-28 md:pb-6">
+      <div className="sticky top-0 z-30 bg-[#F8F7F4]/95 px-3 py-3 backdrop-blur md:px-6">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={() => setActiveModule("hub")}
-              className="shrink-0 gap-2"
+              className="h-9 shrink-0 gap-2 rounded-full bg-white px-3 text-xs font-black text-slate-600 shadow-[0_8px_22px_rgba(15,23,42,0.05)] hover:bg-blue-50 hover:text-blue-700"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Tools
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Modules
             </Button>
 
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-500">
                 Custody
               </p>
               <h1 className="truncate text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
