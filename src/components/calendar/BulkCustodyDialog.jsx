@@ -9,7 +9,7 @@ import {
   parseISO,
   startOfWeek,
 } from "date-fns";
-import { CalendarRange, Repeat2, Split } from "lucide-react";
+import { CalendarRange, Repeat2, Split, Sparkles } from "lucide-react";
 
 import {
   Dialog,
@@ -42,6 +42,29 @@ const WEEK_DAYS = [
   { value: 4, label: "J" },
   { value: 5, label: "V" },
   { value: 6, label: "S" },
+];
+
+const QUICK_TEMPLATES = [
+  {
+    id: "223",
+    label: "2-2-3",
+    helper: "Two days, two days, long weekend rotation.",
+  },
+  {
+    id: "week-on-off",
+    label: "Week on/off",
+    helper: "One full week, repeats every two weeks.",
+  },
+  {
+    id: "5-2",
+    label: "5-2",
+    helper: "Weekday block with weekend-style rotation.",
+  },
+  {
+    id: "vacation",
+    label: "Vacation",
+    helper: "One custom range, no repeat by default.",
+  },
 ];
 
 function advanceDateByUnit(date, every, unit) {
@@ -235,6 +258,67 @@ export default function BulkCustodyDialog({
   const [occurrences, setOccurrences] = useState(13);
 
   const [notes, setNotes] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState("custom");
+
+  const applyTemplate = (templateId) => {
+    const baseDate = parseISO(`${startDate || defaultKey}T12:00:00`);
+    const safeBaseDate = Number.isNaN(baseDate.getTime()) ? defaultDate : baseDate;
+
+    setSelectedTemplate(templateId);
+
+    if (templateId === "223") {
+      setEndDate(format(addDays(safeBaseDate, 1), "yyyy-MM-dd"));
+      setRepeatEnabled(true);
+      setRepeatEvery(1);
+      setRepeatUnit("week");
+      setRepeatWeekdays([safeBaseDate.getDay()]);
+      setEndMode("after");
+      setOccurrences(12);
+      setSplitFirstDay(false);
+      setSplitLastDay(false);
+      setNotes("2-2-3 rotation template. Create the matching blocks for the other parent separately if needed.");
+      return;
+    }
+
+    if (templateId === "week-on-off") {
+      setEndDate(format(addDays(safeBaseDate, 6), "yyyy-MM-dd"));
+      setRepeatEnabled(true);
+      setRepeatEvery(2);
+      setRepeatUnit("week");
+      setRepeatWeekdays([safeBaseDate.getDay()]);
+      setEndMode("after");
+      setOccurrences(12);
+      setSplitFirstDay(false);
+      setSplitLastDay(false);
+      setNotes("Week on / week off template.");
+      return;
+    }
+
+    if (templateId === "5-2") {
+      setEndDate(format(addDays(safeBaseDate, 4), "yyyy-MM-dd"));
+      setRepeatEnabled(true);
+      setRepeatEvery(1);
+      setRepeatUnit("week");
+      setRepeatWeekdays([safeBaseDate.getDay()]);
+      setEndMode("after");
+      setOccurrences(12);
+      setSplitFirstDay(false);
+      setSplitLastDay(false);
+      setNotes("5-2 custody block template.");
+      return;
+    }
+
+    if (templateId === "vacation") {
+      setRepeatEnabled(false);
+      setSplitFirstDay(true);
+      setSplitLastDay(true);
+      setEndMode("never");
+      setNotes("Vacation / holiday custody range.");
+      return;
+    }
+
+    setNotes("");
+  };
 
   const totalRangeDays = useMemo(() => {
     if (!startDate || !endDate || endDate < startDate) return 0;
@@ -338,6 +422,7 @@ export default function BulkCustodyDialog({
       occurrences: Number(occurrences) || 1,
 
       notes: notes.trim(),
+      templateId: selectedTemplate,
     });
   };
 
@@ -360,6 +445,41 @@ export default function BulkCustodyDialog({
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
             {/* LEFT */}
             <div className="space-y-5">
+              <div className="rounded-2xl border bg-card p-4 space-y-3">
+                <div>
+                  <p className="font-semibold flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    Quick templates
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Start from a common custody pattern, then adjust dates, splits, and repeat rules.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {QUICK_TEMPLATES.map((template) => {
+                    const active = selectedTemplate === template.id;
+
+                    return (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => applyTemplate(template.id)}
+                        className={cn(
+                          "rounded-2xl border px-3 py-2.5 text-left transition-all",
+                          active
+                            ? "border-blue-300 bg-blue-50 text-blue-800 shadow-sm"
+                            : "border-border bg-background text-foreground hover:border-blue-200 hover:bg-blue-50/50"
+                        )}
+                      >
+                        <p className="text-sm font-black">{template.label}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{template.helper}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="rounded-2xl border bg-card p-4 space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -718,6 +838,13 @@ export default function BulkCustodyDialog({
                         `Finaliza: después de ${occurrences} ocurrencia(s)`}
                     </p>
                   )}
+                </div>
+
+                <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-800">
+                  <p className="font-black">Safety net</p>
+                  <p className="mt-1 font-semibold">
+                    After saving, Kinly can show an Undo option for the latest bulk creation. That revert flow will be added as the next safety step.
+                  </p>
                 </div>
 
                 <div className="rounded-xl bg-background border p-3">
