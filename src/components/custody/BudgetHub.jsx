@@ -19,6 +19,17 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
 
+const emptyNewExpense = {
+  title: "",
+  category: "School",
+  amount: "",
+  paidBy: "Shared",
+  split: "50/50",
+  status: "review",
+  due: "",
+  recurring: false,
+};
+
 function statusMeta(status) {
   if (status === "settled") {
     return {
@@ -160,6 +171,140 @@ function ExpenseRow({ expense, onCycle }) {
   );
 }
 
+function AddExpenseModal({ open, value, saving, onChange, onClose, onSubmit }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
+      <form onSubmit={onSubmit} className="w-full max-w-2xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
+        <div className="mb-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Budget expense</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">Add expense</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Track a child-related cost for this custody group.</p>
+        </div>
+
+        <div className="grid gap-4">
+          <label className="grid gap-1.5">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Title</span>
+            <input
+              value={value.title}
+              onChange={(event) => onChange({ ...value, title: event.target.value })}
+              placeholder="Example: Doctor copay"
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+              required
+            />
+          </label>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Amount</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={value.amount}
+                onChange={(event) => onChange({ ...value, amount: event.target.value })}
+                placeholder="0.00"
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                required
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Due / note</span>
+              <input
+                value={value.due}
+                onChange={(event) => onChange({ ...value, due: event.target.value })}
+                placeholder="Example: May 25 or Paid"
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Category</span>
+              <select
+                value={value.category}
+                onChange={(event) => onChange({ ...value, category: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+              >
+                <option>School</option>
+                <option>Medical</option>
+                <option>Activities</option>
+                <option>Clothes</option>
+                <option>Childcare</option>
+                <option>General</option>
+              </select>
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Paid by</span>
+              <select
+                value={value.paidBy}
+                onChange={(event) => onChange({ ...value, paidBy: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+              >
+                <option>Shared</option>
+                <option>Dad</option>
+                <option>Mom</option>
+              </select>
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Split</span>
+              <select
+                value={value.split}
+                onChange={(event) => onChange({ ...value, split: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+              >
+                <option>50/50</option>
+                <option>Custom</option>
+                <option>Dad pays</option>
+                <option>Mom pays</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Status</span>
+              <select
+                value={value.status}
+                onChange={(event) => onChange({ ...value, status: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+              >
+                <option value="review">Review</option>
+                <option value="pending">Pending</option>
+                <option value="settled">Settled</option>
+              </select>
+            </label>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={value.recurring}
+                onChange={(event) => onChange({ ...value, recurring: event.target.checked })}
+                className="h-4 w-4"
+              />
+              <span className="text-sm font-black text-slate-700">Recurring expense</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="rounded-full">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving} className="rounded-full bg-amber-600 hover:bg-amber-700">
+            {saving ? "Saving..." : "Add expense"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function SplitPreview({ dadName, momName, pending }) {
   const estimatedShare = Math.round((pending || 0) / 2);
 
@@ -197,6 +342,9 @@ export default function BudgetHub() {
   const { user, familyId, dadName, momName } = useFamily();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [newExpense, setNewExpense] = useState(emptyNewExpense);
 
   useEffect(() => {
     let cancelled = false;
@@ -289,6 +437,45 @@ export default function BudgetHub() {
     }
   };
 
+  const addExpense = async (event) => {
+    event.preventDefault();
+
+    const cleanTitle = newExpense.title.trim();
+    const cleanAmount = Number(newExpense.amount);
+    if (!cleanTitle || Number.isNaN(cleanAmount) || cleanAmount < 0 || !user || !familyId || savingExpense) return;
+
+    setSavingExpense(true);
+
+    try {
+      const order = expenses.length;
+      const payload = {
+        title: cleanTitle,
+        category: newExpense.category,
+        amount: cleanAmount,
+        paidBy: newExpense.paidBy,
+        split: newExpense.split,
+        status: newExpense.status,
+        due: newExpense.due.trim(),
+        recurring: Boolean(newExpense.recurring),
+        familyId,
+        createdBy: user.uid,
+        order,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(collection(db, "custodyExpenses"), payload);
+      setExpenses((current) => [...current, { ...payload, id: docRef.id }]);
+      setNewExpense(emptyNewExpense);
+      setShowAddExpense(false);
+    } catch (error) {
+      console.error("Error adding custody expense:", error);
+      window.alert(`Could not add expense: ${error.message}`);
+    } finally {
+      setSavingExpense(false);
+    }
+  };
+
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -315,7 +502,7 @@ export default function BudgetHub() {
                 </p>
               </div>
 
-              <Button type="button" className="rounded-full gap-2">
+              <Button type="button" onClick={() => setShowAddExpense(true)} className="rounded-full gap-2">
                 <Plus className="h-4 w-4" />
                 Add expense
               </Button>
@@ -366,6 +553,18 @@ export default function BudgetHub() {
           </div>
         </div>
       </div>
+
+      <AddExpenseModal
+        open={showAddExpense}
+        value={newExpense}
+        saving={savingExpense}
+        onChange={setNewExpense}
+        onClose={() => {
+          setShowAddExpense(false);
+          setNewExpense(emptyNewExpense);
+        }}
+        onSubmit={addExpense}
+      />
     </div>
   );
 }
