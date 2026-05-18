@@ -47,7 +47,6 @@ function AppShellLoader() {
 export default function AppShell() {
   const location = useLocation();
   const { isLoading, profile, familyId } = useFamily();
-  const hideFamilyHeader = location.pathname === "/calendar" || location.pathname === "/custody";
 
   if (isLoading || !profile || !familyId) {
     return <AppShellLoader />;
@@ -55,16 +54,14 @@ export default function AppShell() {
 
   return (
     <div className="kinly-gradient-bg flex min-h-screen flex-col">
-      {!hideFamilyHeader && (
-        <header className="sticky top-0 z-40 bg-transparent px-3 py-3 md:px-6">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[1.6rem] border border-white/80 bg-white/76 px-3 py-2.5 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-2xl md:px-4">
-            <Link to="/" className="shrink-0">
-              <KinlyLogo />
-            </Link>
-            <FamilySelector />
-          </div>
-        </header>
-      )}
+      <header className="sticky top-0 z-40 bg-transparent px-3 py-2.5 md:px-6 md:py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[1.55rem] border border-white/80 bg-white/76 px-3 py-2 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-2xl md:px-4">
+          <Link to="/" className="shrink-0">
+            <KinlyLogo />
+          </Link>
+          <FamilySelector />
+        </div>
+      </header>
 
       <main className="flex-1 overflow-auto pb-24 md:pb-24">
         <Outlet />
