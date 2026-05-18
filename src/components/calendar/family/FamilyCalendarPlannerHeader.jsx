@@ -128,8 +128,8 @@ export default function FamilyCalendarPlannerHeader({
             </button>
           </div>
 
-          <div className="family-scroll-x w-full overflow-visible pb-1">
-            <div className="flex w-max min-w-full gap-3 overflow-visible xl:justify-end">
+          <div className="family-scroll-x w-full pb-1">
+            <div className="flex w-max min-w-full gap-3 xl:justify-end">
               <FamilyCalendarFilterDropdown
                 icon={UserRound}
                 label="Person"
