@@ -93,3 +93,17 @@ body {
 .font-black {
   font-weight: 800;
 }
+
+/* Custody dashboard polish: keep the existing structure, but prevent split-day names from becoming oversized. */
+div[class*="min-h-[245px]"] h1 {
+  font-size: clamp(2.25rem, 4.2vw, 3.9rem) !important;
+  line-height: 1.03 !important;
+  letter-spacing: -0.045em !important;
+  max-width: 100%;
+}
+
+/* The custody module sub-header should feel like part of the page, not a hard divider under the global Kinly header. */
+.sticky.top-0.z-30 {
+  background: transparent !important;
+  box-shadow: none !important;
+}
