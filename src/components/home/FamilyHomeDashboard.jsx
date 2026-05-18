@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Baby,
   CalendarDays,
   CheckSquare,
   ChevronRight,
   Heart,
-  Plus,
   School,
   ShoppingCart,
   Sparkles,
