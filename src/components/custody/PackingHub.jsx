@@ -1,8 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import {
   Backpack,
-  BadgeCheck,
-  CalendarDays,
   CheckCircle2,
   ClipboardList,
   Heart,
@@ -18,6 +17,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { db } from "@/lib/firebase";
+import { useFamily } from "@/lib/FamilyContext";
 import {
   custodyPackingTemplates,
   getPackingSummary,
@@ -62,7 +63,7 @@ function statusMeta(status) {
   };
 }
 
-function PackingHero({ readiness, packedCount, totalCount }) {
+function PackingHero({ readiness, packedCount, totalCount, loading }) {
   return (
     <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.08)]">
       <div className="bg-[radial-gradient(circle_at_top_left,rgba(123,201,161,0.24),transparent_34%),linear-gradient(135deg,#ffffff_0%,#ecfdf5_46%,#f8f7f4_100%)] p-6 md:p-8">
@@ -86,11 +87,11 @@ function PackingHero({ readiness, packedCount, totalCount }) {
             </p>
             <div className="mt-3 flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-emerald-50 text-2xl font-black text-emerald-700">
-                {readiness}%
+                {loading ? "..." : `${readiness}%`}
               </div>
               <div>
                 <p className="text-lg font-black text-slate-950">
-                  {packedCount} of {totalCount} packed
+                  {loading ? "Loading checklist" : `${packedCount} of ${totalCount} packed`}
                 </p>
                 <p className="text-sm font-bold text-slate-500">Next exchange checklist</p>
               </div>
@@ -179,29 +180,119 @@ function PeaceOfMindCard() {
   );
 }
 
+function normalizePackingDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    name: data.name || "Packing item",
+    category: data.category || "General",
+    owner: data.owner || "Shared",
+    status: data.status || "review",
+    important: Boolean(data.important),
+    order: data.order ?? 999,
+  };
+}
+
 export default function PackingHub() {
-  const [items, setItems] = useState(initialCustodyPackingItems);
+  const { user, familyId } = useFamily();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPackingItems() {
+      if (!user || !familyId) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const q = query(collection(db, "custodyPackingItems"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          const createdItems = await Promise.all(
+            initialCustodyPackingItems.map(async (item, index) => {
+              const docRef = await addDoc(collection(db, "custodyPackingItems"), {
+                ...item,
+                familyId,
+                createdBy: user.uid,
+                order: index,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+
+              return { ...item, id: docRef.id, order: index };
+            })
+          );
+
+          if (!cancelled) setItems(createdItems);
+          return;
+        }
+
+        const data = snap.docs
+          .map(normalizePackingDoc)
+          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+        if (!cancelled) setItems(data);
+      } catch (error) {
+        console.error("Error loading packing items:", error);
+        if (!cancelled) setItems(initialCustodyPackingItems);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadPackingItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
 
   const summary = useMemo(() => getPackingSummary(items), [items]);
 
-  const cycleStatus = (id) => {
+  const cycleStatus = async (id) => {
     const next = {
       review: "packed",
       packed: "missing",
       missing: "review",
     };
 
+    const currentItem = items.find((item) => item.id === id);
+    if (!currentItem) return;
+
+    const nextStatus = next[currentItem.status] || "review";
+
     setItems((current) =>
       current.map((item) =>
-        item.id === id ? { ...item, status: next[item.status] } : item
+        item.id === id ? { ...item, status: nextStatus } : item
       )
     );
+
+    try {
+      await updateDoc(doc(db, "custodyPackingItems", id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error updating packing item:", error);
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, status: currentItem.status } : item
+        )
+      );
+    }
   };
 
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <PackingHero readiness={summary.readiness} packedCount={summary.packedCount} totalCount={summary.totalCount} />
+        <PackingHero loading={loading} readiness={summary.readiness} packedCount={summary.packedCount} totalCount={summary.totalCount} />
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="rounded-[1.6rem] border-white/80 bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
@@ -258,7 +349,7 @@ export default function PackingHub() {
                   </h3>
                 </div>
                 <Badge className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 hover:bg-emerald-50">
-                  V1
+                  Firestore
                 </Badge>
               </div>
 
