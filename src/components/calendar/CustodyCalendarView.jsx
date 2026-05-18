@@ -124,15 +124,15 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
   if (!groups.length) return null;
 
   return (
-    <div className="rounded-[1.8rem] border border-white/80 bg-white/72 p-2 shadow-[0_14px_36px_rgba(15,23,42,0.06)] backdrop-blur">
-      <div className="mb-2 flex items-center justify-between gap-3 px-2 pt-1">
+    <div className="rounded-[1.8rem] border border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Custody space</p>
-          <p className="text-sm font-black text-slate-900">Choose the child/family view</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Custody space</p>
+          <p className="mt-1 text-xl font-black tracking-tight text-slate-950">Choose the child/family view</p>
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-3 overflow-x-auto pb-1">
         {groups.map((group) => {
           const active = group.id === selectedGroupId;
           const children = groupChildren(group);
@@ -151,12 +151,12 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
               onClick={() => onSelect(group.id)}
               className={`min-w-[240px] rounded-[1.35rem] border px-3.5 py-3 text-left transition sm:min-w-[260px] ${
                 active
-                  ? "border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eff6ff_58%,#fff7ed_100%)] shadow-[0_10px_24px_rgba(91,141,239,0.13)] ring-1 ring-blue-100"
-                  : "border-transparent bg-white/78 shadow-sm hover:bg-white hover:shadow-md"
+                  ? "border-blue-100 bg-blue-50/70 shadow-sm ring-1 ring-blue-100"
+                  : "border-slate-200 bg-slate-50/70 hover:border-blue-100 hover:bg-white hover:shadow-sm"
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${active ? "border-blue-100 bg-blue-600 text-white" : "border-blue-100 bg-blue-50 text-blue-700"}`}>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${active ? "border-blue-100 bg-blue-600 text-white" : "border-blue-100 bg-white text-blue-700"}`}>
                   <Baby className="h-4 w-4" />
                 </div>
 
@@ -403,7 +403,7 @@ export default function CustodyCalendarView({
   );
 
   const groupSelector = loadingGroups ? (
-    <div className="rounded-[1.6rem] border border-white/80 bg-white/70 px-4 py-3 text-sm font-bold text-slate-500 shadow-sm backdrop-blur">
+    <div className="rounded-[1.8rem] border border-white/80 bg-white p-4 text-sm font-bold text-slate-500 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
       Loading custody groups...
     </div>
   ) : (
@@ -479,7 +479,7 @@ export default function CustodyCalendarView({
       <div className="mx-auto max-w-7xl space-y-3">
         {groupSelector}
 
-        <div className="overflow-hidden rounded-[1.8rem] border border-white/80 bg-white/78 shadow-[0_14px_36px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="overflow-hidden rounded-[1.8rem] border border-white/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
           <div className="custody-original-calendar-wrapper bg-[#F8F7F4]">
             {canRenderCalendar ? (
               <FamilyContext.Provider value={scopedFamilyContext}>
