@@ -239,7 +239,7 @@ function ActivityItem({ item }) {
 
 function RecentActivityCard({ activity = [] }) {
   return (
-    <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+    <Card className="rounded-[1.8rem] border-blue-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
       <SectionHeader kicker="Actividad" title="Recent activity" />
       <div className="mt-4 space-y-2.5">
         {activity.length ? (
@@ -247,7 +247,7 @@ function RecentActivityCard({ activity = [] }) {
             <ActivityItem key={item.id || `${item.type}-${index}`} item={item} />
           ))
         ) : (
-          <CompactItem icon={History} title="No activity yet" text="Family updates will appear here after changes are made." tone="slate" />
+          <CompactItem icon={History} title="No activity yet" text="Create or edit a custody day, travel plan, or special event to see it here." tone="slate" />
         )}
       </div>
     </Card>
@@ -502,6 +502,8 @@ export default function FamilyHomeDashboard({
       <div className="mx-auto max-w-7xl space-y-4">
         <Hero smartBrief={smartBrief} tasks={tasks} meals={meals} groceries={groceries} hasCustody={hasCustody} />
 
+        <RecentActivityCard activity={activity} />
+
         <ChildrenSection
           children={children}
           todayLabel={todayLabel}
@@ -523,11 +525,7 @@ export default function FamilyHomeDashboard({
         <div className="grid gap-4 xl:grid-cols-[0.9fr_1fr_0.9fr]">
           {canReadTasks && <TaskPreviewCard tasks={tasks} />}
           <NextSevenDaysCard nextChange={nextChange} nextChangeLabel={nextChangeLabel} tasks={tasks} meals={meals} groceries={groceries} />
-          <RecentActivityCard activity={activity} />
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[0.9fr_1fr_0.9fr]">
-          <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5 xl:col-span-1">
+          <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
             <SectionHeader kicker="Acciones rápidas" title="Agregar" />
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {quickActions.map((action) => <QuickAction key={action.label} {...action} />)}
