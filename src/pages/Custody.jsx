@@ -13,14 +13,10 @@ import {
 } from "lucide-react";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
-import ExchangeHub from "@/components/custody/ExchangeHub";
-import PackingHub from "@/components/custody/PackingHub";
-import SmartNotificationsHub from "@/components/custody/SmartNotificationsHub";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
-import BudgetHub from "@/components/custody/BudgetHub";
 
 const custodyModules = [
   {
@@ -328,10 +324,15 @@ export default function Custody() {
         />
       )}
 
-      {activeModule === "exchange" && <ExchangeHub />}
-      {activeModule === "packing" && <PackingHub />}
-      {activeModule === "notifications" && <SmartNotificationsHub />}
-      {activeModule === "budget" && <BudgetHub />}
+      {["exchange", "packing", "notifications", "budget"].includes(activeModule) && (
+        <CustodyCalendarView
+          mode={activeModule}
+          activeCalendar={activeCalendar}
+          setActiveCalendar={setActiveCalendar}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
+      )}
 
       {activeModule === "chat" && (
         <ComingSoonPanel
