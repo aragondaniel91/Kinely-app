@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
-import CustodyDashboardPro from "@/components/custody/CustodyDashboardPro";
 import ExchangeHub from "@/components/custody/ExchangeHub";
 import PackingHub from "@/components/custody/PackingHub";
 import SmartNotificationsHub from "@/components/custody/SmartNotificationsHub";
@@ -305,7 +304,12 @@ export default function Custody() {
       </div>
 
       {activeModule === "dashboard" && (
-        <CustodyDashboardPro
+        <CustodyCalendarView
+          mode="dashboard"
+          activeCalendar={activeCalendar}
+          setActiveCalendar={setActiveCalendar}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
           onOpenSchedule={() => setActiveModule("schedule")}
           onOpenExchange={() => setActiveModule("exchange")}
           onOpenPacking={() => setActiveModule("packing")}
