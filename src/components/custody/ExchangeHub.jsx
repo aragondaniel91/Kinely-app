@@ -22,7 +22,7 @@ import { useFamily } from "@/lib/FamilyContext";
 
 const emptyExchange = {
   date: "",
-  time: "08:00",
+  time: "18:00",
   location: "Daycare pickup",
   fromParent: "dad",
   toParent: "mom",
@@ -51,24 +51,64 @@ function normalizeCustodyDay(docSnap) {
   };
 }
 
-function getChangeOwner(day) {
-  if (!day) return "none";
-  if (day.is_split) return day.morning || day.afternoon || "split";
-  return day.with_whom || "none";
+function getDaySegments(day) {
+  if (!day) return [];
+
+  if (day.is_split) {
+    return [
+      { period: "AM", owner: day.morning || null, suggestedTime: "08:00" },
+      { period: "PM", owner: day.afternoon || null, suggestedTime: "12:00" },
+    ].filter((segment) => segment.owner && segment.owner !== "none");
+  }
+
+  const owner = day.with_whom || null;
+  return owner && owner !== "none" ? [{ period: "All day", owner, suggestedTime: "18:00" }] : [];
 }
 
-function findNextChange(sortedDays, todayKey, currentOwner) {
-  if (!currentOwner || currentOwner === "none") return null;
+function getEndOfDayOwner(day) {
+  const segments = getDaySegments(day);
+  return segments.at(-1)?.owner || "none";
+}
 
-  return sortedDays.find((day) => {
+function findCurrentOwner(sortedDays, todayKey) {
+  let owner = "none";
+
+  sortedDays.forEach((day) => {
     const dateKey = normalizeDate(day.date);
-    if (!dateKey || dateKey <= todayKey) return false;
-
-    const nextOwner = getChangeOwner(day);
-    if (!nextOwner || nextOwner === "none") return false;
-
-    return nextOwner !== currentOwner;
+    if (dateKey && dateKey <= todayKey) {
+      owner = getEndOfDayOwner(day) || owner;
+    }
   });
+
+  return owner;
+}
+
+function findNextExchangeFromCalendar(sortedDays, todayKey) {
+  let previousOwner = findCurrentOwner(sortedDays, todayKey);
+  if (!previousOwner || previousOwner === "none") return null;
+
+  for (const day of sortedDays) {
+    const dateKey = normalizeDate(day.date);
+    if (!dateKey || dateKey <= todayKey) continue;
+
+    const segments = getDaySegments(day);
+    for (const segment of segments) {
+      if (segment.owner && segment.owner !== previousOwner) {
+        return {
+          date: dateKey,
+          fromParent: previousOwner,
+          toParent: segment.owner,
+          pickupBy: segment.owner,
+          time: segment.suggestedTime || "18:00",
+          period: segment.period,
+        };
+      }
+
+      if (segment.owner) previousOwner = segment.owner;
+    }
+  }
+
+  return null;
 }
 
 function formatParent(value, dadName, momName) {
@@ -128,7 +168,7 @@ function statusMeta(status) {
 function exchangeToForm(exchange) {
   return {
     date: exchange?.date || "",
-    time: exchange?.time || "08:00",
+    time: exchange?.time || "18:00",
     location: exchange?.location || "Daycare pickup",
     fromParent: exchange?.fromParent || "dad",
     toParent: exchange?.toParent || "mom",
@@ -144,7 +184,7 @@ function normalizeExchangeDoc(docSnap) {
   return {
     id: docSnap.id,
     date: data.date || "",
-    time: data.time || "08:00",
+    time: data.time || "18:00",
     location: data.location || "Daycare pickup",
     fromParent: data.fromParent || "dad",
     toParent: data.toParent || "mom",
@@ -216,7 +256,7 @@ function SuggestedExchangeCard({ suggestion, dadName, momName, onConfirm }) {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Smart suggestion</p>
             <h3 className="mt-1 text-xl font-black text-slate-950">Confirm suggested exchange</h3>
             <p className="mt-1 text-sm font-semibold leading-6 text-blue-800">
-              Calendar detected {formatParent(suggestion.fromParent, dadName, momName)} → {formatParent(suggestion.toParent, dadName, momName)} on {formatDate(suggestion.date)}. Review time, location, and notes before saving.
+              Calendar detected {formatParent(suggestion.fromParent, dadName, momName)} → {formatParent(suggestion.toParent, dadName, momName)} on {formatDate(suggestion.date)}{suggestion.period ? ` (${suggestion.period})` : ""}. Review time, location, and notes before saving.
             </p>
           </div>
         </div>
@@ -460,37 +500,21 @@ export default function ExchangeHub() {
   }, [user?.uid, familyId]);
 
   const suggestedExchange = useMemo(() => {
-    const todayKey = getTodayKey();
-    const custodyByDate = {};
+    const candidate = findNextExchangeFromCalendar(custodyDays, getTodayKey());
+    if (!candidate) return null;
 
-    custodyDays.forEach((day) => {
-      if (day.date) custodyByDate[day.date] = day;
-    });
-
-    const todayCustody = custodyByDate[todayKey];
-    const currentOwner = getChangeOwner(todayCustody);
-    const nextChange = findNextChange(custodyDays, todayKey, currentOwner);
-    const nextOwner = getChangeOwner(nextChange);
-
-    if (!nextChange || !currentOwner || currentOwner === "none" || !nextOwner || nextOwner === "none") return null;
-
-    const date = normalizeDate(nextChange.date);
     const existing = exchanges.find((exchange) =>
-      exchange.date === date &&
-      exchange.fromParent === currentOwner &&
-      exchange.toParent === nextOwner
+      exchange.date === candidate.date &&
+      exchange.fromParent === candidate.fromParent &&
+      exchange.toParent === candidate.toParent
     );
 
     if (existing) return null;
 
     return {
-      date,
-      time: "18:00",
+      ...candidate,
       location: "",
-      fromParent: currentOwner,
-      toParent: nextOwner,
-      pickupBy: nextOwner,
-      notes: "Auto-suggested from the custody calendar. Please confirm time, location, and handoff details.",
+      notes: `Auto-suggested from the custody calendar${candidate.period ? ` (${candidate.period})` : ""}. Please confirm time, location, and handoff details.`,
       status: "pending",
       source: "calendar-suggested",
     };
@@ -498,7 +522,7 @@ export default function ExchangeHub() {
 
   const nextExchange = useMemo(() => {
     const todayKey = getTodayKey();
-    return exchanges.find((exchange) => exchange.status !== "completed" && (!exchange.date || exchange.date >= todayKey)) || exchanges[0] || suggestedExchange || null;
+    return exchanges.find((exchange) => exchange.status !== "completed" && (!exchange.date || exchange.date >= todayKey)) || suggestedExchange || exchanges[0] || null;
   }, [exchanges, suggestedExchange]);
 
   const completedCount = exchanges.filter((exchange) => exchange.status === "completed").length;
