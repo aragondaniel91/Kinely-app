@@ -26,14 +26,14 @@ const navItems = [
 
 function AppShellLoader() {
   return (
-    <div className="min-h-screen bg-[#F8F7F4]">
+    <div className="kinly-gradient-bg min-h-screen">
       <div className="fixed left-4 top-4">
         <KinlyLogo />
       </div>
       <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
-        <div className="mx-auto flex max-w-4xl justify-around rounded-[1.75rem] border border-white/70 bg-white/85 px-2 py-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-3xl justify-around rounded-[1.75rem] border border-white/80 bg-white/78 px-2 py-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
           {Array.from({ length: 7 }).map((_, index) => (
-            <div key={index} className="flex min-w-[68px] flex-col items-center gap-1 px-3 py-1">
+            <div key={index} className="flex min-w-[62px] flex-col items-center gap-1 px-2 py-1">
               <div className="h-6 w-6 animate-pulse rounded-full bg-slate-200" />
               <div className="h-2 w-10 animate-pulse rounded bg-slate-200" />
             </div>
@@ -54,10 +54,10 @@ export default function AppShell() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F7F4]">
+    <div className="kinly-gradient-bg flex min-h-screen flex-col">
       {!hideFamilyHeader && (
-        <header className="sticky top-0 z-40 border-b border-white/70 bg-white/85 px-4 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+        <header className="sticky top-0 z-40 bg-transparent px-3 py-3 md:px-6">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[1.6rem] border border-white/80 bg-white/76 px-3 py-2.5 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-2xl md:px-4">
             <Link to="/" className="shrink-0">
               <KinlyLogo />
             </Link>
@@ -70,8 +70,8 @@ export default function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
-        <div className="mx-auto max-w-4xl rounded-[1.75rem] border border-white/70 bg-white/90 p-1.5 shadow-[0_18px_44px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+      <nav className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3 pointer-events-none">
+        <div className="pointer-events-auto mx-auto max-w-3xl rounded-[1.85rem] border border-white/80 bg-white/76 p-1.5 shadow-[0_20px_52px_rgba(15,23,42,0.16)] backdrop-blur-2xl">
           <div className="flex items-center justify-around gap-1 overflow-x-auto">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
@@ -82,10 +82,10 @@ export default function AppShell() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "flex min-w-[68px] flex-col items-center gap-1 rounded-[1.25rem] px-3 py-2 text-[11px] font-black transition-all duration-200",
+                    "flex min-w-[58px] flex-col items-center gap-1 rounded-[1.35rem] px-2.5 py-2 text-[10.5px] font-black transition-all duration-200 md:min-w-[66px] md:px-3",
                     isActive
-                      ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100"
-                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                      ? "bg-blue-50/95 text-blue-700 shadow-[0_8px_20px_rgba(91,141,239,0.16)] ring-1 ring-blue-100"
+                      : "text-slate-400 hover:bg-white/80 hover:text-slate-700"
                   )}
                 >
                   <Icon className={cn("h-5 w-5", isActive && "stroke-[2.6]")} />
