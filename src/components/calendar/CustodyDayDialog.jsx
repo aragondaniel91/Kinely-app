@@ -107,6 +107,30 @@ function parentLabel(parent, dadLabel, momLabel) {
   return parent === "dad" ? dadLabel : momLabel;
 }
 
+function parentEmoji(parent) {
+  return parent === "dad" ? "👨" : "👩";
+}
+
+function SectionCard({ eyebrow, title, description, action, children, className = "" }) {
+  return (
+    <div className={`rounded-2xl border bg-white/85 p-3 shadow-sm ${className}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          {eyebrow && (
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+              {eyebrow}
+            </p>
+          )}
+          <p className="text-sm font-black text-slate-900">{title}</p>
+          {description && <p className="text-xs font-semibold text-muted-foreground">{description}</p>}
+        </div>
+        {action}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
 export default function CustodyDayDialog({
   date,
   existingData = null,
@@ -149,6 +173,12 @@ export default function CustodyDayDialog({
   const bulkRunId = getBulkRunId(existingData || {});
   const familyId = getFamilyId(existingData || {}) || activeFamilyId;
   const isBulkDay = Boolean(bulkRunId && familyId);
+  const formattedDate = date instanceof Date && !Number.isNaN(date.getTime())
+    ? format(date, "EEEE, MMMM d, yyyy")
+    : dateKey;
+  const custodySummary = isSplit
+    ? `AM: ${parentLabel(morning, dadLabel, momLabel)} · PM: ${parentLabel(afternoon, dadLabel, momLabel)}`
+    : `With ${parentLabel(withWhom, dadLabel, momLabel)}`;
 
   const loadSpecialEvents = async () => {
     if (!familyId || !dateKey) {
@@ -453,117 +483,137 @@ export default function CustodyDayDialog({
           if (!open) onClose?.();
         }}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg rounded-[2rem] p-0 overflow-hidden">
+          <DialogHeader className="border-b bg-background px-5 py-4">
             <DialogTitle className="font-heading text-xl flex items-center gap-2">
-              <CalendarDays className="w-5 h-5" />
-              Custody Day
+              <CalendarDays className="w-5 h-5 text-primary" />
+              Today&apos;s plan
             </DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[70vh] space-y-4 overflow-y-auto py-2 pr-1">
-            <div className="rounded-xl bg-muted/50 border p-3">
-              <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-                Date
+          <div className="max-h-[72vh] space-y-4 overflow-y-auto bg-slate-50/70 px-5 py-5">
+            <div className="rounded-[1.75rem] border bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                {dateKey}
               </p>
-              <p className="font-bold text-base">
-                {date instanceof Date
-                  ? format(date, "EEEE, MMMM d, yyyy")
-                  : dateKey}
+              <p className="mt-1 font-heading text-xl font-black text-slate-900">
+                {formattedDate}
               </p>
-            </div>
-
-            <div>
-              <Label>Day Type</Label>
-              <Select
-                value={isSplit ? "split" : "single"}
-                onValueChange={(value) => setIsSplit(value === "split")}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="single">Full day with one parent</SelectItem>
-                  <SelectItem value="split">Split day / AM and PM</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {!isSplit && (
-              <div>
-                <Label>With</Label>
-                <Select value={withWhom} onValueChange={setWithWhom}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="dad">👨 {dadLabel}</SelectItem>
-                    <SelectItem value="mom">👩 {momLabel}</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
+                  {isSplit ? "Split custody" : custodySummary}
+                </span>
+                {travelPlans.length > 0 && (
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                    ✈️ {travelPlans.length} travel
+                  </span>
+                )}
+                {specialEvents.length > 0 && (
+                  <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                    ✨ {specialEvents.length} event{specialEvents.length === 1 ? "" : "s"}
+                  </span>
+                )}
+                {notes.trim() && (
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
+                    📝 Note
+                  </span>
+                )}
               </div>
-            )}
+            </div>
 
-            {isSplit && (
-              <div className="grid grid-cols-2 gap-3">
+            <SectionCard
+              eyebrow="01"
+              title="Custody"
+              description="Who the child is with on this day."
+            >
+              <div className="rounded-2xl border bg-muted/30 p-3">
+                <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                  Current selection
+                </p>
+                <p className="mt-1 text-sm font-black text-slate-900">
+                  {isSplit ? custodySummary : `${parentEmoji(withWhom)} ${custodySummary}`}
+                </p>
+              </div>
+
+              <div className="mt-3 space-y-3">
                 <div>
-                  <Label>Morning</Label>
-                  <Select value={morning} onValueChange={setMorning}>
-                    <SelectTrigger className="mt-1">
+                  <Label>Day Type</Label>
+                  <Select
+                    value={isSplit ? "split" : "single"}
+                    onValueChange={(value) => setIsSplit(value === "split")}
+                  >
+                    <SelectTrigger className="mt-1 bg-white">
                       <SelectValue />
                     </SelectTrigger>
 
                     <SelectContent>
-                      <SelectItem value="dad">👨 {dadLabel}</SelectItem>
-                      <SelectItem value="mom">👩 {momLabel}</SelectItem>
+                      <SelectItem value="single">Full day with one parent</SelectItem>
+                      <SelectItem value="split">Split day / AM and PM</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div>
-                  <Label>Afternoon</Label>
-                  <Select value={afternoon} onValueChange={setAfternoon}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
+                {!isSplit && (
+                  <div>
+                    <Label>With</Label>
+                    <Select value={withWhom} onValueChange={setWithWhom}>
+                      <SelectTrigger className="mt-1 bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
 
-                    <SelectContent>
-                      <SelectItem value="dad">👨 {dadLabel}</SelectItem>
-                      <SelectItem value="mom">👩 {momLabel}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                      <SelectContent>
+                        <SelectItem value="dad">👨 {dadLabel}</SelectItem>
+                        <SelectItem value="mom">👩 {momLabel}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {isSplit && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Morning</Label>
+                      <Select value={morning} onValueChange={setMorning}>
+                        <SelectTrigger className="mt-1 bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          <SelectItem value="dad">👨 {dadLabel}</SelectItem>
+                          <SelectItem value="mom">👩 {momLabel}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Afternoon</Label>
+                      <Select value={afternoon} onValueChange={setAfternoon}>
+                        <SelectTrigger className="mt-1 bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          <SelectItem value="dad">👨 {dadLabel}</SelectItem>
+                          <SelectItem value="mom">👩 {momLabel}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </SectionCard>
 
-            <div>
-              <Label>Notes</Label>
-              <Input
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Pickup note, school note, special detail..."
-                className="mt-1"
-              />
-            </div>
-
-            <div className="rounded-2xl border bg-white/80 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                    Travel / vacation
-                  </p>
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Trips, vacation days and travel notes.
-                  </p>
-                </div>
-
+            <SectionCard
+              eyebrow="02"
+              title="Travel / vacation"
+              description="Trips, vacation days and travel notes."
+              className="border-blue-100"
+              action={(
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="gap-1.5"
+                  className="gap-1.5 bg-white"
                   disabled={!familyId || savingTravelPlan}
                   onClick={() => {
                     setSelectedTravelPlan(null);
@@ -573,24 +623,24 @@ export default function CustodyDayDialog({
                   <Plane className="h-3.5 w-3.5" />
                   Add
                 </Button>
-              </div>
-
+              )}
+            >
               {loadingTravelPlans && (
-                <p className="mt-3 text-xs font-semibold text-muted-foreground">
+                <p className="text-xs font-semibold text-muted-foreground">
                   Loading travel plans...
                 </p>
               )}
 
               {!loadingTravelPlans && travelPlans.length === 0 && (
-                <p className="mt-3 rounded-xl bg-muted/40 p-3 text-xs font-semibold text-muted-foreground">
+                <p className="rounded-xl bg-muted/40 p-3 text-xs font-semibold text-muted-foreground">
                   No travel plans for this day.
                 </p>
               )}
 
               {!loadingTravelPlans && travelPlans.length > 0 && (
-                <div className="mt-3 space-y-2">
+                <div className="space-y-2">
                   {travelPlans.map((plan) => (
-                    <div key={plan.id} className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                    <div key={plan.id} className="rounded-xl border border-blue-100 bg-blue-50/70 p-3">
                       <div className="flex items-start gap-2">
                         <span className="text-lg">✈️</span>
                         <div className="min-w-0 flex-1">
@@ -635,24 +685,18 @@ export default function CustodyDayDialog({
                   ))}
                 </div>
               )}
-            </div>
+            </SectionCard>
 
-            <div className="rounded-2xl border bg-white/80 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                    Special events
-                  </p>
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Games, doctor visits, school moments and family plans.
-                  </p>
-                </div>
-
+            <SectionCard
+              eyebrow="03"
+              title="Special events"
+              description="Games, doctor visits, school moments and family plans."
+              action={(
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="gap-1.5"
+                  className="gap-1.5 bg-white"
                   disabled={!familyId || savingSpecialEvent}
                   onClick={() => {
                     setSelectedSpecialEvent(null);
@@ -662,22 +706,22 @@ export default function CustodyDayDialog({
                   <Plus className="h-3.5 w-3.5" />
                   Add
                 </Button>
-              </div>
-
+              )}
+            >
               {loadingEvents && (
-                <p className="mt-3 text-xs font-semibold text-muted-foreground">
+                <p className="text-xs font-semibold text-muted-foreground">
                   Loading events...
                 </p>
               )}
 
               {!loadingEvents && specialEvents.length === 0 && (
-                <p className="mt-3 rounded-xl bg-muted/40 p-3 text-xs font-semibold text-muted-foreground">
+                <p className="rounded-xl bg-muted/40 p-3 text-xs font-semibold text-muted-foreground">
                   No special events for this day yet.
                 </p>
               )}
 
               {!loadingEvents && specialEvents.length > 0 && (
-                <div className="mt-3 space-y-2">
+                <div className="space-y-2">
                   {specialEvents.map((event) => {
                     const category = getCustodyEventCategory(event.category);
 
@@ -725,7 +769,20 @@ export default function CustodyDayDialog({
                   })}
                 </div>
               )}
-            </div>
+            </SectionCard>
+
+            <SectionCard
+              eyebrow="04"
+              title="Notes"
+              description="Pickup notes, reminders, or day-specific details."
+            >
+              <Input
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Pickup note, school note, special detail..."
+                className="bg-white"
+              />
+            </SectionCard>
 
             {isBulkDay && (
               <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-xs font-semibold text-blue-800">
@@ -734,7 +791,7 @@ export default function CustodyDayDialog({
             )}
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="border-t bg-background px-5 py-4 gap-2 sm:gap-0">
             {existingData && (
               <Button
                 type="button"
