@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
+import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -47,6 +48,22 @@ function normalizePackingDoc(docSnap) {
     owner: data.owner || "Shared",
     status: data.status || "review",
     important: Boolean(data.important),
+    order: data.order ?? 999,
+  };
+}
+
+function normalizeExpenseDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    title: data.title || "Expense",
+    category: data.category || "General",
+    amount: Number(data.amount || 0),
+    paidBy: data.paidBy || "Shared",
+    split: data.split || "50/50",
+    status: data.status || "review",
+    due: data.due || "",
+    recurring: Boolean(data.recurring),
     order: data.order ?? 999,
   };
 }
@@ -218,9 +235,12 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const { user, familyId, dadName, momName, perms } = useFamily();
   const [custodyDays, setCustodyDays] = useState([]);
   const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
+  const [expenses, setExpenses] = useState(initialCustodyExpenses);
   const [loading, setLoading] = useState(true);
   const [loadingPacking, setLoadingPacking] = useState(true);
+  const [loadingBudget, setLoadingBudget] = useState(true);
   const packingSummary = useMemo(() => getPackingSummary(packingItems), [packingItems]);
+  const budgetSummary = useMemo(() => getBudgetSummary(expenses), [expenses]);
   const readinessItems = useMemo(
     () => packingItems.slice(0, 5).map((item) => ({
       id: item.id,
@@ -300,6 +320,47 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     }
 
     loadPackingItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBudgetExpenses() {
+      if (!user || !familyId) {
+        setExpenses(initialCustodyExpenses);
+        setLoadingBudget(false);
+        return;
+      }
+
+      setLoadingBudget(true);
+
+      try {
+        const q = query(collection(db, "custodyExpenses"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          if (!cancelled) setExpenses(initialCustodyExpenses);
+          return;
+        }
+
+        const data = snap.docs
+          .map(normalizeExpenseDoc)
+          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+        if (!cancelled) setExpenses(data);
+      } catch (error) {
+        console.error("Error loading budget dashboard summary:", error);
+        if (!cancelled) setExpenses(initialCustodyExpenses);
+      } finally {
+        if (!cancelled) setLoadingBudget(false);
+      }
+    }
+
+    loadBudgetExpenses();
 
     return () => {
       cancelled = true;
@@ -427,7 +488,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               <ActionTile icon={Truck} label="Exchange" text="Pickup, dropoff, and handoff notes" tone="cyan" onClick={onOpenExchange} />
               <ActionTile icon={Shirt} label="Packing" text="Clothes, backpack, medicine, gear" tone="emerald" onClick={onOpenPacking} />
               <ActionTile icon={BellRing} label="Reminders" text="Exchange and readiness alerts" tone="orange" onClick={onOpenNotifications} />
-              <ActionTile icon={WalletCards} label="Budget" text="Shared expenses and reimbursements" tone="amber" onClick={onOpenBudget} />
+              <ActionTile icon={WalletCards} label="Budget" text={loadingBudget ? "Loading shared expenses" : `${currency(budgetSummary.pending)} pending`} tone="amber" onClick={onOpenBudget} />
               <ActionTile icon={MessageCircle} label="Chat" text="Co-parent notes and messages" tone="violet" onClick={onOpenChat} />
             </div>
           </Card>
@@ -460,14 +521,40 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             </Card>
 
             <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Budget status</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">Shared expenses</h2>
+                </div>
+                <button type="button" onClick={onOpenBudget} className="text-sm font-black text-primary">
+                  Budget
+                </button>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Total</p>
+                  <p className="mt-1 text-lg font-black text-slate-950">{loadingBudget ? "..." : currency(budgetSummary.total)}</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-amber-700/70">Pending</p>
+                  <p className="mt-1 text-lg font-black text-amber-800">{loadingBudget ? "..." : currency(budgetSummary.pending)}</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700/70">Settled</p>
+                  <p className="mt-1 text-lg font-black text-emerald-800">{loadingBudget ? "..." : currency(budgetSummary.settled)}</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Smart custody brief</p>
               <h2 className="mt-1 text-xl font-black text-slate-950">
                 {dashboard.nextChange ? "Plan the next exchange" : "Schedule looks calm"}
               </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
                 {dashboard.nextChange
-                  ? `${nextChangeText}. Packing is ${packingSummary.readiness}% ready with ${packingSummary.missingCount} missing item(s).`
-                  : "No upcoming exchange was found in the current custody schedule."}
+                  ? `${nextChangeText}. Packing is ${packingSummary.readiness}% ready with ${packingSummary.missingCount} missing item(s). Budget has ${currency(budgetSummary.pending)} pending.`
+                  : `No upcoming exchange was found in the current custody schedule. Budget has ${currency(budgetSummary.pending)} pending.`}
               </p>
             </Card>
           </div>
