@@ -124,58 +124,75 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
   if (!groups.length) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
-      {groups.map((group) => {
-        const active = group.id === selectedGroupId;
-        const children = groupChildren(group);
-        const parents = groupParents(group);
-        const access = resolveCustodyAccess(group, myEmail);
-        const { custodyDadName, custodyMomName } = resolveCustodyParentNames(group, "Dad", "Mom");
-        const parentNames = parents.length > 0
-          ? parents.map(parentLabel).filter(Boolean).join(" & ")
-          : `${custodyDadName} & ${custodyMomName}`;
-        const childNames = children.join(", ") || "Child not selected";
+    <div className="rounded-[1.8rem] border border-white/80 bg-white/72 p-2 shadow-[0_14px_36px_rgba(15,23,42,0.06)] backdrop-blur">
+      <div className="mb-2 flex items-center justify-between gap-3 px-2 pt-1">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Custody space</p>
+          <p className="text-sm font-black text-slate-900">Choose the child/family view</p>
+        </div>
+      </div>
 
-        return (
-          <button
-            key={group.id}
-            type="button"
-            onClick={() => onSelect(group.id)}
-            className={`min-w-[260px] rounded-2xl border px-4 py-3 text-left transition ${
-              active
-                ? "border-blue-300 bg-blue-50 shadow-sm"
-                : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-                <Baby className="h-4 w-4" />
-              </div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {groups.map((group) => {
+          const active = group.id === selectedGroupId;
+          const children = groupChildren(group);
+          const parents = groupParents(group);
+          const access = resolveCustodyAccess(group, myEmail);
+          const { custodyDadName, custodyMomName } = resolveCustodyParentNames(group, "Dad", "Mom");
+          const parentNames = parents.length > 0
+            ? parents.map(parentLabel).filter(Boolean).join(" & ")
+            : `${custodyDadName} & ${custodyMomName}`;
+          const childNames = children.join(", ") || "Child not selected";
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-black text-slate-950">
-                    {group.name || "Custody Group"}
-                  </p>
-                  {group.legacy && (
-                    <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
-                      Legacy
-                    </Badge>
-                  )}
-                  {access.isViewerOnly && (
-                    <Badge variant="outline" className="border-slate-200 bg-white text-[10px] text-slate-500">
-                      View only
-                    </Badge>
-                  )}
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => onSelect(group.id)}
+              className={`min-w-[240px] rounded-[1.35rem] border px-3.5 py-3 text-left transition sm:min-w-[260px] ${
+                active
+                  ? "border-blue-100 bg-[linear-gradient(135deg,#ffffff_0%,#eff6ff_58%,#fff7ed_100%)] shadow-[0_10px_24px_rgba(91,141,239,0.13)] ring-1 ring-blue-100"
+                  : "border-transparent bg-white/78 shadow-sm hover:bg-white hover:shadow-md"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${active ? "border-blue-100 bg-blue-600 text-white" : "border-blue-100 bg-blue-50 text-blue-700"}`}>
+                  <Baby className="h-4 w-4" />
                 </div>
-                <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
-                  {childNames} · {parentNames}
-                </p>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-black text-slate-950">
+                      {group.name || "Custody Group"}
+                    </p>
+                    {active && (
+                      <Badge className="rounded-full bg-blue-100 text-[10px] font-black text-blue-700 hover:bg-blue-100">
+                        Active
+                      </Badge>
+                    )}
+                    {group.legacy && (
+                      <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
+                        Legacy
+                      </Badge>
+                    )}
+                    {access.isViewerOnly && (
+                      <Badge variant="outline" className="border-slate-200 bg-white text-[10px] text-slate-500">
+                        View only
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="mt-1 truncate text-xs font-semibold text-slate-500">
+                    {childNames}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">
+                    {parentNames}
+                  </p>
+                </div>
               </div>
-            </div>
-          </button>
-        );
-      })}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -386,7 +403,7 @@ export default function CustodyCalendarView({
   );
 
   const groupSelector = loadingGroups ? (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+    <div className="rounded-[1.6rem] border border-white/80 bg-white/70 px-4 py-3 text-sm font-bold text-slate-500 shadow-sm backdrop-blur">
       Loading custody groups...
     </div>
   ) : (
@@ -408,11 +425,9 @@ export default function CustodyCalendarView({
 
   if (mode === "dashboard") {
     return (
-      <div className="min-h-full bg-[#f8fbff] pb-6">
-        <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
-          <div className="mx-auto max-w-[1600px]">
-            {groupSelector}
-          </div>
+      <div className="min-h-full bg-[#F8F7F4] pb-6">
+        <div className="mx-auto max-w-7xl px-3 pt-3 md:px-5 lg:px-6">
+          {groupSelector}
         </div>
 
         {canRenderCalendar ? (
@@ -439,11 +454,9 @@ export default function CustodyCalendarView({
 
   if (["exchange", "packing", "notifications", "budget"].includes(mode)) {
     return (
-      <div className="min-h-full bg-[#f8fbff] pb-6">
-        <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
-          <div className="mx-auto max-w-[1600px]">
-            {groupSelector}
-          </div>
+      <div className="min-h-full bg-[#F8F7F4] pb-6">
+        <div className="mx-auto max-w-7xl px-3 pt-3 md:px-5 lg:px-6">
+          {groupSelector}
         </div>
 
         {canRenderCalendar ? (
@@ -462,40 +475,40 @@ export default function CustodyCalendarView({
   }
 
   return (
-    <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
-      <div className="mx-auto max-w-none rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
-          {groupSelector}
-        </div>
+    <div className="min-h-full bg-[#F8F7F4] p-2 md:p-4">
+      <div className="mx-auto max-w-7xl space-y-3">
+        {groupSelector}
 
-        <div className="custody-original-calendar-wrapper bg-[#f8fbff]">
-          {canRenderCalendar ? (
-            <FamilyContext.Provider value={scopedFamilyContext}>
-              <CustodyScopeMetadataBackfill>
-                <CustodyCalendar
-                  key={`${selectedCustodyGroupId}-${custodyParentNames.custodyDadColor}-${custodyParentNames.custodyMomColor}`}
-                  viewMode={viewMode === "mixed" ? "month" : viewMode}
-                  setViewMode={setViewMode}
-                  showFilters
-                  selectedCustodyGroup={selectedGroup}
-                  selectedCustodyGroupId={selectedCustodyGroupId}
-                  custodyDadName={custodyParentNames.custodyDadName}
-                  custodyMomName={custodyParentNames.custodyMomName}
-                  custodyDadEmail={custodyParentNames.custodyDadEmail}
-                  custodyMomEmail={custodyParentNames.custodyMomEmail}
-                  custodyDadColor={custodyParentNames.custodyDadColor}
-                  custodyMomColor={custodyParentNames.custodyMomColor}
-                  custodyChildren={selectedChildren}
-                  custodyChildIds={selectedChildIds}
-                  custodyCoParents={selectedParents}
-                />
-              </CustodyScopeMetadataBackfill>
-            </FamilyContext.Provider>
-          ) : (
-            <div className="p-8 text-center text-sm font-bold text-slate-400">
-              {loadingGroups ? "Loading custody calendar..." : "You do not have access to this custody calendar."}
-            </div>
-          )}
+        <div className="overflow-hidden rounded-[1.8rem] border border-white/80 bg-white/78 shadow-[0_14px_36px_rgba(15,23,42,0.06)] backdrop-blur">
+          <div className="custody-original-calendar-wrapper bg-[#F8F7F4]">
+            {canRenderCalendar ? (
+              <FamilyContext.Provider value={scopedFamilyContext}>
+                <CustodyScopeMetadataBackfill>
+                  <CustodyCalendar
+                    key={`${selectedCustodyGroupId}-${custodyParentNames.custodyDadColor}-${custodyParentNames.custodyMomColor}`}
+                    viewMode={viewMode === "mixed" ? "month" : viewMode}
+                    setViewMode={setViewMode}
+                    showFilters
+                    selectedCustodyGroup={selectedGroup}
+                    selectedCustodyGroupId={selectedCustodyGroupId}
+                    custodyDadName={custodyParentNames.custodyDadName}
+                    custodyMomName={custodyParentNames.custodyMomName}
+                    custodyDadEmail={custodyParentNames.custodyDadEmail}
+                    custodyMomEmail={custodyParentNames.custodyMomEmail}
+                    custodyDadColor={custodyParentNames.custodyDadColor}
+                    custodyMomColor={custodyParentNames.custodyMomColor}
+                    custodyChildren={selectedChildren}
+                    custodyChildIds={selectedChildIds}
+                    custodyCoParents={selectedParents}
+                  />
+                </CustodyScopeMetadataBackfill>
+              </FamilyContext.Provider>
+            ) : (
+              <div className="p-8 text-center text-sm font-bold text-slate-400">
+                {loadingGroups ? "Loading custody calendar..." : "You do not have access to this custody calendar."}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
