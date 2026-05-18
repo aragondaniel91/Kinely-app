@@ -57,8 +57,8 @@ function normalizeDate(value) {
 function normalizeSpecialEvent(docSnap) {
   const data = docSnap.data();
   return {
-    id: docSnap.id,
     ...data,
+    id: docSnap.id,
     date: normalizeDate(data.date),
     title: data.title || "Special event",
     category: data.category || "other",
@@ -72,8 +72,8 @@ function normalizeSpecialEvent(docSnap) {
 function normalizeTravelPlan(docSnap) {
   const data = docSnap.data();
   return {
-    id: docSnap.id,
     ...data,
+    id: docSnap.id,
     title: data.title || "Travel / vacation",
     destination: data.destination || "",
     startDate: normalizeDate(data.startDate || data.start_date),
@@ -250,16 +250,20 @@ export default function CustodyDayDialog({
   };
 
   const saveSpecialEvent = async (payload) => {
-    if (!user || !familyId || !dateKey) return;
+    if (!user || !familyId || !dateKey) {
+      alert("Could not save this event because the family context is missing. Please refresh and try again.");
+      return;
+    }
 
     setSavingSpecialEvent(true);
 
     try {
       const editing = Boolean(payload.id);
       const eventId = payload.id || `${familyId}_${payload.date}_${Date.now()}`;
+      const { id: _ignoredPayloadId, ...safePayload } = payload;
       const data = {
+        ...safePayload,
         id: eventId,
-        ...payload,
         date: normalizeDate(payload.date),
         familyId,
         family_id: familyId,
@@ -311,16 +315,20 @@ export default function CustodyDayDialog({
   };
 
   const saveTravelPlan = async (payload) => {
-    if (!user || !familyId || !dateKey) return;
+    if (!user || !familyId || !dateKey) {
+      alert("Could not save this travel plan because the family context is missing. Please refresh and try again.");
+      return;
+    }
 
     setSavingTravelPlan(true);
 
     try {
       const editing = Boolean(payload.id);
       const travelId = payload.id || `${familyId}_travel_${payload.startDate}_${Date.now()}`;
+      const { id: _ignoredPayloadId, ...safePayload } = payload;
       const data = {
+        ...safePayload,
         id: travelId,
-        ...payload,
         startDate: normalizeDate(payload.startDate),
         start_date: normalizeDate(payload.startDate),
         endDate: normalizeDate(payload.endDate),
