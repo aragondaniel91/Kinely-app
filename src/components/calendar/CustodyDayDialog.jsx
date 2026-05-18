@@ -79,6 +79,8 @@ function normalizeTravelPlan(docSnap) {
     startDate: normalizeDate(data.startDate || data.start_date),
     endDate: normalizeDate(data.endDate || data.end_date),
     travelingParent: data.travelingParent || data.traveling_parent || "dad",
+    travelStatus: data.travelStatus || data.travel_status || data.status || "approved",
+    affectsCustody: data.affectsCustody ?? data.affects_custody ?? true,
     notes: data.notes || "",
   };
 }
@@ -109,6 +111,14 @@ function parentLabel(parent, dadLabel, momLabel) {
 
 function parentEmoji(parent) {
   return parent === "dad" ? "👨" : "👩";
+}
+
+function travelPlanAffectsCustody(plan) {
+  if (!plan) return false;
+  if (plan.affectsCustody === false || plan.affects_custody === false) return false;
+
+  const status = plan.travelStatus || plan.travel_status || plan.status || "approved";
+  return status !== "rejected" && status !== "cancelled";
 }
 
 function SectionCard({ eyebrow, title, description, action, children, className = "" }) {
@@ -179,6 +189,18 @@ export default function CustodyDayDialog({
   const custodySummary = isSplit
     ? `AM: ${parentLabel(morning, dadLabel, momLabel)} · PM: ${parentLabel(afternoon, dadLabel, momLabel)}`
     : `With ${parentLabel(withWhom, dadLabel, momLabel)}`;
+  const travelOverridePlan = travelPlans.find(travelPlanAffectsCustody);
+  const hasTravelOverride = Boolean(travelOverridePlan?.travelingParent);
+  const travelOverrideParent = travelOverridePlan?.travelingParent || null;
+  const travelOverrideLabel = travelOverrideParent
+    ? parentLabel(travelOverrideParent, dadLabel, momLabel)
+    : "";
+  const baseCustodyLabel = isSplit
+    ? custodySummary
+    : parentLabel(withWhom, dadLabel, momLabel);
+  const travelOverrideChangedParent = Boolean(
+    hasTravelOverride && !isSplit && travelOverrideParent !== withWhom
+  );
 
   const loadSpecialEvents = async () => {
     if (!familyId || !dateKey) {
@@ -501,7 +523,7 @@ export default function CustodyDayDialog({
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary">
-                  {isSplit ? "Split custody" : custodySummary}
+                  {hasTravelOverride ? `Travel override: ${travelOverrideLabel}` : isSplit ? "Split custody" : custodySummary}
                 </span>
                 {travelPlans.length > 0 && (
                   <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
@@ -526,9 +548,30 @@ export default function CustodyDayDialog({
               title="Custody"
               description="Who the child is with on this day."
             >
+              {hasTravelOverride && (
+                <div className="mb-3 rounded-2xl border border-blue-100 bg-blue-50/80 p-3">
+                  <p className="text-xs font-black uppercase tracking-wider text-blue-700">
+                    Travel override active
+                  </p>
+                  <p className="mt-1 text-sm font-black text-blue-900">
+                    {travelOverridePlan?.destination || travelOverridePlan?.title
+                      ? `Changed by travel plan · ${travelOverridePlan.destination || travelOverridePlan.title}`
+                      : "Changed by travel plan"}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-blue-700">
+                    Base: {baseCustodyLabel} · Travel override: {travelOverrideLabel}
+                  </p>
+                  {!travelOverrideChangedParent && (
+                    <p className="mt-1 text-xs text-blue-700">
+                      This travel plan keeps custody with the same parent for this day.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="rounded-2xl border bg-muted/30 p-3">
                 <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                  Current selection
+                  {hasTravelOverride ? "Regular custody selection" : "Current selection"}
                 </p>
                 <p className="mt-1 text-sm font-black text-slate-900">
                   {isSplit ? custodySummary : `${parentEmoji(withWhom)} ${custodySummary}`}
@@ -651,6 +694,11 @@ export default function CustodyDayDialog({
                           <p className="text-xs font-semibold text-blue-700">
                             With {parentLabel(plan.travelingParent, dadLabel, momLabel)}
                           </p>
+                          {travelPlanAffectsCustody(plan) && (
+                            <p className="mt-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-black text-blue-800 w-fit">
+                              Affects custody count
+                            </p>
+                          )}
                           {plan.notes && (
                             <p className="mt-1 text-xs text-muted-foreground">{plan.notes}</p>
                           )}
