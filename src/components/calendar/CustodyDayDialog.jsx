@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, Plus, Trash2, X } from "lucide-react";
+import { CalendarDays, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   collection,
   deleteDoc,
@@ -68,6 +68,12 @@ function normalizeSpecialEvent(docSnap) {
   };
 }
 
+function sortSpecialEvents(events) {
+  return [...events].sort((a, b) =>
+    `${a.startTime || "99:99"}${a.title}`.localeCompare(`${b.startTime || "99:99"}${b.title}`)
+  );
+}
+
 function getBulkRunId(data = {}) {
   return data.bulkRunId || data.bulk_run_id || "";
 }
@@ -104,6 +110,7 @@ export default function CustodyDayDialog({
   const [specialEvents, setSpecialEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [showSpecialEventDialog, setShowSpecialEventDialog] = useState(false);
+  const [selectedSpecialEvent, setSelectedSpecialEvent] = useState(null);
   const [savingSpecialEvent, setSavingSpecialEvent] = useState(false);
 
   const dateKey = normalizeDate(date);
@@ -142,8 +149,7 @@ export default function CustodyDayDialog({
         docs = snap.docs.map(normalizeSpecialEvent);
       }
 
-      docs.sort((a, b) => `${a.startTime || "99:99"}${a.title}`.localeCompare(`${b.startTime || "99:99"}${b.title}`));
-      setSpecialEvents(docs);
+      setSpecialEvents(sortSpecialEvents(docs));
     } catch (error) {
       console.error("Error loading custody special events:", error);
       setSpecialEvents([]);
@@ -176,7 +182,8 @@ export default function CustodyDayDialog({
     setSavingSpecialEvent(true);
 
     try {
-      const eventId = `${familyId}_${payload.date}_${Date.now()}`;
+      const editing = Boolean(payload.id);
+      const eventId = payload.id || `${familyId}_${payload.date}_${Date.now()}`;
       const data = {
         id: eventId,
         ...payload,
@@ -185,20 +192,46 @@ export default function CustodyDayDialog({
         family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
         userId: user.uid,
-        createdBy: user.uid,
-        createdByEmail: user.email || null,
-        createdAt: serverTimestamp(),
-        created_at: new Date().toISOString(),
+        createdBy: selectedSpecialEvent?.createdBy || user.uid,
+        createdByEmail: selectedSpecialEvent?.createdByEmail || user.email || null,
+        createdAt: selectedSpecialEvent?.createdAt || serverTimestamp(),
+        created_at: selectedSpecialEvent?.created_at || new Date().toISOString(),
+        updatedBy: user.uid,
         updatedAt: serverTimestamp(),
         updated_date: new Date().toISOString(),
       };
 
       await setDoc(doc(db, "custodySpecialEvents", eventId), data, { merge: true });
-      setSpecialEvents((prev) => [...prev, data].sort((a, b) => `${a.startTime || "99:99"}${a.title}`.localeCompare(`${b.startTime || "99:99"}${b.title}`)));
+      setSpecialEvents((prev) => {
+        const next = editing
+          ? prev.map((event) => (event.id === eventId ? { ...event, ...data } : event))
+          : [...prev, data];
+        return sortSpecialEvents(next.filter((event) => normalizeDate(event.date) === dateKey));
+      });
+      setSelectedSpecialEvent(null);
       setShowSpecialEventDialog(false);
     } catch (error) {
       console.error("Error saving custody special event:", error);
       alert(`There was an error saving this special event: ${error.message}`);
+    } finally {
+      setSavingSpecialEvent(false);
+    }
+  };
+
+  const deleteSpecialEvent = async (event) => {
+    if (!event?.id) return;
+
+    const confirmed = window.confirm(`Delete "${event.title}" from this day?`);
+    if (!confirmed) return;
+
+    setSavingSpecialEvent(true);
+
+    try {
+      await deleteDoc(doc(db, "custodySpecialEvents", event.id));
+      setSpecialEvents((prev) => prev.filter((item) => item.id !== event.id));
+    } catch (error) {
+      console.error("Error deleting custody special event:", error);
+      alert(`There was an error deleting this special event: ${error.message}`);
     } finally {
       setSavingSpecialEvent(false);
     }
@@ -392,7 +425,10 @@ export default function CustodyDayDialog({
                   variant="outline"
                   className="gap-1.5"
                   disabled={!familyId || savingSpecialEvent}
-                  onClick={() => setShowSpecialEventDialog(true)}
+                  onClick={() => {
+                    setSelectedSpecialEvent(null);
+                    setShowSpecialEventDialog(true);
+                  }}
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Add
@@ -428,6 +464,31 @@ export default function CustodyDayDialog({
                             {event.notes && (
                               <p className="mt-1 text-xs text-muted-foreground">{event.notes}</p>
                             )}
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 rounded-full"
+                              disabled={savingSpecialEvent}
+                              onClick={() => {
+                                setSelectedSpecialEvent(event);
+                                setShowSpecialEventDialog(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
+                              disabled={savingSpecialEvent}
+                              onClick={() => deleteSpecialEvent(event)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -472,7 +533,11 @@ export default function CustodyDayDialog({
       {showSpecialEventDialog && (
         <CustodySpecialEventDialog
           defaultDate={date}
-          onClose={() => setShowSpecialEventDialog(false)}
+          existingEvent={selectedSpecialEvent}
+          onClose={() => {
+            setSelectedSpecialEvent(null);
+            setShowSpecialEventDialog(false);
+          }}
           onSave={saveSpecialEvent}
           isSaving={savingSpecialEvent}
         />
