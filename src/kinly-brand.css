@@ -12,6 +12,14 @@
   --kinly-warm-bg: #f8f7f4;
   --kinly-ink: #12203a;
   --kinly-muted: #64748b;
+  --kinly-bg-gradient:
+    radial-gradient(circle at top left, rgba(91, 141, 239, 0.15), transparent 34%),
+    radial-gradient(circle at 88% 18%, rgba(255, 209, 102, 0.14), transparent 28%),
+    linear-gradient(180deg, #f8f7f4 0%, #ffffff 56%, #f8fafc 100%);
+  --kinly-bg-gradient-soft:
+    radial-gradient(circle at top left, rgba(91, 141, 239, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 18%, rgba(255, 209, 102, 0.11), transparent 28%),
+    linear-gradient(180deg, rgba(248, 247, 244, 0.96) 0%, rgba(255, 255, 255, 0.90) 56%, rgba(248, 250, 252, 0.92) 100%);
 
   --background: 45 27% 96%;
   --foreground: 220 52% 15%;
@@ -26,7 +34,7 @@
 
 body {
   font-family: var(--font-body);
-  background: var(--kinly-warm-bg);
+  background: var(--kinly-bg-gradient);
   color: var(--kinly-ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
@@ -49,9 +57,25 @@ body {
 }
 
 .kinly-gradient-bg {
-  background:
-    radial-gradient(circle at top left, rgba(91, 141, 239, 0.15), transparent 34%),
-    linear-gradient(180deg, #f8f7f4 0%, #ffffff 56%, #f8fafc 100%);
+  background: var(--kinly-bg-gradient);
+}
+
+.kinly-gradient-bg-soft {
+  background: var(--kinly-bg-gradient-soft);
+}
+
+/* Kinly DNA background bridge.
+   Existing screens still using the old flat warm background inherit the soft Home-style gradient. */
+.bg-\[\#F8F7F4\] {
+  background: var(--kinly-bg-gradient) !important;
+}
+
+.bg-\[\#F8F7F4\]\/95 {
+  background: var(--kinly-bg-gradient-soft) !important;
+}
+
+.bg-background {
+  background: var(--kinly-bg-gradient) !important;
 }
 
 .kinly-family-gradient {
