@@ -94,6 +94,21 @@ function normalizeSpecialEvent(docSnap) {
   };
 }
 
+function normalizeTravelPlan(docSnap) {
+  const data = docSnap.data();
+
+  return {
+    id: docSnap.id,
+    ...data,
+    title: data.title || "Travel / vacation",
+    destination: data.destination || "",
+    startDate: normalizeDate(data.startDate || data.start_date),
+    endDate: normalizeDate(data.endDate || data.end_date),
+    travelingParent: data.travelingParent || data.traveling_parent || "dad",
+    notes: data.notes || "",
+  };
+}
+
 function getParentLabel(parent, dadName, momName) {
   if (parent === "dad") return dadName || "Papá";
   if (parent === "mom") return momName || "Mamá";
@@ -250,10 +265,12 @@ function buildBulkDayPayload({ day, blockStart, blockEnd, payload, familyId, pro
   };
 }
 
-function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, dadName, momName, specialEvents = [], compact = false, inMonth = true }) {
+function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, dadName, momName, specialEvents = [], travelPlans = [], compact = false, inMonth = true }) {
   const today = isToday(day);
   const parent = getCustodyParent(custody);
   const splitDay = parent === "split";
+  const visibleTravelPlans = travelPlans.slice(0, compact ? 1 : 2);
+  const hiddenTravelCount = Math.max(0, travelPlans.length - visibleTravelPlans.length);
   const visibleEvents = specialEvents.slice(0, compact ? 2 : 3);
   const hiddenEventCount = Math.max(0, specialEvents.length - visibleEvents.length);
 
@@ -337,8 +354,25 @@ function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, d
           </div>
         )}
 
-        {visibleEvents.length > 0 && (
+        {(visibleTravelPlans.length > 0 || visibleEvents.length > 0) && (
           <div className="mt-1.5 space-y-1">
+            {visibleTravelPlans.map((plan) => (
+              <div
+                key={plan.id}
+                className={cn(
+                  "flex items-center gap-1 rounded-lg border border-blue-100 bg-blue-50/90 px-1.5 py-0.5 font-bold text-blue-800 shadow-sm",
+                  compact ? "text-[8px]" : "text-[10px]"
+                )}
+              >
+                <span>✈️</span>
+                <span className="truncate">{plan.destination || plan.title}</span>
+              </div>
+            ))}
+
+            {hiddenTravelCount > 0 && (
+              <div className={cn("rounded-lg border border-blue-100 bg-blue-50/90 px-1.5 py-0.5 font-bold text-blue-700 shadow-sm", compact ? "text-[8px]" : "text-[10px]")}>+{hiddenTravelCount} travel</div>
+            )}
+
             {visibleEvents.map((event) => {
               const category = getCustodyEventCategory(event.category);
 
@@ -363,7 +397,7 @@ function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, d
         )}
 
         {custody?.notes && !compact && <p className="text-[10px] text-muted-foreground mt-auto truncate bg-background/70 rounded px-1">{custody.notes}</p>}
-        {!custody && !compact && !visibleEvents.length && <p className="text-[10px] text-muted-foreground mt-auto">No custody info</p>}
+        {!custody && !compact && !visibleEvents.length && !visibleTravelPlans.length && <p className="text-[10px] text-muted-foreground mt-auto">No custody info</p>}
       </div>
     </button>
   );
@@ -427,6 +461,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const [custodyFilter, setCustodyFilter] = useState("all");
   const [custodyDays, setCustodyDays] = useState([]);
   const [specialEvents, setSpecialEvents] = useState([]);
+  const [travelPlans, setTravelPlans] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastBulkUndo, setLastBulkUndo] = useState(null);
@@ -441,6 +476,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     if (!user || !familyId || !canRead) {
       setCustodyDays([]);
       setSpecialEvents([]);
+      setTravelPlans([]);
       setLoading(false);
       return;
     }
@@ -487,10 +523,27 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           setSpecialEvents([]);
         }
       }
+
+      try {
+        const q = query(collection(db, "custodyTravelPlans"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+        setTravelPlans(snap.docs.map(normalizeTravelPlan));
+      } catch (travelError) {
+        console.warn("Fallback travel plans query by family_id:", travelError);
+        try {
+          const q = query(collection(db, "custodyTravelPlans"), where("family_id", "==", familyId));
+          const snap = await getDocs(q);
+          setTravelPlans(snap.docs.map(normalizeTravelPlan));
+        } catch (legacyTravelError) {
+          console.warn("Could not load custody travel plans:", legacyTravelError);
+          setTravelPlans([]);
+        }
+      }
     } catch (error) {
       console.error("Error loading custody days:", error);
       setCustodyDays([]);
       setSpecialEvents([]);
+      setTravelPlans([]);
     } finally {
       setLoading(false);
     }
@@ -734,6 +787,31 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
     return map;
   }, [specialEvents]);
+
+  const travelPlansByDate = useMemo(() => {
+    const map = {};
+
+    travelPlans.forEach((plan) => {
+      if (!plan.startDate || !plan.endDate) return;
+
+      const start = parseISO(`${plan.startDate}T12:00:00`);
+      const end = parseISO(`${plan.endDate}T12:00:00`);
+
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return;
+
+      eachDayOfInterval({ start, end }).forEach((day) => {
+        const key = format(day, "yyyy-MM-dd");
+        if (!map[key]) map[key] = [];
+        map[key].push(plan);
+      });
+    });
+
+    Object.keys(map).forEach((key) => {
+      map[key].sort((a, b) => `${a.startDate || "9999-99-99"}${a.title}`.localeCompare(`${b.startDate || "9999-99-99"}${b.title}`));
+    });
+
+    return map;
+  }, [travelPlans]);
 
   const period = useMemo(() => {
     if (viewMode === "day") {
@@ -1023,7 +1101,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
                   const inMonth = viewMode === "month" ? isSameMonth(day, anchorDate) : true;
 
                   return (
-                    <CustodyDayCard key={key} day={day} custody={custody} specialEvents={specialEventsByDate[key] || []} canWrite={canWrite} onClick={() => canWrite && setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} compact={viewMode === "month"} inMonth={inMonth && !filteredOut} />
+                    <CustodyDayCard key={key} day={day} custody={custody} specialEvents={specialEventsByDate[key] || []} travelPlans={travelPlansByDate[key] || []} canWrite={canWrite} onClick={() => canWrite && setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} compact={viewMode === "month"} inMonth={inMonth && !filteredOut} />
                   );
                 })}
               </div>
