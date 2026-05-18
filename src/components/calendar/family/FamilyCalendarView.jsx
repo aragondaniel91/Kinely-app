@@ -115,7 +115,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   return (
     <div className="kinly-gradient-bg min-h-full px-3 pb-28 pt-3 md:px-5 md:pb-12 lg:px-6">
       <div className="mx-auto max-w-7xl space-y-4">
-        <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
+        <div className="relative z-30 overflow-visible rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
           <FamilyCalendarPlannerHeader
             profile={profile}
             people={people}
@@ -146,7 +146,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
             Loading family events...
           </div>
         ) : (
-          <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/84 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
+          <div className="relative z-10 overflow-hidden rounded-[2rem] border border-white/80 bg-white/84 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
             {viewMode === "month" ? (
               <FamilyCalendarMonthGrid
                 monthDays={monthDays}
