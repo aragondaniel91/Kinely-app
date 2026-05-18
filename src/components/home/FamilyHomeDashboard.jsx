@@ -23,6 +23,55 @@ function getGreeting() {
   return "Buenas noches";
 }
 
+function getSmartBrief({ loading, tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel }) {
+  if (loading) {
+    return {
+      title: "Loading family day",
+      text: "Gathering today’s family summary...",
+    };
+  }
+
+  if (hasCustody && nextChange?.days <= 1) {
+    return {
+      title: "Custody transition soon",
+      text: `Next exchange with ${nextChangeLabel} is coming up soon.`,
+    };
+  }
+
+  if (tasks.length >= 4 || groceries.length >= 6) {
+    return {
+      title: "Busy family day",
+      text: `${tasks.length} task(s) and ${groceries.length} grocery item(s) may need attention.`,
+    };
+  }
+
+  if (meals.length > 0 && tasks.length <= 1 && groceries.length <= 2) {
+    return {
+      title: "Family flow looks calm",
+      text: "Meals are planned and today looks manageable.",
+    };
+  }
+
+  if (groceries.length > 0) {
+    return {
+      title: "Groceries need attention",
+      text: `${groceries.length} grocery item(s) are still open.`,
+    };
+  }
+
+  if (tasks.length > 0) {
+    return {
+      title: "Tasks are waiting",
+      text: `${tasks.length} family task(s) are pending today.`,
+    };
+  }
+
+  return {
+    title: "Family day",
+    text: "Everything important is here.",
+  };
+}
+
 function SummaryCard({ icon: Icon, title, value, text, to, tone = "blue" }) {
   const tones = {
     blue: "bg-blue-50 text-blue-700 border-blue-100",
@@ -146,6 +195,15 @@ export default function FamilyHomeDashboard({
   canReadGroceries,
 }) {
   const hasCustody = Boolean(todayCustody || nextChange);
+  const smartBrief = getSmartBrief({
+    loading,
+    tasks,
+    meals,
+    groceries,
+    hasCustody,
+    nextChange,
+    nextChangeLabel,
+  });
 
   const calendarPreviewItems = [
     hasCustody
@@ -196,15 +254,15 @@ export default function FamilyHomeDashboard({
               </div>
 
               <div className="rounded-[1.6rem] border border-white/80 bg-white/85 p-4 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur lg:min-w-[280px]">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Today brief</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Smart brief</p>
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-[1.1rem] bg-blue-50 text-blue-700">
                     <Users className="h-6 w-6" />
                   </div>
-                  <div>
-                    <p className="text-lg font-black text-slate-950">Family day</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-black text-slate-950">{smartBrief.title}</p>
                     <p className="mt-0.5 text-sm font-bold text-slate-500">
-                      {loading ? "Loading family summary..." : "Everything important is here."}
+                      {smartBrief.text}
                     </p>
                   </div>
                 </div>
