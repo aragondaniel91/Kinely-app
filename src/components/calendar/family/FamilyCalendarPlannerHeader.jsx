@@ -88,41 +88,38 @@ export default function FamilyCalendarPlannerHeader({
   const categoryFilterOptions = buildCategoryFilterOptions(categoryOptions);
 
   return (
-    <header className="kinly-family-gradient p-3.5 md:p-4 lg:p-4">
-      <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-start">
+    <header className="kinly-family-gradient p-3 md:p-3.5 lg:p-4">
+      <div className="grid gap-2.5 xl:grid-cols-[1fr_auto] xl:items-start">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100">
-              <CalendarHeart className="h-5 w-5" />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-[0.95rem] bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100">
+              <CalendarHeart className="h-4.5 w-4.5" />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600/80">
                 Kinly Planner
               </p>
-              <h1 className="mt-0.5 text-3xl font-black leading-none tracking-tight text-slate-950 sm:text-[2.2rem]">
+              <h1 className="mt-0.5 text-[1.85rem] font-black leading-none tracking-tight text-slate-950 sm:text-[2.05rem]">
                 Family Calendar
               </h1>
             </div>
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-3">
+          <div className="mt-2 flex flex-wrap items-center gap-2.5">
             <FamilyCalendarMonthPicker
               anchorDate={anchorDate}
               onChangeMonth={onChangeMonth}
               onPreviousMonth={onPreviousMonth}
               onNextMonth={onNextMonth}
             />
-            <div className="hidden text-sm font-semibold text-slate-500 xl:block">
-              Family routines, appointments and moments.
-            </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2.5 xl:min-w-[560px] xl:items-end">
+        <div className="flex flex-col gap-2 xl:min-w-[560px] xl:items-end">
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-            <div className="rounded-2xl bg-white/75 px-4 py-2 text-right shadow-sm backdrop-blur">
+            <div className="rounded-2xl bg-white/75 px-3.5 py-1.5 text-right shadow-sm backdrop-blur">
               <p className="text-lg font-black leading-none text-slate-950">{format(now, "h:mm a")}</p>
-              <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">{format(now, "EEE, MMM d")}</p>
+              <p className="mt-1 text-[9px] font-black uppercase tracking-wide text-slate-400">{format(now, "EEE, MMM d")}</p>
             </div>
             <button type="button" onClick={onSync} className="inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/75 px-3 py-2 text-xs font-black text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
               <RefreshCcw className="h-3.5 w-3.5" /> Sync
@@ -130,7 +127,7 @@ export default function FamilyCalendarPlannerHeader({
           </div>
 
           <div className="family-scroll-x w-full pb-0.5">
-            <div className="flex w-max min-w-full gap-3 xl:justify-end">
+            <div className="flex w-max min-w-full gap-2.5 xl:justify-end">
               <FamilyCalendarFilterDropdown
                 icon={UserRound}
                 label="Person"
@@ -150,12 +147,12 @@ export default function FamilyCalendarPlannerHeader({
         </div>
       </div>
 
-      <div className="mt-3 border-t border-white/70 pt-2.5">
+      <div className="mt-2.5 border-t border-white/70 pt-2">
         <FamilyCalendarLegend people={people} selectedPersonId={selectedPersonId} onSelectPerson={onSelectPerson} />
       </div>
 
-      <div className="mt-2.5 flex flex-col gap-2.5 border-t border-white/70 pt-2.5 lg:flex-row lg:items-center lg:justify-between">
-        <span className="w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-black text-slate-500 shadow-sm">
+      <div className="mt-2 flex flex-col gap-2 border-t border-white/70 pt-2 lg:flex-row lg:items-center lg:justify-between">
+        <span className="w-fit rounded-full bg-white/75 px-3 py-1.5 text-sm font-black text-slate-500 shadow-sm">
           {visibleEventCount} events · {rangeText}
         </span>
         <CalendarControls
