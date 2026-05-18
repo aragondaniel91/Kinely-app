@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { format, parseISO } from "date-fns";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import {
+  AlertTriangle,
   BellRing,
   CalendarClock,
   CheckCircle2,
@@ -11,80 +14,355 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  WalletCards,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { db } from "@/lib/firebase";
+import { useFamily } from "@/lib/FamilyContext";
+import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
+import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
 
 const initialRules = [
   {
-    id: "exchange-tomorrow",
-    title: "Exchange tomorrow morning",
-    description: "Remind both homes about pickup time, location, and handoff notes.",
-    timing: "Tomorrow · 7:30 AM",
+    id: "exchange-review",
+    title: "Exchange details need review",
+    description: "Notify when the next exchange is missing time, location, or confirmation.",
+    timing: "Before exchange",
     channel: "Push + Email",
     enabled: true,
     icon: Truck,
     accent: "bg-blue-50 text-blue-700 border-blue-100",
   },
   {
-    id: "medicine-missing",
-    title: "Medicine still not packed",
-    description: "Send a reminder if medicine remains missing before the exchange.",
-    timing: "Today · 8:00 PM",
+    id: "packing-missing",
+    title: "Packing items missing",
+    description: "Notify when important transition items are marked missing or need review.",
+    timing: "Evening before",
     channel: "Push",
     enabled: true,
     icon: Pill,
     accent: "bg-rose-50 text-rose-700 border-rose-100",
   },
   {
-    id: "packing-review",
-    title: "Packing list needs review",
-    description: "Notify when checklist readiness is under 100% before transition day.",
-    timing: "Today · 6:00 PM",
+    id: "packing-readiness",
+    title: "Packing readiness below 100%",
+    description: "Notify when the checklist is not fully ready before transition day.",
+    timing: "Day before",
     channel: "Push",
     enabled: true,
     icon: ShieldCheck,
     accent: "bg-emerald-50 text-emerald-700 border-emerald-100",
   },
   {
-    id: "school-reminder",
-    title: "School items reminder",
-    description: "Remind about backpack, homework folder, lunchbox, and school forms.",
-    timing: "Weekdays · 7:00 AM",
-    channel: "Push",
-    enabled: false,
-    icon: CalendarClock,
+    id: "budget-pending",
+    title: "Shared expenses pending",
+    description: "Notify when custody-related expenses still need review or settlement.",
+    timing: "Weekly digest",
+    channel: "Push + Email",
+    enabled: true,
+    icon: WalletCards,
     accent: "bg-amber-50 text-amber-700 border-amber-100",
   },
 ];
 
-const upcomingAlerts = [
-  {
-    id: "alert-1",
-    title: "Exchange tomorrow at 8:00 AM",
-    message: "Pickup details and checklist will be sent tonight.",
-    type: "Exchange",
-    time: "Today · 7:30 PM",
-  },
-  {
-    id: "alert-2",
-    title: "Medicine bag missing",
-    message: "This item is marked missing in Packing PRO.",
-    type: "Packing",
-    time: "Today · 8:00 PM",
-  },
-  {
-    id: "alert-3",
-    title: "Handoff note reminder",
-    message: "Remember to confirm the morning pickup note.",
-    type: "Note",
-    time: "Tomorrow · 7:15 AM",
-  },
-];
+function normalizeDate(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value?.toDate) return format(value.toDate(), "yyyy-MM-dd");
+  return String(value).slice(0, 10);
+}
 
-function NotificationHero({ enabledCount, totalCount }) {
+function normalizeCustodyDay(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    date: normalizeDate(data.date),
+    is_split: data.is_split || data.isSplit || false,
+    with_whom: data.with_whom || data.withWhom || null,
+    morning: data.morning || null,
+    afternoon: data.afternoon || null,
+  };
+}
+
+function normalizeExchangeDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    date: normalizeDate(data.date),
+    time: data.time || "",
+    location: data.location || "",
+    fromParent: data.fromParent || "",
+    toParent: data.toParent || "",
+    pickupBy: data.pickupBy || data.toParent || "",
+    notes: data.notes || "",
+    status: data.status || "pending",
+    source: data.source || "manual",
+  };
+}
+
+function normalizePackingDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    name: data.name || "Packing item",
+    category: data.category || "General",
+    owner: data.owner || "Shared",
+    status: data.status || "review",
+    important: Boolean(data.important),
+    order: data.order ?? 999,
+  };
+}
+
+function normalizeExpenseDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    title: data.title || "Expense",
+    category: data.category || "General",
+    amount: Number(data.amount || 0),
+    paidBy: data.paidBy || "Shared",
+    split: data.split || "50/50",
+    status: data.status || "review",
+    due: data.due || "",
+    recurring: Boolean(data.recurring),
+    order: data.order ?? 999,
+  };
+}
+
+function getDaySegments(day) {
+  if (!day) return [];
+
+  if (day.is_split) {
+    return [
+      { period: "AM", owner: day.morning || null, suggestedTime: "08:00" },
+      { period: "PM", owner: day.afternoon || null, suggestedTime: "12:00" },
+    ].filter((segment) => segment.owner && segment.owner !== "none");
+  }
+
+  const owner = day.with_whom || null;
+  return owner && owner !== "none" ? [{ period: "All day", owner, suggestedTime: "18:00" }] : [];
+}
+
+function getEndOfDayOwner(day) {
+  const segments = getDaySegments(day);
+  return segments.at(-1)?.owner || "none";
+}
+
+function findCurrentOwner(sortedDays, todayKey) {
+  let owner = "none";
+
+  sortedDays.forEach((day) => {
+    const dateKey = normalizeDate(day.date);
+    if (dateKey && dateKey <= todayKey) {
+      owner = getEndOfDayOwner(day) || owner;
+    }
+  });
+
+  return owner;
+}
+
+function findNextExchangeFromCalendar(sortedDays, todayKey) {
+  let previousOwner = findCurrentOwner(sortedDays, todayKey);
+  if (!previousOwner || previousOwner === "none") return null;
+
+  for (const day of sortedDays) {
+    const dateKey = normalizeDate(day.date);
+    if (!dateKey || dateKey <= todayKey) continue;
+
+    const segments = getDaySegments(day);
+    for (const segment of segments) {
+      if (segment.owner && segment.owner !== previousOwner) {
+        return {
+          date: dateKey,
+          fromParent: previousOwner,
+          toParent: segment.owner,
+          pickupBy: segment.owner,
+          time: segment.suggestedTime || "18:00",
+          period: segment.period,
+        };
+      }
+
+      if (segment.owner) previousOwner = segment.owner;
+    }
+  }
+
+  return null;
+}
+
+function formatParent(value, dadName, momName) {
+  if (value === "dad") return dadName || "Dad";
+  if (value === "mom") return momName || "Mom";
+  return "Shared";
+}
+
+function formatDate(value) {
+  if (!value) return "Not scheduled";
+  try {
+    return format(parseISO(`${value}T12:00:00`), "EEE, MMM d");
+  } catch {
+    return value;
+  }
+}
+
+function formatTime(value) {
+  if (!value) return "Time needs review";
+  const [hourRaw, minute = "00"] = value.split(":");
+  const hour = Number(hourRaw);
+  if (Number.isNaN(hour)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute} ${suffix}`;
+}
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getDaysUntil(dateKey) {
+  if (!dateKey) return null;
+  const today = new Date(`${getTodayKey()}T12:00:00`);
+  const target = new Date(`${dateKey}T12:00:00`);
+  return Math.round((target - today) / 86_400_000);
+}
+
+function timeLabelForDate(dateKey) {
+  const daysUntil = getDaysUntil(dateKey);
+  if (daysUntil === 0) return "Today";
+  if (daysUntil === 1) return "Tomorrow";
+  if (daysUntil > 1) return `In ${daysUntil} days`;
+  return "Past due";
+}
+
+function getNextSmartExchange(custodyDays, exchanges) {
+  const todayKey = getTodayKey();
+  const candidate = findNextExchangeFromCalendar(custodyDays, todayKey);
+
+  if (!candidate) {
+    return exchanges.find((exchange) => exchange.status !== "completed" && exchange.date >= todayKey) || null;
+  }
+
+  const matchedExchange = exchanges.find((exchange) =>
+    exchange.date === candidate.date &&
+    exchange.fromParent === candidate.fromParent &&
+    exchange.toParent === candidate.toParent
+  );
+
+  if (matchedExchange) return { ...matchedExchange, source: matchedExchange.source || "confirmed", period: candidate.period };
+
+  return {
+    ...candidate,
+    location: "",
+    notes: "Auto-generated from custody calendar. Confirm details before the exchange.",
+    status: "needs_review",
+    source: "calendar-default",
+  };
+}
+
+function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName }) {
+  const alerts = [];
+  const packingSummary = getPackingSummary(packingItems);
+  const budgetSummary = getBudgetSummary(expenses);
+  const missingItems = packingItems.filter((item) => item.status === "missing");
+  const reviewItems = packingItems.filter((item) => item.status === "review");
+  const issueExchanges = nextExchange?.status === "issue" ? [nextExchange] : [];
+
+  if (nextExchange) {
+    const from = formatParent(nextExchange.fromParent, dadName, momName);
+    const to = formatParent(nextExchange.toParent, dadName, momName);
+    const when = `${timeLabelForDate(nextExchange.date)} · ${formatDate(nextExchange.date)}${nextExchange.period ? ` (${nextExchange.period})` : ""}`;
+    const missingDetails = !nextExchange.location || !nextExchange.time || nextExchange.status === "needs_review" || nextExchange.status === "pending";
+
+    alerts.push({
+      id: "next-exchange",
+      title: `${when} exchange`,
+      message: `${from} → ${to} at ${formatTime(nextExchange.time)}. ${nextExchange.location || "Location needs review."}`,
+      type: "Exchange",
+      time: when,
+      priority: missingDetails ? "high" : "normal",
+      icon: Truck,
+    });
+
+    if (missingDetails) {
+      alerts.push({
+        id: "exchange-review",
+        title: "Exchange details need review",
+        message: "Confirm the time, location, pickup person, and handoff notes before the next transition.",
+        type: "Action needed",
+        time: when,
+        priority: "high",
+        icon: AlertTriangle,
+      });
+    }
+  }
+
+  if (issueExchanges.length) {
+    alerts.push({
+      id: "exchange-issue",
+      title: "Exchange issue reported",
+      message: "One exchange is marked as issue. Review the handoff note and resolve it with the co-parent.",
+      type: "Exchange",
+      time: "Now",
+      priority: "high",
+      icon: AlertTriangle,
+    });
+  }
+
+  if (missingItems.length) {
+    const names = missingItems.slice(0, 3).map((item) => item.name).join(", ");
+    alerts.push({
+      id: "packing-missing",
+      title: `${missingItems.length} packing item${missingItems.length === 1 ? "" : "s"} missing`,
+      message: `${names}${missingItems.length > 3 ? " and more" : ""} still need attention before the exchange.`,
+      type: "Packing",
+      time: "Before transition",
+      priority: "high",
+      icon: Pill,
+    });
+  }
+
+  if (reviewItems.length || packingSummary.readiness < 100) {
+    alerts.push({
+      id: "packing-review",
+      title: `Packing is ${packingSummary.readiness}% ready`,
+      message: `${packingSummary.packedCount} packed · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing.`,
+      type: "Packing",
+      time: "Before transition",
+      priority: packingSummary.missingCount ? "high" : "normal",
+      icon: ShieldCheck,
+    });
+  }
+
+  if (budgetSummary.pending > 0) {
+    alerts.push({
+      id: "budget-pending",
+      title: `${currency(budgetSummary.pending)} pending in shared expenses`,
+      message: `${budgetSummary.pendingCount} pending and ${budgetSummary.reviewCount} item(s) needing review.`,
+      type: "Budget",
+      time: "Weekly digest",
+      priority: "normal",
+      icon: WalletCards,
+    });
+  }
+
+  if (!alerts.length) {
+    alerts.push({
+      id: "all-clear",
+      title: "No urgent reminders right now",
+      message: "Exchange, packing, and budget signals look calm for the selected custody group.",
+      type: "All clear",
+      time: "Now",
+      priority: "low",
+      icon: CheckCircle2,
+    });
+  }
+
+  return alerts;
+}
+
+function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCount }) {
   return (
     <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.08)]">
       <div className="bg-[radial-gradient(circle_at_top_left,rgba(255,209,102,0.28),transparent_34%),linear-gradient(135deg,#ffffff_0%,#fff7ed_46%,#f8f7f4_100%)] p-6 md:p-8">
@@ -98,23 +376,23 @@ function NotificationHero({ enabledCount, totalCount }) {
               Calm reminders before things get stressful
             </h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 md:text-base">
-              Kinly can turn custody schedules, packing status, and exchange notes into proactive reminders for connected homes.
+              Kinly turns the custody calendar, exchange details, packing readiness, and shared expenses into proactive reminders for connected homes.
             </p>
           </div>
 
           <div className="rounded-[1.75rem] border border-white/80 bg-white/86 p-5 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-              Active rules
+              Active signals
             </p>
             <div className="mt-3 flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-amber-50 text-2xl font-black text-amber-700">
-                {enabledCount}
+                {alertCount}
               </div>
               <div>
                 <p className="text-lg font-black text-slate-950">
-                  {enabledCount} of {totalCount} enabled
+                  {highPriorityCount ? `${highPriorityCount} action needed` : "Looks calm"}
                 </p>
-                <p className="text-sm font-bold text-slate-500">Notification rules</p>
+                <p className="text-sm font-bold text-slate-500">{enabledCount} of {totalCount} rules enabled</p>
               </div>
             </div>
           </div>
@@ -164,11 +442,18 @@ function RuleCard({ rule, onToggle }) {
 }
 
 function AlertCard({ alert }) {
+  const Icon = alert.icon || BellRing;
+  const priorityClassName = alert.priority === "high"
+    ? "border-rose-100 bg-rose-50 text-rose-700"
+    : alert.priority === "low"
+      ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+      : "border-amber-100 bg-amber-50 text-amber-700";
+
   return (
     <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/70 p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-700 shadow-sm">
-          <BellRing className="h-5 w-5" />
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border bg-white shadow-sm ${priorityClassName}`}>
+          <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -188,12 +473,75 @@ function AlertCard({ alert }) {
 }
 
 export default function SmartNotificationsHub() {
+  const { user, familyId, dadName, momName } = useFamily();
   const [rules, setRules] = useState(initialRules);
+  const [custodyDays, setCustodyDays] = useState([]);
+  const [exchanges, setExchanges] = useState([]);
+  const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
+  const [expenses, setExpenses] = useState(initialCustodyExpenses);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSignals() {
+      if (!user || !familyId) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const [daysSnap, exchangesSnap, packingSnap, expensesSnap] = await Promise.all([
+          getDocs(query(collection(db, "custodyDays"), where("familyId", "==", familyId))),
+          getDocs(query(collection(db, "custodyExchanges"), where("familyId", "==", familyId))),
+          getDocs(query(collection(db, "custodyPackingItems"), where("familyId", "==", familyId))),
+          getDocs(query(collection(db, "custodyExpenses"), where("familyId", "==", familyId))),
+        ]);
+
+        if (cancelled) return;
+
+        setCustodyDays(daysSnap.docs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+        setExchanges(exchangesSnap.docs.map(normalizeExchangeDoc).sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`)));
+        setPackingItems(packingSnap.empty ? initialCustodyPackingItems : packingSnap.docs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
+        setExpenses(expensesSnap.empty ? initialCustodyExpenses : expensesSnap.docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
+      } catch (error) {
+        console.error("Error loading smart notification signals:", error);
+        if (!cancelled) {
+          setCustodyDays([]);
+          setExchanges([]);
+          setPackingItems(initialCustodyPackingItems);
+          setExpenses(initialCustodyExpenses);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadSignals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
+
+  const nextExchange = useMemo(
+    () => getNextSmartExchange(custodyDays, exchanges),
+    [custodyDays, exchanges]
+  );
+
+  const generatedAlerts = useMemo(
+    () => buildAlerts({ nextExchange, packingItems, expenses, dadName, momName }),
+    [nextExchange, packingItems, expenses, dadName, momName]
+  );
 
   const enabledCount = useMemo(
     () => rules.filter((rule) => rule.enabled).length,
     [rules]
   );
+
+  const highPriorityCount = generatedAlerts.filter((alert) => alert.priority === "high").length;
 
   const toggleRule = (id) => {
     setRules((current) =>
@@ -206,7 +554,7 @@ export default function SmartNotificationsHub() {
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <NotificationHero enabledCount={enabledCount} totalCount={rules.length} />
+        <NotificationHero enabledCount={enabledCount} totalCount={rules.length} alertCount={generatedAlerts.length} highPriorityCount={highPriorityCount} />
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.85fr]">
           <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
@@ -219,7 +567,7 @@ export default function SmartNotificationsHub() {
                   Smart reminder logic
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Toggle the reminders Kinly should prepare around custody transitions.
+                  Toggle which reminder signals Kinly should prepare around custody transitions.
                 </p>
               </div>
 
@@ -240,15 +588,15 @@ export default function SmartNotificationsHub() {
             <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
               <div className="mb-5">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Upcoming alerts
+                  Live alerts
                 </p>
                 <h3 className="mt-1 text-2xl font-black text-slate-950">
-                  Next reminders
+                  {loading ? "Checking signals..." : "Next reminders"}
                 </h3>
               </div>
 
               <div className="space-y-3">
-                {upcomingAlerts.map((alert) => (
+                {generatedAlerts.map((alert) => (
                   <AlertCard key={alert.id} alert={alert} />
                 ))}
               </div>
@@ -259,10 +607,10 @@ export default function SmartNotificationsHub() {
                 <MessageSquare className="mt-1 h-6 w-6 shrink-0 text-amber-700" />
                 <div>
                   <p className="text-sm font-black text-amber-900">
-                    Future backend connection
+                    Backend delivery comes next
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">
-                    V1 is local UI. Next step is saving preferences to Firestore and using scheduled reminders with email/push support.
+                    This hub now generates reminders from real Firestore data. The next backend step is saving rule preferences and sending scheduled email/push notifications.
                   </p>
                 </div>
               </div>
