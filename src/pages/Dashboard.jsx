@@ -28,7 +28,7 @@ function normalizeDate(value) {
 }
 
 export default function Dashboard() {
-  const { user, familyId, dadName, momName, dadColor, momColor, perms } =
+  const { user, familyId, profile, dadName, momName, dadColor, momColor, perms } =
     useFamily();
 
   const [custodyDays, setCustodyDays] = useState([]);
@@ -238,6 +238,7 @@ export default function Dashboard() {
       nextChange={nextChange}
       nextChangeLabel={nextChangeLabel}
       todayCustody={todayCustody}
+      children={profile?.children || profile?.childProfiles || []}
       tasks={tasks}
       meals={meals}
       groceries={groceries}
