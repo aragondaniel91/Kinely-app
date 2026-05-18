@@ -36,18 +36,26 @@ function ViewModeSwitch({ viewMode, onViewModeChange }) {
   );
 }
 
-function DateNavigation({ onPrevious, onToday, onNext }) {
+function DateNavigation({ onPrevious, onNext }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
       <button type="button" onClick={onPrevious} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-400 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
         <ChevronLeft className="h-4 w-4" />
       </button>
-      <button type="button" onClick={onToday} className="rounded-2xl border border-slate-200 bg-white/80 px-5 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-        Today
-      </button>
       <button type="button" onClick={onNext} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-400 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
         <ChevronRight className="h-4 w-4" />
       </button>
+    </div>
+  );
+}
+
+function ViewControls({ viewMode, onToday, onViewModeChange }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="button" onClick={onToday} className="rounded-2xl border border-slate-200 bg-white/80 px-5 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+        Today
+      </button>
+      <ViewModeSwitch viewMode={viewMode} onViewModeChange={onViewModeChange} />
     </div>
   );
 }
@@ -120,8 +128,8 @@ export default function FamilyCalendarPlannerHeader({
             </button>
           </div>
 
-          <div className="family-scroll-x w-full pb-1">
-            <div className="flex w-max min-w-full gap-3 xl:justify-end">
+          <div className="family-scroll-x w-full overflow-visible pb-1">
+            <div className="flex w-max min-w-full gap-3 overflow-visible xl:justify-end">
               <FamilyCalendarFilterDropdown
                 icon={UserRound}
                 label="Person"
@@ -147,12 +155,12 @@ export default function FamilyCalendarPlannerHeader({
 
       <div className="mt-3 flex flex-col gap-3 border-t border-white/70 pt-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <DateNavigation onPrevious={onPrevious} onToday={onToday} onNext={onNext} />
+          <DateNavigation onPrevious={onPrevious} onNext={onNext} />
           <span className="rounded-full bg-white/75 px-3 py-2 text-sm font-black text-slate-500 shadow-sm">
             {visibleEventCount} events · {rangeText}
           </span>
         </div>
-        <ViewModeSwitch viewMode={viewMode} onViewModeChange={onViewModeChange} />
+        <ViewControls viewMode={viewMode} onToday={onToday} onViewModeChange={onViewModeChange} />
       </div>
     </header>
   );
