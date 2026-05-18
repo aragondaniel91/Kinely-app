@@ -92,30 +92,30 @@ function getInitials(name) {
 
 function getSmartBrief({ loading, tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel }) {
   if (loading) {
-    return { title: "Loading family day", text: "Gathering today’s family summary...", tone: "blue" };
+    return { title: "Cargando el día familiar", text: "Preparando el resumen de hoy...", tone: "blue" };
   }
 
   if (hasCustody && nextChange?.days <= 1) {
-    return { title: "Custody transition soon", text: `Next exchange with ${nextChangeLabel} is coming up soon.`, tone: "rose" };
+    return { title: "Transición de custodia cerca", text: `Próximo intercambio con ${nextChangeLabel}.`, tone: "rose" };
   }
 
   if (tasks.length >= 4 || groceries.length >= 6) {
-    return { title: "Busy family day", text: `${tasks.length} task(s) and ${groceries.length} grocery item(s) may need attention.`, tone: "amber" };
+    return { title: "Día familiar ocupado", text: `${tasks.length} tarea(s) y ${groceries.length} compra(s) necesitan atención.`, tone: "amber" };
   }
 
   if (groceries.length > 0) {
-    return { title: "Groceries need attention", text: `${groceries.length} grocery item(s) are still open.`, tone: "violet" };
+    return { title: "Compras por revisar", text: `${groceries.length} artículo(s) siguen pendientes.`, tone: "violet" };
   }
 
   if (tasks.length > 0) {
-    return { title: "Tasks are waiting", text: `${tasks.length} family task(s) are pending today.`, tone: "amber" };
+    return { title: "Tareas pendientes", text: `${tasks.length} tarea(s) familiares siguen abiertas.`, tone: "amber" };
   }
 
   if (meals.length > 0) {
-    return { title: "Family flow looks calm", text: "Meals are planned and today looks manageable.", tone: "emerald" };
+    return { title: "Día organizado", text: "Hay comida planificada y el día se ve manejable.", tone: "emerald" };
   }
 
-  return { title: "Family day", text: "Everything important is here.", tone: "blue" };
+  return { title: "Día familiar", text: "Lo importante está organizado aquí.", tone: "blue" };
 }
 
 function getToneClasses(tone = "blue") {
@@ -202,7 +202,7 @@ function HeroStats({ tasks, meals, groceries, hasCustody }) {
     { icon: CheckSquare, value: tasks.length, label: "Tareas pendientes", tone: "blue" },
     { icon: CalendarDays, value: hasCustody ? 1 : meals.length, label: "Eventos importantes", tone: "blue" },
     { icon: ShoppingCart, value: groceries.length, label: "Compras abiertas", tone: "emerald" },
-    { icon: Heart, value: "✓", label: "Todo al día", tone: "rose" },
+    { icon: Heart, value: "✓", label: "Sin alertas", tone: "rose" },
   ];
 
   return (
@@ -230,7 +230,7 @@ function ChildrenCard({ children = [], todayLabel, nextChange, nextChangeLabel, 
 
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="Niños" title="Family crew" action="Ver todo" to="/children" />
+      <SectionHeader kicker="Niños" title="Perfiles familiares" action="Ver todo" to="/children" />
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {visibleChildren.slice(0, 4).map((child, index) => {
           const name = getChildName(child, index);
@@ -244,9 +244,9 @@ function ChildrenCard({ children = [], todayLabel, nextChange, nextChangeLabel, 
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-lg font-black text-slate-950">{name}</p>
-                  <p className="text-sm font-semibold text-slate-500">{age || "Family profile"}</p>
+                  <p className="text-sm font-semibold text-slate-500">{age || "Perfil familiar"}</p>
                   <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
-                    Todo al día
+                    Sin alertas
                   </span>
                 </div>
               </div>
@@ -268,7 +268,7 @@ function ChildrenCard({ children = [], todayLabel, nextChange, nextChangeLabel, 
 
 function TodayFocusCard({ tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel }) {
   const focusItems = [
-    hasCustody ? { icon: CalendarDays, title: "Intercambio / custodia", text: nextChange ? `${formatShortDate(nextChange.date)} con ${nextChangeLabel}` : "Estado de custodia disponible", tone: "blue", to: "/custody" } : null,
+    hasCustody ? { icon: CalendarDays, title: "Custodia", text: nextChange ? `${formatShortDate(nextChange.date)} con ${nextChangeLabel}` : "Estado disponible", tone: "blue", to: "/custody" } : null,
     tasks.length ? { icon: School, title: "Preparar pendientes", text: `${tasks.length} tarea${tasks.length === 1 ? "" : "s"} por revisar`, tone: "emerald", to: "/tasks" } : null,
     meals.length ? { icon: UtensilsCrossed, title: "Comida planificada", text: `${meals.length} comida${meals.length === 1 ? "" : "s"} para hoy`, tone: "amber", to: "/meals" } : { icon: UtensilsCrossed, title: "Planear comida", text: "Todavía no hay comida planeada", tone: "amber", to: "/meals" },
     groceries.length ? { icon: Heart, title: "Lista de compras", text: `${groceries.length} artículo${groceries.length === 1 ? "" : "s"} pendiente${groceries.length === 1 ? "" : "s"}`, tone: "violet", to: "/groceries" } : { icon: Heart, title: "Tiempo para conectar", text: "Todo se ve calmado por ahora", tone: "rose", to: "/calendar" },
@@ -302,11 +302,11 @@ function TaskPreviewCard({ tasks }) {
           <Link key={task.id || `${getItemTitle(task)}-${index}`} to="/tasks" className="flex items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-amber-100 hover:bg-amber-50/40">
             <span className="h-5 w-5 shrink-0 rounded-full border-2 border-slate-200" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-black text-slate-950">{getItemTitle(task, "Family task")}</span>
-              <span className="block truncate text-xs font-semibold text-slate-500">{getItemDate(task) ? `Due ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Pending"}</span>
+              <span className="block truncate text-sm font-black text-slate-950">{getItemTitle(task, "Tarea familiar")}</span>
+              <span className="block truncate text-xs font-semibold text-slate-500">{getItemDate(task) ? `Para ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Pendiente"}</span>
             </span>
           </Link>
-        )) : <CompactItem icon={CheckSquare} title="No pending tasks" text="Your family task list looks calm." tone="emerald" />}
+        )) : <CompactItem icon={CheckSquare} title="No hay tareas pendientes" text="La lista familiar se ve tranquila." tone="emerald" />}
       </div>
     </Card>
   );
@@ -324,18 +324,18 @@ function NextSevenDaysCard({ nextChange, nextChangeLabel, tasks, meals, grocerie
       return date && date >= today && date <= nextWeekKey;
     })
     .slice(0, 3)
-    .map((task) => ({ id: `task-${task.id || getItemTitle(task)}`, icon: CheckSquare, title: getItemTitle(task, "Task due"), text: `Task · ${formatShortDate(getItemDate(task))}`, tone: "amber", to: "/tasks" }));
+    .map((task) => ({ id: `task-${task.id || getItemTitle(task)}`, icon: CheckSquare, title: getItemTitle(task, "Tarea"), text: `Tarea · ${formatShortDate(getItemDate(task))}`, tone: "amber", to: "/tasks" }));
 
-  const mealEvents = meals.slice(0, 2).map((meal) => ({ id: `meal-${meal.id || getItemTitle(meal)}`, icon: UtensilsCrossed, title: getItemTitle(meal, "Meal planned"), text: `Meal · ${formatShortDate(meal.date || today)}`, tone: "emerald", to: "/meals" }));
-  const custodyEvent = nextChange ? [{ id: "custody-next-change", icon: Heart, title: `Custody exchange with ${nextChangeLabel}`, text: `${formatShortDate(nextChange.date)} · in ${nextChange.days} day(s)`, tone: "rose", to: "/custody" }] : [];
-  const groceryEvent = groceries.length ? [{ id: "grocery-open-items", icon: ShoppingCart, title: `${groceries.length} grocery item${groceries.length === 1 ? "" : "s"} open`, text: "Shopping list needs attention", tone: "violet", to: "/groceries" }] : [];
+  const mealEvents = meals.slice(0, 2).map((meal) => ({ id: `meal-${meal.id || getItemTitle(meal)}`, icon: UtensilsCrossed, title: getItemTitle(meal, "Comida planificada"), text: `Comida · ${formatShortDate(meal.date || today)}`, tone: "emerald", to: "/meals" }));
+  const custodyEvent = nextChange ? [{ id: "custody-next-change", icon: Heart, title: `Intercambio con ${nextChangeLabel}`, text: `${formatShortDate(nextChange.date)} · en ${nextChange.days} día(s)`, tone: "rose", to: "/custody" }] : [];
+  const groceryEvent = groceries.length ? [{ id: "grocery-open-items", icon: ShoppingCart, title: `${groceries.length} compra${groceries.length === 1 ? "" : "s"} abierta${groceries.length === 1 ? "" : "s"}`, text: "Lista de compras pendiente", tone: "violet", to: "/groceries" }] : [];
   const items = [...custodyEvent, ...taskEvents, ...mealEvents, ...groceryEvent].slice(0, 5);
 
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
       <SectionHeader kicker="Próximos 7 días" title="Lo que viene" action="Ver calendario" to="/calendar" />
       <div className="mt-4 space-y-2.5">
-        {items.length ? items.map((item) => <CompactItem key={item.id} icon={item.icon} title={item.title} text={item.text} tone={item.tone} to={item.to} />) : <CompactItem icon={CalendarDays} title="No major items yet" text="The next week looks light." tone="blue" to="/calendar" />}
+        {items.length ? items.map((item) => <CompactItem key={item.id} icon={item.icon} title={item.title} text={item.text} tone={item.tone} to={item.to} />) : <CompactItem icon={CalendarDays} title="Sin eventos importantes" text="La próxima semana se ve tranquila." tone="blue" to="/calendar" />}
       </div>
     </Card>
   );
@@ -400,7 +400,7 @@ export default function FamilyHomeDashboard({
                   {getGreeting()}, familia <span className="text-amber-400">♥</span>
                 </h1>
                 <p className="mt-4 max-w-lg text-base font-semibold leading-7 text-slate-600">
-                  Todo el día. Suena a una familia conectada.
+                  Tu familia conectada en un solo lugar.
                 </p>
               </div>
 
