@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import {
   AlertTriangle,
   BellRing,
-  CalendarClock,
   CheckCircle2,
   Clock3,
   Mail,
@@ -67,6 +66,10 @@ const initialRules = [
     accent: "bg-amber-50 text-amber-700 border-amber-100",
   },
 ];
+
+function rulesToMap(rules) {
+  return rules.reduce((acc, rule) => ({ ...acc, [rule.id]: Boolean(rule.enabled) }), {});
+}
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -156,9 +159,7 @@ function findCurrentOwner(sortedDays, todayKey) {
 
   sortedDays.forEach((day) => {
     const dateKey = normalizeDate(day.date);
-    if (dateKey && dateKey <= todayKey) {
-      owner = getEndOfDayOwner(day) || owner;
-    }
+    if (dateKey && dateKey <= todayKey) owner = getEndOfDayOwner(day) || owner;
   });
 
   return owner;
@@ -267,7 +268,6 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
   const budgetSummary = getBudgetSummary(expenses);
   const missingItems = packingItems.filter((item) => item.status === "missing");
   const reviewItems = packingItems.filter((item) => item.status === "review");
-  const issueExchanges = nextExchange?.status === "issue" ? [nextExchange] : [];
 
   if (nextExchange) {
     const from = formatParent(nextExchange.fromParent, dadName, momName);
@@ -277,6 +277,7 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
 
     alerts.push({
       id: "next-exchange",
+      ruleId: "exchange-review",
       title: `${when} exchange`,
       message: `${from} → ${to} at ${formatTime(nextExchange.time)}. ${nextExchange.location || "Location needs review."}`,
       type: "Exchange",
@@ -288,6 +289,7 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
     if (missingDetails) {
       alerts.push({
         id: "exchange-review",
+        ruleId: "exchange-review",
         title: "Exchange details need review",
         message: "Confirm the time, location, pickup person, and handoff notes before the next transition.",
         type: "Action needed",
@@ -296,24 +298,26 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
         icon: AlertTriangle,
       });
     }
-  }
 
-  if (issueExchanges.length) {
-    alerts.push({
-      id: "exchange-issue",
-      title: "Exchange issue reported",
-      message: "One exchange is marked as issue. Review the handoff note and resolve it with the co-parent.",
-      type: "Exchange",
-      time: "Now",
-      priority: "high",
-      icon: AlertTriangle,
-    });
+    if (nextExchange.status === "issue") {
+      alerts.push({
+        id: "exchange-issue",
+        ruleId: "exchange-review",
+        title: "Exchange issue reported",
+        message: "One exchange is marked as issue. Review the handoff note and resolve it with the co-parent.",
+        type: "Exchange",
+        time: "Now",
+        priority: "high",
+        icon: AlertTriangle,
+      });
+    }
   }
 
   if (missingItems.length) {
     const names = missingItems.slice(0, 3).map((item) => item.name).join(", ");
     alerts.push({
       id: "packing-missing",
+      ruleId: "packing-missing",
       title: `${missingItems.length} packing item${missingItems.length === 1 ? "" : "s"} missing`,
       message: `${names}${missingItems.length > 3 ? " and more" : ""} still need attention before the exchange.`,
       type: "Packing",
@@ -326,6 +330,7 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
   if (reviewItems.length || packingSummary.readiness < 100) {
     alerts.push({
       id: "packing-review",
+      ruleId: "packing-readiness",
       title: `Packing is ${packingSummary.readiness}% ready`,
       message: `${packingSummary.packedCount} packed · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing.`,
       type: "Packing",
@@ -338,6 +343,7 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
   if (budgetSummary.pending > 0) {
     alerts.push({
       id: "budget-pending",
+      ruleId: "budget-pending",
       title: `${currency(budgetSummary.pending)} pending in shared expenses`,
       message: `${budgetSummary.pendingCount} pending and ${budgetSummary.reviewCount} item(s) needing review.`,
       type: "Budget",
@@ -350,6 +356,7 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
   if (!alerts.length) {
     alerts.push({
       id: "all-clear",
+      ruleId: "all-clear",
       title: "No urgent reminders right now",
       message: "Exchange, packing, and budget signals look calm for the selected custody group.",
       type: "All clear",
@@ -362,7 +369,7 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
   return alerts;
 }
 
-function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCount }) {
+function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCount, prefsLoaded }) {
   return (
     <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.08)]">
       <div className="bg-[radial-gradient(circle_at_top_left,rgba(255,209,102,0.28),transparent_34%),linear-gradient(135deg,#ffffff_0%,#fff7ed_46%,#f8f7f4_100%)] p-6 md:p-8">
@@ -392,7 +399,9 @@ function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCo
                 <p className="text-lg font-black text-slate-950">
                   {highPriorityCount ? `${highPriorityCount} action needed` : "Looks calm"}
                 </p>
-                <p className="text-sm font-bold text-slate-500">{enabledCount} of {totalCount} rules enabled</p>
+                <p className="text-sm font-bold text-slate-500">
+                  {enabledCount} of {totalCount} rules enabled · {prefsLoaded ? "Saved" : "Loading prefs"}
+                </p>
               </div>
             </div>
           </div>
@@ -402,14 +411,15 @@ function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCo
   );
 }
 
-function RuleCard({ rule, onToggle }) {
+function RuleCard({ rule, onToggle, saving }) {
   const Icon = rule.icon;
 
   return (
     <button
       type="button"
       onClick={() => onToggle(rule.id)}
-      className="w-full rounded-[1.6rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md"
+      disabled={saving}
+      className="w-full rounded-[1.6rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md disabled:cursor-wait disabled:opacity-70"
     >
       <div className="flex items-start gap-4">
         <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${rule.accent}`}>
@@ -480,6 +490,46 @@ export default function SmartNotificationsHub() {
   const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
   const [expenses, setExpenses] = useState(initialCustodyExpenses);
   const [loading, setLoading] = useState(true);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPrefs() {
+      setPrefsLoaded(false);
+
+      if (!user || !familyId) {
+        setRules(initialRules);
+        setPrefsLoaded(true);
+        return;
+      }
+
+      try {
+        const prefsRef = doc(db, "custodyNotificationPrefs", familyId);
+        const snap = await getDoc(prefsRef);
+        const savedRules = snap.exists() ? snap.data()?.rules || {} : {};
+
+        if (cancelled) return;
+
+        setRules(initialRules.map((rule) => ({
+          ...rule,
+          enabled: typeof savedRules[rule.id] === "boolean" ? savedRules[rule.id] : rule.enabled,
+        })));
+      } catch (error) {
+        console.error("Error loading custody notification preferences:", error);
+        if (!cancelled) setRules(initialRules);
+      } finally {
+        if (!cancelled) setPrefsLoaded(true);
+      }
+    }
+
+    loadPrefs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -531,10 +581,22 @@ export default function SmartNotificationsHub() {
     [custodyDays, exchanges]
   );
 
-  const generatedAlerts = useMemo(
-    () => buildAlerts({ nextExchange, packingItems, expenses, dadName, momName }),
-    [nextExchange, packingItems, expenses, dadName, momName]
-  );
+  const ruleMap = useMemo(() => rulesToMap(rules), [rules]);
+
+  const generatedAlerts = useMemo(() => {
+    const alerts = buildAlerts({ nextExchange, packingItems, expenses, dadName, momName });
+    const filtered = alerts.filter((alert) => alert.ruleId === "all-clear" || ruleMap[alert.ruleId] !== false);
+    return filtered.length ? filtered : [{
+      id: "all-clear-filtered",
+      ruleId: "all-clear",
+      title: "No active reminders right now",
+      message: "Existing signals are currently muted by your notification preferences.",
+      type: "All clear",
+      time: "Now",
+      priority: "low",
+      icon: CheckCircle2,
+    }];
+  }, [nextExchange, packingItems, expenses, dadName, momName, ruleMap]);
 
   const enabledCount = useMemo(
     () => rules.filter((rule) => rule.enabled).length,
@@ -543,18 +605,45 @@ export default function SmartNotificationsHub() {
 
   const highPriorityCount = generatedAlerts.filter((alert) => alert.priority === "high").length;
 
+  const savePrefs = async (nextRules) => {
+    if (!user || !familyId) return;
+
+    setSavingPrefs(true);
+
+    try {
+      await setDoc(doc(db, "custodyNotificationPrefs", familyId), {
+        familyId,
+        rules: rulesToMap(nextRules),
+        updatedBy: user.uid,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error saving custody notification preferences:", error);
+      window.alert(`Could not save notification preferences: ${error.message}`);
+    } finally {
+      setSavingPrefs(false);
+    }
+  };
+
   const toggleRule = (id) => {
-    setRules((current) =>
-      current.map((rule) =>
-        rule.id === id ? { ...rule, enabled: !rule.enabled } : rule
-      )
+    const nextRules = rules.map((rule) =>
+      rule.id === id ? { ...rule, enabled: !rule.enabled } : rule
     );
+
+    setRules(nextRules);
+    savePrefs(nextRules);
   };
 
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <NotificationHero enabledCount={enabledCount} totalCount={rules.length} alertCount={generatedAlerts.length} highPriorityCount={highPriorityCount} />
+        <NotificationHero
+          enabledCount={enabledCount}
+          totalCount={rules.length}
+          alertCount={generatedAlerts.length}
+          highPriorityCount={highPriorityCount}
+          prefsLoaded={prefsLoaded}
+        />
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.85fr]">
           <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
@@ -567,19 +656,19 @@ export default function SmartNotificationsHub() {
                   Smart reminder logic
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Toggle which reminder signals Kinly should prepare around custody transitions.
+                  Toggle which reminder signals Kinly should prepare around custody transitions. Preferences are saved for this custody group.
                 </p>
               </div>
 
-              <Button type="button" variant="outline" className="rounded-full gap-2">
+              <Button type="button" variant="outline" className="rounded-full gap-2" disabled={savingPrefs}>
                 <Settings2 className="h-4 w-4" />
-                Preferences
+                {savingPrefs ? "Saving..." : "Preferences"}
               </Button>
             </div>
 
             <div className="space-y-3">
               {rules.map((rule) => (
-                <RuleCard key={rule.id} rule={rule} onToggle={toggleRule} />
+                <RuleCard key={rule.id} rule={rule} onToggle={toggleRule} saving={savingPrefs || !prefsLoaded} />
               ))}
             </div>
           </Card>
@@ -607,10 +696,10 @@ export default function SmartNotificationsHub() {
                 <MessageSquare className="mt-1 h-6 w-6 shrink-0 text-amber-700" />
                 <div>
                   <p className="text-sm font-black text-amber-900">
-                    Backend delivery comes next
+                    Preferences now persist
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">
-                    This hub now generates reminders from real Firestore data. The next backend step is saving rule preferences and sending scheduled email/push notifications.
+                    Rule toggles are saved to Firestore for the selected custody group. The next backend step is scheduled email/push delivery.
                   </p>
                 </div>
               </div>
