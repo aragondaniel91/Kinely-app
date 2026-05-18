@@ -166,15 +166,21 @@ function buildBulkDayPayload({ day, blockStart, blockEnd, payload, familyId, pro
   const dateKey = format(day, "yyyy-MM-dd");
   const blockStartKey = format(blockStart, "yyyy-MM-dd");
   const blockEndKey = format(blockEnd, "yyyy-MM-dd");
+  const generatedDay = payload.generatedDayMap?.[dateKey] || null;
 
   let isSplit = false;
-  let withWhom = payload.fullDaysParent;
+  let withWhom = generatedDay?.parent || payload.fullDaysParent;
   let morning = null;
   let afternoon = null;
 
   const singleDayRange = blockStartKey === blockEndKey;
 
-  if (singleDayRange && (payload.splitFirstDay || payload.splitLastDay)) {
+  if (generatedDay?.isSplit) {
+    isSplit = true;
+    withWhom = null;
+    morning = generatedDay.morning || null;
+    afternoon = generatedDay.afternoon || null;
+  } else if (singleDayRange && (payload.splitFirstDay || payload.splitLastDay)) {
     isSplit = true;
     withWhom = null;
 
@@ -220,6 +226,8 @@ function buildBulkDayPayload({ day, blockStart, blockEnd, payload, familyId, pro
     bulk_run_id: bulkRunId,
     bulkTemplateId: payload.templateId || "custom",
     bulk_template_id: payload.templateId || "custom",
+    smartPatternId: payload.smartPatternId || null,
+    smart_pattern_id: payload.smartPatternId || null,
     updatedAt: serverTimestamp(),
     updated_date: new Date().toISOString(),
   };
@@ -499,9 +507,9 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       return;
     }
 
-    const estimatedTotalDays = blockStarts.length * (rangeLength + 1);
+    const estimatedTotalDays = payload.generatedDayMap ? Object.keys(payload.generatedDayMap).length : blockStarts.length * (rangeLength + 1);
     const confirmCreate = window.confirm(
-      `Se crearán ${blockStarts.length} bloque(s) y aproximadamente ${estimatedTotalDays} día(s). Esto sobrescribirá custodia en esas fechas. ¿Deseas continuar?`
+      `Se crearán aproximadamente ${estimatedTotalDays} día(s). Esto sobrescribirá custodia en esas fechas. ¿Deseas continuar?`
     );
 
     if (!confirmCreate) return;
