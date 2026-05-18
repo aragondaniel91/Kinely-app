@@ -30,12 +30,12 @@ function AppShellLoader() {
       <div className="fixed left-4 top-4">
         <KinlyLogo />
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-2">
-        <div className="mx-auto flex max-w-2xl justify-around rounded-[1.55rem] border border-white/70 bg-white/66 px-2 py-1.5 shadow-[0_14px_36px_rgba(15,23,42,0.10)] backdrop-blur-2xl">
+      <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
+        <div className="mx-auto flex max-w-3xl justify-around rounded-[1.8rem] border border-white/80 bg-white/78 px-2 py-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
           {Array.from({ length: 7 }).map((_, index) => (
-            <div key={index} className="flex min-w-[50px] flex-col items-center gap-1 px-1.5 py-1">
-              <div className="h-5 w-5 animate-pulse rounded-full bg-slate-200" />
-              <div className="h-1.5 w-8 animate-pulse rounded bg-slate-200" />
+            <div key={index} className="flex min-w-[62px] flex-col items-center gap-1 px-2 py-1">
+              <div className="h-6 w-6 animate-pulse rounded-full bg-slate-200" />
+              <div className="h-2 w-10 animate-pulse rounded bg-slate-200" />
             </div>
           ))}
         </div>
@@ -66,13 +66,13 @@ export default function AppShell() {
         </header>
       )}
 
-      <main className="flex-1 overflow-auto pb-20 md:pb-22">
+      <main className="flex-1 overflow-auto pb-24 md:pb-24">
         <Outlet />
       </main>
 
-      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-2 md:pb-3">
-        <div className="pointer-events-auto mx-auto max-w-2xl rounded-[1.55rem] border border-white/70 bg-white/66 p-1 shadow-[0_14px_38px_rgba(15,23,42,0.13)] backdrop-blur-2xl transition hover:bg-white/78">
-          <div className="flex items-center justify-around gap-0.5 overflow-x-auto">
+      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
+        <div className="pointer-events-auto mx-auto max-w-3xl rounded-[1.85rem] border border-white/80 bg-white/78 p-1.5 shadow-[0_20px_52px_rgba(15,23,42,0.15)] backdrop-blur-2xl transition hover:bg-white/86">
+          <div className="flex items-center justify-around gap-1 overflow-x-auto">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
@@ -82,13 +82,13 @@ export default function AppShell() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "flex min-w-[50px] flex-col items-center gap-0.5 rounded-[1.15rem] px-1.5 py-1.5 text-[9.5px] font-black transition-all duration-200 md:min-w-[58px] md:px-2 md:text-[10px]",
+                    "flex min-w-[60px] flex-col items-center gap-1 rounded-[1.35rem] px-2.5 py-2 text-[10.5px] font-black transition-all duration-200 md:min-w-[68px] md:px-3 md:text-[11px]",
                     isActive
-                      ? "bg-blue-50/95 text-blue-700 shadow-[0_7px_16px_rgba(91,141,239,0.14)] ring-1 ring-blue-100"
+                      ? "bg-blue-50/95 text-blue-700 shadow-[0_8px_20px_rgba(91,141,239,0.16)] ring-1 ring-blue-100"
                       : "text-slate-400 hover:bg-white/80 hover:text-slate-700"
                   )}
                 >
-                  <Icon className={cn("h-4.5 w-4.5 md:h-5 md:w-5", isActive && "stroke-[2.6]")} />
+                  <Icon className={cn("h-5 w-5", isActive && "stroke-[2.6]")} />
                   <span className="font-heading leading-none">
                     {item.label}
                   </span>
