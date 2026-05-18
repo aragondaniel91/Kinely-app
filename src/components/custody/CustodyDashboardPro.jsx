@@ -93,6 +93,12 @@ function findNextChange(sortedDays, todayKey, currentOwner) {
   });
 }
 
+function packingStatusLabel(status) {
+  if (status === "packed") return "Ready";
+  if (status === "missing") return "Missing";
+  return "Review";
+}
+
 function ActionTile({ icon: Icon, label, text, tone = "blue", onClick }) {
   const tones = {
     blue: "bg-blue-50 text-blue-700 border-blue-100",
@@ -149,7 +155,7 @@ function InfoCard({ title, value, text, icon: Icon, tone = "blue", onClick }) {
   );
 }
 
-function ReadinessItem({ label, status = "Ready" }) {
+function ReadinessItem({ label, status = "Ready", owner }) {
   const isReview = status === "Review";
   const isMissing = status === "Missing";
 
@@ -167,9 +173,12 @@ function ReadinessItem({ label, status = "Ready" }) {
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5">
-      <div className="flex items-center gap-2">
+      <div className="min-w-0 flex items-center gap-2">
         <CheckCircle2 className={iconClassName} />
-        <p className="text-sm font-black text-slate-800">{label}</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-slate-800">{label}</p>
+          {owner && <p className="truncate text-[11px] font-bold text-slate-400">Responsible: {owner}</p>}
+        </div>
       </div>
       <span className={badgeClassName}>{status}</span>
     </div>
@@ -212,6 +221,15 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const [loading, setLoading] = useState(true);
   const [loadingPacking, setLoadingPacking] = useState(true);
   const packingSummary = useMemo(() => getPackingSummary(packingItems), [packingItems]);
+  const readinessItems = useMemo(
+    () => packingItems.slice(0, 5).map((item) => ({
+      id: item.id,
+      label: item.name,
+      owner: item.owner,
+      status: packingStatusLabel(item.status),
+    })),
+    [packingItems]
+  );
 
   const canRead = perms?.calendar?.read !== false;
 
@@ -416,13 +434,28 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
           <div className="space-y-4">
             <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Exchange readiness</p>
-              <h2 className="mt-1 text-xl font-black text-slate-950">Before transition</h2>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Exchange readiness</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">Before transition</h2>
+                </div>
+                <button type="button" onClick={onOpenPacking} className="text-sm font-black text-primary">
+                  Packing
+                </button>
+              </div>
               <div className="mt-4 space-y-2.5">
-                <ReadinessItem label="Backpack" />
-                <ReadinessItem label="Medicine bag" status={packingSummary.missingCount > 0 ? "Missing" : "Ready"} />
-                <ReadinessItem label="School items" status={packingSummary.reviewCount > 0 ? "Review" : "Ready"} />
-                <ReadinessItem label="Handoff notes" status="Optional" />
+                {loadingPacking ? (
+                  <ReadinessItem label="Loading packing checklist" status="Review" />
+                ) : (
+                  readinessItems.map((item) => (
+                    <ReadinessItem
+                      key={item.id}
+                      label={item.label}
+                      owner={item.owner}
+                      status={item.status}
+                    />
+                  ))
+                )}
               </div>
             </Card>
 
