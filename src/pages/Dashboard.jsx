@@ -27,6 +27,13 @@ function normalizeDate(value) {
   return String(value).slice(0, 10);
 }
 
+function getActivitySortValue(activity) {
+  const raw = activity.created_at || activity.createdAt || activity.updated_date || "";
+  if (typeof raw === "string") return raw;
+  if (raw?.toDate) return raw.toDate().toISOString();
+  return String(raw || "");
+}
+
 export default function Dashboard() {
   const { user, familyId, profile, dadName, momName, dadColor, momColor, perms } =
     useFamily();
@@ -35,6 +42,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [meals, setMeals] = useState([]);
   const [groceries, setGroceries] = useState([]);
+  const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const canReadTasks = perms?.tasks?.read !== false;
@@ -61,6 +69,7 @@ export default function Dashboard() {
         let taskData = [];
         let mealData = [];
         let groceryData = [];
+        let activityData = [];
 
         if (canReadCalendar) {
           try {
@@ -148,20 +157,45 @@ export default function Dashboard() {
           }
         }
 
+        try {
+          const activityQuery = query(
+            collection(db, "familyActivity"),
+            where("familyId", "==", familyId)
+          );
+          const snap = await getDocs(activityQuery);
+          activityData = snap.docs.map(normalizeDoc);
+        } catch (error) {
+          console.warn("Fallback family activity query by family_id:", error);
+          try {
+            const activityQuery = query(
+              collection(db, "familyActivity"),
+              where("family_id", "==", familyId)
+            );
+            const snap = await getDocs(activityQuery);
+            activityData = snap.docs.map(normalizeDoc);
+          } catch (activityError) {
+            console.warn("Could not load family activity:", activityError);
+            activityData = [];
+          }
+        }
+
         taskData.sort((a, b) => (b.created_date || "").localeCompare(a.created_date || ""));
         mealData.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
         groceryData.sort((a, b) => (b.created_date || "").localeCompare(a.created_date || ""));
+        activityData.sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)));
 
         setCustodyDays(custodyData);
         setTasks(taskData.filter((task) => (task.status || "pending") === "pending"));
         setMeals(mealData.filter((meal) => normalizeDate(meal.date) === today));
         setGroceries(groceryData.filter((item) => item.checked !== true));
+        setActivity(activityData.slice(0, 6));
       } catch (error) {
         console.error("Error loading dashboard data:", error);
         setCustodyDays([]);
         setTasks([]);
         setMeals([]);
         setGroceries([]);
+        setActivity([]);
       } finally {
         setLoading(false);
       }
@@ -242,6 +276,7 @@ export default function Dashboard() {
       tasks={tasks}
       meals={meals}
       groceries={groceries}
+      activity={activity}
       loading={loading}
       canReadTasks={canReadTasks}
       canReadMeals={canReadMeals}
