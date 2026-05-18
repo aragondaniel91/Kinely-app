@@ -96,10 +96,64 @@ function getDayOwner(day) {
   return day.with_whom || "none";
 }
 
-function getChangeOwner(day) {
-  if (!day) return "none";
-  if (day.is_split) return day.morning || day.afternoon || "split";
-  return day.with_whom || "none";
+function getDaySegments(day) {
+  if (!day) return [];
+
+  if (day.is_split) {
+    return [
+      { period: "AM", owner: day.morning || null, suggestedTime: "08:00" },
+      { period: "PM", owner: day.afternoon || null, suggestedTime: "12:00" },
+    ].filter((segment) => segment.owner && segment.owner !== "none");
+  }
+
+  const owner = day.with_whom || null;
+  return owner && owner !== "none" ? [{ period: "All day", owner, suggestedTime: "18:00" }] : [];
+}
+
+function getEndOfDayOwner(day) {
+  const segments = getDaySegments(day);
+  return segments.at(-1)?.owner || "none";
+}
+
+function findCurrentOwner(sortedDays, todayKey) {
+  let owner = "none";
+
+  sortedDays.forEach((day) => {
+    const dateKey = normalizeDate(day.date);
+    if (dateKey && dateKey <= todayKey) {
+      owner = getEndOfDayOwner(day) || owner;
+    }
+  });
+
+  return owner;
+}
+
+function findNextExchangeFromCalendar(sortedDays, todayKey) {
+  let previousOwner = findCurrentOwner(sortedDays, todayKey);
+  if (!previousOwner || previousOwner === "none") return null;
+
+  for (const day of sortedDays) {
+    const dateKey = normalizeDate(day.date);
+    if (!dateKey || dateKey <= todayKey) continue;
+
+    const segments = getDaySegments(day);
+    for (const segment of segments) {
+      if (segment.owner && segment.owner !== previousOwner) {
+        return {
+          date: dateKey,
+          fromParent: previousOwner,
+          toParent: segment.owner,
+          pickupBy: segment.owner,
+          time: segment.suggestedTime || "18:00",
+          period: segment.period,
+        };
+      }
+
+      if (segment.owner) previousOwner = segment.owner;
+    }
+  }
+
+  return null;
 }
 
 function summarizeToday(todayCustody, dadName, momName) {
@@ -110,20 +164,6 @@ function summarizeToday(todayCustody, dadName, momName) {
   }
 
   return getParentLabel(todayCustody.with_whom, dadName, momName);
-}
-
-function findNextChange(sortedDays, todayKey, currentOwner) {
-  if (!currentOwner || currentOwner === "none") return null;
-
-  return sortedDays.find((day) => {
-    const dateKey = normalizeDate(day.date);
-    if (!dateKey || dateKey <= todayKey) return false;
-
-    const nextOwner = getChangeOwner(day);
-    if (!nextOwner || nextOwner === "none") return false;
-
-    return nextOwner !== currentOwner;
-  });
 }
 
 function packingStatusLabel(status) {
@@ -449,11 +489,10 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     const sortedDays = [...custodyDays].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const todayCustody = allCustodyMap[todayKey];
-    const currentOwner = getChangeOwner(todayCustody);
-    const nextChange = findNextChange(sortedDays, todayKey, currentOwner);
-    const nextChangeDate = nextChange?.date ? parseISO(`${nextChange.date}T12:00:00`) : null;
+    const currentOwner = findCurrentOwner(sortedDays, todayKey);
+    const nextExchangeCandidate = findNextExchangeFromCalendar(sortedDays, todayKey);
+    const nextChangeDate = nextExchangeCandidate?.date ? parseISO(`${nextExchangeCandidate.date}T12:00:00`) : null;
     const daysUntil = nextChangeDate ? differenceInCalendarDays(nextChangeDate, today) : null;
-    const nextParent = nextChange ? getChangeOwner(nextChange) : null;
 
     const weekStart = startOfWeek(today, { weekStartsOn: 1 });
     const weekDays = Array.from({ length: 7 }).map((_, index) => {
@@ -471,11 +510,13 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     return {
       todayLabel: summarizeToday(todayCustody, dadName, momName),
       currentOwner,
-      nextParent,
-      nextChange,
-      nextChangeLabel: getParentLabel(nextParent, dadName, momName),
       currentOwnerLabel: getParentLabel(currentOwner, dadName, momName),
+      nextParent: nextExchangeCandidate?.toParent || null,
+      nextChange: nextExchangeCandidate,
+      nextChangeLabel: getParentLabel(nextExchangeCandidate?.toParent, dadName, momName),
       nextChangeDayLabel: nextChangeDate ? format(nextChangeDate, "EEE, MMM d") : "Not scheduled",
+      nextChangePeriod: nextExchangeCandidate?.period || "",
+      suggestedTime: nextExchangeCandidate?.time || "",
       daysUntil,
       weekDays,
     };
@@ -502,20 +543,21 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     return {
       id: `default-${date}-${dashboard.currentOwner}-${dashboard.nextParent}`,
       date,
-      time: "",
+      time: dashboard.suggestedTime,
       location: "Location needs review",
       fromParent: dashboard.currentOwner,
       toParent: dashboard.nextParent,
       pickupBy: dashboard.nextParent,
-      notes: "Default exchange preview generated from the custody calendar. Confirm time, location, and handoff notes.",
+      notes: `Default exchange preview generated from the custody calendar${dashboard.nextChangePeriod ? ` (${dashboard.nextChangePeriod})` : ""}. Confirm time, location, and handoff notes.`,
       status: "needs_review",
       source: "calendar-default",
       needsReview: true,
+      period: dashboard.nextChangePeriod,
     };
-  }, [dashboard.nextChange, dashboard.currentOwner, dashboard.nextParent, exchanges]);
+  }, [dashboard.nextChange, dashboard.currentOwner, dashboard.nextParent, dashboard.suggestedTime, dashboard.nextChangePeriod, exchanges]);
 
   const nextChangeText = dashboard.nextChange
-    ? `${dashboard.daysUntil === 0 ? "Today" : dashboard.daysUntil === 1 ? "Tomorrow" : `In ${dashboard.daysUntil} days`} · ${dashboard.nextChangeDayLabel}`
+    ? `${dashboard.daysUntil === 0 ? "Today" : dashboard.daysUntil === 1 ? "Tomorrow" : `In ${dashboard.daysUntil} days`} · ${dashboard.nextChangeDayLabel}${dashboard.nextChangePeriod ? ` (${dashboard.nextChangePeriod})` : ""}`
     : "No upcoming exchange found";
 
   const smartExchangeText = smartExchange
