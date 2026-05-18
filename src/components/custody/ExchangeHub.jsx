@@ -1,71 +1,119 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import {
   ArrowRightLeft,
-  Backpack,
   CalendarClock,
   Car,
   CheckCircle2,
   Clock3,
   MapPin,
   MessageSquareText,
+  Pencil,
   Plus,
-  ShieldCheck,
+  Trash2,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 
-const defaultChecklist = [
-  { id: "backpack", label: "Backpack", done: true, icon: Backpack },
-  { id: "medicine", label: "Medicine", done: false, icon: ShieldCheck },
-  { id: "clothes", label: "Extra clothes", done: false, icon: CheckCircle2 },
-  { id: "homework", label: "Homework folder", done: true, icon: MessageSquareText },
-];
+const emptyExchange = {
+  date: "",
+  time: "08:00",
+  location: "Daycare pickup",
+  fromParent: "dad",
+  toParent: "mom",
+  pickupBy: "mom",
+  notes: "",
+  status: "pending",
+};
 
-const defaultTimeline = [
-  {
-    id: "confirm",
-    title: "Confirm exchange details",
-    description: "Time, location, and pickup person are visible for both homes.",
-    status: "done",
-  },
-  {
-    id: "pack",
-    title: "Prepare transition items",
-    description: "Backpack, medicine, clothes, and school items.",
-    status: "active",
-  },
-  {
-    id: "handoff",
-    title: "Complete handoff",
-    description: "Mark exchange complete once the child is with the next parent.",
-    status: "pending",
-  },
-];
-
-function StatusPill({ status }) {
-  const styles = {
-    done: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    active: "border-blue-200 bg-blue-50 text-blue-700",
-    pending: "border-slate-200 bg-slate-50 text-slate-500",
-  };
-
-  const label = {
-    done: "Done",
-    active: "In progress",
-    pending: "Pending",
-  }[status];
-
-  return (
-    <span className={`rounded-full border px-3 py-1 text-xs font-black ${styles[status]}`}>
-      {label}
-    </span>
-  );
+function formatParent(value, dadName, momName) {
+  if (value === "dad") return dadName || "Dad";
+  if (value === "mom") return momName || "Mom";
+  return "Shared";
 }
 
-function ExchangeSummaryCard({ dadName, momName }) {
+function formatDate(value) {
+  if (!value) return "Not scheduled";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }).format(new Date(`${value}T12:00:00`));
+  } catch {
+    return value;
+  }
+}
+
+function formatTime(value) {
+  if (!value) return "Time TBD";
+  const [hourRaw, minute = "00"] = value.split(":");
+  const hour = Number(hourRaw);
+  if (Number.isNaN(hour)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute} ${suffix}`;
+}
+
+function getTodayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function statusMeta(status) {
+  if (status === "completed") {
+    return {
+      label: "Completed",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
+  }
+
+  if (status === "issue") {
+    return {
+      label: "Issue",
+      className: "border-rose-200 bg-rose-50 text-rose-700",
+    };
+  }
+
+  return {
+    label: "Pending",
+    className: "border-blue-200 bg-blue-50 text-blue-700",
+  };
+}
+
+function exchangeToForm(exchange) {
+  return {
+    date: exchange?.date || "",
+    time: exchange?.time || "08:00",
+    location: exchange?.location || "Daycare pickup",
+    fromParent: exchange?.fromParent || "dad",
+    toParent: exchange?.toParent || "mom",
+    pickupBy: exchange?.pickupBy || exchange?.toParent || "mom",
+    notes: exchange?.notes || "",
+    status: exchange?.status || "pending",
+  };
+}
+
+function normalizeExchangeDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    date: data.date || "",
+    time: data.time || "08:00",
+    location: data.location || "Daycare pickup",
+    fromParent: data.fromParent || "dad",
+    toParent: data.toParent || "mom",
+    pickupBy: data.pickupBy || data.toParent || "mom",
+    notes: data.notes || "",
+    status: data.status || "pending",
+    order: data.order ?? 999,
+  };
+}
+
+function ExchangeSummaryCard({ exchange, dadName, momName, loading }) {
   return (
     <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.08)]">
       <div className="bg-[radial-gradient(circle_at_top_left,rgba(91,141,239,0.18),transparent_36%),linear-gradient(135deg,#ffffff_0%,#eff6ff_52%,#f8f7f4_100%)] p-6 md:p-8">
@@ -93,9 +141,15 @@ function ExchangeSummaryCard({ dadName, momName }) {
               </div>
               <div>
                 <p className="text-lg font-black text-slate-950">
-                  {dadName || "Dad"} → {momName || "Mom"}
+                  {loading
+                    ? "Loading..."
+                    : exchange
+                      ? `${formatParent(exchange.fromParent, dadName, momName)} → ${formatParent(exchange.toParent, dadName, momName)}`
+                      : "No exchange scheduled"}
                 </p>
-                <p className="text-sm font-bold text-slate-500">Tomorrow · 8:00 AM</p>
+                <p className="text-sm font-bold text-slate-500">
+                  {exchange ? `${formatDate(exchange.date)} · ${formatTime(exchange.time)}` : "Add one to get started"}
+                </p>
               </div>
             </div>
           </div>
@@ -122,56 +176,313 @@ function DetailCard({ icon: Icon, label, value, helper }) {
   );
 }
 
-function ChecklistItem({ item, onToggle }) {
-  const Icon = item.icon;
+function ExchangeRow({ exchange, dadName, momName, onCycle, onEdit, onDelete }) {
+  const meta = statusMeta(exchange.status);
 
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(item.id)}
-      className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-    >
-      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${item.done ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-400"}`}>
-        <Icon className="h-5 w-5" />
+    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <button type="button" onClick={() => onCycle(exchange.id)} className="min-w-0 flex-1 text-left">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="text-base font-black text-slate-950">
+              {formatDate(exchange.date)} · {formatTime(exchange.time)}
+            </h4>
+            <span className={`rounded-full border px-3 py-1 text-xs font-black ${meta.className}`}>{meta.label}</span>
+          </div>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {formatParent(exchange.fromParent, dadName, momName)} → {formatParent(exchange.toParent, dadName, momName)} · {exchange.location}
+          </p>
+          {exchange.notes && <p className="mt-2 text-sm font-semibold text-blue-700">{exchange.notes}</p>}
+        </button>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onEdit(exchange)}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            aria-label="Edit exchange"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(exchange)}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+            aria-label="Delete exchange"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-slate-900">{item.label}</p>
-        <p className="text-xs font-semibold text-slate-400">Tap to update readiness</p>
-      </div>
-      <CheckCircle2 className={`h-5 w-5 ${item.done ? "fill-emerald-100 text-emerald-700" : "text-slate-300"}`} />
-    </button>
+    </div>
+  );
+}
+
+function ExchangeModal({ open, mode, value, saving, onChange, onClose, onSubmit }) {
+  if (!open) return null;
+
+  const isEdit = mode === "edit";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
+      <form onSubmit={onSubmit} className="w-full max-w-2xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
+        <div className="mb-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600">Custody exchange</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">{isEdit ? "Edit exchange" : "Add exchange"}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Set the handoff time, location, parents, and notes.</p>
+        </div>
+
+        <div className="grid gap-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Date</span>
+              <input
+                type="date"
+                value={value.date}
+                onChange={(event) => onChange({ ...value, date: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+                required
+              />
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Time</span>
+              <input
+                type="time"
+                value={value.time}
+                onChange={(event) => onChange({ ...value, time: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+                required
+              />
+            </label>
+          </div>
+
+          <label className="grid gap-1.5">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Location</span>
+            <input
+              value={value.location}
+              onChange={(event) => onChange({ ...value, location: event.target.value })}
+              placeholder="Example: Daycare pickup"
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+              required
+            />
+          </label>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">From</span>
+              <select value={value.fromParent} onChange={(event) => onChange({ ...value, fromParent: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300">
+                <option value="dad">Dad</option>
+                <option value="mom">Mom</option>
+              </select>
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">To</span>
+              <select value={value.toParent} onChange={(event) => onChange({ ...value, toParent: event.target.value, pickupBy: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300">
+                <option value="dad">Dad</option>
+                <option value="mom">Mom</option>
+              </select>
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Status</span>
+              <select value={value.status} onChange={(event) => onChange({ ...value, status: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300">
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="issue">Issue</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="grid gap-1.5">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Handoff notes</span>
+            <textarea
+              value={value.notes}
+              onChange={(event) => onChange({ ...value, notes: event.target.value })}
+              placeholder="Example: Medicine bag and backpack included."
+              className="min-h-24 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+            />
+          </label>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="rounded-full">Cancel</Button>
+          <Button type="submit" disabled={saving} className="rounded-full bg-blue-600 hover:bg-blue-700">
+            {saving ? "Saving..." : isEdit ? "Save changes" : "Add exchange"}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 
 export default function ExchangeHub() {
-  const { dadName, momName } = useFamily();
-  const [checklist, setChecklist] = useState(defaultChecklist);
+  const { user, familyId, dadName, momName } = useFamily();
+  const [exchanges, setExchanges] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [savingExchange, setSavingExchange] = useState(false);
+  const [exchangeForm, setExchangeForm] = useState({ ...emptyExchange, date: getTodayKey() });
+  const [editingExchange, setEditingExchange] = useState(null);
 
-  const completedCount = useMemo(
-    () => checklist.filter((item) => item.done).length,
-    [checklist]
-  );
+  useEffect(() => {
+    let cancelled = false;
 
-  const readiness = Math.round((completedCount / checklist.length) * 100);
+    async function loadExchanges() {
+      if (!user || !familyId) {
+        setExchanges([]);
+        setLoading(false);
+        return;
+      }
 
-  const toggleItem = (id) => {
-    setChecklist((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, done: !item.done } : item
-      )
-    );
+      setLoading(true);
+
+      try {
+        const q = query(collection(db, "custodyExchanges"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+        const data = snap.docs
+          .map(normalizeExchangeDoc)
+          .sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`));
+
+        if (!cancelled) setExchanges(data);
+      } catch (error) {
+        console.error("Error loading custody exchanges:", error);
+        if (!cancelled) setExchanges([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadExchanges();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
+
+  const nextExchange = useMemo(() => {
+    const todayKey = getTodayKey();
+    return exchanges.find((exchange) => exchange.status !== "completed" && (!exchange.date || exchange.date >= todayKey)) || exchanges[0] || null;
+  }, [exchanges]);
+
+  const completedCount = exchanges.filter((exchange) => exchange.status === "completed").length;
+  const pendingCount = exchanges.filter((exchange) => exchange.status === "pending").length;
+  const issueCount = exchanges.filter((exchange) => exchange.status === "issue").length;
+  const readiness = exchanges.length ? Math.round((completedCount / exchanges.length) * 100) : 0;
+
+  const closeExchangeModal = () => {
+    setShowExchangeModal(false);
+    setEditingExchange(null);
+    setExchangeForm({ ...emptyExchange, date: getTodayKey() });
+  };
+
+  const openAddExchange = () => {
+    setEditingExchange(null);
+    setExchangeForm({ ...emptyExchange, date: getTodayKey() });
+    setShowExchangeModal(true);
+  };
+
+  const openEditExchange = (exchange) => {
+    setEditingExchange(exchange);
+    setExchangeForm(exchangeToForm(exchange));
+    setShowExchangeModal(true);
+  };
+
+  const saveExchange = async (event) => {
+    event.preventDefault();
+
+    if (!exchangeForm.date || !exchangeForm.time || !exchangeForm.location.trim() || !user || !familyId || savingExchange) return;
+
+    setSavingExchange(true);
+
+    try {
+      const payload = {
+        date: exchangeForm.date,
+        time: exchangeForm.time,
+        location: exchangeForm.location.trim(),
+        fromParent: exchangeForm.fromParent,
+        toParent: exchangeForm.toParent,
+        pickupBy: exchangeForm.pickupBy || exchangeForm.toParent,
+        notes: exchangeForm.notes.trim(),
+        status: exchangeForm.status,
+        updatedAt: serverTimestamp(),
+      };
+
+      if (editingExchange) {
+        await updateDoc(doc(db, "custodyExchanges", editingExchange.id), payload);
+        setExchanges((current) =>
+          current.map((exchange) => (exchange.id === editingExchange.id ? { ...exchange, ...payload } : exchange))
+        );
+      } else {
+        const createPayload = {
+          ...payload,
+          familyId,
+          createdBy: user.uid,
+          order: exchanges.length,
+          createdAt: serverTimestamp(),
+        };
+
+        const docRef = await addDoc(collection(db, "custodyExchanges"), createPayload);
+        setExchanges((current) => [...current, { ...createPayload, id: docRef.id }]);
+      }
+
+      closeExchangeModal();
+    } catch (error) {
+      console.error("Error saving custody exchange:", error);
+      window.alert(`Could not save exchange: ${error.message}`);
+    } finally {
+      setSavingExchange(false);
+    }
+  };
+
+  const cycleStatus = async (id) => {
+    const next = {
+      pending: "completed",
+      completed: "issue",
+      issue: "pending",
+    };
+
+    const currentExchange = exchanges.find((exchange) => exchange.id === id);
+    if (!currentExchange) return;
+
+    const nextStatus = next[currentExchange.status] || "pending";
+    setExchanges((current) => current.map((exchange) => (exchange.id === id ? { ...exchange, status: nextStatus } : exchange)));
+
+    try {
+      await updateDoc(doc(db, "custodyExchanges", id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error updating custody exchange:", error);
+      setExchanges((current) => current.map((exchange) => (exchange.id === id ? { ...exchange, status: currentExchange.status } : exchange)));
+    }
+  };
+
+  const deleteExchange = async (exchangeToDelete) => {
+    const confirmed = window.confirm(`Delete exchange on ${formatDate(exchangeToDelete.date)}?`);
+    if (!confirmed) return;
+
+    const previousExchanges = exchanges;
+    setExchanges((current) => current.filter((exchange) => exchange.id !== exchangeToDelete.id));
+
+    try {
+      await deleteDoc(doc(db, "custodyExchanges", exchangeToDelete.id));
+    } catch (error) {
+      console.error("Error deleting custody exchange:", error);
+      setExchanges(previousExchanges);
+      window.alert(`Could not delete exchange: ${error.message}`);
+    }
   };
 
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <ExchangeSummaryCard dadName={dadName} momName={momName} />
+        <ExchangeSummaryCard loading={loading} exchange={nextExchange} dadName={dadName} momName={momName} />
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <DetailCard icon={Clock3} label="Time" value="8:00 AM" helper="Suggested reminder: 30 min before" />
-          <DetailCard icon={MapPin} label="Location" value="Daycare pickup" helper="Update later with saved places" />
-          <DetailCard icon={Car} label="Pickup by" value={momName || "Mom"} helper="Visible to connected homes" />
-          <DetailCard icon={CalendarClock} label="Readiness" value={`${readiness}% ready`} helper={`${completedCount} of ${checklist.length} items complete`} />
+          <DetailCard icon={Clock3} label="Time" value={nextExchange ? formatTime(nextExchange.time) : "TBD"} helper="Suggested reminder: 30 min before" />
+          <DetailCard icon={MapPin} label="Location" value={nextExchange?.location || "No location"} helper="Visible to connected homes" />
+          <DetailCard icon={Car} label="Pickup by" value={nextExchange ? formatParent(nextExchange.pickupBy, dadName, momName) : "TBD"} helper="Based on next exchange" />
+          <DetailCard icon={CalendarClock} label="Exchange status" value={`${pendingCount} pending`} helper={`${completedCount} completed · ${issueCount} issue`} />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -179,29 +490,35 @@ export default function ExchangeHub() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Transition checklist
+                  Upcoming exchanges
                 </p>
                 <h3 className="mt-1 text-2xl font-black text-slate-950">
-                  Ready to go
+                  Handoff schedule
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Keep handoff items clear so the child moves between homes with less stress.
+                  Tap an exchange to cycle pending, completed, and issue.
                 </p>
               </div>
               <Badge className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 hover:bg-blue-50">
-                {readiness}%
+                {readiness}% done
               </Badge>
             </div>
 
             <div className="space-y-3">
-              {checklist.map((item) => (
-                <ChecklistItem key={item.id} item={item} onToggle={toggleItem} />
-              ))}
+              {exchanges.length ? (
+                exchanges.map((exchange) => (
+                  <ExchangeRow key={exchange.id} exchange={exchange} dadName={dadName} momName={momName} onCycle={cycleStatus} onEdit={openEditExchange} onDelete={deleteExchange} />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-500">
+                  No exchanges yet. Add the first handoff to start tracking details.
+                </div>
+              )}
             </div>
 
-            <Button type="button" variant="outline" className="mt-4 w-full rounded-full gap-2">
+            <Button type="button" onClick={openAddExchange} variant="outline" className="mt-4 w-full rounded-full gap-2">
               <Plus className="h-4 w-4" />
-              Add exchange item
+              Add exchange
             </Button>
           </Card>
 
@@ -219,7 +536,11 @@ export default function ExchangeHub() {
             </div>
 
             <div className="space-y-4">
-              {defaultTimeline.map((step, index) => (
+              {[
+                { id: "confirm", title: "Confirm exchange details", description: "Time, location, and pickup person are visible for both homes.", status: nextExchange ? "done" : "pending" },
+                { id: "pack", title: "Prepare transition items", description: "Backpack, medicine, clothes, and school items.", status: "active" },
+                { id: "handoff", title: "Complete handoff", description: "Mark exchange complete once the child is with the next parent.", status: nextExchange?.status === "completed" ? "done" : "pending" },
+              ].map((step, index) => (
                 <div key={step.id} className="flex gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4">
                   <div className="flex flex-col items-center">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-full font-black ${step.status === "done" ? "bg-emerald-100 text-emerald-700" : step.status === "active" ? "bg-blue-100 text-blue-700" : "bg-white text-slate-400"}`}>
@@ -229,11 +550,9 @@ export default function ExchangeHub() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="text-base font-black text-slate-950">{step.title}</h4>
-                      <StatusPill status={step.status} />
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-500">{step.status}</span>
                     </div>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      {step.description}
-                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">{step.description}</p>
                   </div>
                 </div>
               ))}
@@ -245,7 +564,7 @@ export default function ExchangeHub() {
                 <div>
                   <p className="text-sm font-black text-blue-900">Handoff note</p>
                   <p className="mt-1 text-sm font-semibold text-blue-700">
-                    Remember to send the medicine bag and confirm tomorrow morning pickup.
+                    {nextExchange?.notes || "Add exchange notes so both homes know what needs attention."}
                   </p>
                 </div>
               </div>
@@ -253,6 +572,16 @@ export default function ExchangeHub() {
           </Card>
         </div>
       </div>
+
+      <ExchangeModal
+        open={showExchangeModal}
+        mode={editingExchange ? "edit" : "add"}
+        value={exchangeForm}
+        saving={savingExchange}
+        onChange={setExchangeForm}
+        onClose={closeExchangeModal}
+        onSubmit={saveExchange}
+      />
     </div>
   );
 }
