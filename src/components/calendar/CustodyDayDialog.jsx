@@ -121,6 +121,44 @@ function travelPlanAffectsCustody(plan) {
   return status !== "rejected" && status !== "cancelled";
 }
 
+function activityLabel(profile, user) {
+  return profile?.displayName || profile?.name || profile?.firstName || user?.displayName || user?.email || "Someone";
+}
+
+async function logFamilyActivity({ familyId, user, profile, type, title, description = "", entityType = "", entityId = "", date = "", metadata = {} }) {
+  if (!familyId || !user || !type || !title) return;
+
+  try {
+    const activityId = `${familyId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await setDoc(doc(db, "familyActivity", activityId), {
+      id: activityId,
+      familyId,
+      family_id: familyId,
+      type,
+      title,
+      description,
+      entityType,
+      entity_type: entityType,
+      entityId,
+      entity_id: entityId,
+      date,
+      metadata,
+      actorId: user.uid,
+      actor_id: user.uid,
+      actorEmail: user.email || null,
+      actor_email: user.email || null,
+      actorName: activityLabel(profile, user),
+      actor_name: activityLabel(profile, user),
+      createdAt: serverTimestamp(),
+      created_at: new Date().toISOString(),
+      readBy: [],
+      read_by: [],
+    });
+  } catch (error) {
+    console.warn("Could not log family activity:", error);
+  }
+}
+
 function SectionCard({ eyebrow, title, description, action, children, className = "" }) {
   return (
     <div className={`rounded-2xl border bg-white/85 p-3 shadow-sm ${className}`}>
@@ -292,6 +330,18 @@ export default function CustodyDayDialog({
     };
 
     await onSave(payload);
+    await logFamilyActivity({
+      familyId,
+      user,
+      profile,
+      type: existingData ? "custody_day_updated" : "custody_day_created",
+      title: existingData ? "Custody day updated" : "Custody day created",
+      description: `${formattedDate} · ${isSplit ? custodySummary : parentLabel(withWhom, dadLabel, momLabel)}`,
+      entityType: "custodyDay",
+      entityId: `${familyId}_${dateKey}`,
+      date: dateKey,
+      metadata: payload,
+    });
   };
 
   const saveSpecialEvent = async (payload) => {
@@ -324,6 +374,18 @@ export default function CustodyDayDialog({
       };
 
       await setDoc(doc(db, "custodySpecialEvents", eventId), data, { merge: true });
+      await logFamilyActivity({
+        familyId,
+        user,
+        profile,
+        type: editing ? "special_event_updated" : "special_event_created",
+        title: editing ? "Special event updated" : "Special event added",
+        description: `${data.title} · ${data.date}`,
+        entityType: "custodySpecialEvent",
+        entityId: eventId,
+        date: data.date,
+        metadata: { title: data.title, category: data.category, startTime: data.startTime, location: data.location },
+      });
       setSpecialEvents((prev) => {
         const next = editing
           ? prev.map((event) => (event.id === eventId ? { ...event, ...data } : event))
@@ -350,6 +412,18 @@ export default function CustodyDayDialog({
 
     try {
       await deleteDoc(doc(db, "custodySpecialEvents", event.id));
+      await logFamilyActivity({
+        familyId,
+        user,
+        profile,
+        type: "special_event_deleted",
+        title: "Special event deleted",
+        description: `${event.title} · ${event.date}`,
+        entityType: "custodySpecialEvent",
+        entityId: event.id,
+        date: event.date,
+        metadata: { title: event.title, category: event.category },
+      });
       setSpecialEvents((prev) => prev.filter((item) => item.id !== event.id));
     } catch (error) {
       console.error("Error deleting custody special event:", error);
@@ -394,6 +468,25 @@ export default function CustodyDayDialog({
       };
 
       await setDoc(doc(db, "custodyTravelPlans", travelId), data, { merge: true });
+      await logFamilyActivity({
+        familyId,
+        user,
+        profile,
+        type: editing ? "travel_plan_updated" : "travel_plan_created",
+        title: editing ? "Travel plan updated" : "Travel plan added",
+        description: `${data.title} · ${data.startDate} → ${data.endDate}`,
+        entityType: "custodyTravelPlan",
+        entityId: travelId,
+        date: data.startDate,
+        metadata: {
+          title: data.title,
+          destination: data.destination,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          travelingParent: data.travelingParent,
+          affectsCustody: true,
+        },
+      });
       setTravelPlans((prev) => {
         const next = editing
           ? prev.map((plan) => (plan.id === travelId ? { ...plan, ...data } : plan))
@@ -420,6 +513,18 @@ export default function CustodyDayDialog({
 
     try {
       await deleteDoc(doc(db, "custodyTravelPlans", plan.id));
+      await logFamilyActivity({
+        familyId,
+        user,
+        profile,
+        type: "travel_plan_deleted",
+        title: "Travel plan deleted",
+        description: `${plan.title} · ${plan.startDate} → ${plan.endDate}`,
+        entityType: "custodyTravelPlan",
+        entityId: plan.id,
+        date: plan.startDate,
+        metadata: { title: plan.title, destination: plan.destination, startDate: plan.startDate, endDate: plan.endDate },
+      });
       setTravelPlans((prev) => prev.filter((item) => item.id !== plan.id));
     } catch (error) {
       console.error("Error deleting custody travel plan:", error);
@@ -439,6 +544,17 @@ export default function CustodyDayDialog({
     if (!confirmDelete) return;
 
     await onDelete(dateKey);
+    await logFamilyActivity({
+      familyId,
+      user,
+      profile,
+      type: "custody_day_deleted",
+      title: "Custody day deleted",
+      description: formattedDate,
+      entityType: "custodyDay",
+      entityId: `${familyId}_${dateKey}`,
+      date: dateKey,
+    });
   };
 
   const deleteEntireBulkSchedule = async () => {
@@ -471,6 +587,18 @@ export default function CustodyDayDialog({
       }
 
       await Promise.all(Array.from(refs.values()).map((ref) => deleteDoc(ref)));
+      await logFamilyActivity({
+        familyId,
+        user,
+        profile,
+        type: "bulk_custody_schedule_deleted",
+        title: "Bulk custody schedule deleted",
+        description: `${refs.size} day(s) removed from a custody schedule`,
+        entityType: "custodyBulkSchedule",
+        entityId: bulkRunId,
+        date: dateKey,
+        metadata: { removedCount: refs.size, bulkRunId },
+      });
 
       setShowDeleteChoice(false);
       onClose?.();
