@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import {
   Backpack,
   CheckCircle2,
   ClipboardList,
   Heart,
+  Pencil,
   Pill,
   Plus,
   Shirt,
   Sparkles,
   Star,
+  Trash2,
   Trophy,
   XCircle,
 } from "lucide-react";
@@ -46,6 +48,16 @@ const emptyNewItem = {
   status: "review",
   important: false,
 };
+
+function itemToForm(item) {
+  return {
+    name: item?.name || "",
+    category: item?.category || "School",
+    owner: item?.owner || "Shared",
+    status: item?.status || "review",
+    important: Boolean(item?.important),
+  };
+}
 
 function statusMeta(status) {
   if (status === "packed") {
@@ -129,52 +141,72 @@ function TemplateCard({ template }) {
   );
 }
 
-function PackingItem({ item, onCycle }) {
+function PackingItem({ item, onCycle, onEdit, onDelete }) {
   const meta = statusMeta(item.status);
   const Icon = meta.icon;
 
   return (
-    <button
-      type="button"
-      onClick={() => onCycle(item.id)}
-      className="flex w-full items-center gap-3 rounded-[1.4rem] border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
-    >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-600">
-        {item.important ? <Star className="h-5 w-5 fill-amber-100 text-amber-600" /> : <Backpack className="h-5 w-5" />}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-black text-slate-950">{item.name}</p>
-          {item.important && (
-            <Badge variant="secondary" className="rounded-full bg-amber-50 text-amber-700 hover:bg-amber-50">
-              Important
-            </Badge>
-          )}
+    <div className="flex w-full flex-col gap-3 rounded-[1.4rem] border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md md:flex-row md:items-center">
+      <button type="button" onClick={() => onCycle(item.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-600">
+          {item.important ? <Star className="h-5 w-5 fill-amber-100 text-amber-600" /> : <Backpack className="h-5 w-5" />}
         </div>
-        <p className="mt-0.5 text-xs font-semibold text-slate-400">
-          {item.category} · Responsible: {item.owner}
-        </p>
-      </div>
 
-      <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-black ${meta.className}`}>
-        <Icon className="h-3.5 w-3.5" />
-        {meta.label}
-      </span>
-    </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-black text-slate-950">{item.name}</p>
+            {item.important && (
+              <Badge variant="secondary" className="rounded-full bg-amber-50 text-amber-700 hover:bg-amber-50">
+                Important
+              </Badge>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs font-semibold text-slate-400">
+            {item.category} · Responsible: {item.owner}
+          </p>
+        </div>
+      </button>
+
+      <div className="flex shrink-0 items-center justify-between gap-2 md:justify-end">
+        <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-black ${meta.className}`}>
+          <Icon className="h-3.5 w-3.5" />
+          {meta.label}
+        </span>
+        <button
+          type="button"
+          onClick={() => onEdit(item)}
+          className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+          aria-label={`Edit ${item.name}`}
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(item)}
+          className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+          aria-label={`Delete ${item.name}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
   );
 }
 
-function AddPackingItemModal({ open, value, saving, onChange, onClose, onSubmit }) {
+function PackingItemModal({ open, mode, value, saving, onChange, onClose, onSubmit }) {
   if (!open) return null;
+
+  const isEdit = mode === "edit";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
       <form onSubmit={onSubmit} className="w-full max-w-xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
         <div className="mb-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Packing item</p>
-          <h3 className="mt-1 text-2xl font-black text-slate-950">Add item</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">Create a checklist item for the selected custody group.</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">{isEdit ? "Edit item" : "Add item"}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {isEdit ? "Update this checklist item for the selected custody group." : "Create a checklist item for the selected custody group."}
+          </p>
         </div>
 
         <div className="grid gap-4">
@@ -251,7 +283,7 @@ function AddPackingItemModal({ open, value, saving, onChange, onClose, onSubmit 
             Cancel
           </Button>
           <Button type="submit" disabled={saving} className="rounded-full bg-emerald-600 hover:bg-emerald-700">
-            {saving ? "Saving..." : "Add item"}
+            {saving ? "Saving..." : isEdit ? "Save changes" : "Add item"}
           </Button>
         </div>
       </form>
@@ -299,9 +331,10 @@ export default function PackingHub() {
   const { user, familyId } = useFamily();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddItem, setShowAddItem] = useState(false);
+  const [showItemModal, setShowItemModal] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
-  const [newItem, setNewItem] = useState(emptyNewItem);
+  const [itemForm, setItemForm] = useState(emptyNewItem);
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -361,6 +394,24 @@ export default function PackingHub() {
 
   const summary = useMemo(() => getPackingSummary(items), [items]);
 
+  const closeItemModal = () => {
+    setShowItemModal(false);
+    setEditingItem(null);
+    setItemForm(emptyNewItem);
+  };
+
+  const openAddItem = () => {
+    setEditingItem(null);
+    setItemForm(emptyNewItem);
+    setShowItemModal(true);
+  };
+
+  const openEditItem = (item) => {
+    setEditingItem(item);
+    setItemForm(itemToForm(item));
+    setShowItemModal(true);
+  };
+
   const cycleStatus = async (id) => {
     const next = {
       review: "packed",
@@ -394,38 +445,67 @@ export default function PackingHub() {
     }
   };
 
-  const addPackingItem = async (event) => {
+  const savePackingItem = async (event) => {
     event.preventDefault();
 
-    const cleanName = newItem.name.trim();
+    const cleanName = itemForm.name.trim();
     if (!cleanName || !user || !familyId || savingItem) return;
 
     setSavingItem(true);
 
     try {
-      const order = items.length;
       const payload = {
         name: cleanName,
-        category: newItem.category,
-        owner: newItem.owner,
-        status: newItem.status,
-        important: Boolean(newItem.important),
-        familyId,
-        createdBy: user.uid,
-        order,
-        createdAt: serverTimestamp(),
+        category: itemForm.category,
+        owner: itemForm.owner,
+        status: itemForm.status,
+        important: Boolean(itemForm.important),
         updatedAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, "custodyPackingItems"), payload);
-      setItems((current) => [...current, { ...payload, id: docRef.id }]);
-      setNewItem(emptyNewItem);
-      setShowAddItem(false);
+      if (editingItem) {
+        await updateDoc(doc(db, "custodyPackingItems", editingItem.id), payload);
+        setItems((current) =>
+          current.map((item) =>
+            item.id === editingItem.id ? { ...item, ...payload } : item
+          )
+        );
+      } else {
+        const order = items.length;
+        const createPayload = {
+          ...payload,
+          familyId,
+          createdBy: user.uid,
+          order,
+          createdAt: serverTimestamp(),
+        };
+
+        const docRef = await addDoc(collection(db, "custodyPackingItems"), createPayload);
+        setItems((current) => [...current, { ...createPayload, id: docRef.id }]);
+      }
+
+      closeItemModal();
     } catch (error) {
-      console.error("Error adding packing item:", error);
-      window.alert(`Could not add packing item: ${error.message}`);
+      console.error("Error saving packing item:", error);
+      window.alert(`Could not save packing item: ${error.message}`);
     } finally {
       setSavingItem(false);
+    }
+  };
+
+  const deletePackingItem = async (itemToDelete) => {
+    const confirmed = window.confirm(`Delete "${itemToDelete.name}" from the packing list?`);
+    if (!confirmed) return;
+
+    const previousItems = items;
+    setItems((current) => current.filter((item) => item.id !== itemToDelete.id));
+
+    try {
+      await deleteDoc(doc(db, "custodyPackingItems", itemToDelete.id));
+    } catch (error) {
+      console.error("Error deleting packing item:", error);
+      setItems(previousItems);
+      window.alert(`Could not delete packing item: ${error.message}`);
     }
   };
 
@@ -464,7 +544,7 @@ export default function PackingHub() {
                 </p>
               </div>
 
-              <Button type="button" onClick={() => setShowAddItem(true)} className="rounded-full gap-2">
+              <Button type="button" onClick={openAddItem} className="rounded-full gap-2">
                 <Plus className="h-4 w-4" />
                 Add item
               </Button>
@@ -472,7 +552,7 @@ export default function PackingHub() {
 
             <div className="space-y-3">
               {items.map((item) => (
-                <PackingItem key={item.id} item={item} onCycle={cycleStatus} />
+                <PackingItem key={item.id} item={item} onCycle={cycleStatus} onEdit={openEditItem} onDelete={deletePackingItem} />
               ))}
             </div>
           </Card>
@@ -505,16 +585,14 @@ export default function PackingHub() {
         </div>
       </div>
 
-      <AddPackingItemModal
-        open={showAddItem}
-        value={newItem}
+      <PackingItemModal
+        open={showItemModal}
+        mode={editingItem ? "edit" : "add"}
+        value={itemForm}
         saving={savingItem}
-        onChange={setNewItem}
-        onClose={() => {
-          setShowAddItem(false);
-          setNewItem(emptyNewItem);
-        }}
-        onSubmit={addPackingItem}
+        onChange={setItemForm}
+        onClose={closeItemModal}
+        onSubmit={savePackingItem}
       />
     </div>
   );
