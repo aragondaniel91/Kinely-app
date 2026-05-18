@@ -39,6 +39,14 @@ const accentMap = {
   rose: "bg-rose-50 text-rose-700 border-rose-100",
 };
 
+const emptyNewItem = {
+  name: "",
+  category: "School",
+  owner: "Shared",
+  status: "review",
+  important: false,
+};
+
 function statusMeta(status) {
   if (status === "packed") {
     return {
@@ -157,6 +165,100 @@ function PackingItem({ item, onCycle }) {
   );
 }
 
+function AddPackingItemModal({ open, value, saving, onChange, onClose, onSubmit }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
+      <form onSubmit={onSubmit} className="w-full max-w-xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
+        <div className="mb-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Packing item</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">Add item</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">Create a checklist item for the selected custody group.</p>
+        </div>
+
+        <div className="grid gap-4">
+          <label className="grid gap-1.5">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Name</span>
+            <input
+              value={value.name}
+              onChange={(event) => onChange({ ...value, name: event.target.value })}
+              placeholder="Example: Lunchbox"
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
+              required
+            />
+          </label>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Category</span>
+              <select
+                value={value.category}
+                onChange={(event) => onChange({ ...value, category: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
+              >
+                <option>School</option>
+                <option>Clothes</option>
+                <option>Medicine</option>
+                <option>Sports</option>
+                <option>Comfort</option>
+                <option>General</option>
+              </select>
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Responsible</span>
+              <select
+                value={value.owner}
+                onChange={(event) => onChange({ ...value, owner: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
+              >
+                <option>Shared</option>
+                <option>Dad</option>
+                <option>Mom</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Status</span>
+              <select
+                value={value.status}
+                onChange={(event) => onChange({ ...value, status: event.target.value })}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
+              >
+                <option value="review">Review</option>
+                <option value="packed">Packed</option>
+                <option value="missing">Missing</option>
+              </select>
+            </label>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={value.important}
+                onChange={(event) => onChange({ ...value, important: event.target.checked })}
+                className="h-4 w-4"
+              />
+              <span className="text-sm font-black text-slate-700">Mark as important</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="rounded-full">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving} className="rounded-full bg-emerald-600 hover:bg-emerald-700">
+            {saving ? "Saving..." : "Add item"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function PeaceOfMindCard() {
   return (
     <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
@@ -197,6 +299,9 @@ export default function PackingHub() {
   const { user, familyId } = useFamily();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [savingItem, setSavingItem] = useState(false);
+  const [newItem, setNewItem] = useState(emptyNewItem);
 
   useEffect(() => {
     let cancelled = false;
@@ -289,6 +394,41 @@ export default function PackingHub() {
     }
   };
 
+  const addPackingItem = async (event) => {
+    event.preventDefault();
+
+    const cleanName = newItem.name.trim();
+    if (!cleanName || !user || !familyId || savingItem) return;
+
+    setSavingItem(true);
+
+    try {
+      const order = items.length;
+      const payload = {
+        name: cleanName,
+        category: newItem.category,
+        owner: newItem.owner,
+        status: newItem.status,
+        important: Boolean(newItem.important),
+        familyId,
+        createdBy: user.uid,
+        order,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(collection(db, "custodyPackingItems"), payload);
+      setItems((current) => [...current, { ...payload, id: docRef.id }]);
+      setNewItem(emptyNewItem);
+      setShowAddItem(false);
+    } catch (error) {
+      console.error("Error adding packing item:", error);
+      window.alert(`Could not add packing item: ${error.message}`);
+    } finally {
+      setSavingItem(false);
+    }
+  };
+
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -324,7 +464,7 @@ export default function PackingHub() {
                 </p>
               </div>
 
-              <Button type="button" className="rounded-full gap-2">
+              <Button type="button" onClick={() => setShowAddItem(true)} className="rounded-full gap-2">
                 <Plus className="h-4 w-4" />
                 Add item
               </Button>
@@ -364,6 +504,18 @@ export default function PackingHub() {
           </div>
         </div>
       </div>
+
+      <AddPackingItemModal
+        open={showAddItem}
+        value={newItem}
+        saving={savingItem}
+        onChange={setNewItem}
+        onClose={() => {
+          setShowAddItem(false);
+          setNewItem(emptyNewItem);
+        }}
+        onSubmit={addPackingItem}
+      />
     </div>
   );
 }
