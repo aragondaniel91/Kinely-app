@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { CalendarHeart, MapPin, Clock } from "lucide-react";
+import { CalendarHeart, Clock, MapPin } from "lucide-react";
 
 import {
   Dialog,
@@ -47,17 +47,20 @@ export function getCustodyEventCategory(categoryId) {
 
 export default function CustodySpecialEventDialog({
   defaultDate = new Date(),
+  existingEvent = null,
   onClose,
   onSave,
   isSaving = false,
 }) {
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("sports");
-  const [date, setDate] = useState(normalizeDate(defaultDate));
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
+  const editing = Boolean(existingEvent?.id);
+
+  const [title, setTitle] = useState(existingEvent?.title || "");
+  const [category, setCategory] = useState(existingEvent?.category || "sports");
+  const [date, setDate] = useState(normalizeDate(existingEvent?.date || defaultDate));
+  const [startTime, setStartTime] = useState(existingEvent?.startTime || existingEvent?.start_time || "");
+  const [endTime, setEndTime] = useState(existingEvent?.endTime || existingEvent?.end_time || "");
+  const [location, setLocation] = useState(existingEvent?.location || "");
+  const [notes, setNotes] = useState(existingEvent?.notes || "");
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -71,6 +74,7 @@ export default function CustodySpecialEventDialog({
     }
 
     await onSave({
+      id: existingEvent?.id || null,
       title: title.trim(),
       category,
       date,
@@ -87,7 +91,7 @@ export default function CustodySpecialEventDialog({
         <DialogHeader className="border-b bg-background px-5 py-4">
           <DialogTitle className="font-heading text-xl flex items-center gap-2">
             <CalendarHeart className="h-5 w-5 text-primary" />
-            Add special event
+            {editing ? "Edit special event" : "Add special event"}
           </DialogTitle>
         </DialogHeader>
 
@@ -188,7 +192,7 @@ export default function CustodySpecialEventDialog({
             Cancel
           </Button>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Add event"}
+            {isSaving ? "Saving..." : editing ? "Save changes" : "Add event"}
           </Button>
         </DialogFooter>
       </DialogContent>
