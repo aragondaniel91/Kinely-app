@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { addDays, differenceInCalendarDays, format, parseISO, startOfWeek } from "date-fns";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import {
   BellRing,
   CalendarDays,
@@ -13,6 +15,66 @@ import {
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { db } from "@/lib/firebase";
+import { useFamily } from "@/lib/FamilyContext";
+
+function normalizeDate(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value?.toDate) return format(value.toDate(), "yyyy-MM-dd");
+  return String(value).slice(0, 10);
+}
+
+function normalizeCustodyDay(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    ...data,
+    date: normalizeDate(data.date),
+    is_split: data.is_split || data.isSplit || false,
+    with_whom: data.with_whom || data.withWhom || null,
+    morning: data.morning || null,
+    afternoon: data.afternoon || null,
+  };
+}
+
+function getParentLabel(parent, dadName, momName) {
+  if (parent === "dad") return dadName || "Dad";
+  if (parent === "mom") return momName || "Mom";
+  return "Split day";
+}
+
+function getDayOwner(day) {
+  if (!day) return "none";
+  if (day.is_split) return "split";
+  return day.with_whom || "none";
+}
+
+function summarizeToday(todayCustody, dadName, momName) {
+  if (!todayCustody) return "Not scheduled";
+
+  if (todayCustody.is_split) {
+    return `AM ${getParentLabel(todayCustody.morning, dadName, momName)} / PM ${getParentLabel(todayCustody.afternoon, dadName, momName)}`;
+  }
+
+  return getParentLabel(todayCustody.with_whom, dadName, momName);
+}
+
+function findNextChange(sortedDays, allCustodyMap, todayKey) {
+  return sortedDays.find((day) => {
+    const dateKey = normalizeDate(day.date);
+    if (!dateKey || dateKey <= todayKey) return false;
+
+    const prevKey = format(addDays(parseISO(`${dateKey}T12:00:00`), -1), "yyyy-MM-dd");
+    const previousDay = allCustodyMap[prevKey];
+    if (!previousDay) return false;
+
+    const previousParent = previousDay.is_split ? previousDay.afternoon : previousDay.with_whom;
+    const nextParent = day.is_split ? day.morning : day.with_whom;
+
+    return previousParent !== nextParent;
+  });
+}
 
 function ActionTile({ icon: Icon, label, text, tone = "blue", onClick }) {
   const tones = {
@@ -57,10 +119,10 @@ function InfoCard({ title, value, text, icon: Icon, tone = "blue", onClick }) {
       className="rounded-[1.6rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">{title}</p>
-          <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{text}</p>
+          <p className="mt-2 truncate text-2xl font-black text-slate-950">{value}</p>
+          <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">{text}</p>
         </div>
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${tones[tone]}`}>
           <Icon className="h-5 w-5" />
@@ -85,16 +147,13 @@ function ReadinessItem({ label, status = "Ready" }) {
   );
 }
 
-function WeekStrip() {
-  const days = [
-    { day: "Mon", date: "20", tone: "bg-amber-400" },
-    { day: "Tue", date: "21", tone: "bg-blue-500" },
-    { day: "Wed", date: "22", tone: "bg-amber-400" },
-    { day: "Thu", date: "23", tone: "bg-emerald-500" },
-    { day: "Fri", date: "24", tone: "bg-emerald-500" },
-    { day: "Sat", date: "25", tone: "bg-rose-500" },
-    { day: "Sun", date: "26", tone: "bg-rose-500" },
-  ];
+function WeekStrip({ weekDays }) {
+  const ownerTones = {
+    dad: "bg-blue-500",
+    mom: "bg-amber-400",
+    split: "bg-emerald-500",
+    none: "bg-slate-300",
+  };
 
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
@@ -105,11 +164,11 @@ function WeekStrip() {
         </div>
       </div>
       <div className="mt-4 grid grid-cols-7 gap-2">
-        {days.map((item) => (
-          <div key={`${item.day}-${item.date}`} className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-2 py-3 text-center">
+        {weekDays.map((item) => (
+          <div key={item.dateKey} className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-2 py-3 text-center">
             <p className="text-xs font-black text-slate-400">{item.day}</p>
             <p className="mt-1 text-sm font-black text-slate-900">{item.date}</p>
-            <div className={`mx-auto mt-2 h-2 w-6 rounded-full ${item.tone}`} />
+            <div className={`mx-auto mt-2 h-2 w-6 rounded-full ${ownerTones[item.owner] || ownerTones.none}`} />
           </div>
         ))}
       </div>
@@ -118,6 +177,88 @@ function WeekStrip() {
 }
 
 export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, onOpenPacking, onOpenNotifications, onOpenBudget, onOpenChat }) {
+  const { user, familyId, dadName, momName, perms } = useFamily();
+  const [custodyDays, setCustodyDays] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const canRead = perms?.calendar?.read !== false;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCustodyDays() {
+      if (!user || !familyId || !canRead) {
+        setCustodyDays([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const q = query(collection(db, "custodyDays"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        if (!cancelled) setCustodyDays(data);
+      } catch (error) {
+        console.error("Error loading custody dashboard:", error);
+        if (!cancelled) setCustodyDays([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadCustodyDays();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId, canRead]);
+
+  const dashboard = useMemo(() => {
+    const today = new Date();
+    const todayKey = format(today, "yyyy-MM-dd");
+    const allCustodyMap = {};
+
+    custodyDays.forEach((day) => {
+      const key = normalizeDate(day.date);
+      if (key) allCustodyMap[key] = day;
+    });
+
+    const sortedDays = [...custodyDays].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const todayCustody = allCustodyMap[todayKey];
+    const nextChange = findNextChange(sortedDays, allCustodyMap, todayKey);
+    const nextChangeDate = nextChange?.date ? parseISO(`${nextChange.date}T12:00:00`) : null;
+    const daysUntil = nextChangeDate ? differenceInCalendarDays(nextChangeDate, today) : null;
+    const nextParent = nextChange ? (nextChange.is_split ? nextChange.morning : nextChange.with_whom) : null;
+
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const weekDays = Array.from({ length: 7 }).map((_, index) => {
+      const date = addDays(weekStart, index);
+      const dateKey = format(date, "yyyy-MM-dd");
+      const day = allCustodyMap[dateKey];
+      return {
+        dateKey,
+        day: format(date, "EEE"),
+        date: format(date, "d"),
+        owner: getDayOwner(day),
+      };
+    });
+
+    return {
+      todayLabel: summarizeToday(todayCustody, dadName, momName),
+      nextChange,
+      nextChangeLabel: getParentLabel(nextParent, dadName, momName),
+      nextChangeDayLabel: nextChangeDate ? format(nextChangeDate, "EEE, MMM d") : "Not scheduled",
+      daysUntil,
+      weekDays,
+    };
+  }, [custodyDays, dadName, momName]);
+
+  const nextChangeText = dashboard.nextChange
+    ? `${dashboard.daysUntil === 0 ? "Today" : dashboard.daysUntil === 1 ? "Tomorrow" : `In ${dashboard.daysUntil} days`} · ${dashboard.nextChangeDayLabel}`
+    : "No upcoming exchange found";
+
   return (
     <div className="px-4 pb-8 pt-4 md:px-6">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -131,10 +272,14 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 </div>
                 <p className="text-base font-black text-slate-700">Joaquin is with</p>
                 <h1 className="mt-1 text-5xl font-black tracking-tight text-slate-950 md:text-6xl">
-                  Mom <span className="text-amber-400">♥</span>
+                  {loading ? "..." : dashboard.todayLabel} <span className="text-amber-400">♥</span>
                 </h1>
                 <p className="mt-5 max-w-sm text-base font-bold leading-7 text-slate-600">
-                  Pickup tomorrow at <span className="text-slate-950">8:00 AM</span>. Exchange at school.
+                  {loading
+                    ? "Loading custody status..."
+                    : dashboard.nextChange
+                      ? `Next change: ${nextChangeText} with ${dashboard.nextChangeLabel}.`
+                      : "No upcoming exchange is currently scheduled."}
                 </p>
                 <button
                   type="button"
@@ -154,8 +299,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             <InfoCard
               title="Next change"
-              value="Tomorrow"
-              text="8:00 AM · Exchange at school"
+              value={dashboard.nextChange ? (dashboard.daysUntil === 1 ? "Tomorrow" : dashboard.nextChangeDayLabel) : "None"}
+              text={dashboard.nextChange ? `With ${dashboard.nextChangeLabel}` : "No upcoming exchange found"}
               icon={Truck}
               tone="cyan"
               onClick={onOpenExchange}
@@ -163,7 +308,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             <InfoCard
               title="Packing list"
               value="5 items"
-              text="Ready to go"
+              text="Ready to connect with packing data"
               icon={Shirt}
               tone="emerald"
               onClick={onOpenPacking}
@@ -171,7 +316,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
           </div>
         </div>
 
-        <WeekStrip />
+        <WeekStrip weekDays={dashboard.weekDays} />
 
         <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
           <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
@@ -209,9 +354,13 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
             <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Smart custody brief</p>
-              <h2 className="mt-1 text-xl font-black text-slate-950">Coming next</h2>
+              <h2 className="mt-1 text-xl font-black text-slate-950">
+                {dashboard.nextChange ? "Plan the next exchange" : "Schedule looks calm"}
+              </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                Next pass will connect this dashboard to live custody days, calculate today’s parent, and show the next exchange automatically.
+                {dashboard.nextChange
+                  ? `${nextChangeText}. Review packing, school items, and handoff notes before the transition.`
+                  : "No upcoming exchange was found in the current custody schedule."}
               </p>
             </Card>
           </div>
