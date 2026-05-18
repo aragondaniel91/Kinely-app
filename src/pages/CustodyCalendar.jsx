@@ -105,6 +105,8 @@ function normalizeTravelPlan(docSnap) {
     startDate: normalizeDate(data.startDate || data.start_date),
     endDate: normalizeDate(data.endDate || data.end_date),
     travelingParent: data.travelingParent || data.traveling_parent || "dad",
+    travelStatus: data.travelStatus || data.travel_status || data.status || "approved",
+    affectsCustody: data.affectsCustody ?? data.affects_custody ?? true,
     notes: data.notes || "",
   };
 }
@@ -125,6 +127,36 @@ function getCustodyParent(custody) {
   if (!custody) return null;
   if (custody.is_split) return "split";
   return custody.with_whom;
+}
+
+function travelPlanAffectsCustody(plan) {
+  if (!plan) return false;
+  if (plan.affectsCustody === false || plan.affects_custody === false) return false;
+
+  const status = plan.travelStatus || plan.travel_status || plan.status || "approved";
+  return status !== "rejected" && status !== "cancelled";
+}
+
+function buildTravelOverrideCustody({ dateKey, baseCustody, travelPlansForDay = [] }) {
+  const overridePlan = travelPlansForDay.find(travelPlanAffectsCustody);
+  if (!overridePlan?.travelingParent) return baseCustody || null;
+
+  return {
+    ...(baseCustody || {}),
+    id: baseCustody?.id || `travel_override_${dateKey}`,
+    date: dateKey,
+    is_split: false,
+    isSplit: false,
+    with_whom: overridePlan.travelingParent,
+    withWhom: overridePlan.travelingParent,
+    morning: null,
+    afternoon: null,
+    isTravelOverride: true,
+    travelOverridePlanId: overridePlan.id,
+    travelOverridePlanTitle: overridePlan.title,
+    travelOverrideDestination: overridePlan.destination,
+    baseCustody,
+  };
 }
 
 function getOtherParent(parent) {
@@ -298,6 +330,7 @@ function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, d
         parent === "dad" && dadTheme.border,
         parent === "mom" && momTheme.border,
         splitDay && "border-border",
+        custody?.isTravelOverride && "ring-2 ring-blue-200",
         !inMonth && "opacity-40"
       )}
     >
@@ -341,6 +374,10 @@ function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, d
             <span>👩</span>
             <span className="truncate">{compact ? momName || "Mamá" : `Con ${momName || "Mamá"}`}</span>
           </div>
+        )}
+
+        {custody?.isTravelOverride && (
+          <div className={cn("mt-1 rounded-lg border border-blue-100 bg-blue-50/90 px-1.5 py-0.5 font-black text-blue-800", compact ? "text-[8px]" : "text-[10px]")}>Travel override</div>
         )}
 
         {splitDay && (
@@ -405,6 +442,9 @@ function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, d
 
 function DayDetailView({ day, custody, canWrite, onEdit, dadTheme, momTheme, dadName, momName }) {
   const parent = getCustodyParent(custody);
+  const baseParent = custody?.baseCustody?.is_split
+    ? "split"
+    : custody?.baseCustody?.with_whom || custody?.baseCustody?.withWhom || null;
   const label = custody?.is_split
     ? `AM: ${getParentLabel(custody.morning, dadName, momName)} / PM: ${getParentLabel(custody.afternoon, dadName, momName)}`
     : parent === "dad"
@@ -442,6 +482,16 @@ function DayDetailView({ day, custody, canWrite, onEdit, dadTheme, momTheme, dad
           <div className="flex-1">
             <p className="text-sm text-muted-foreground">Status</p>
             <p className={cn("text-2xl font-black", theme ? theme.text : "text-foreground")}>{label}</p>
+            {custody?.isTravelOverride && (
+              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50/80 p-3 text-sm font-semibold text-blue-800">
+                Custody changed by travel plan{custody.travelOverrideDestination ? ` · ${custody.travelOverrideDestination}` : ""}.
+                {baseParent && baseParent !== parent && (
+                  <span className="block text-xs text-blue-700">
+                    Base: {getParentLabel(baseParent, dadName, momName)} · Travel override: {getParentLabel(parent, dadName, momName)}
+                  </span>
+                )}
+              </div>
+            )}
             {custody?.notes && <p className="text-sm text-muted-foreground mt-3">{custody.notes}</p>}
             {!custody && <p className="text-sm text-muted-foreground mt-3">Click edit to add custody information for this day.</p>}
           </div>
@@ -813,6 +863,22 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     return map;
   }, [travelPlans]);
 
+  const finalCustodyMap = useMemo(() => {
+    const map = { ...allCustodyMap };
+
+    Object.keys(travelPlansByDate).forEach((dateKey) => {
+      const finalCustody = buildTravelOverrideCustody({
+        dateKey,
+        baseCustody: allCustodyMap[dateKey],
+        travelPlansForDay: travelPlansByDate[dateKey],
+      });
+
+      if (finalCustody) map[dateKey] = finalCustody;
+    });
+
+    return map;
+  }, [allCustodyMap, travelPlansByDate]);
+
   const period = useMemo(() => {
     if (viewMode === "day") {
       const key = format(anchorDate, "yyyy-MM-dd");
@@ -843,7 +909,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     return true;
   };
 
-  const visibleCustodyDays = custodyDays.filter((d) => {
+  const visibleCustodyDays = Object.values(finalCustodyMap).filter((d) => {
     const dateKey = normalizeDate(d.date);
     return dateKey >= period.startKey && dateKey <= period.endKey;
   });
@@ -856,7 +922,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   });
 
   const todayKey = format(new Date(), "yyyy-MM-dd");
-  const todayCustody = allCustodyMap[todayKey];
+  const todayCustody = finalCustodyMap[todayKey];
   const todayParent = todayCustody?.is_split ? null : todayCustody?.with_whom;
   const todayLabel = todayCustody?.is_split
     ? `AM: ${getParentLabel(todayCustody.morning, dadName, momName)} / PM: ${getParentLabel(todayCustody.afternoon, dadName, momName)}`
@@ -866,12 +932,12 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       : (momName || "MAMÁ").toUpperCase()
     : null;
 
-  const sortedDays = [...custodyDays].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const sortedDays = Object.values(finalCustodyMap).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
   const nextChange = sortedDays.find((d) => {
     const dateKey = normalizeDate(d.date);
     if (!dateKey || dateKey <= todayKey) return false;
     const prevKey = format(addDays(parseISO(dateKey + "T12:00:00"), -1), "yyyy-MM-dd");
-    const prev = allCustodyMap[prevKey];
+    const prev = finalCustodyMap[prevKey];
     if (!prev) return false;
     const prevParent = prev.is_split ? prev.afternoon : prev.with_whom;
     const thisParent = d.is_split ? d.morning : d.with_whom;
@@ -965,6 +1031,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
               <div>
                 <p className="text-xs text-muted-foreground">Está con</p>
                 <p className={cn("font-black text-sm", todayParent === "dad" ? dadTheme.text : momTheme.text)}>{todayLabel}</p>
+                {todayCustody.isTravelOverride && <p className="text-[11px] font-bold text-blue-700">Travel override</p>}
               </div>
               <Heart className={cn("w-4 h-4 ml-auto", todayParent === "dad" ? dadTheme.text : `${momTheme.text} fill-current`)} />
             </div>
@@ -989,6 +1056,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
               <p className={cn("text-xs font-bold mt-1.5", nextChange.with_whom === "dad" ? dadTheme.text : momTheme.text)}>
                 Con {nextChange.with_whom === "dad" ? `${dadName || "Papá"} 👨` : `${momName || "Mamá"} 👩`}
               </p>
+              {nextChange.isTravelOverride && <p className="text-[11px] font-bold text-blue-700">Travel override</p>}
             </div>
           </div>
         )}
@@ -1005,6 +1073,9 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
               <p className={`text-lg font-black ${momTheme.text}`}>{momDays}</p>
             </div>
           </div>
+          {visibleCustodyDays.some((day) => day.isTravelOverride) && (
+            <p className="mt-2 text-[11px] font-semibold text-blue-700">Includes travel custody overrides.</p>
+          )}
         </div>
 
         <div className="hidden lg:block">
@@ -1013,6 +1084,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
             <div className="flex items-center gap-2"><div className={`w-4 h-4 rounded ${dadTheme.dot} shrink-0`} /><span className="text-xs">Con {dadName || "Papá"}</span></div>
             <div className="flex items-center gap-2"><div className={`w-4 h-4 rounded ${momTheme.dot} shrink-0`} /><span className="text-xs">Con {momName || "Mamá"}</span></div>
             <div className="flex items-center gap-2"><div className="w-4 h-4 rounded overflow-hidden shrink-0 flex flex-col"><div className={`flex-1 ${dadTheme.dot}`} /><div className={`flex-1 ${momTheme.dot}`} /></div><span className="text-xs">Día compartido</span></div>
+            <div className="flex items-center gap-2"><div className="flex h-4 w-4 items-center justify-center rounded bg-blue-50 text-[10px]">✈️</div><span className="text-xs">Travel override</span></div>
           </div>
         </div>
 
@@ -1028,6 +1100,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
                     <p className={cn("text-xs", d.with_whom === "dad" ? dadTheme.text : momTheme.text)}>
                       {d.is_split ? `AM:${getParentLabel(d.morning, dadName, momName)} PM:${getParentLabel(d.afternoon, dadName, momName)}` : `Con ${getParentLabel(d.with_whom, dadName, momName)}`}
                     </p>
+                    {d.isTravelOverride && <p className="text-[10px] font-bold text-blue-700">✈️ Travel override</p>}
                   </div>
                 </div>
               ))}
@@ -1081,7 +1154,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
         <div className="flex-1 overflow-auto p-2 lg:p-3 bg-[#F7F8FC]">
           {viewMode === "day" && (
-            <DayDetailView day={anchorDate} custody={allCustodyMap[format(anchorDate, "yyyy-MM-dd")]} canWrite={canWrite} onEdit={(day) => setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} />
+            <DayDetailView day={anchorDate} custody={finalCustodyMap[format(anchorDate, "yyyy-MM-dd")]} canWrite={canWrite} onEdit={(day) => setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} />
           )}
 
           {(viewMode === "week" || viewMode === "month") && (
