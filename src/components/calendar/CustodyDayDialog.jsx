@@ -202,26 +202,19 @@ export default function CustodyDayDialog({
       let docs = [];
 
       try {
-        const q = query(
-          collection(db, "custodyTravelPlans"),
-          where("familyId", "==", familyId),
-          where("startDate", "<=", dateKey)
-        );
+        const q = query(collection(db, "custodyTravelPlans"), where("familyId", "==", familyId));
         const snap = await getDocs(q);
-        docs = snap.docs.map(normalizeTravelPlan).filter((plan) => plan.endDate >= dateKey);
+        docs = snap.docs.map(normalizeTravelPlan);
       } catch (error) {
         console.warn("Fallback travel plans query by family_id:", error);
 
-        const q = query(
-          collection(db, "custodyTravelPlans"),
-          where("family_id", "==", familyId),
-          where("start_date", "<=", dateKey)
-        );
+        const q = query(collection(db, "custodyTravelPlans"), where("family_id", "==", familyId));
         const snap = await getDocs(q);
-        docs = snap.docs.map(normalizeTravelPlan).filter((plan) => plan.endDate >= dateKey);
+        docs = snap.docs.map(normalizeTravelPlan);
       }
 
-      setTravelPlans(sortTravelPlans(docs));
+      const plansForDay = docs.filter((plan) => plan.startDate <= dateKey && plan.endDate >= dateKey);
+      setTravelPlans(sortTravelPlans(plansForDay));
     } catch (error) {
       console.error("Error loading custody travel plans:", error);
       setTravelPlans([]);
