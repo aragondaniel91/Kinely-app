@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, Pencil, Plus, Trash2, X } from "lucide-react";
+import { CalendarDays, Pencil, Plane, Plus, Trash2, X } from "lucide-react";
 import {
   collection,
   deleteDoc,
@@ -37,6 +37,7 @@ import { useFamily } from "@/lib/FamilyContext";
 import CustodySpecialEventDialog, {
   getCustodyEventCategory,
 } from "@/components/calendar/CustodySpecialEventDialog";
+import CustodyTravelPlanDialog from "@/components/calendar/CustodyTravelPlanDialog";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -68,9 +69,29 @@ function normalizeSpecialEvent(docSnap) {
   };
 }
 
+function normalizeTravelPlan(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    ...data,
+    title: data.title || "Travel / vacation",
+    destination: data.destination || "",
+    startDate: normalizeDate(data.startDate || data.start_date),
+    endDate: normalizeDate(data.endDate || data.end_date),
+    travelingParent: data.travelingParent || data.traveling_parent || "dad",
+    notes: data.notes || "",
+  };
+}
+
 function sortSpecialEvents(events) {
   return [...events].sort((a, b) =>
     `${a.startTime || "99:99"}${a.title}`.localeCompare(`${b.startTime || "99:99"}${b.title}`)
+  );
+}
+
+function sortTravelPlans(plans) {
+  return [...plans].sort((a, b) =>
+    `${a.startDate || "9999-99-99"}${a.title}`.localeCompare(`${b.startDate || "9999-99-99"}${b.title}`)
   );
 }
 
@@ -80,6 +101,10 @@ function getBulkRunId(data = {}) {
 
 function getFamilyId(data = {}) {
   return data.familyId || data.family_id || "";
+}
+
+function parentLabel(parent, dadLabel, momLabel) {
+  return parent === "dad" ? dadLabel : momLabel;
 }
 
 export default function CustodyDayDialog({
@@ -107,11 +132,18 @@ export default function CustodyDayDialog({
   const [notes, setNotes] = useState(existingData?.notes || "");
   const [showDeleteChoice, setShowDeleteChoice] = useState(false);
   const [deletingSeries, setDeletingSeries] = useState(false);
+
   const [specialEvents, setSpecialEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [showSpecialEventDialog, setShowSpecialEventDialog] = useState(false);
   const [selectedSpecialEvent, setSelectedSpecialEvent] = useState(null);
   const [savingSpecialEvent, setSavingSpecialEvent] = useState(false);
+
+  const [travelPlans, setTravelPlans] = useState([]);
+  const [loadingTravelPlans, setLoadingTravelPlans] = useState(false);
+  const [showTravelDialog, setShowTravelDialog] = useState(false);
+  const [selectedTravelPlan, setSelectedTravelPlan] = useState(null);
+  const [savingTravelPlan, setSavingTravelPlan] = useState(false);
 
   const dateKey = normalizeDate(date);
   const bulkRunId = getBulkRunId(existingData || {});
@@ -158,8 +190,49 @@ export default function CustodyDayDialog({
     }
   };
 
+  const loadTravelPlans = async () => {
+    if (!familyId || !dateKey) {
+      setTravelPlans([]);
+      return;
+    }
+
+    setLoadingTravelPlans(true);
+
+    try {
+      let docs = [];
+
+      try {
+        const q = query(
+          collection(db, "custodyTravelPlans"),
+          where("familyId", "==", familyId),
+          where("startDate", "<=", dateKey)
+        );
+        const snap = await getDocs(q);
+        docs = snap.docs.map(normalizeTravelPlan).filter((plan) => plan.endDate >= dateKey);
+      } catch (error) {
+        console.warn("Fallback travel plans query by family_id:", error);
+
+        const q = query(
+          collection(db, "custodyTravelPlans"),
+          where("family_id", "==", familyId),
+          where("start_date", "<=", dateKey)
+        );
+        const snap = await getDocs(q);
+        docs = snap.docs.map(normalizeTravelPlan).filter((plan) => plan.endDate >= dateKey);
+      }
+
+      setTravelPlans(sortTravelPlans(docs));
+    } catch (error) {
+      console.error("Error loading custody travel plans:", error);
+      setTravelPlans([]);
+    } finally {
+      setLoadingTravelPlans(false);
+    }
+  };
+
   useEffect(() => {
     loadSpecialEvents();
+    loadTravelPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, dateKey]);
 
@@ -234,6 +307,72 @@ export default function CustodyDayDialog({
       alert(`There was an error deleting this special event: ${error.message}`);
     } finally {
       setSavingSpecialEvent(false);
+    }
+  };
+
+  const saveTravelPlan = async (payload) => {
+    if (!user || !familyId || !dateKey) return;
+
+    setSavingTravelPlan(true);
+
+    try {
+      const editing = Boolean(payload.id);
+      const travelId = payload.id || `${familyId}_travel_${payload.startDate}_${Date.now()}`;
+      const data = {
+        id: travelId,
+        ...payload,
+        startDate: normalizeDate(payload.startDate),
+        start_date: normalizeDate(payload.startDate),
+        endDate: normalizeDate(payload.endDate),
+        end_date: normalizeDate(payload.endDate),
+        travelingParent: payload.travelingParent,
+        traveling_parent: payload.travelingParent,
+        familyId,
+        family_id: familyId,
+        familyName: profile?.family_name || profile?.familyName || "",
+        userId: user.uid,
+        createdBy: selectedTravelPlan?.createdBy || user.uid,
+        createdByEmail: selectedTravelPlan?.createdByEmail || user.email || null,
+        createdAt: selectedTravelPlan?.createdAt || serverTimestamp(),
+        created_at: selectedTravelPlan?.created_at || new Date().toISOString(),
+        updatedBy: user.uid,
+        updatedAt: serverTimestamp(),
+        updated_date: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, "custodyTravelPlans", travelId), data, { merge: true });
+      setTravelPlans((prev) => {
+        const next = editing
+          ? prev.map((plan) => (plan.id === travelId ? { ...plan, ...data } : plan))
+          : [...prev, data];
+        return sortTravelPlans(next.filter((plan) => plan.startDate <= dateKey && plan.endDate >= dateKey));
+      });
+      setSelectedTravelPlan(null);
+      setShowTravelDialog(false);
+    } catch (error) {
+      console.error("Error saving custody travel plan:", error);
+      alert(`There was an error saving this travel plan: ${error.message}`);
+    } finally {
+      setSavingTravelPlan(false);
+    }
+  };
+
+  const deleteTravelPlan = async (plan) => {
+    if (!plan?.id) return;
+
+    const confirmed = window.confirm(`Delete "${plan.title}" travel plan?`);
+    if (!confirmed) return;
+
+    setSavingTravelPlan(true);
+
+    try {
+      await deleteDoc(doc(db, "custodyTravelPlans", plan.id));
+      setTravelPlans((prev) => prev.filter((item) => item.id !== plan.id));
+    } catch (error) {
+      console.error("Error deleting custody travel plan:", error);
+      alert(`There was an error deleting this travel plan: ${error.message}`);
+    } finally {
+      setSavingTravelPlan(false);
     }
   };
 
@@ -412,6 +551,95 @@ export default function CustodyDayDialog({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                    Travel / vacation
+                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    Trips, vacation days and travel notes.
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  disabled={!familyId || savingTravelPlan}
+                  onClick={() => {
+                    setSelectedTravelPlan(null);
+                    setShowTravelDialog(true);
+                  }}
+                >
+                  <Plane className="h-3.5 w-3.5" />
+                  Add
+                </Button>
+              </div>
+
+              {loadingTravelPlans && (
+                <p className="mt-3 text-xs font-semibold text-muted-foreground">
+                  Loading travel plans...
+                </p>
+              )}
+
+              {!loadingTravelPlans && travelPlans.length === 0 && (
+                <p className="mt-3 rounded-xl bg-muted/40 p-3 text-xs font-semibold text-muted-foreground">
+                  No travel plans for this day.
+                </p>
+              )}
+
+              {!loadingTravelPlans && travelPlans.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {travelPlans.map((plan) => (
+                    <div key={plan.id} className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg">✈️</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black">{plan.title}</p>
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            {[plan.destination, `${plan.startDate} → ${plan.endDate}`].filter(Boolean).join(" · ")}
+                          </p>
+                          <p className="text-xs font-semibold text-blue-700">
+                            With {parentLabel(plan.travelingParent, dadLabel, momLabel)}
+                          </p>
+                          {plan.notes && (
+                            <p className="mt-1 text-xs text-muted-foreground">{plan.notes}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 rounded-full"
+                            disabled={savingTravelPlan}
+                            onClick={() => {
+                              setSelectedTravelPlan(plan);
+                              setShowTravelDialog(true);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 rounded-full text-destructive hover:text-destructive"
+                            disabled={savingTravelPlan}
+                            onClick={() => deleteTravelPlan(plan)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border bg-white/80 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
                     Special events
                   </p>
                   <p className="text-xs font-semibold text-muted-foreground">
@@ -540,6 +768,21 @@ export default function CustodyDayDialog({
           }}
           onSave={saveSpecialEvent}
           isSaving={savingSpecialEvent}
+        />
+      )}
+
+      {showTravelDialog && (
+        <CustodyTravelPlanDialog
+          defaultDate={date}
+          existingTravel={selectedTravelPlan}
+          onClose={() => {
+            setSelectedTravelPlan(null);
+            setShowTravelDialog(false);
+          }}
+          onSave={saveTravelPlan}
+          isSaving={savingTravelPlan}
+          dadLabel={dadLabel}
+          momLabel={momLabel}
         />
       )}
 
