@@ -111,3 +111,44 @@ div[class*="min-h-[245px]"] h1 {
   background: transparent !important;
   box-shadow: none !important;
 }
+
+/* Custody schedule wall fit: the calendar sits inside a page that already has a Kinly header and custody selector. */
+.custody-original-calendar-wrapper > div {
+  min-height: 0 !important;
+}
+
+@media (min-width: 1024px) {
+  .custody-original-calendar-wrapper > div {
+    height: calc(100vh - 17.5rem) !important;
+    max-height: calc(100vh - 17.5rem) !important;
+  }
+
+  .custody-original-calendar-wrapper aside {
+    padding: 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .custody-original-calendar-wrapper aside p,
+  .custody-original-calendar-wrapper aside span {
+    line-height: 1.15 !important;
+  }
+
+  .custody-original-calendar-wrapper aside .hidden.lg\:block:last-child {
+    display: none !important;
+  }
+
+  .custody-original-calendar-wrapper button[class*="min-h-[72px]"] {
+    min-height: 56px !important;
+    padding: 0.35rem !important;
+    border-radius: 0.85rem !important;
+  }
+
+  .custody-original-calendar-wrapper .grid.grid-cols-7.gap-1 {
+    gap: 0.35rem !important;
+  }
+
+  .custody-original-calendar-wrapper .flex-1.overflow-auto {
+    overflow: hidden !important;
+    padding: 0.45rem !important;
+  }
+}
