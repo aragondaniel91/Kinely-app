@@ -113,68 +113,72 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   }
 
   return (
-    <div className="min-h-full bg-white pb-24">
-      <FamilyCalendarPlannerHeader
-        profile={profile}
-        people={people}
-        now={now}
-        anchorDate={anchorDate}
-        viewMode={viewMode}
-        visibleEventCount={summaryEventsForCurrentView.length}
-        selectedPersonId={selectedPersonId}
-        selectedCategory={selectedCategory}
-        categoryOptions={categoryOptions}
-        weekStart={weekStart}
-        weekEnd={weekEnd}
-        onSelectPerson={setSelectedPersonId}
-        onSelectCategory={setSelectedCategory}
-        onPrevious={goPrevious}
-        onToday={() => setAnchorDate(new Date())}
-        onNext={goNext}
-        onViewModeChange={setViewMode}
-        onSync={loadEvents}
-        onChangeMonth={handleChangeMonth}
-        onPreviousMonth={() => handleChangeMonth(subMonths(anchorDate, 1))}
-        onNextMonth={() => handleChangeMonth(addMonths(anchorDate, 1))}
-      />
+    <div className="kinly-gradient-bg min-h-full px-3 pb-28 pt-3 md:px-5 md:pb-12 lg:px-6">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
+          <FamilyCalendarPlannerHeader
+            profile={profile}
+            people={people}
+            now={now}
+            anchorDate={anchorDate}
+            viewMode={viewMode}
+            visibleEventCount={summaryEventsForCurrentView.length}
+            selectedPersonId={selectedPersonId}
+            selectedCategory={selectedCategory}
+            categoryOptions={categoryOptions}
+            weekStart={weekStart}
+            weekEnd={weekEnd}
+            onSelectPerson={setSelectedPersonId}
+            onSelectCategory={setSelectedCategory}
+            onPrevious={goPrevious}
+            onToday={() => setAnchorDate(new Date())}
+            onNext={goNext}
+            onViewModeChange={setViewMode}
+            onSync={loadEvents}
+            onChangeMonth={handleChangeMonth}
+            onPreviousMonth={() => handleChangeMonth(subMonths(anchorDate, 1))}
+            onNextMonth={() => handleChangeMonth(addMonths(anchorDate, 1))}
+          />
+        </div>
 
-      {loading ? (
-        <div className="flex min-h-[520px] items-center justify-center text-sm font-black text-slate-400">
-          Loading family events...
-        </div>
-      ) : (
-        <div className="mt-5 border-t border-slate-100">
-          {viewMode === "month" ? (
-            <FamilyCalendarMonthGrid
-              monthDays={monthDays}
-              anchorDate={anchorDate}
-              eventsByDay={eventsByDay}
-              people={people}
-              onAddDate={setAddDate}
-              onEventSelect={handleEventSelect}
-              onOverflowSelect={handleOverflowSelect}
-            />
-          ) : (
-            <FamilyCalendarTimelineGrid
-              viewMode={viewMode}
-              timelineDays={timelineDays}
-              eventsByDay={eventsByDay}
-              people={people}
-              onAddDate={setAddDate}
-              onEventSelect={handleEventSelect}
-              onOverflowSelect={handleOverflowSelect}
-            />
-          )}
-        </div>
-      )}
+        {loading ? (
+          <div className="flex min-h-[520px] items-center justify-center rounded-[2rem] border border-white/80 bg-white/82 text-sm font-black text-slate-400 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
+            Loading family events...
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/84 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
+            {viewMode === "month" ? (
+              <FamilyCalendarMonthGrid
+                monthDays={monthDays}
+                anchorDate={anchorDate}
+                eventsByDay={eventsByDay}
+                people={people}
+                onAddDate={setAddDate}
+                onEventSelect={handleEventSelect}
+                onOverflowSelect={handleOverflowSelect}
+              />
+            ) : (
+              <FamilyCalendarTimelineGrid
+                viewMode={viewMode}
+                timelineDays={timelineDays}
+                eventsByDay={eventsByDay}
+                people={people}
+                onAddDate={setAddDate}
+                onEventSelect={handleEventSelect}
+                onOverflowSelect={handleOverflowSelect}
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       <button
         type="button"
         onClick={() => setAddDate(new Date(anchorDate))}
-        className="fixed bottom-24 right-8 z-[90] flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-4xl font-light leading-none text-white shadow-xl shadow-blue-600/30 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8"
+        className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/25 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8 md:right-8 md:h-15 md:w-15"
         aria-label="Add event"
       >
-        <Plus className="h-8 w-8" />
+        <Plus className="h-7 w-7" />
       </button>
 
       <FamilyEventOverflowPopover
