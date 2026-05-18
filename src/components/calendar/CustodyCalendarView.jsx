@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Baby, CalendarDays } from "lucide-react";
+import { Baby } from "lucide-react";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -7,8 +7,6 @@ import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import CustodyDashboardPro from "@/components/custody/CustodyDashboardPro";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import CustodyScopeMetadataBackfill from "@/components/calendar/CustodyScopeMetadataBackfill";
 
 function normalizeEmail(value) {
@@ -139,7 +137,7 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
             key={group.id}
             type="button"
             onClick={() => onSelect(group.id)}
-            className={`min-w-[280px] rounded-2xl border px-4 py-3 text-left transition ${
+            className={`min-w-[260px] rounded-2xl border px-4 py-3 text-left transition ${
               active
                 ? "border-blue-300 bg-blue-50 shadow-sm"
                 : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
@@ -383,56 +381,78 @@ export default function CustodyCalendarView({
     ]
   );
 
+  const groupSelector = loadingGroups ? (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+      Loading custody groups...
+    </div>
+  ) : (
+    <CustodyGroupSelector
+      groups={availableGroups}
+      selectedGroupId={selectedGroup?.id}
+      onSelect={setSelectedGroupId}
+      myEmail={myEmail}
+    />
+  );
+
+  if (mode === "dashboard") {
+    return (
+      <div className="min-h-full bg-[#f8fbff] pb-6">
+        <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
+          <div className="mx-auto max-w-[1600px]">
+            {groupSelector}
+          </div>
+        </div>
+
+        {canRenderCalendar ? (
+          <FamilyContext.Provider value={scopedFamilyContext}>
+            <CustodyScopeMetadataBackfill>
+              <CustodyDashboardPro
+                onOpenSchedule={onOpenSchedule}
+                onOpenExchange={onOpenExchange}
+                onOpenPacking={onOpenPacking}
+                onOpenNotifications={onOpenNotifications}
+                onOpenBudget={onOpenBudget}
+                onOpenChat={onOpenChat}
+              />
+            </CustodyScopeMetadataBackfill>
+          </FamilyContext.Provider>
+        ) : (
+          <div className="p-8 text-center text-sm font-bold text-slate-400">
+            {loadingGroups ? "Loading custody dashboard..." : "You do not have access to this custody dashboard."}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-[#f8fbff] p-2 md:p-4">
       <div className="mx-auto max-w-none rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
-          {loadingGroups ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-              Loading custody groups...
-            </div>
-          ) : (
-            <CustodyGroupSelector
-              groups={availableGroups}
-              selectedGroupId={selectedGroup?.id}
-              onSelect={setSelectedGroupId}
-              myEmail={myEmail}
-            />
-          )}
+          {groupSelector}
         </div>
 
         <div className="custody-original-calendar-wrapper bg-[#f8fbff]">
           {canRenderCalendar ? (
             <FamilyContext.Provider value={scopedFamilyContext}>
               <CustodyScopeMetadataBackfill>
-                {mode === "dashboard" ? (
-                  <CustodyDashboardPro
-                    onOpenSchedule={onOpenSchedule}
-                    onOpenExchange={onOpenExchange}
-                    onOpenPacking={onOpenPacking}
-                    onOpenNotifications={onOpenNotifications}
-                    onOpenBudget={onOpenBudget}
-                    onOpenChat={onOpenChat}
-                  />
-                ) : (
-                  <CustodyCalendar
-                    key={`${selectedCustodyGroupId}-${custodyParentNames.custodyDadColor}-${custodyParentNames.custodyMomColor}`}
-                    viewMode={viewMode === "mixed" ? "month" : viewMode}
-                    setViewMode={setViewMode}
-                    showFilters
-                    selectedCustodyGroup={selectedGroup}
-                    selectedCustodyGroupId={selectedCustodyGroupId}
-                    custodyDadName={custodyParentNames.custodyDadName}
-                    custodyMomName={custodyParentNames.custodyMomName}
-                    custodyDadEmail={custodyParentNames.custodyDadEmail}
-                    custodyMomEmail={custodyParentNames.custodyMomEmail}
-                    custodyDadColor={custodyParentNames.custodyDadColor}
-                    custodyMomColor={custodyParentNames.custodyMomColor}
-                    custodyChildren={selectedChildren}
-                    custodyChildIds={selectedChildIds}
-                    custodyCoParents={selectedParents}
-                  />
-                )}
+                <CustodyCalendar
+                  key={`${selectedCustodyGroupId}-${custodyParentNames.custodyDadColor}-${custodyParentNames.custodyMomColor}`}
+                  viewMode={viewMode === "mixed" ? "month" : viewMode}
+                  setViewMode={setViewMode}
+                  showFilters
+                  selectedCustodyGroup={selectedGroup}
+                  selectedCustodyGroupId={selectedCustodyGroupId}
+                  custodyDadName={custodyParentNames.custodyDadName}
+                  custodyMomName={custodyParentNames.custodyMomName}
+                  custodyDadEmail={custodyParentNames.custodyDadEmail}
+                  custodyMomEmail={custodyParentNames.custodyMomEmail}
+                  custodyDadColor={custodyParentNames.custodyDadColor}
+                  custodyMomColor={custodyParentNames.custodyMomColor}
+                  custodyChildren={selectedChildren}
+                  custodyChildIds={selectedChildIds}
+                  custodyCoParents={selectedParents}
+                />
               </CustodyScopeMetadataBackfill>
             </FamilyContext.Provider>
           ) : (
