@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import FamilyCalendarLegend from "@/components/calendar/family/FamilyCalendarLegend";
 import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalendarMonthPicker";
 import FamilyCalendarFilterDropdown from "@/components/calendar/family/FamilyCalendarFilterDropdown";
-import FamilyCalendarWeatherWidget from "@/components/calendar/family/FamilyCalendarWeatherWidget";
 import { ALL_ASSIGNMENT_ID } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
 import { buildCategoryFilterOptions, buildPersonFilterOptions } from "@/components/calendar/family/familyCalendarFilterOptions";
 
@@ -91,14 +90,9 @@ export default function FamilyCalendarPlannerHeader({
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-600/80">
                 Kinly Planner
               </p>
-              <div className="mt-1 flex flex-wrap items-end gap-3">
-                <h1 className="text-3xl font-black leading-none tracking-tight text-slate-950 sm:text-[2.35rem]">
-                  Family Calendar
-                </h1>
-                <span className="rounded-full bg-white/75 px-3 py-1.5 text-sm font-black text-slate-500 shadow-sm">
-                  {visibleEventCount} events · {rangeText}
-                </span>
-              </div>
+              <h1 className="mt-1 text-3xl font-black leading-none tracking-tight text-slate-950 sm:text-[2.35rem]">
+                Family Calendar
+              </h1>
             </div>
           </div>
 
@@ -120,9 +114,6 @@ export default function FamilyCalendarPlannerHeader({
             <div className="rounded-2xl bg-white/75 px-4 py-2 text-right shadow-sm backdrop-blur">
               <p className="text-xl font-black leading-none text-slate-950">{format(now, "h:mm a")}</p>
               <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">{format(now, "EEE, MMM d")}</p>
-            </div>
-            <div className="min-w-[140px]">
-              <FamilyCalendarWeatherWidget />
             </div>
             <button type="button" onClick={onSync} className="inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/75 px-3 py-2 text-xs font-black text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
               <RefreshCcw className="h-3.5 w-3.5" /> Sync
@@ -155,7 +146,12 @@ export default function FamilyCalendarPlannerHeader({
       </div>
 
       <div className="mt-3 flex flex-col gap-3 border-t border-white/70 pt-3 lg:flex-row lg:items-center lg:justify-between">
-        <DateNavigation onPrevious={onPrevious} onToday={onToday} onNext={onNext} />
+        <div className="flex flex-wrap items-center gap-3">
+          <DateNavigation onPrevious={onPrevious} onToday={onToday} onNext={onNext} />
+          <span className="rounded-full bg-white/75 px-3 py-2 text-sm font-black text-slate-500 shadow-sm">
+            {visibleEventCount} events · {rangeText}
+          </span>
+        </div>
         <ViewModeSwitch viewMode={viewMode} onViewModeChange={onViewModeChange} />
       </div>
     </header>
