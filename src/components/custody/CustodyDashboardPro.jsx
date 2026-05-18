@@ -38,6 +38,19 @@ function normalizeCustodyDay(docSnap) {
   };
 }
 
+function normalizePackingDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    name: data.name || "Packing item",
+    category: data.category || "General",
+    owner: data.owner || "Shared",
+    status: data.status || "review",
+    important: Boolean(data.important),
+    order: data.order ?? 999,
+  };
+}
+
 function getParentLabel(parent, dadName, momName) {
   if (parent === "dad") return dadName || "Dad";
   if (parent === "mom") return momName || "Mom";
@@ -195,8 +208,10 @@ function WeekStrip({ weekDays }) {
 export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, onOpenPacking, onOpenNotifications, onOpenBudget, onOpenChat }) {
   const { user, familyId, dadName, momName, perms } = useFamily();
   const [custodyDays, setCustodyDays] = useState([]);
+  const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
   const [loading, setLoading] = useState(true);
-  const packingSummary = useMemo(() => getPackingSummary(initialCustodyPackingItems), []);
+  const [loadingPacking, setLoadingPacking] = useState(true);
+  const packingSummary = useMemo(() => getPackingSummary(packingItems), [packingItems]);
 
   const canRead = perms?.calendar?.read !== false;
 
@@ -231,6 +246,47 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
       cancelled = true;
     };
   }, [user?.uid, familyId, canRead]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPackingItems() {
+      if (!user || !familyId) {
+        setPackingItems(initialCustodyPackingItems);
+        setLoadingPacking(false);
+        return;
+      }
+
+      setLoadingPacking(true);
+
+      try {
+        const q = query(collection(db, "custodyPackingItems"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          if (!cancelled) setPackingItems(initialCustodyPackingItems);
+          return;
+        }
+
+        const data = snap.docs
+          .map(normalizePackingDoc)
+          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+        if (!cancelled) setPackingItems(data);
+      } catch (error) {
+        console.error("Error loading packing dashboard summary:", error);
+        if (!cancelled) setPackingItems(initialCustodyPackingItems);
+      } finally {
+        if (!cancelled) setLoadingPacking(false);
+      }
+    }
+
+    loadPackingItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
 
   const dashboard = useMemo(() => {
     const today = new Date();
@@ -325,8 +381,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             />
             <InfoCard
               title="Packing list"
-              value={`${packingSummary.totalCount} items`}
-              text={`${packingSummary.packedCount} packed · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing`}
+              value={loadingPacking ? "Loading" : `${packingSummary.totalCount} items`}
+              text={loadingPacking ? "Checking packing readiness..." : `${packingSummary.packedCount} packed · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing`}
               icon={Shirt}
               tone="emerald"
               onClick={onOpenPacking}
