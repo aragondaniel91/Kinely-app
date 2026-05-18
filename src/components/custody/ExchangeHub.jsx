@@ -10,6 +10,7 @@ import {
   MessageSquareText,
   Pencil,
   Plus,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 
@@ -28,7 +29,47 @@ const emptyExchange = {
   pickupBy: "mom",
   notes: "",
   status: "pending",
+  source: "manual",
 };
+
+function normalizeDate(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value?.toDate) return value.toDate().toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+function normalizeCustodyDay(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    date: normalizeDate(data.date),
+    is_split: data.is_split || data.isSplit || false,
+    with_whom: data.with_whom || data.withWhom || null,
+    morning: data.morning || null,
+    afternoon: data.afternoon || null,
+  };
+}
+
+function getChangeOwner(day) {
+  if (!day) return "none";
+  if (day.is_split) return day.morning || day.afternoon || "split";
+  return day.with_whom || "none";
+}
+
+function findNextChange(sortedDays, todayKey, currentOwner) {
+  if (!currentOwner || currentOwner === "none") return null;
+
+  return sortedDays.find((day) => {
+    const dateKey = normalizeDate(day.date);
+    if (!dateKey || dateKey <= todayKey) return false;
+
+    const nextOwner = getChangeOwner(day);
+    if (!nextOwner || nextOwner === "none") return false;
+
+    return nextOwner !== currentOwner;
+  });
+}
 
 function formatParent(value, dadName, momName) {
   if (value === "dad") return dadName || "Dad";
@@ -94,6 +135,7 @@ function exchangeToForm(exchange) {
     pickupBy: exchange?.pickupBy || exchange?.toParent || "mom",
     notes: exchange?.notes || "",
     status: exchange?.status || "pending",
+    source: exchange?.source || "manual",
   };
 }
 
@@ -109,6 +151,7 @@ function normalizeExchangeDoc(docSnap) {
     pickupBy: data.pickupBy || data.toParent || "mom",
     notes: data.notes || "",
     status: data.status || "pending",
+    source: data.source || "manual",
     order: data.order ?? 999,
   };
 }
@@ -154,6 +197,33 @@ function ExchangeSummaryCard({ exchange, dadName, momName, loading }) {
             </div>
           </div>
         </div>
+      </div>
+    </Card>
+  );
+}
+
+function SuggestedExchangeCard({ suggestion, dadName, momName, onConfirm }) {
+  if (!suggestion) return null;
+
+  return (
+    <Card className="rounded-[1.8rem] border-blue-100 bg-blue-50/80 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
+            <Sparkles className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Smart suggestion</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">Confirm suggested exchange</h3>
+            <p className="mt-1 text-sm font-semibold leading-6 text-blue-800">
+              Calendar detected {formatParent(suggestion.fromParent, dadName, momName)} → {formatParent(suggestion.toParent, dadName, momName)} on {formatDate(suggestion.date)}. Review time, location, and notes before saving.
+            </p>
+          </div>
+        </div>
+
+        <Button type="button" onClick={onConfirm} className="rounded-full bg-blue-600 hover:bg-blue-700">
+          Confirm details
+        </Button>
       </div>
     </Card>
   );
@@ -317,6 +387,7 @@ function ExchangeModal({ open, mode, value, saving, onChange, onClose, onSubmit 
 export default function ExchangeHub() {
   const { user, familyId, dadName, momName } = useFamily();
   const [exchanges, setExchanges] = useState([]);
+  const [custodyDays, setCustodyDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [savingExchange, setSavingExchange] = useState(false);
@@ -358,10 +429,77 @@ export default function ExchangeHub() {
     };
   }, [user?.uid, familyId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCustodyDays() {
+      if (!user || !familyId) {
+        setCustodyDays([]);
+        return;
+      }
+
+      try {
+        const q = query(collection(db, "custodyDays"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+        const data = snap.docs
+          .map(normalizeCustodyDay)
+          .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+        if (!cancelled) setCustodyDays(data);
+      } catch (error) {
+        console.error("Error loading custody days for exchange suggestion:", error);
+        if (!cancelled) setCustodyDays([]);
+      }
+    }
+
+    loadCustodyDays();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
+
+  const suggestedExchange = useMemo(() => {
+    const todayKey = getTodayKey();
+    const custodyByDate = {};
+
+    custodyDays.forEach((day) => {
+      if (day.date) custodyByDate[day.date] = day;
+    });
+
+    const todayCustody = custodyByDate[todayKey];
+    const currentOwner = getChangeOwner(todayCustody);
+    const nextChange = findNextChange(custodyDays, todayKey, currentOwner);
+    const nextOwner = getChangeOwner(nextChange);
+
+    if (!nextChange || !currentOwner || currentOwner === "none" || !nextOwner || nextOwner === "none") return null;
+
+    const date = normalizeDate(nextChange.date);
+    const existing = exchanges.find((exchange) =>
+      exchange.date === date &&
+      exchange.fromParent === currentOwner &&
+      exchange.toParent === nextOwner
+    );
+
+    if (existing) return null;
+
+    return {
+      date,
+      time: "18:00",
+      location: "",
+      fromParent: currentOwner,
+      toParent: nextOwner,
+      pickupBy: nextOwner,
+      notes: "Auto-suggested from the custody calendar. Please confirm time, location, and handoff details.",
+      status: "pending",
+      source: "calendar-suggested",
+    };
+  }, [custodyDays, exchanges]);
+
   const nextExchange = useMemo(() => {
     const todayKey = getTodayKey();
-    return exchanges.find((exchange) => exchange.status !== "completed" && (!exchange.date || exchange.date >= todayKey)) || exchanges[0] || null;
-  }, [exchanges]);
+    return exchanges.find((exchange) => exchange.status !== "completed" && (!exchange.date || exchange.date >= todayKey)) || exchanges[0] || suggestedExchange || null;
+  }, [exchanges, suggestedExchange]);
 
   const completedCount = exchanges.filter((exchange) => exchange.status === "completed").length;
   const pendingCount = exchanges.filter((exchange) => exchange.status === "pending").length;
@@ -377,6 +515,13 @@ export default function ExchangeHub() {
   const openAddExchange = () => {
     setEditingExchange(null);
     setExchangeForm({ ...emptyExchange, date: getTodayKey() });
+    setShowExchangeModal(true);
+  };
+
+  const openSuggestedExchange = () => {
+    if (!suggestedExchange) return;
+    setEditingExchange(null);
+    setExchangeForm(exchangeToForm(suggestedExchange));
     setShowExchangeModal(true);
   };
 
@@ -403,6 +548,7 @@ export default function ExchangeHub() {
         pickupBy: exchangeForm.pickupBy || exchangeForm.toParent,
         notes: exchangeForm.notes.trim(),
         status: exchangeForm.status,
+        source: exchangeForm.source || "manual",
         updatedAt: serverTimestamp(),
       };
 
@@ -478,9 +624,11 @@ export default function ExchangeHub() {
       <div className="mx-auto max-w-7xl space-y-6">
         <ExchangeSummaryCard loading={loading} exchange={nextExchange} dadName={dadName} momName={momName} />
 
+        <SuggestedExchangeCard suggestion={suggestedExchange} dadName={dadName} momName={momName} onConfirm={openSuggestedExchange} />
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <DetailCard icon={Clock3} label="Time" value={nextExchange ? formatTime(nextExchange.time) : "TBD"} helper="Suggested reminder: 30 min before" />
-          <DetailCard icon={MapPin} label="Location" value={nextExchange?.location || "No location"} helper="Visible to connected homes" />
+          <DetailCard icon={MapPin} label="Location" value={nextExchange?.location || "Needs review"} helper="Visible to connected homes" />
           <DetailCard icon={Car} label="Pickup by" value={nextExchange ? formatParent(nextExchange.pickupBy, dadName, momName) : "TBD"} helper="Based on next exchange" />
           <DetailCard icon={CalendarClock} label="Exchange status" value={`${pendingCount} pending`} helper={`${completedCount} completed · ${issueCount} issue`} />
         </div>
@@ -511,7 +659,7 @@ export default function ExchangeHub() {
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-500">
-                  No exchanges yet. Add the first handoff to start tracking details.
+                  No confirmed exchanges yet. Use the smart suggestion above or add one manually.
                 </div>
               )}
             </div>
@@ -537,7 +685,7 @@ export default function ExchangeHub() {
 
             <div className="space-y-4">
               {[
-                { id: "confirm", title: "Confirm exchange details", description: "Time, location, and pickup person are visible for both homes.", status: nextExchange ? "done" : "pending" },
+                { id: "confirm", title: "Confirm exchange details", description: "Time, location, and pickup person are visible for both homes.", status: nextExchange && !suggestedExchange ? "done" : "pending" },
                 { id: "pack", title: "Prepare transition items", description: "Backpack, medicine, clothes, and school items.", status: "active" },
                 { id: "handoff", title: "Complete handoff", description: "Mark exchange complete once the child is with the next parent.", status: nextExchange?.status === "completed" ? "done" : "pending" },
               ].map((step, index) => (
