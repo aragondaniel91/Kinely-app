@@ -5,9 +5,7 @@ import {
   CalendarDays,
   CheckSquare,
   ChevronRight,
-  Clock3,
   Heart,
-  ListChecks,
   Plus,
   School,
   ShoppingCart,
@@ -84,14 +82,6 @@ function getSmartBrief({ loading, tasks, meals, groceries, hasCustody, nextChang
     };
   }
 
-  if (meals.length > 0 && tasks.length <= 1 && groceries.length <= 2) {
-    return {
-      title: "Family flow looks calm",
-      text: "Meals are planned and today looks manageable.",
-      tone: "emerald",
-    };
-  }
-
   if (groceries.length > 0) {
     return {
       title: "Groceries need attention",
@@ -105,6 +95,14 @@ function getSmartBrief({ loading, tasks, meals, groceries, hasCustody, nextChang
       title: "Tasks are waiting",
       text: `${tasks.length} family task(s) are pending today.`,
       tone: "amber",
+    };
+  }
+
+  if (meals.length > 0) {
+    return {
+      title: "Family flow looks calm",
+      text: "Meals are planned and today looks manageable.",
+      tone: "emerald",
     };
   }
 
@@ -144,30 +142,11 @@ function SectionHeader({ kicker, title, action, to }) {
   );
 }
 
-function SummaryCard({ icon: Icon, title, value, text, to, tone = "blue" }) {
-  return (
-    <Link to={to} className="block">
-      <Card className="min-h-[132px] rounded-[1.55rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-md">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">{title}</p>
-            <p className="mt-2 truncate text-2xl font-black text-slate-950">{value}</p>
-            <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-slate-500">{text}</p>
-          </div>
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${getToneClasses(tone)}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-      </Card>
-    </Link>
-  );
-}
-
 function QuickAction({ icon: Icon, label, text, to, tone = "blue" }) {
   return (
     <Link
       to={to}
-      className="group flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+      className="group flex min-h-[72px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
     >
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${getToneClasses(tone)}`}>
         <Icon className="h-5 w-5" />
@@ -183,7 +162,7 @@ function QuickAction({ icon: Icon, label, text, to, tone = "blue" }) {
 
 function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
   const content = (
-    <div className="flex items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-blue-100 hover:bg-white">
       <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
         <Icon className="h-4 w-4" />
       </div>
@@ -195,6 +174,70 @@ function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
   );
 
   return to ? <Link to={to} className="block">{content}</Link> : content;
+}
+
+function TodayFocusCard({ tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel, todayLabel }) {
+  const focusItems = [
+    hasCustody
+      ? {
+          icon: Heart,
+          title: "Custody status",
+          text: nextChange ? `Next exchange with ${nextChangeLabel} in ${nextChange.days} day(s).` : todayLabel,
+          tone: "rose",
+          to: "/custody",
+        }
+      : null,
+    tasks.length
+      ? {
+          icon: CheckSquare,
+          title: "Tasks need attention",
+          text: `${tasks.length} pending task${tasks.length === 1 ? "" : "s"}.`,
+          tone: "amber",
+          to: "/tasks",
+        }
+      : {
+          icon: CheckSquare,
+          title: "Tasks are clear",
+          text: "No pending tasks right now.",
+          tone: "emerald",
+          to: "/tasks",
+        },
+    groceries.length
+      ? {
+          icon: ShoppingCart,
+          title: "Groceries still open",
+          text: `${groceries.length} item${groceries.length === 1 ? "" : "s"} on the list.`,
+          tone: "violet",
+          to: "/groceries",
+        }
+      : null,
+    meals.length
+      ? {
+          icon: UtensilsCrossed,
+          title: "Meals planned",
+          text: `${meals.length} meal${meals.length === 1 ? "" : "s"} planned today.`,
+          tone: "emerald",
+          to: "/meals",
+        }
+      : {
+          icon: UtensilsCrossed,
+          title: "No meals planned yet",
+          text: "Add a meal plan when ready.",
+          tone: "emerald",
+          to: "/meals",
+        },
+  ].filter(Boolean).slice(0, 4);
+
+  return (
+    <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+      <SectionHeader kicker="Today" title="Family focus" action="Calendar" to="/calendar" />
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {focusItems.map((item) => (
+          <CompactItem key={`${item.title}-${item.text}`} icon={item.icon} title={item.title} text={item.text} tone={item.tone} to={item.to} />
+        ))}
+      </div>
+    </Card>
+  );
 }
 
 function TaskPreviewCard({ tasks }) {
@@ -243,7 +286,7 @@ function NextSevenDaysCard({ nextChange, nextChangeLabel, tasks, meals, grocerie
     })
     .slice(0, 3)
     .map((task) => ({
-      id: `task-${task.id}`,
+      id: `task-${task.id || getItemTitle(task)}`,
       icon: CheckSquare,
       title: getItemTitle(task, "Task due"),
       text: `Task · ${formatShortDate(getItemDate(task))}`,
@@ -252,7 +295,7 @@ function NextSevenDaysCard({ nextChange, nextChangeLabel, tasks, meals, grocerie
     }));
 
   const mealEvents = meals.slice(0, 2).map((meal) => ({
-    id: `meal-${meal.id}`,
+    id: `meal-${meal.id || getItemTitle(meal)}`,
     icon: UtensilsCrossed,
     title: getItemTitle(meal, "Meal planned"),
     text: `Meal · ${formatShortDate(meal.date || today)}`,
@@ -300,41 +343,6 @@ function NextSevenDaysCard({ nextChange, nextChangeLabel, tasks, meals, grocerie
   );
 }
 
-function FocusListCard({ tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel, todayLabel }) {
-  const focusItems = [
-    groceries.length
-      ? { icon: ShoppingCart, title: "Groceries still open", text: `${groceries.length} item(s) need attention.`, tone: "violet", to: "/groceries" }
-      : null,
-    tasks.length
-      ? { icon: CheckSquare, title: "Tasks need attention", text: `${tasks.length} pending task(s) are waiting.`, tone: "amber", to: "/tasks" }
-      : { icon: CheckSquare, title: "Tasks are clear", text: "No pending tasks right now.", tone: "emerald", to: "/tasks" },
-    meals.length
-      ? { icon: UtensilsCrossed, title: "Meals planned", text: `${meals.length} meal(s) are planned today.`, tone: "emerald", to: "/meals" }
-      : { icon: UtensilsCrossed, title: "No meals planned yet", text: "Meal planning can be added.", tone: "emerald", to: "/meals" },
-    hasCustody
-      ? { icon: Heart, title: "Custody summary", text: nextChange ? `Next exchange with ${nextChangeLabel} in ${nextChange.days} day(s).` : todayLabel, tone: "rose", to: "/custody" }
-      : null,
-  ].filter(Boolean).slice(0, 4);
-
-  return (
-    <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Family pulse</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">Today’s focus</h2>
-        </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">Smart</span>
-      </div>
-
-      <div className="mt-4 space-y-3">
-        {focusItems.map((item) => (
-          <CompactItem key={`${item.title}-${item.text}`} icon={item.icon} title={item.title} text={item.text} tone={item.tone} to={item.to} />
-        ))}
-      </div>
-    </Card>
-  );
-}
-
 function ChildCard({ todayLabel, hasCustody, nextChange, nextChangeLabel, tasksCount, mealsCount, groceriesCount }) {
   return (
     <Card className="overflow-hidden rounded-[1.8rem] border-white/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
@@ -374,6 +382,28 @@ function ChildCard({ todayLabel, hasCustody, nextChange, nextChangeLabel, tasksC
         <CompactItem icon={CheckSquare} title="Tasks" text={`${tasksCount} pending`} tone="amber" />
         <CompactItem icon={UtensilsCrossed} title="Meals" text={`${mealsCount} today`} tone="emerald" />
         <CompactItem icon={ShoppingCart} title="Groceries" text={`${groceriesCount} open`} tone="violet" />
+      </div>
+    </Card>
+  );
+}
+
+function ShoppingPreviewCard({ groceries, canReadGroceries }) {
+  if (!canReadGroceries || groceries.length === 0) return null;
+
+  return (
+    <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+      <SectionHeader kicker="Groceries" title="Shopping preview" action="Open" to="/groceries" />
+      <div className="mt-4 space-y-2.5">
+        {groceries.slice(0, 4).map((item, index) => (
+          <CompactItem
+            key={item.id || `${getItemTitle(item)}-${index}`}
+            icon={ShoppingCart}
+            title={getItemTitle(item, "Grocery item")}
+            text={item.category || item.quantity || "Open item"}
+            tone="violet"
+            to="/groceries"
+          />
+        ))}
       </div>
     </Card>
   );
@@ -448,31 +478,18 @@ export default function FamilyHomeDashboard({
           </div>
         </section>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {canReadTasks && (
-            <SummaryCard icon={CheckSquare} title="Tasks" value={tasks.length} text="due or pending" to="/tasks" tone="amber" />
-          )}
-          {canReadMeals && (
-            <SummaryCard icon={UtensilsCrossed} title="Meals" value={meals.length} text="planned today" to="/meals" tone="emerald" />
-          )}
-          {canReadGroceries && (
-            <SummaryCard icon={ShoppingCart} title="Groceries" value={groceries.length} text="open items" to="/groceries" tone="violet" />
-          )}
-          <SummaryCard icon={CalendarDays} title="Calendar" value="7 days" text="coming up" to="/calendar" tone="blue" />
-        </div>
+        <TodayFocusCard
+          tasks={tasks}
+          meals={meals}
+          groceries={groceries}
+          hasCustody={hasCustody}
+          nextChange={nextChange}
+          nextChangeLabel={nextChangeLabel}
+          todayLabel={todayLabel}
+        />
 
-        <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
+        <div className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
           <div className="space-y-4">
-            <ChildCard
-              todayLabel={todayLabel}
-              hasCustody={hasCustody}
-              nextChange={nextChange}
-              nextChangeLabel={nextChangeLabel}
-              tasksCount={tasks.length}
-              mealsCount={meals.length}
-              groceriesCount={groceries.length}
-            />
-
             {canReadTasks && <TaskPreviewCard tasks={tasks} />}
 
             <NextSevenDaysCard
@@ -495,35 +512,17 @@ export default function FamilyHomeDashboard({
               </div>
             </Card>
 
-            <FocusListCard
-              tasks={tasks}
-              meals={meals}
-              groceries={groceries}
+            <ChildCard
+              todayLabel={todayLabel}
               hasCustody={hasCustody}
               nextChange={nextChange}
               nextChangeLabel={nextChangeLabel}
-              todayLabel={todayLabel}
+              tasksCount={tasks.length}
+              mealsCount={meals.length}
+              groceriesCount={groceries.length}
             />
 
-            <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-              <SectionHeader kicker="Groceries" title="Shopping preview" action="Open" to="/groceries" />
-              <div className="mt-4 space-y-2.5">
-                {canReadGroceries && groceries.length ? (
-                  groceries.slice(0, 4).map((item, index) => (
-                    <CompactItem
-                      key={item.id || `${getItemTitle(item)}-${index}`}
-                      icon={ShoppingCart}
-                      title={getItemTitle(item, "Grocery item")}
-                      text={item.category || item.quantity || "Open item"}
-                      tone="violet"
-                      to="/groceries"
-                    />
-                  ))
-                ) : (
-                  <CompactItem icon={ShoppingCart} title="No open grocery items" text="The shopping list looks calm." tone="emerald" to="/groceries" />
-                )}
-              </div>
-            </Card>
+            <ShoppingPreviewCard groceries={groceries} canReadGroceries={canReadGroceries} />
           </div>
         </div>
       </div>
