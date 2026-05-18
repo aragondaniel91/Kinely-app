@@ -16,6 +16,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -137,15 +138,27 @@ function InfoCard({ title, value, text, icon: Icon, tone = "blue", onClick }) {
 
 function ReadinessItem({ label, status = "Ready" }) {
   const isReview = status === "Review";
+  const isMissing = status === "Missing";
+
+  const iconClassName = isMissing
+    ? "h-4 w-4 text-rose-600"
+    : isReview
+      ? "h-4 w-4 text-amber-600"
+      : "h-4 w-4 text-emerald-600";
+
+  const badgeClassName = isMissing
+    ? "rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-black text-rose-700"
+    : isReview
+      ? "rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700"
+      : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700";
+
   return (
     <div className="flex items-center justify-between gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5">
       <div className="flex items-center gap-2">
-        <CheckCircle2 className={isReview ? "h-4 w-4 text-amber-600" : "h-4 w-4 text-emerald-600"} />
+        <CheckCircle2 className={iconClassName} />
         <p className="text-sm font-black text-slate-800">{label}</p>
       </div>
-      <span className={isReview ? "rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700" : "rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700"}>
-        {status}
-      </span>
+      <span className={badgeClassName}>{status}</span>
     </div>
   );
 }
@@ -183,6 +196,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const { user, familyId, dadName, momName, perms } = useFamily();
   const [custodyDays, setCustodyDays] = useState([]);
   const [loading, setLoading] = useState(true);
+  const packingSummary = useMemo(() => getPackingSummary(initialCustodyPackingItems), []);
 
   const canRead = perms?.calendar?.read !== false;
 
@@ -311,8 +325,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             />
             <InfoCard
               title="Packing list"
-              value="5 items"
-              text="Ready to connect with packing data"
+              value={`${packingSummary.totalCount} items`}
+              text={`${packingSummary.packedCount} packed · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing`}
               icon={Shirt}
               tone="emerald"
               onClick={onOpenPacking}
@@ -350,8 +364,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               <h2 className="mt-1 text-xl font-black text-slate-950">Before transition</h2>
               <div className="mt-4 space-y-2.5">
                 <ReadinessItem label="Backpack" />
-                <ReadinessItem label="Medicine / health notes" status="Review" />
-                <ReadinessItem label="School items" />
+                <ReadinessItem label="Medicine bag" status={packingSummary.missingCount > 0 ? "Missing" : "Ready"} />
+                <ReadinessItem label="School items" status={packingSummary.reviewCount > 0 ? "Review" : "Ready"} />
                 <ReadinessItem label="Handoff notes" status="Optional" />
               </div>
             </Card>
@@ -363,7 +377,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
                 {dashboard.nextChange
-                  ? `${nextChangeText}. Review packing, school items, and handoff notes before the transition.`
+                  ? `${nextChangeText}. Packing is ${packingSummary.readiness}% ready with ${packingSummary.missingCount} missing item(s).`
                   : "No upcoming exchange was found in the current custody schedule."}
               </p>
             </Card>
