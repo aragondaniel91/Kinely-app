@@ -5,10 +5,13 @@ import {
   CheckSquare,
   ChevronRight,
   Heart,
+  History,
+  Plane,
   School,
   ShoppingCart,
   Sparkles,
   Sun,
+  Trash2,
   UtensilsCrossed,
   Users,
 } from "lucide-react";
@@ -46,6 +49,41 @@ function formatShortDate(value) {
   if (days > 1 && days <= 7) return target.toLocaleDateString([], { weekday: "short" });
 
   return target.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function formatActivityTime(activity) {
+  const raw = activity?.created_at || activity?.createdAt;
+  const date = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null;
+
+  if (!date || Number.isNaN(date.getTime())) return "Just now";
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function getActivityIcon(type = "") {
+  if (type.includes("travel")) return Plane;
+  if (type.includes("special_event")) return Sparkles;
+  if (type.includes("deleted")) return Trash2;
+  if (type.includes("custody")) return CalendarDays;
+  return History;
+}
+
+function getActivityTone(type = "") {
+  if (type.includes("deleted")) return "rose";
+  if (type.includes("travel")) return "blue";
+  if (type.includes("special_event")) return "amber";
+  if (type.includes("custody")) return "violet";
+  return "slate";
 }
 
 function getItemTitle(item, fallback = "Item") {
@@ -175,6 +213,45 @@ function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
     </div>
   );
   return to ? <Link to={to} className="block">{content}</Link> : content;
+}
+
+function ActivityItem({ item }) {
+  const Icon = getActivityIcon(item.type);
+  const tone = getActivityTone(item.type);
+  const actor = item.actorName || item.actor_name || item.actorEmail || "Someone";
+
+  return (
+    <div className="flex items-start gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <p className="truncate text-sm font-black text-slate-950">{item.title || "Family activity"}</p>
+          <span className="shrink-0 text-[11px] font-bold text-slate-400">{formatActivityTime(item)}</span>
+        </div>
+        <p className="truncate text-xs font-semibold text-slate-500">{item.description || "Updated family information"}</p>
+        <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">by {actor}</p>
+      </div>
+    </div>
+  );
+}
+
+function RecentActivityCard({ activity = [] }) {
+  return (
+    <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+      <SectionHeader kicker="Actividad" title="Recent activity" />
+      <div className="mt-4 space-y-2.5">
+        {activity.length ? (
+          activity.slice(0, 5).map((item, index) => (
+            <ActivityItem key={item.id || `${item.type}-${index}`} item={item} />
+          ))
+        ) : (
+          <CompactItem icon={History} title="No activity yet" text="Family updates will appear here after changes are made." tone="slate" />
+        )}
+      </div>
+    </Card>
+  );
 }
 
 function StatPill({ icon: Icon, value, label, tone }) {
@@ -404,6 +481,7 @@ export default function FamilyHomeDashboard({
   tasks,
   meals,
   groceries,
+  activity = [],
   loading,
   canReadTasks,
   canReadMeals,
@@ -445,7 +523,11 @@ export default function FamilyHomeDashboard({
         <div className="grid gap-4 xl:grid-cols-[0.9fr_1fr_0.9fr]">
           {canReadTasks && <TaskPreviewCard tasks={tasks} />}
           <NextSevenDaysCard nextChange={nextChange} nextChangeLabel={nextChangeLabel} tasks={tasks} meals={meals} groceries={groceries} />
-          <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+          <RecentActivityCard activity={activity} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[0.9fr_1fr_0.9fr]">
+          <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5 xl:col-span-1">
             <SectionHeader kicker="Acciones rápidas" title="Agregar" />
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {quickActions.map((action) => <QuickAction key={action.label} {...action} />)}
