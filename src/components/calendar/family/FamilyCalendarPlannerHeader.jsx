@@ -16,14 +16,14 @@ export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
 
 function ViewModeSwitch({ viewMode, onViewModeChange }) {
   return (
-    <div className="flex shrink-0 overflow-hidden rounded-[1.15rem] border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
+    <div className="flex shrink-0 overflow-hidden rounded-[1.05rem] border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur">
       {["day", "week", "month"].map((mode) => (
         <button
           key={mode}
           type="button"
           onClick={() => onViewModeChange?.(mode)}
           className={cn(
-            "min-w-[68px] rounded-[0.85rem] px-3 py-2 text-sm font-black capitalize transition sm:min-w-[76px]",
+            "min-w-[64px] rounded-[0.8rem] px-3 py-2 text-sm font-black capitalize transition sm:min-w-[72px]",
             viewMode === mode
               ? "bg-blue-600 text-white shadow-sm"
               : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
@@ -88,24 +88,24 @@ export default function FamilyCalendarPlannerHeader({
   const categoryFilterOptions = buildCategoryFilterOptions(categoryOptions);
 
   return (
-    <header className="kinly-family-gradient p-4 md:p-5 lg:p-5">
-      <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
+    <header className="kinly-family-gradient p-3.5 md:p-4 lg:p-4">
+      <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[1.1rem] bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100">
               <CalendarHeart className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-blue-600/80">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600/80">
                 Kinly Planner
               </p>
-              <h1 className="mt-1 text-3xl font-black leading-none tracking-tight text-slate-950 sm:text-[2.35rem]">
+              <h1 className="mt-0.5 text-3xl font-black leading-none tracking-tight text-slate-950 sm:text-[2.2rem]">
                 Family Calendar
               </h1>
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="mt-2.5 flex flex-wrap items-center gap-3">
             <FamilyCalendarMonthPicker
               anchorDate={anchorDate}
               onChangeMonth={onChangeMonth}
@@ -118,10 +118,10 @@ export default function FamilyCalendarPlannerHeader({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 xl:min-w-[560px] xl:items-end">
+        <div className="flex flex-col gap-2.5 xl:min-w-[560px] xl:items-end">
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <div className="rounded-2xl bg-white/75 px-4 py-2 text-right shadow-sm backdrop-blur">
-              <p className="text-xl font-black leading-none text-slate-950">{format(now, "h:mm a")}</p>
+              <p className="text-lg font-black leading-none text-slate-950">{format(now, "h:mm a")}</p>
               <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">{format(now, "EEE, MMM d")}</p>
             </div>
             <button type="button" onClick={onSync} className="inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/75 px-3 py-2 text-xs font-black text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
@@ -129,7 +129,7 @@ export default function FamilyCalendarPlannerHeader({
             </button>
           </div>
 
-          <div className="family-scroll-x w-full pb-1">
+          <div className="family-scroll-x w-full pb-0.5">
             <div className="flex w-max min-w-full gap-3 xl:justify-end">
               <FamilyCalendarFilterDropdown
                 icon={UserRound}
@@ -150,11 +150,11 @@ export default function FamilyCalendarPlannerHeader({
         </div>
       </div>
 
-      <div className="mt-4 border-t border-white/70 pt-3">
+      <div className="mt-3 border-t border-white/70 pt-2.5">
         <FamilyCalendarLegend people={people} selectedPersonId={selectedPersonId} onSelectPerson={onSelectPerson} />
       </div>
 
-      <div className="mt-3 flex flex-col gap-3 border-t border-white/70 pt-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mt-2.5 flex flex-col gap-2.5 border-t border-white/70 pt-2.5 lg:flex-row lg:items-center lg:justify-between">
         <span className="w-fit rounded-full bg-white/75 px-3 py-2 text-sm font-black text-slate-500 shadow-sm">
           {visibleEventCount} events · {rangeText}
         </span>
