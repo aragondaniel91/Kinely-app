@@ -124,15 +124,15 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
   if (!groups.length) return null;
 
   return (
-    <div className="rounded-[1.8rem] border border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="rounded-[1.55rem] border border-white/80 bg-white/88 p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)] backdrop-blur md:p-3.5">
+      <div className="mb-2.5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Custody space</p>
-          <p className="mt-1 text-xl font-black tracking-tight text-slate-950">Choose the child/family view</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-500/80">Custody space</p>
+          <p className="mt-0.5 text-base font-black tracking-tight text-slate-950">Child/family view</p>
         </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2">
         {groups.map((group) => {
           const active = group.id === selectedGroupId;
           const children = groupChildren(group);
@@ -149,42 +149,42 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
               key={group.id}
               type="button"
               onClick={() => onSelect(group.id)}
-              className={`min-w-[240px] rounded-[1.35rem] border px-3.5 py-3 text-left transition sm:min-w-[260px] ${
+              className={`min-w-[220px] max-w-full flex-1 rounded-[1.15rem] border px-3 py-2.5 text-left transition sm:max-w-[310px] ${
                 active
-                  ? "border-blue-100 bg-blue-50/70 shadow-sm ring-1 ring-blue-100"
+                  ? "border-blue-100 bg-blue-50/75 shadow-sm ring-1 ring-blue-100"
                   : "border-slate-200 bg-slate-50/70 hover:border-blue-100 hover:bg-white hover:shadow-sm"
               }`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${active ? "border-blue-100 bg-blue-600 text-white" : "border-blue-100 bg-white text-blue-700"}`}>
+              <div className="flex items-center gap-2.5">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border ${active ? "border-blue-100 bg-blue-600 text-white" : "border-blue-100 bg-white text-blue-700"}`}>
                   <Baby className="h-4 w-4" />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <p className="truncate text-sm font-black text-slate-950">
                       {group.name || "Custody Group"}
                     </p>
                     {active && (
-                      <Badge className="rounded-full bg-blue-100 text-[10px] font-black text-blue-700 hover:bg-blue-100">
+                      <Badge className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-black text-blue-700 hover:bg-blue-100">
                         Active
                       </Badge>
                     )}
                     {group.legacy && (
-                      <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
+                      <Badge variant="outline" className="border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-700">
                         Legacy
                       </Badge>
                     )}
                     {access.isViewerOnly && (
-                      <Badge variant="outline" className="border-slate-200 bg-white text-[10px] text-slate-500">
+                      <Badge variant="outline" className="border-slate-200 bg-white px-2 py-0.5 text-[10px] text-slate-500">
                         View only
                       </Badge>
                     )}
                   </div>
-                  <p className="mt-1 truncate text-xs font-semibold text-slate-500">
+                  <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
                     {childNames}
                   </p>
-                  <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">
+                  <p className="truncate text-[11px] font-bold text-slate-400">
                     {parentNames}
                   </p>
                 </div>
@@ -403,7 +403,7 @@ export default function CustodyCalendarView({
   );
 
   const groupSelector = loadingGroups ? (
-    <div className="rounded-[1.8rem] border border-white/80 bg-white p-4 text-sm font-bold text-slate-500 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+    <div className="rounded-[1.55rem] border border-white/80 bg-white/88 p-3 text-sm font-bold text-slate-500 shadow-[0_10px_28px_rgba(15,23,42,0.05)] backdrop-blur md:p-3.5">
       Loading custody groups...
     </div>
   ) : (
@@ -426,7 +426,7 @@ export default function CustodyCalendarView({
   if (mode === "dashboard") {
     return (
       <div className="min-h-full bg-[#F8F7F4] pb-6">
-        <div className="mx-auto max-w-7xl px-3 pt-3 md:px-5 lg:px-6">
+        <div className="mx-auto max-w-7xl px-3 pt-2 md:px-5 lg:px-6">
           {groupSelector}
         </div>
 
@@ -455,7 +455,7 @@ export default function CustodyCalendarView({
   if (["exchange", "packing", "notifications", "budget"].includes(mode)) {
     return (
       <div className="min-h-full bg-[#F8F7F4] pb-6">
-        <div className="mx-auto max-w-7xl px-3 pt-3 md:px-5 lg:px-6">
+        <div className="mx-auto max-w-7xl px-3 pt-2 md:px-5 lg:px-6">
           {groupSelector}
         </div>
 
