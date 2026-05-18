@@ -68,6 +68,22 @@ function normalizeExpenseDoc(docSnap) {
   };
 }
 
+function normalizeExchangeDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    date: normalizeDate(data.date),
+    time: data.time || "",
+    location: data.location || "",
+    fromParent: data.fromParent || "",
+    toParent: data.toParent || "",
+    pickupBy: data.pickupBy || data.toParent || "",
+    notes: data.notes || "",
+    status: data.status || "pending",
+    order: data.order ?? 999,
+  };
+}
+
 function getParentLabel(parent, dadName, momName) {
   if (parent === "dad") return dadName || "Dad";
   if (parent === "mom") return momName || "Mom";
@@ -114,6 +130,23 @@ function packingStatusLabel(status) {
   if (status === "packed") return "Ready";
   if (status === "missing") return "Missing";
   return "Review";
+}
+
+function formatExchangeTime(value) {
+  if (!value) return "Time needs review";
+  const [hourRaw, minute = "00"] = value.split(":");
+  const hour = Number(hourRaw);
+  if (Number.isNaN(hour)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute} ${suffix}`;
+}
+
+function statusLabel(status) {
+  if (status === "completed") return "Completed";
+  if (status === "issue") return "Issue";
+  if (status === "confirmed") return "Confirmed";
+  return "Needs review";
 }
 
 function ActionTile({ icon: Icon, label, text, tone = "blue", onClick }) {
@@ -236,9 +269,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const [custodyDays, setCustodyDays] = useState([]);
   const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
   const [expenses, setExpenses] = useState(initialCustodyExpenses);
+  const [exchanges, setExchanges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingPacking, setLoadingPacking] = useState(true);
   const [loadingBudget, setLoadingBudget] = useState(true);
+  const [loadingExchanges, setLoadingExchanges] = useState(true);
   const packingSummary = useMemo(() => getPackingSummary(packingItems), [packingItems]);
   const budgetSummary = useMemo(() => getBudgetSummary(expenses), [expenses]);
   const readinessItems = useMemo(
@@ -367,6 +402,41 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     };
   }, [user?.uid, familyId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExchanges() {
+      if (!user || !familyId) {
+        setExchanges([]);
+        setLoadingExchanges(false);
+        return;
+      }
+
+      setLoadingExchanges(true);
+
+      try {
+        const q = query(collection(db, "custodyExchanges"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+        const data = snap.docs
+          .map(normalizeExchangeDoc)
+          .sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`));
+
+        if (!cancelled) setExchanges(data);
+      } catch (error) {
+        console.error("Error loading exchange dashboard summary:", error);
+        if (!cancelled) setExchanges([]);
+      } finally {
+        if (!cancelled) setLoadingExchanges(false);
+      }
+    }
+
+    loadExchanges();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, familyId]);
+
   const dashboard = useMemo(() => {
     const today = new Date();
     const todayKey = format(today, "yyyy-MM-dd");
@@ -400,16 +470,56 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     return {
       todayLabel: summarizeToday(todayCustody, dadName, momName),
+      currentOwner,
+      nextParent,
       nextChange,
       nextChangeLabel: getParentLabel(nextParent, dadName, momName),
+      currentOwnerLabel: getParentLabel(currentOwner, dadName, momName),
       nextChangeDayLabel: nextChangeDate ? format(nextChangeDate, "EEE, MMM d") : "Not scheduled",
       daysUntil,
       weekDays,
     };
   }, [custodyDays, dadName, momName]);
 
+  const smartExchange = useMemo(() => {
+    if (!dashboard.nextChange || !dashboard.currentOwner || !dashboard.nextParent) return null;
+
+    const date = normalizeDate(dashboard.nextChange.date);
+    const matchedExchange = exchanges.find((exchange) =>
+      exchange.date === date &&
+      exchange.fromParent === dashboard.currentOwner &&
+      exchange.toParent === dashboard.nextParent
+    );
+
+    if (matchedExchange) {
+      return {
+        ...matchedExchange,
+        source: "confirmed",
+        needsReview: matchedExchange.status === "pending" || !matchedExchange.time || !matchedExchange.location,
+      };
+    }
+
+    return {
+      id: `default-${date}-${dashboard.currentOwner}-${dashboard.nextParent}`,
+      date,
+      time: "",
+      location: "Location needs review",
+      fromParent: dashboard.currentOwner,
+      toParent: dashboard.nextParent,
+      pickupBy: dashboard.nextParent,
+      notes: "Default exchange preview generated from the custody calendar. Confirm time, location, and handoff notes.",
+      status: "needs_review",
+      source: "calendar-default",
+      needsReview: true,
+    };
+  }, [dashboard.nextChange, dashboard.currentOwner, dashboard.nextParent, exchanges]);
+
   const nextChangeText = dashboard.nextChange
     ? `${dashboard.daysUntil === 0 ? "Today" : dashboard.daysUntil === 1 ? "Tomorrow" : `In ${dashboard.daysUntil} days`} · ${dashboard.nextChangeDayLabel}`
+    : "No upcoming exchange found";
+
+  const smartExchangeText = smartExchange
+    ? `${formatExchangeTime(smartExchange.time)} · ${smartExchange.location || "Location needs review"}`
     : "No upcoming exchange found";
 
   return (
@@ -430,8 +540,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 <p className="mt-5 max-w-sm text-base font-bold leading-7 text-slate-600">
                   {loading
                     ? "Loading custody status..."
-                    : dashboard.nextChange
-                      ? `Next change: ${nextChangeText} with ${dashboard.nextChangeLabel}.`
+                    : smartExchange
+                      ? `Next exchange: ${nextChangeText}. ${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel}. ${smartExchange.needsReview ? "Details need review." : "Details confirmed."}`
                       : "No upcoming exchange is currently scheduled."}
                 </p>
                 <button
@@ -451,9 +561,9 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             <InfoCard
-              title="Next change"
-              value={dashboard.nextChange ? (dashboard.daysUntil === 1 ? "Tomorrow" : dashboard.nextChangeDayLabel) : "None"}
-              text={dashboard.nextChange ? `With ${dashboard.nextChangeLabel}` : "No upcoming exchange found"}
+              title={smartExchange?.source === "calendar-default" ? "Default exchange" : "Next exchange"}
+              value={smartExchange ? (dashboard.daysUntil === 1 ? "Tomorrow" : dashboard.nextChangeDayLabel) : "None"}
+              text={loadingExchanges ? "Checking exchange details..." : smartExchange ? `${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel} · ${smartExchangeText}` : "No upcoming exchange found"}
               icon={Truck}
               tone="cyan"
               onClick={onOpenExchange}
@@ -485,7 +595,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <ActionTile icon={CalendarDays} label="Schedule" text="Calendar and bulk custody days" tone="blue" onClick={onOpenSchedule} />
-              <ActionTile icon={Truck} label="Exchange" text="Pickup, dropoff, and handoff notes" tone="cyan" onClick={onOpenExchange} />
+              <ActionTile icon={Truck} label="Exchange" text={smartExchange?.needsReview ? "Review time, location, and handoff" : "Pickup, dropoff, and handoff notes"} tone="cyan" onClick={onOpenExchange} />
               <ActionTile icon={Shirt} label="Packing" text="Clothes, backpack, medicine, gear" tone="emerald" onClick={onOpenPacking} />
               <ActionTile icon={BellRing} label="Reminders" text="Exchange and readiness alerts" tone="orange" onClick={onOpenNotifications} />
               <ActionTile icon={WalletCards} label="Budget" text={loadingBudget ? "Loading shared expenses" : `${currency(budgetSummary.pending)} pending`} tone="amber" onClick={onOpenBudget} />
@@ -505,6 +615,13 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 </button>
               </div>
               <div className="mt-4 space-y-2.5">
+                {smartExchange && (
+                  <ReadinessItem
+                    label={`${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel}`}
+                    owner={smartExchange.location || "Location needs review"}
+                    status={smartExchange.needsReview ? "Review" : "Ready"}
+                  />
+                )}
                 {loadingPacking ? (
                   <ReadinessItem label="Loading packing checklist" status="Review" />
                 ) : (
@@ -549,11 +666,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Smart custody brief</p>
               <h2 className="mt-1 text-xl font-black text-slate-950">
-                {dashboard.nextChange ? "Plan the next exchange" : "Schedule looks calm"}
+                {smartExchange ? "Plan the next exchange" : "Schedule looks calm"}
               </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                {dashboard.nextChange
-                  ? `${nextChangeText}. Packing is ${packingSummary.readiness}% ready with ${packingSummary.missingCount} missing item(s). Budget has ${currency(budgetSummary.pending)} pending.`
+                {smartExchange
+                  ? `${nextChangeText}. ${dashboard.currentOwnerLabel} hands off to ${dashboard.nextChangeLabel}. ${smartExchange.source === "calendar-default" ? "Default exchange generated from calendar; review time and location." : `${formatExchangeTime(smartExchange.time)} at ${smartExchange.location || "location needs review"}. Status: ${statusLabel(smartExchange.status)}.`} Packing is ${packingSummary.readiness}% ready with ${packingSummary.missingCount} missing item(s). Budget has ${currency(budgetSummary.pending)} pending.`
                   : `No upcoming exchange was found in the current custody schedule. Budget has ${currency(budgetSummary.pending)} pending.`}
               </p>
             </Card>
