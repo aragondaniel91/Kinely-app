@@ -205,7 +205,7 @@ function ComingSoonPanel({ icon: Icon, title, description, bullets }) {
 export default function Custody() {
   const [activeCalendar, setActiveCalendar] = useState("custody");
   const [viewMode, setViewMode] = useState("month");
-  const [activeModule, setActiveModule] = useState("hub");
+  const [activeModule, setActiveModule] = useState("dashboard");
   const [isResetting, setIsResetting] = useState(false);
   const { user, familyId, isAdmin, isOwner } = useFamily();
 
@@ -248,7 +248,7 @@ export default function Custody() {
               Custody
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
-              Shared co-parenting hub
+              Custody tools
             </h1>
             <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-500 md:text-base">
               Manage the custody schedule, exchanges, packing needs, child expenses, and co-parent communication from one place.
@@ -287,7 +287,7 @@ export default function Custody() {
               className="shrink-0 gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              Hub
+              Tools
             </Button>
 
             <div className="min-w-0">
