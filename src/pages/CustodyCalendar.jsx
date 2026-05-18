@@ -50,6 +50,7 @@ import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
 import BulkCustodyDialog from "@/components/calendar/BulkCustodyDialog";
 import CalendarViewControls from "@/components/calendar/CalendarViewControls";
+import { getCustodyEventCategory } from "@/components/calendar/CustodySpecialEventDialog";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -73,6 +74,22 @@ function normalizeCustodyDay(docSnap) {
     with_whom: data.with_whom || data.withWhom || null,
     morning: data.morning || null,
     afternoon: data.afternoon || null,
+    notes: data.notes || "",
+  };
+}
+
+function normalizeSpecialEvent(docSnap) {
+  const data = docSnap.data();
+
+  return {
+    id: docSnap.id,
+    ...data,
+    date: normalizeDate(data.date),
+    title: data.title || "Special event",
+    category: data.category || "other",
+    startTime: data.startTime || data.start_time || "",
+    endTime: data.endTime || data.end_time || "",
+    location: data.location || "",
     notes: data.notes || "",
   };
 }
@@ -233,10 +250,12 @@ function buildBulkDayPayload({ day, blockStart, blockEnd, payload, familyId, pro
   };
 }
 
-function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, dadName, momName, compact = false, inMonth = true }) {
+function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, dadName, momName, specialEvents = [], compact = false, inMonth = true }) {
   const today = isToday(day);
   const parent = getCustodyParent(custody);
   const splitDay = parent === "split";
+  const visibleEvents = specialEvents.slice(0, compact ? 2 : 3);
+  const hiddenEventCount = Math.max(0, specialEvents.length - visibleEvents.length);
 
   const getTheme = (value) => {
     if (value === "dad") return dadTheme;
@@ -318,8 +337,33 @@ function CustodyDayCard({ day, custody, canWrite, onClick, dadTheme, momTheme, d
           </div>
         )}
 
+        {visibleEvents.length > 0 && (
+          <div className="mt-1.5 space-y-1">
+            {visibleEvents.map((event) => {
+              const category = getCustodyEventCategory(event.category);
+
+              return (
+                <div
+                  key={event.id}
+                  className={cn(
+                    "flex items-center gap-1 rounded-lg border border-white/70 bg-white/75 px-1.5 py-0.5 font-bold shadow-sm",
+                    compact ? "text-[8px]" : "text-[10px]"
+                  )}
+                >
+                  <span>{category.icon}</span>
+                  <span className="truncate">{event.startTime ? `${event.startTime} ` : ""}{event.title}</span>
+                </div>
+              );
+            })}
+
+            {hiddenEventCount > 0 && (
+              <div className={cn("rounded-lg border border-white/70 bg-white/75 px-1.5 py-0.5 font-bold text-muted-foreground shadow-sm", compact ? "text-[8px]" : "text-[10px]")}>+{hiddenEventCount} more</div>
+            )}
+          </div>
+        )}
+
         {custody?.notes && !compact && <p className="text-[10px] text-muted-foreground mt-auto truncate bg-background/70 rounded px-1">{custody.notes}</p>}
-        {!custody && !compact && <p className="text-[10px] text-muted-foreground mt-auto">No custody info</p>}
+        {!custody && !compact && !visibleEvents.length && <p className="text-[10px] text-muted-foreground mt-auto">No custody info</p>}
       </div>
     </button>
   );
@@ -382,6 +426,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const [showSync, setShowSync] = useState(false);
   const [custodyFilter, setCustodyFilter] = useState("all");
   const [custodyDays, setCustodyDays] = useState([]);
+  const [specialEvents, setSpecialEvents] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastBulkUndo, setLastBulkUndo] = useState(null);
@@ -395,6 +440,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const loadCustodyDays = async () => {
     if (!user || !familyId || !canRead) {
       setCustodyDays([]);
+      setSpecialEvents([]);
       setLoading(false);
       return;
     }
@@ -425,9 +471,26 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
       data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       setCustodyDays(data);
+
+      try {
+        const q = query(collection(db, "custodySpecialEvents"), where("familyId", "==", familyId));
+        const snap = await getDocs(q);
+        setSpecialEvents(snap.docs.map(normalizeSpecialEvent));
+      } catch (eventError) {
+        console.warn("Fallback special events query by family_id:", eventError);
+        try {
+          const q = query(collection(db, "custodySpecialEvents"), where("family_id", "==", familyId));
+          const snap = await getDocs(q);
+          setSpecialEvents(snap.docs.map(normalizeSpecialEvent));
+        } catch (legacyEventError) {
+          console.warn("Could not load custody special events:", legacyEventError);
+          setSpecialEvents([]);
+        }
+      }
     } catch (error) {
       console.error("Error loading custody days:", error);
       setCustodyDays([]);
+      setSpecialEvents([]);
     } finally {
       setLoading(false);
     }
@@ -655,6 +718,22 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     });
     return map;
   }, [custodyDays]);
+
+  const specialEventsByDate = useMemo(() => {
+    const map = {};
+    specialEvents.forEach((event) => {
+      const key = normalizeDate(event.date);
+      if (!key) return;
+      if (!map[key]) map[key] = [];
+      map[key].push(event);
+    });
+
+    Object.keys(map).forEach((key) => {
+      map[key].sort((a, b) => `${a.startTime || "99:99"}${a.title}`.localeCompare(`${b.startTime || "99:99"}${b.title}`));
+    });
+
+    return map;
+  }, [specialEvents]);
 
   const period = useMemo(() => {
     if (viewMode === "day") {
@@ -944,7 +1023,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
                   const inMonth = viewMode === "month" ? isSameMonth(day, anchorDate) : true;
 
                   return (
-                    <CustodyDayCard key={key} day={day} custody={custody} canWrite={canWrite} onClick={() => canWrite && setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} compact={viewMode === "month"} inMonth={inMonth && !filteredOut} />
+                    <CustodyDayCard key={key} day={day} custody={custody} specialEvents={specialEventsByDate[key] || []} canWrite={canWrite} onClick={() => canWrite && setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} compact={viewMode === "month"} inMonth={inMonth && !filteredOut} />
                   );
                 })}
               </div>
@@ -958,7 +1037,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       )}
 
       {selectedDate instanceof Date && !Number.isNaN(selectedDate.getTime()) && (
-        <CustodyDayDialog date={selectedDate} existingData={selectedExistingData} onSave={saveCustodyDay} onDelete={deleteCustodyDay} onClose={() => setSelectedDate(null)} isSaving={isSaving} />
+        <CustodyDayDialog date={selectedDate} existingData={selectedExistingData} onSave={saveCustodyDay} onDelete={deleteCustodyDay} onClose={() => { setSelectedDate(null); loadCustodyDays(); }} isSaving={isSaving} />
       )}
 
       {showSync && null}
