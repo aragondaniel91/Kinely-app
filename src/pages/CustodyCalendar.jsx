@@ -932,19 +932,22 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       : (momName || "MAMÁ").toUpperCase()
     : null;
 
-  const sortedDays = Object.values(finalCustodyMap).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-  const nextChange = sortedDays.find((d) => {
+  const sortedBaseDays = [...custodyDays].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const nextChange = sortedBaseDays.find((d) => {
     const dateKey = normalizeDate(d.date);
     if (!dateKey || dateKey <= todayKey) return false;
     const prevKey = format(addDays(parseISO(dateKey + "T12:00:00"), -1), "yyyy-MM-dd");
-    const prev = finalCustodyMap[prevKey];
+    const prev = allCustodyMap[prevKey];
     if (!prev) return false;
     const prevParent = prev.is_split ? prev.afternoon : prev.with_whom;
     const thisParent = d.is_split ? d.morning : d.with_whom;
     return prevParent !== thisParent;
   });
 
-  const upcoming = sortedDays.filter((d) => normalizeDate(d.date) >= todayKey).slice(0, 4);
+  const upcoming = Object.values(finalCustodyMap)
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+    .filter((d) => normalizeDate(d.date) >= todayKey)
+    .slice(0, 4);
 
   const dadDays = filteredVisibleCustodyDays.reduce((acc, d) => {
     if (!d.is_split) return acc + (d.with_whom === "dad" ? 1 : 0);
@@ -1056,7 +1059,6 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
               <p className={cn("text-xs font-bold mt-1.5", nextChange.with_whom === "dad" ? dadTheme.text : momTheme.text)}>
                 Con {nextChange.with_whom === "dad" ? `${dadName || "Papá"} 👨` : `${momName || "Mamá"} 👩`}
               </p>
-              {nextChange.isTravelOverride && <p className="text-[11px] font-bold text-blue-700">Travel override</p>}
             </div>
           </div>
         )}
