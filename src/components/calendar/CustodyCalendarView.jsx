@@ -6,6 +6,10 @@ import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/pages/CustodyCalendar";
 import CustodyDashboardPro from "@/components/custody/CustodyDashboardPro";
+import ExchangeHub from "@/components/custody/ExchangeHub";
+import PackingHub from "@/components/custody/PackingHub";
+import SmartNotificationsHub from "@/components/custody/SmartNotificationsHub";
+import BudgetHub from "@/components/custody/BudgetHub";
 import { Badge } from "@/components/ui/badge";
 import CustodyScopeMetadataBackfill from "@/components/calendar/CustodyScopeMetadataBackfill";
 
@@ -394,6 +398,14 @@ export default function CustodyCalendarView({
     />
   );
 
+  const renderScopedTool = () => {
+    if (mode === "exchange") return <ExchangeHub />;
+    if (mode === "packing") return <PackingHub />;
+    if (mode === "notifications") return <SmartNotificationsHub />;
+    if (mode === "budget") return <BudgetHub />;
+    return null;
+  };
+
   if (mode === "dashboard") {
     return (
       <div className="min-h-full bg-[#f8fbff] pb-6">
@@ -419,6 +431,30 @@ export default function CustodyCalendarView({
         ) : (
           <div className="p-8 text-center text-sm font-bold text-slate-400">
             {loadingGroups ? "Loading custody dashboard..." : "You do not have access to this custody dashboard."}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (["exchange", "packing", "notifications", "budget"].includes(mode)) {
+    return (
+      <div className="min-h-full bg-[#f8fbff] pb-6">
+        <div className="border-b border-slate-200 bg-white px-4 py-3 md:px-8">
+          <div className="mx-auto max-w-[1600px]">
+            {groupSelector}
+          </div>
+        </div>
+
+        {canRenderCalendar ? (
+          <FamilyContext.Provider value={scopedFamilyContext}>
+            <CustodyScopeMetadataBackfill>
+              {renderScopedTool()}
+            </CustodyScopeMetadataBackfill>
+          </FamilyContext.Provider>
+        ) : (
+          <div className="p-8 text-center text-sm font-bold text-slate-400">
+            {loadingGroups ? "Loading custody tool..." : "You do not have access to this custody tool."}
           </div>
         )}
       </div>
