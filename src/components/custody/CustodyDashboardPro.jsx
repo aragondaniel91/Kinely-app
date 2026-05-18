@@ -8,7 +8,6 @@ import {
   ChevronRight,
   HeartHandshake,
   MessageCircle,
-  School,
   Shirt,
   Truck,
   WalletCards,
@@ -50,6 +49,12 @@ function getDayOwner(day) {
   return day.with_whom || "none";
 }
 
+function getChangeOwner(day) {
+  if (!day) return "none";
+  if (day.is_split) return day.morning || day.afternoon || "split";
+  return day.with_whom || "none";
+}
+
 function summarizeToday(todayCustody, dadName, momName) {
   if (!todayCustody) return "Not scheduled";
 
@@ -60,19 +65,17 @@ function summarizeToday(todayCustody, dadName, momName) {
   return getParentLabel(todayCustody.with_whom, dadName, momName);
 }
 
-function findNextChange(sortedDays, allCustodyMap, todayKey) {
+function findNextChange(sortedDays, todayKey, currentOwner) {
+  if (!currentOwner || currentOwner === "none") return null;
+
   return sortedDays.find((day) => {
     const dateKey = normalizeDate(day.date);
     if (!dateKey || dateKey <= todayKey) return false;
 
-    const prevKey = format(addDays(parseISO(`${dateKey}T12:00:00`), -1), "yyyy-MM-dd");
-    const previousDay = allCustodyMap[prevKey];
-    if (!previousDay) return false;
+    const nextOwner = getChangeOwner(day);
+    if (!nextOwner || nextOwner === "none") return false;
 
-    const previousParent = previousDay.is_split ? previousDay.afternoon : previousDay.with_whom;
-    const nextParent = day.is_split ? day.morning : day.with_whom;
-
-    return previousParent !== nextParent;
+    return nextOwner !== currentOwner;
   });
 }
 
@@ -227,10 +230,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     const sortedDays = [...custodyDays].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
     const todayCustody = allCustodyMap[todayKey];
-    const nextChange = findNextChange(sortedDays, allCustodyMap, todayKey);
+    const currentOwner = getChangeOwner(todayCustody);
+    const nextChange = findNextChange(sortedDays, todayKey, currentOwner);
     const nextChangeDate = nextChange?.date ? parseISO(`${nextChange.date}T12:00:00`) : null;
     const daysUntil = nextChangeDate ? differenceInCalendarDays(nextChangeDate, today) : null;
-    const nextParent = nextChange ? (nextChange.is_split ? nextChange.morning : nextChange.with_whom) : null;
+    const nextParent = nextChange ? getChangeOwner(nextChange) : null;
 
     const weekStart = startOfWeek(today, { weekStartsOn: 1 });
     const weekDays = Array.from({ length: 7 }).map((_, index) => {
@@ -260,7 +264,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     : "No upcoming exchange found";
 
   return (
-    <div className="px-4 pb-8 pt-4 md:px-6">
+    <div className="px-4 pb-24 pt-4 md:px-6 md:pb-10">
       <div className="mx-auto max-w-7xl space-y-4">
         <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.07)]">
