@@ -475,7 +475,7 @@ export default function CustodyCalendarView({
   }
 
   return (
-    <div className="min-h-full bg-[#F8F7F4] px-2 pb-28 pt-2 md:px-4 md:pb-32 md:pt-4">
+    <div className="min-h-full bg-[#F8F7F4] px-2 pb-28 pt-1 md:px-4 md:pb-32 md:pt-4">
       <div className="mx-auto max-w-7xl space-y-3">
         {groupSelector}
 
