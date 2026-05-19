@@ -125,6 +125,91 @@ function activityLabel(profile, user) {
   return profile?.displayName || profile?.name || profile?.firstName || user?.displayName || user?.email || "Someone";
 }
 
+function cleanAuditValue(value) {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value.trim();
+  if (value?.toDate) return value.toDate().toISOString();
+  return value;
+}
+
+function stableAuditValue(value) {
+  return JSON.stringify(value ?? "");
+}
+
+function getChangedFields(before = {}, after = {}) {
+  if (!before && !after) return [];
+
+  const keys = new Set([
+    ...Object.keys(before || {}),
+    ...Object.keys(after || {}),
+  ]);
+
+  return Array.from(keys).filter((key) => stableAuditValue(before?.[key]) !== stableAuditValue(after?.[key]));
+}
+
+function buildAuditMetadata({ action, entityLabel, before = null, after = null, extra = {} }) {
+  const changedFields = getChangedFields(before || {}, after || {});
+
+  return {
+    ...extra,
+    action,
+    entityLabel,
+    entity_label: entityLabel,
+    before,
+    after,
+    changedFields,
+    changed_fields: changedFields,
+  };
+}
+
+function buildCustodyAuditSnapshot(data = {}, { dadLabel = "Dad", momLabel = "Mom" } = {}) {
+  const isSplit = Boolean(data.is_split || data.isSplit);
+  const withWhom = cleanAuditValue(data.with_whom || data.withWhom || "");
+  const morning = cleanAuditValue(data.morning || "");
+  const afternoon = cleanAuditValue(data.afternoon || "");
+  const notes = cleanAuditValue(data.notes || "");
+  const date = normalizeDate(data.date);
+
+  return {
+    date,
+    type: isSplit ? "split" : "single",
+    with: isSplit ? "" : withWhom,
+    withLabel: isSplit || !withWhom ? "" : parentLabel(withWhom, dadLabel, momLabel),
+    morning,
+    morningLabel: isSplit && morning ? parentLabel(morning, dadLabel, momLabel) : "",
+    afternoon,
+    afternoonLabel: isSplit && afternoon ? parentLabel(afternoon, dadLabel, momLabel) : "",
+    notes,
+  };
+}
+
+function buildSpecialEventAuditSnapshot(event = {}) {
+  return {
+    title: cleanAuditValue(event.title || "Special event"),
+    date: normalizeDate(event.date),
+    category: cleanAuditValue(event.category || "other"),
+    startTime: cleanAuditValue(event.startTime || event.start_time || ""),
+    endTime: cleanAuditValue(event.endTime || event.end_time || ""),
+    location: cleanAuditValue(event.location || ""),
+    notes: cleanAuditValue(event.notes || ""),
+  };
+}
+
+function buildTravelAuditSnapshot(plan = {}) {
+  const affectsCustody = plan.affectsCustody ?? plan.affects_custody ?? true;
+
+  return {
+    title: cleanAuditValue(plan.title || "Travel / vacation"),
+    destination: cleanAuditValue(plan.destination || ""),
+    startDate: normalizeDate(plan.startDate || plan.start_date),
+    endDate: normalizeDate(plan.endDate || plan.end_date),
+    travelingParent: cleanAuditValue(plan.travelingParent || plan.traveling_parent || ""),
+    travelStatus: cleanAuditValue(plan.travelStatus || plan.travel_status || plan.status || "approved"),
+    affectsCustody: Boolean(affectsCustody),
+    notes: cleanAuditValue(plan.notes || ""),
+  };
+}
+
 async function logFamilyActivity({ familyId, user, profile, type, title, description = "", entityType = "", entityId = "", date = "", metadata = {} }) {
   if (!familyId || !user || !type || !title) return;
 
@@ -333,6 +418,9 @@ export default function CustodyDayDialog({
       notes: notes.trim(),
     };
 
+    const before = existingData ? buildCustodyAuditSnapshot(existingData, { dadLabel, momLabel }) : null;
+    const after = buildCustodyAuditSnapshot(payload, { dadLabel, momLabel });
+
     await onSave(payload);
     await logFamilyActivity({
       familyId,
@@ -344,7 +432,13 @@ export default function CustodyDayDialog({
       entityType: "custodyDay",
       entityId: `${familyId}_${dateKey}`,
       date: dateKey,
-      metadata: payload,
+      metadata: buildAuditMetadata({
+        action: existingData ? "updated" : "created",
+        entityLabel: formattedDate,
+        before,
+        after,
+        extra: payload,
+      }),
     });
   };
 
@@ -377,6 +471,9 @@ export default function CustodyDayDialog({
         updated_date: new Date().toISOString(),
       };
 
+      const before = editing ? buildSpecialEventAuditSnapshot(selectedSpecialEvent) : null;
+      const after = buildSpecialEventAuditSnapshot(data);
+
       await setDoc(doc(db, "custodySpecialEvents", eventId), data, { merge: true });
       await logFamilyActivity({
         familyId,
@@ -388,7 +485,18 @@ export default function CustodyDayDialog({
         entityType: "custodySpecialEvent",
         entityId: eventId,
         date: data.date,
-        metadata: { title: data.title, category: data.category, startTime: data.startTime, location: data.location },
+        metadata: buildAuditMetadata({
+          action: editing ? "updated" : "created",
+          entityLabel: data.title,
+          before,
+          after,
+          extra: {
+            title: data.title,
+            category: data.category,
+            startTime: data.startTime,
+            location: data.location,
+          },
+        }),
       });
       setSpecialEvents((prev) => {
         const next = editing
@@ -415,6 +523,8 @@ export default function CustodyDayDialog({
     setSavingSpecialEvent(true);
 
     try {
+      const before = buildSpecialEventAuditSnapshot(event);
+
       await deleteDoc(doc(db, "custodySpecialEvents", event.id));
       await logFamilyActivity({
         familyId,
@@ -426,7 +536,13 @@ export default function CustodyDayDialog({
         entityType: "custodySpecialEvent",
         entityId: event.id,
         date: event.date,
-        metadata: { title: event.title, category: event.category },
+        metadata: buildAuditMetadata({
+          action: "deleted",
+          entityLabel: event.title,
+          before,
+          after: null,
+          extra: { title: event.title, category: event.category },
+        }),
       });
       setSpecialEvents((prev) => prev.filter((item) => item.id !== event.id));
     } catch (error) {
@@ -471,6 +587,9 @@ export default function CustodyDayDialog({
         updated_date: new Date().toISOString(),
       };
 
+      const before = editing ? buildTravelAuditSnapshot(selectedTravelPlan) : null;
+      const after = buildTravelAuditSnapshot(data);
+
       await setDoc(doc(db, "custodyTravelPlans", travelId), data, { merge: true });
       await logFamilyActivity({
         familyId,
@@ -482,14 +601,20 @@ export default function CustodyDayDialog({
         entityType: "custodyTravelPlan",
         entityId: travelId,
         date: data.startDate,
-        metadata: {
-          title: data.title,
-          destination: data.destination,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          travelingParent: data.travelingParent,
-          affectsCustody: true,
-        },
+        metadata: buildAuditMetadata({
+          action: editing ? "updated" : "created",
+          entityLabel: data.title,
+          before,
+          after,
+          extra: {
+            title: data.title,
+            destination: data.destination,
+            startDate: data.startDate,
+            endDate: data.endDate,
+            travelingParent: data.travelingParent,
+            affectsCustody: data.affectsCustody ?? true,
+          },
+        }),
       });
       setTravelPlans((prev) => {
         const next = editing
@@ -516,6 +641,8 @@ export default function CustodyDayDialog({
     setSavingTravelPlan(true);
 
     try {
+      const before = buildTravelAuditSnapshot(plan);
+
       await deleteDoc(doc(db, "custodyTravelPlans", plan.id));
       await logFamilyActivity({
         familyId,
@@ -527,7 +654,18 @@ export default function CustodyDayDialog({
         entityType: "custodyTravelPlan",
         entityId: plan.id,
         date: plan.startDate,
-        metadata: { title: plan.title, destination: plan.destination, startDate: plan.startDate, endDate: plan.endDate },
+        metadata: buildAuditMetadata({
+          action: "deleted",
+          entityLabel: plan.title,
+          before,
+          after: null,
+          extra: {
+            title: plan.title,
+            destination: plan.destination,
+            startDate: plan.startDate,
+            endDate: plan.endDate,
+          },
+        }),
       });
       setTravelPlans((prev) => prev.filter((item) => item.id !== plan.id));
     } catch (error) {
@@ -547,6 +685,8 @@ export default function CustodyDayDialog({
     const confirmDelete = window.confirm("Delete custody information for this day?");
     if (!confirmDelete) return;
 
+    const before = buildCustodyAuditSnapshot(existingData, { dadLabel, momLabel });
+
     await onDelete(dateKey);
     await logFamilyActivity({
       familyId,
@@ -558,6 +698,12 @@ export default function CustodyDayDialog({
       entityType: "custodyDay",
       entityId: `${familyId}_${dateKey}`,
       date: dateKey,
+      metadata: buildAuditMetadata({
+        action: "deleted",
+        entityLabel: formattedDate,
+        before,
+        after: null,
+      }),
     });
   };
 
@@ -601,7 +747,13 @@ export default function CustodyDayDialog({
         entityType: "custodyBulkSchedule",
         entityId: bulkRunId,
         date: dateKey,
-        metadata: { removedCount: refs.size, bulkRunId },
+        metadata: buildAuditMetadata({
+          action: "deleted",
+          entityLabel: "Bulk custody schedule",
+          before: { bulkRunId, removedCount: refs.size },
+          after: null,
+          extra: { removedCount: refs.size, bulkRunId },
+        }),
       });
 
       setShowDeleteChoice(false);
