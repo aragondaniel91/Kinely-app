@@ -175,31 +175,107 @@ function buildActivityDetails(item = {}) {
   const details = [];
   const metadata = item.metadata || {};
   const type = item.type || "";
+  const after = metadata.after || metadata;
 
   if (type.includes("travel")) {
-    addDetail(details, "Destination", metadata.destination);
-    addDetail(details, "Dates", compactDateRange(metadata.startDate || metadata.start_date, metadata.endDate || metadata.end_date));
-    addDetail(details, "Parent", getParentLabel(metadata.travelingParent || metadata.traveling_parent));
-    addDetail(details, "Affects custody", metadata.affectsCustody === false ? "No" : "Yes");
+    addDetail(details, "Destination", metadata.destination || after.destination);
+    addDetail(details, "Dates", compactDateRange(metadata.startDate || metadata.start_date || after.startDate, metadata.endDate || metadata.end_date || after.endDate));
+    addDetail(details, "Parent", getParentLabel(metadata.travelingParent || metadata.traveling_parent || after.travelingParent));
+    addDetail(details, "Affects custody", (metadata.affectsCustody ?? after.affectsCustody) === false ? "No" : "Yes");
   } else if (type.includes("special_event")) {
-    addDetail(details, "Category", titleCase(metadata.category));
-    addDetail(details, "Time", metadata.startTime || metadata.start_time);
-    addDetail(details, "Location", metadata.location);
+    addDetail(details, "Category", titleCase(metadata.category || after.category));
+    addDetail(details, "Time", metadata.startTime || metadata.start_time || after.startTime);
+    addDetail(details, "Location", metadata.location || after.location);
   } else if (type.includes("custody_day")) {
-    addDetail(details, "Date", item.date || metadata.date);
-    if (metadata.is_split || metadata.isSplit) {
-      addDetail(details, "Morning", getParentLabel(metadata.morning));
-      addDetail(details, "Afternoon", getParentLabel(metadata.afternoon));
+    addDetail(details, "Date", item.date || metadata.date || after.date);
+    if (metadata.is_split || metadata.isSplit || after.type === "split") {
+      addDetail(details, "Morning", getParentLabel(metadata.morning || after.morning));
+      addDetail(details, "Afternoon", getParentLabel(metadata.afternoon || after.afternoon));
     } else {
-      addDetail(details, "With", getParentLabel(metadata.with_whom || metadata.withWhom));
+      addDetail(details, "With", getParentLabel(metadata.with_whom || metadata.withWhom || after.with));
     }
-    addDetail(details, "Notes", metadata.notes);
+    addDetail(details, "Notes", metadata.notes || after.notes);
   } else if (type.includes("bulk")) {
     addDetail(details, "Removed", metadata.removedCount ? `${metadata.removedCount} day(s)` : "");
     addDetail(details, "Bulk run", metadata.bulkRunId || metadata.bulk_run_id);
   }
 
   return details.slice(0, 4);
+}
+
+function summarizeAuditSnapshot(snapshot = null, fallback = "") {
+  if (!snapshot) return fallback;
+
+  if (snapshot.type === "split") {
+    const morning = snapshot.morningLabel || getParentLabel(snapshot.morning);
+    const afternoon = snapshot.afternoonLabel || getParentLabel(snapshot.afternoon);
+    return [morning && `AM ${morning}`, afternoon && `PM ${afternoon}`].filter(Boolean).join(" · ") || fallback;
+  }
+
+  if (snapshot.withLabel || snapshot.with) {
+    return snapshot.withLabel || getParentLabel(snapshot.with);
+  }
+
+  if (snapshot.title && (snapshot.startDate || snapshot.endDate)) {
+    return `${snapshot.title} · ${compactDateRange(snapshot.startDate, snapshot.endDate)}`;
+  }
+
+  if (snapshot.title && snapshot.date) {
+    return `${snapshot.title} · ${snapshot.date}`;
+  }
+
+  if (snapshot.title) return snapshot.title;
+  if (snapshot.destination) return snapshot.destination;
+  if (snapshot.date) return snapshot.date;
+
+  return fallback;
+}
+
+function formatChangedFieldName(field = "") {
+  const labelMap = {
+    with: "custody parent",
+    withLabel: "custody parent",
+    type: "day type",
+    morning: "morning parent",
+    morningLabel: "morning parent",
+    afternoon: "afternoon parent",
+    afternoonLabel: "afternoon parent",
+    notes: "notes",
+    title: "title",
+    destination: "destination",
+    startDate: "start date",
+    endDate: "end date",
+    travelingParent: "traveling parent",
+    travelStatus: "travel status",
+    affectsCustody: "affects custody",
+    category: "category",
+    startTime: "start time",
+    endTime: "end time",
+    location: "location",
+  };
+
+  return labelMap[field] || titleCase(field);
+}
+
+function getAuditChangeSummary(item = {}) {
+  const metadata = item.metadata || {};
+  const before = metadata.before;
+  const after = metadata.after;
+  const hasBefore = before && Object.keys(before).length > 0;
+  const hasAfter = after && Object.keys(after).length > 0;
+
+  if (!hasBefore && !hasAfter) return null;
+
+  const action = metadata.action || getActionLabel(item.type || "").toLowerCase();
+  const beforeLabel = hasBefore ? summarizeAuditSnapshot(before, "Previous value") : action === "created" ? "New item" : "None";
+  const afterLabel = hasAfter ? summarizeAuditSnapshot(after, "Updated value") : action === "deleted" ? "Deleted" : "None";
+  const changedFields = metadata.changedFields || metadata.changed_fields || [];
+
+  return {
+    beforeLabel,
+    afterLabel,
+    changedFields: Array.from(new Set(changedFields.map(formatChangedFieldName))).slice(0, 4),
+  };
 }
 
 function isCustodyActivity(activity) {
@@ -291,6 +367,31 @@ function ModuleCard({ module, onClick }) {
   );
 }
 
+function AuditChangeSummary({ summary }) {
+  if (!summary) return null;
+
+  return (
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+        <div className="rounded-xl bg-white px-3 py-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Before</p>
+          <p className="mt-0.5 truncate text-xs font-black text-slate-700">{summary.beforeLabel}</p>
+        </div>
+        <div className="hidden text-xs font-black text-slate-400 sm:block">→</div>
+        <div className="rounded-xl bg-white px-3 py-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">After</p>
+          <p className="mt-0.5 truncate text-xs font-black text-slate-900">{summary.afterLabel}</p>
+        </div>
+      </div>
+      {summary.changedFields.length > 0 && (
+        <p className="mt-2 text-[11px] font-bold text-slate-500">
+          Changed: {summary.changedFields.join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CustodyActivityPanel({ activity = [], loading = false, error = "" }) {
   return (
     <div className="px-3 pb-8 pt-4 md:px-6">
@@ -335,6 +436,7 @@ function CustodyActivityPanel({ activity = [], loading = false, error = "" }) {
             const actor = item.actorName || item.actor_name || item.actorEmail || "Someone";
             const details = buildActivityDetails(item);
             const action = getActionLabel(item.type || "");
+            const changeSummary = getAuditChangeSummary(item);
 
             return (
               <div key={item.id} className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
@@ -366,6 +468,8 @@ function CustodyActivityPanel({ activity = [], loading = false, error = "" }) {
                         </p>
                       </div>
                     </div>
+
+                    <AuditChangeSummary summary={changeSummary} />
 
                     {details.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
