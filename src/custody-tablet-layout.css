@@ -1,9 +1,12 @@
-/* Tablet and small-screen height fixes for the legacy CustodyCalendar layout.
-   Main problem: some tablets have enough width but limited browser height. The
-   calendar was trapped inside h-full/min-h-screen/overflow-hidden containers,
-   so the bottom content was cut off behind the fixed bottom nav. */
+/* Custody calendar responsive fixes.
+   Goal: behave like a normal page, not like an inner scroll app frame.
+   The full page should scroll naturally, similar to Family Calendar. */
 
-/* Make the custody calendar area scrollable without creating a large blank tail. */
+.custody-original-calendar-wrapper,
+.custody-original-calendar-wrapper * {
+  -webkit-overflow-scrolling: touch;
+}
+
 .custody-original-calendar-wrapper {
   min-height: auto !important;
   height: auto !important;
@@ -17,23 +20,24 @@
   overflow: visible !important;
 }
 
-.custody-original-calendar-wrapper > div > div.flex-1 {
-  min-height: 0 !important;
+.custody-original-calendar-wrapper > div > aside,
+.custody-original-calendar-wrapper > div > div.flex-1,
+.custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
+  min-height: auto !important;
   height: auto !important;
   overflow: visible !important;
 }
 
 .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-  overflow-y: visible !important;
-  overflow-x: auto !important;
   padding-bottom: 2rem !important;
 }
 
-/* Tablet landscape / small laptop: promote calendar to a two-column layout. */
+/* Tablet landscape / small laptop: two-column layout, but no inner vertical scroll. */
 @media (min-width: 768px) and (max-width: 1023px) {
   .custody-original-calendar-wrapper > div {
     display: flex !important;
     flex-direction: row !important;
+    align-items: stretch !important;
     min-height: auto !important;
     height: auto !important;
     overflow: visible !important;
@@ -46,7 +50,7 @@
     align-self: stretch !important;
     border-right: 1px solid hsl(var(--border)) !important;
     border-bottom: 0 !important;
-    overflow-y: visible !important;
+    overflow: visible !important;
     padding: 1rem !important;
     gap: 1rem !important;
   }
@@ -64,11 +68,12 @@
   .custody-original-calendar-wrapper > div > div.flex-1 {
     min-width: 0 !important;
     flex: 1 1 auto !important;
+    overflow: visible !important;
   }
 
   .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child {
-    position: sticky !important;
-    top: 0 !important;
+    position: relative !important;
+    top: auto !important;
     z-index: 15 !important;
     padding-left: 0.75rem !important;
     padding-right: 0.75rem !important;
@@ -93,7 +98,8 @@
   }
 
   .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    padding: 0.75rem 0.75rem 2.5rem !important;
+    overflow: visible !important;
+    padding: 0.75rem 0.75rem 2rem !important;
   }
 }
 
@@ -110,25 +116,24 @@
   }
 }
 
-/* Short-height tablets and kiosk browsers need vertical scrolling more than a
-   fixed full-screen app frame, but should not create a blank bottom area. */
+/* Short-height tablets and kiosk browsers: let the document/body scroll. */
 @media (max-height: 760px) {
   .custody-original-calendar-wrapper,
   .custody-original-calendar-wrapper > div,
-  .custody-original-calendar-wrapper > div > div.flex-1 {
+  .custody-original-calendar-wrapper > div > aside,
+  .custody-original-calendar-wrapper > div > div.flex-1,
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
     min-height: auto !important;
     height: auto !important;
     overflow: visible !important;
   }
 
   .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    min-height: auto !important;
-    overflow-y: visible !important;
-    padding-bottom: 2.75rem !important;
+    padding-bottom: 2rem !important;
   }
 }
 
-/* Phone: keep the mobile stack, but leave only enough space for the bottom nav. */
+/* Phone: keep the mobile stack and let the page scroll naturally. */
 @media (max-width: 767px) {
   .custody-original-calendar-wrapper > div {
     display: flex !important;
@@ -138,11 +143,13 @@
     overflow: visible !important;
   }
 
-  .custody-original-calendar-wrapper > div > aside {
+  .custody-original-calendar-wrapper > div > aside,
+  .custody-original-calendar-wrapper > div > div.flex-1,
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
     overflow: visible !important;
   }
 
   .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
