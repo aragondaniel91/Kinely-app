@@ -14,7 +14,7 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
@@ -139,6 +139,18 @@ function getCustodyActivityTone(type = "") {
   return "bg-violet-50 text-violet-700 border-violet-100";
 }
 
+function mergeActivityDocs(primary = [], legacy = []) {
+  const map = new Map();
+  [...primary, ...legacy].forEach((item) => {
+    if (item?.id) map.set(item.id, item);
+  });
+
+  return Array.from(map.values())
+    .filter(isCustodyActivity)
+    .sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)))
+    .slice(0, 10);
+}
+
 function WeatherTimeBadge() {
   const [now, setNow] = useState(() => new Date());
 
@@ -188,7 +200,7 @@ function ModuleCard({ module, onClick }) {
   );
 }
 
-function CustodyActivityPanel({ activity = [], loading = false }) {
+function CustodyActivityPanel({ activity = [], loading = false, error = "", onCreateTestLog, isCreatingTestLog = false }) {
   return (
     <div className="px-3 pb-8 pt-4 md:px-6">
       <Card className="mx-auto max-w-7xl rounded-[2rem] border-blue-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
@@ -202,11 +214,29 @@ function CustodyActivityPanel({ activity = [], loading = false }) {
               Evidence of custody schedule, travel, special event, and delete changes.
             </p>
           </div>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-500">
-            <History className="h-3.5 w-3.5" />
-            {activity.length} recent
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isCreatingTestLog}
+              onClick={onCreateTestLog}
+              className="rounded-full bg-white text-xs font-black"
+            >
+              {isCreatingTestLog ? "Testing..." : "Test audit log"}
+            </Button>
+            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-500">
+              <History className="h-3.5 w-3.5" />
+              {activity.length} recent
+            </div>
           </div>
         </div>
+
+        {error && (
+          <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+            Audit log error: {error}
+          </div>
+        )}
 
         <div className="mt-4 space-y-2.5">
           {loading && (
@@ -215,7 +245,7 @@ function CustodyActivityPanel({ activity = [], loading = false }) {
             </div>
           )}
 
-          {!loading && activity.length === 0 && (
+          {!loading && activity.length === 0 && !error && (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
               No custody activity yet. Create or edit a custody day, travel plan, or special event to start the audit trail.
             </div>
@@ -330,6 +360,8 @@ export default function Custody() {
   const [isResetting, setIsResetting] = useState(false);
   const [custodyActivity, setCustodyActivity] = useState([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activityError, setActivityError] = useState("");
+  const [isCreatingTestLog, setIsCreatingTestLog] = useState(false);
   const { user, familyId, isAdmin, isOwner } = useFamily();
 
   const canResetCustody = Boolean(user && familyId && (isAdmin || isOwner));
@@ -339,37 +371,105 @@ export default function Custody() {
     if (!user || !familyId) {
       setCustodyActivity([]);
       setLoadingActivity(false);
+      setActivityError("");
       return undefined;
     }
 
     setLoadingActivity(true);
+    setActivityError("");
 
-    const activityQuery = query(
+    let primaryDocs = [];
+    let legacyDocs = [];
+
+    const updateActivity = () => {
+      setCustodyActivity(mergeActivityDocs(primaryDocs, legacyDocs));
+      setLoadingActivity(false);
+    };
+
+    const primaryQuery = query(
       collection(db, "familyActivity"),
       where("familyId", "==", familyId)
     );
+    const legacyQuery = query(
+      collection(db, "familyActivity"),
+      where("family_id", "==", familyId)
+    );
 
-    const unsubscribe = onSnapshot(
-      activityQuery,
+    const unsubPrimary = onSnapshot(
+      primaryQuery,
       (snap) => {
-        const docs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        const filtered = docs
-          .filter(isCustodyActivity)
-          .sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)))
-          .slice(0, 10);
-
-        setCustodyActivity(filtered);
-        setLoadingActivity(false);
+        primaryDocs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        updateActivity();
       },
       (error) => {
-        console.warn("Could not listen to custody activity:", error);
-        setCustodyActivity([]);
+        console.warn("Could not listen to custody activity by familyId:", error);
+        setActivityError(error.message || "Could not read familyActivity by familyId.");
         setLoadingActivity(false);
       }
     );
 
-    return unsubscribe;
+    const unsubLegacy = onSnapshot(
+      legacyQuery,
+      (snap) => {
+        legacyDocs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        updateActivity();
+      },
+      (error) => {
+        console.warn("Could not listen to custody activity by family_id:", error);
+        setActivityError(error.message || "Could not read familyActivity by family_id.");
+        setLoadingActivity(false);
+      }
+    );
+
+    return () => {
+      unsubPrimary();
+      unsubLegacy();
+    };
   }, [user, familyId]);
+
+  const handleCreateTestAuditLog = async () => {
+    if (!user || !familyId || isCreatingTestLog) return;
+
+    setIsCreatingTestLog(true);
+    setActivityError("");
+
+    try {
+      const activityId = `${familyId}_custody_test_${Date.now()}`;
+      await setDoc(doc(db, "familyActivity", activityId), {
+        id: activityId,
+        familyId,
+        family_id: familyId,
+        module: "custody",
+        module_name: "custody",
+        visibility: "parents",
+        scope: "audit",
+        type: "custody_audit_test",
+        title: "Custody audit test",
+        description: "Manual test log created from custody dashboard",
+        entityType: "custodyAuditTest",
+        entity_type: "custodyAuditTest",
+        entityId: activityId,
+        entity_id: activityId,
+        date: new Date().toISOString().slice(0, 10),
+        actorId: user.uid,
+        actor_id: user.uid,
+        actorEmail: user.email || null,
+        actor_email: user.email || null,
+        actorName: user.displayName || user.email || "Someone",
+        actor_name: user.displayName || user.email || "Someone",
+        createdAt: serverTimestamp(),
+        created_at: new Date().toISOString(),
+        readBy: [],
+        read_by: [],
+        metadata: { source: "custody_dashboard_test_button" },
+      });
+    } catch (error) {
+      console.error("Could not create custody audit test log:", error);
+      setActivityError(error.message || "Could not create custody audit test log.");
+    } finally {
+      setIsCreatingTestLog(false);
+    }
+  };
 
   const handleResetCustody = async () => {
     if (!canResetCustody || isResetting) return;
@@ -478,7 +578,13 @@ export default function Custody() {
             onOpenBudget={() => setActiveModule("budget")}
             onOpenChat={() => setActiveModule("chat")}
           />
-          <CustodyActivityPanel activity={custodyActivity} loading={loadingActivity} />
+          <CustodyActivityPanel
+            activity={custodyActivity}
+            loading={loadingActivity}
+            error={activityError}
+            onCreateTestLog={handleCreateTestAuditLog}
+            isCreatingTestLog={isCreatingTestLog}
+          />
         </>
       )}
 
