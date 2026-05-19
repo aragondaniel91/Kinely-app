@@ -363,6 +363,7 @@ export default function Custody() {
   const [activeModule, setActiveModule] = useState("dashboard");
   const [isResetting, setIsResetting] = useState(false);
   const [custodyActivity, setCustodyActivity] = useState([]);
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState("");
   const [isCreatingTestLog, setIsCreatingTestLog] = useState(false);
@@ -370,6 +371,7 @@ export default function Custody() {
 
   const canResetCustody = Boolean(user && familyId && (isAdmin || isOwner));
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
+  const latestActivityId = custodyActivity[0]?.id || "";
 
   useEffect(() => {
     let cancelled = false;
@@ -451,6 +453,11 @@ export default function Custody() {
       unsubscribers = [];
     };
   }, [user, familyId, myEmail]);
+
+  useEffect(() => {
+    if (!latestActivityId) return;
+    setCalendarRefreshKey((current) => current + 1);
+  }, [latestActivityId]);
 
   const handleCreateTestAuditLog = async () => {
     if (!user || !familyId || isCreatingTestLog) return;
@@ -591,6 +598,7 @@ export default function Custody() {
       {activeModule === "dashboard" && (
         <>
           <CustodyCalendarView
+            key={`dashboard-${calendarRefreshKey}`}
             mode="dashboard"
             activeCalendar={activeCalendar}
             setActiveCalendar={setActiveCalendar}
@@ -615,6 +623,7 @@ export default function Custody() {
 
       {activeModule === "schedule" && (
         <CustodyCalendarView
+          key={`schedule-${calendarRefreshKey}`}
           activeCalendar={activeCalendar}
           setActiveCalendar={setActiveCalendar}
           viewMode={viewMode}
@@ -624,6 +633,7 @@ export default function Custody() {
 
       {["exchange", "packing", "notifications", "budget"].includes(activeModule) && (
         <CustodyCalendarView
+          key={`${activeModule}-${calendarRefreshKey}`}
           mode={activeModule}
           activeCalendar={activeCalendar}
           setActiveCalendar={setActiveCalendar}
