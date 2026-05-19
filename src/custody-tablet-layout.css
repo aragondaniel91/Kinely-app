@@ -1,155 +1,23 @@
-/* Custody calendar responsive fixes.
-   Goal: behave like a normal page, not like an inner scroll app frame.
-   The full page should scroll naturally, similar to Family Calendar. */
-
-.custody-original-calendar-wrapper,
-.custody-original-calendar-wrapper * {
-  -webkit-overflow-scrolling: touch;
-}
+/* Minimal custody calendar responsive safety.
+   Avoid aggressive layout overrides here. The calendar component should own its layout.
+   This file only prevents accidental horizontal page overflow and keeps mobile padding safe. */
 
 .custody-original-calendar-wrapper {
-  min-height: auto !important;
-  height: auto !important;
-  overflow: visible !important;
-  padding-bottom: 1rem !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
 }
 
 .custody-original-calendar-wrapper > div {
-  min-height: auto !important;
-  height: auto !important;
-  overflow: visible !important;
+  max-width: 100% !important;
 }
 
-.custody-original-calendar-wrapper > div > aside,
-.custody-original-calendar-wrapper > div > div.flex-1,
-.custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-  min-height: auto !important;
-  height: auto !important;
-  overflow: visible !important;
+.custody-original-calendar-wrapper > div > div.flex-1 {
+  min-width: 0 !important;
 }
 
-.custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-  padding-bottom: 2rem !important;
-}
-
-/* Tablet landscape / small laptop: two-column layout, but no inner vertical scroll. */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .custody-original-calendar-wrapper > div {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: stretch !important;
-    min-height: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  .custody-original-calendar-wrapper > div > aside {
-    width: 13rem !important;
-    max-width: 13rem !important;
-    flex: 0 0 13rem !important;
-    align-self: stretch !important;
-    border-right: 1px solid hsl(var(--border)) !important;
-    border-bottom: 0 !important;
-    overflow: visible !important;
-    padding: 1rem !important;
-    gap: 1rem !important;
-  }
-
-  .custody-original-calendar-wrapper > div > aside [class*="lg:flex-col"] {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
-
-  .custody-original-calendar-wrapper > div > aside button {
-    width: 100% !important;
-    justify-content: flex-start !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 {
-    min-width: 0 !important;
-    flex: 1 1 auto !important;
-    overflow: visible !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child {
-    position: relative !important;
-    top: auto !important;
-    z-index: 15 !important;
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-    gap: 0.5rem !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child h2 {
-    font-size: 1rem !important;
-    line-height: 1.25rem !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child .ml-auto {
-    gap: 0.35rem !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child button {
-    min-height: 2rem !important;
-    height: 2rem !important;
-    padding-left: 0.6rem !important;
-    padding-right: 0.6rem !important;
-    font-size: 0.75rem !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    overflow: visible !important;
-    padding: 0.75rem 0.75rem 2rem !important;
-  }
-}
-
-/* Narrow tablets: keep two columns, but reduce sidebar width. */
-@media (min-width: 768px) and (max-width: 860px) {
-  .custody-original-calendar-wrapper > div > aside {
-    width: 11.5rem !important;
-    max-width: 11.5rem !important;
-    flex-basis: 11.5rem !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child {
-    flex-wrap: wrap !important;
-  }
-}
-
-/* Short-height tablets and kiosk browsers: let the document/body scroll. */
-@media (max-height: 760px) {
-  .custody-original-calendar-wrapper,
-  .custody-original-calendar-wrapper > div,
-  .custody-original-calendar-wrapper > div > aside,
-  .custody-original-calendar-wrapper > div > div.flex-1,
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    min-height: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    padding-bottom: 2rem !important;
-  }
-}
-
-/* Phone: keep the mobile stack and let the page scroll naturally. */
+/* Keep enough breathing room above the fixed bottom nav on phones only. */
 @media (max-width: 767px) {
-  .custody-original-calendar-wrapper > div {
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  .custody-original-calendar-wrapper > div > aside,
-  .custody-original-calendar-wrapper > div > div.flex-1,
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    overflow: visible !important;
-  }
-
-  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
+  .custody-original-calendar-wrapper {
     padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
