@@ -204,7 +204,7 @@ function ModuleCard({ module, onClick }) {
   );
 }
 
-function CustodyActivityPanel({ activity = [], loading = false, error = "", onCreateTestLog, isCreatingTestLog = false }) {
+function CustodyActivityPanel({ activity = [], loading = false, error = "" }) {
   return (
     <div className="px-3 pb-8 pt-4 md:px-6">
       <Card className="mx-auto max-w-7xl rounded-[2rem] border-blue-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
@@ -218,21 +218,9 @@ function CustodyActivityPanel({ activity = [], loading = false, error = "", onCr
               Evidence of custody schedule, travel, special event, and delete changes.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isCreatingTestLog}
-              onClick={onCreateTestLog}
-              className="rounded-full bg-white text-xs font-black"
-            >
-              {isCreatingTestLog ? "Testing..." : "Test audit log"}
-            </Button>
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-500">
-              <History className="h-3.5 w-3.5" />
-              {activity.length} recent
-            </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-500">
+            <History className="h-3.5 w-3.5" />
+            {activity.length} recent
           </div>
         </div>
 
@@ -366,7 +354,6 @@ export default function Custody() {
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState("");
-  const [isCreatingTestLog, setIsCreatingTestLog] = useState(false);
   const { user, familyId, myEmail, isAdmin, isOwner } = useFamily();
 
   const canResetCustody = Boolean(user && familyId && (isAdmin || isOwner));
@@ -458,50 +445,6 @@ export default function Custody() {
     if (!latestActivityId) return;
     setCalendarRefreshKey((current) => current + 1);
   }, [latestActivityId]);
-
-  const handleCreateTestAuditLog = async () => {
-    if (!user || !familyId || isCreatingTestLog) return;
-
-    setIsCreatingTestLog(true);
-    setActivityError("");
-
-    try {
-      const activityId = `${familyId}_custody_test_${Date.now()}`;
-      await setDoc(doc(db, "familyActivity", activityId), {
-        id: activityId,
-        familyId,
-        family_id: familyId,
-        module: "custody",
-        module_name: "custody",
-        visibility: "parents",
-        scope: "audit",
-        type: "custody_audit_test",
-        title: "Custody audit test",
-        description: "Manual test log created from custody dashboard",
-        entityType: "custodyAuditTest",
-        entity_type: "custodyAuditTest",
-        entityId: activityId,
-        entity_id: activityId,
-        date: new Date().toISOString().slice(0, 10),
-        actorId: user.uid,
-        actor_id: user.uid,
-        actorEmail: user.email || null,
-        actor_email: user.email || null,
-        actorName: user.displayName || user.email || "Someone",
-        actor_name: user.displayName || user.email || "Someone",
-        createdAt: serverTimestamp(),
-        created_at: new Date().toISOString(),
-        readBy: [],
-        read_by: [],
-        metadata: { source: "custody_dashboard_test_button" },
-      });
-    } catch (error) {
-      console.error("Could not create custody audit test log:", error);
-      setActivityError(error.message || "Could not create custody audit test log.");
-    } finally {
-      setIsCreatingTestLog(false);
-    }
-  };
 
   const handleResetCustody = async () => {
     if (!canResetCustody || isResetting) return;
@@ -615,8 +558,6 @@ export default function Custody() {
             activity={custodyActivity}
             loading={loadingActivity}
             error={activityError}
-            onCreateTestLog={handleCreateTestAuditLog}
-            isCreatingTestLog={isCreatingTestLog}
           />
         </>
       )}
