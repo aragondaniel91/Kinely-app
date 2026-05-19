@@ -992,8 +992,8 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   }
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100dvh-12rem)] bg-[#F7F8FC]">
-      <aside className="w-full lg:w-56 shrink-0 bg-card border-b lg:border-b-0 lg:border-r border-border p-3 lg:p-4 flex flex-col gap-3 lg:gap-4 overflow-visible">
+    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-[#F7F8FC]">
+      <aside className="w-full lg:w-56 shrink-0 bg-card border-b lg:border-b-0 lg:border-r border-border p-3 lg:p-4 flex flex-col gap-3 lg:gap-4 overflow-visible lg:overflow-y-auto">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <CalendarDays className="w-4 h-4 text-white" />
@@ -1111,7 +1111,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         )}
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-card border-b border-border px-3 lg:px-4 py-3 flex items-center gap-2 lg:gap-3">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goPrevious}><ChevronLeft className="w-4 h-4" /></Button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goNext}><ChevronRight className="w-4 h-4" /></Button>
@@ -1154,7 +1154,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           </div>
         )}
 
-        <div className="flex-1 p-2 lg:p-3 bg-[#F7F8FC]">
+        <div className="flex-1 overflow-auto p-2 lg:p-3 bg-[#F7F8FC]">
           {viewMode === "day" && (
             <DayDetailView day={anchorDate} custody={finalCustodyMap[format(anchorDate, "yyyy-MM-dd")]} canWrite={canWrite} onEdit={(day) => setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} />
           )}
