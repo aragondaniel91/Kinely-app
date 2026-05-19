@@ -14,7 +14,7 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { collection, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
@@ -96,11 +96,16 @@ function getActivitySortValue(activity) {
   return String(raw || "");
 }
 
-function formatActivityTime(activity) {
+function getActivityDate(activity) {
   const raw = activity?.created_at || activity?.createdAt;
   const date = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
 
-  if (!date || Number.isNaN(date.getTime())) return "Just now";
+function formatActivityTime(activity) {
+  const date = getActivityDate(activity);
+
+  if (!date) return "Just now";
 
   const diffMs = Date.now() - date.getTime();
   const minutes = Math.floor(diffMs / 60_000);
@@ -113,6 +118,88 @@ function formatActivityTime(activity) {
   if (days < 7) return `${days}d ago`;
 
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function formatAuditTimestamp(activity) {
+  const date = getActivityDate(activity);
+  if (!date) return "Time not available";
+
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function titleCase(value = "") {
+  return String(value)
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getActionLabel(type = "") {
+  if (type.includes("deleted")) return "Deleted";
+  if (type.includes("updated")) return "Updated";
+  if (type.includes("created") || type.includes("added")) return "Created";
+  if (type.includes("test")) return "Test";
+  return "Changed";
+}
+
+function getActionTone(type = "") {
+  if (type.includes("deleted")) return "border-rose-100 bg-rose-50 text-rose-700";
+  if (type.includes("updated")) return "border-blue-100 bg-blue-50 text-blue-700";
+  if (type.includes("created") || type.includes("added")) return "border-emerald-100 bg-emerald-50 text-emerald-700";
+  return "border-slate-200 bg-slate-50 text-slate-600";
+}
+
+function getParentLabel(value) {
+  if (value === "dad") return "Dad";
+  if (value === "mom") return "Mom";
+  if (!value) return "";
+  return titleCase(value);
+}
+
+function compactDateRange(start, end) {
+  if (start && end) return `${start} → ${end}`;
+  return start || end || "";
+}
+
+function addDetail(details, label, value) {
+  if (value === undefined || value === null || value === "") return;
+  details.push({ label, value: String(value) });
+}
+
+function buildActivityDetails(item = {}) {
+  const details = [];
+  const metadata = item.metadata || {};
+  const type = item.type || "";
+
+  if (type.includes("travel")) {
+    addDetail(details, "Destination", metadata.destination);
+    addDetail(details, "Dates", compactDateRange(metadata.startDate || metadata.start_date, metadata.endDate || metadata.end_date));
+    addDetail(details, "Parent", getParentLabel(metadata.travelingParent || metadata.traveling_parent));
+    addDetail(details, "Affects custody", metadata.affectsCustody === false ? "No" : "Yes");
+  } else if (type.includes("special_event")) {
+    addDetail(details, "Category", titleCase(metadata.category));
+    addDetail(details, "Time", metadata.startTime || metadata.start_time);
+    addDetail(details, "Location", metadata.location);
+  } else if (type.includes("custody_day")) {
+    addDetail(details, "Date", item.date || metadata.date);
+    if (metadata.is_split || metadata.isSplit) {
+      addDetail(details, "Morning", getParentLabel(metadata.morning));
+      addDetail(details, "Afternoon", getParentLabel(metadata.afternoon));
+    } else {
+      addDetail(details, "With", getParentLabel(metadata.with_whom || metadata.withWhom));
+    }
+    addDetail(details, "Notes", metadata.notes);
+  } else if (type.includes("bulk")) {
+    addDetail(details, "Removed", metadata.removedCount ? `${metadata.removedCount} day(s)` : "");
+    addDetail(details, "Bulk run", metadata.bulkRunId || metadata.bulk_run_id);
+  }
+
+  return details.slice(0, 4);
 }
 
 function isCustodyActivity(activity) {
@@ -230,7 +317,7 @@ function CustodyActivityPanel({ activity = [], loading = false, error = "" }) {
           </div>
         )}
 
-        <div className="mt-4 space-y-2.5">
+        <div className="mt-4 space-y-3">
           {loading && (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
               Loading custody activity...
@@ -246,27 +333,57 @@ function CustodyActivityPanel({ activity = [], loading = false, error = "" }) {
           {!loading && activity.slice(0, 6).map((item) => {
             const Icon = getCustodyActivityIcon(item.type || "");
             const actor = item.actorName || item.actor_name || item.actorEmail || "Someone";
+            const details = buildActivityDetails(item);
+            const action = getActionLabel(item.type || "");
 
             return (
-              <div key={item.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getCustodyActivityTone(item.type || "")}`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-sm font-black text-slate-950">
-                      {item.title || "Custody activity"}
-                    </p>
-                    <span className="shrink-0 text-[11px] font-bold text-slate-400">
-                      {formatActivityTime(item)}
-                    </span>
+              <div key={item.id} className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getCustodyActivityTone(item.type || "")}`}>
+                    <Icon className="h-4 w-4" />
                   </div>
-                  <p className="truncate text-xs font-semibold text-slate-500">
-                    {item.description || "Custody record was changed"}
-                  </p>
-                  <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">
-                    by {actor}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-black text-slate-950">
+                            {item.title || "Custody activity"}
+                          </p>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${getActionTone(item.type || "")}`}>
+                            {action}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                          {item.description || "Custody record was changed"}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-left sm:text-right">
+                        <p className="text-[11px] font-black text-slate-500">
+                          {formatActivityTime(item)}
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-400">
+                          {formatAuditTimestamp(item)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {details.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {details.map((detail) => (
+                          <span
+                            key={`${item.id}-${detail.label}`}
+                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-600"
+                          >
+                            <span className="text-slate-400">{detail.label}:</span> {detail.value}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <p className="mt-2 truncate text-[11px] font-bold text-slate-400">
+                      by {actor}
+                    </p>
+                  </div>
                 </div>
               </div>
             );
