@@ -3,12 +3,12 @@
    calendar was trapped inside h-full/min-h-screen/overflow-hidden containers,
    so the bottom content was cut off behind the fixed bottom nav. */
 
-/* Make the custody calendar area scrollable and leave room for the bottom nav. */
+/* Make the custody calendar area scrollable without creating a large blank tail. */
 .custody-original-calendar-wrapper {
   min-height: auto !important;
   height: auto !important;
   overflow: visible !important;
-  padding-bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: 1rem !important;
 }
 
 .custody-original-calendar-wrapper > div {
@@ -26,7 +26,7 @@
 .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
   overflow-y: visible !important;
   overflow-x: auto !important;
-  padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: 2rem !important;
 }
 
 /* Tablet landscape / small laptop: promote calendar to a two-column layout. */
@@ -93,7 +93,7 @@
   }
 
   .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    padding: 0.75rem 0.75rem calc(7.5rem + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0.75rem 0.75rem 2.5rem !important;
   }
 }
 
@@ -111,7 +111,7 @@
 }
 
 /* Short-height tablets and kiosk browsers need vertical scrolling more than a
-   fixed full-screen app frame. */
+   fixed full-screen app frame, but should not create a blank bottom area. */
 @media (max-height: 760px) {
   .custody-original-calendar-wrapper,
   .custody-original-calendar-wrapper > div,
@@ -124,11 +124,11 @@
   .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
     min-height: auto !important;
     overflow-y: visible !important;
-    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: 2.75rem !important;
   }
 }
 
-/* Phone: keep the mobile stack, but never trap content behind the bottom nav. */
+/* Phone: keep the mobile stack, but leave only enough space for the bottom nav. */
 @media (max-width: 767px) {
   .custody-original-calendar-wrapper > div {
     display: flex !important;
@@ -143,6 +143,6 @@
   }
 
   .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
-    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
