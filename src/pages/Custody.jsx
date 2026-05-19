@@ -14,7 +14,7 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,10 @@ const custodyModules = [
   },
 ];
 
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function formatTime(date) {
   return date.toLocaleTimeString([], {
     hour: "numeric",
@@ -139,9 +143,9 @@ function getCustodyActivityTone(type = "") {
   return "bg-violet-50 text-violet-700 border-violet-100";
 }
 
-function mergeActivityDocs(primary = [], legacy = []) {
+function mergeActivityDocs(...groups) {
   const map = new Map();
-  [...primary, ...legacy].forEach((item) => {
+  groups.flat().forEach((item) => {
     if (item?.id) map.set(item.id, item);
   });
 
@@ -362,70 +366,91 @@ export default function Custody() {
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState("");
   const [isCreatingTestLog, setIsCreatingTestLog] = useState(false);
-  const { user, familyId, isAdmin, isOwner } = useFamily();
+  const { user, familyId, myEmail, isAdmin, isOwner } = useFamily();
 
   const canResetCustody = Boolean(user && familyId && (isAdmin || isOwner));
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
 
   useEffect(() => {
-    if (!user || !familyId) {
-      setCustodyActivity([]);
-      setLoadingActivity(false);
+    let cancelled = false;
+    let unsubscribers = [];
+
+    const setupActivityListeners = async () => {
+      if (!user || !familyId) {
+        setCustodyActivity([]);
+        setLoadingActivity(false);
+        setActivityError("");
+        return;
+      }
+
+      setLoadingActivity(true);
       setActivityError("");
-      return undefined;
-    }
 
-    setLoadingActivity(true);
-    setActivityError("");
+      const familyIdsToWatch = new Set([familyId]);
+      const email = normalizeEmail(myEmail || user.email);
 
-    let primaryDocs = [];
-    let legacyDocs = [];
+      if (email) {
+        try {
+          const groupRef = collection(db, "custodyGroups");
+          const [memberSnap, viewerSnap] = await Promise.allSettled([
+            getDocs(query(groupRef, where("memberEmails", "array-contains", email))),
+            getDocs(query(groupRef, where("viewerEmails", "array-contains", email))),
+          ]);
 
-    const updateActivity = () => {
-      setCustodyActivity(mergeActivityDocs(primaryDocs, legacyDocs));
-      setLoadingActivity(false);
+          [memberSnap, viewerSnap].forEach((result) => {
+            if (result.status !== "fulfilled") return;
+            result.value.docs.forEach((docSnap) => familyIdsToWatch.add(docSnap.id));
+          });
+        } catch (error) {
+          console.warn("Could not load custody spaces for audit log:", error);
+        }
+      }
+
+      if (cancelled) return;
+
+      const bucket = new Map();
+      const updateActivity = () => {
+        if (cancelled) return;
+        setCustodyActivity(mergeActivityDocs(...Array.from(bucket.values())));
+        setLoadingActivity(false);
+      };
+
+      Array.from(familyIdsToWatch).forEach((idToWatch) => {
+        ["familyId", "family_id"].forEach((fieldName) => {
+          const bucketKey = `${fieldName}:${idToWatch}`;
+          const activityQuery = query(
+            collection(db, "familyActivity"),
+            where(fieldName, "==", idToWatch)
+          );
+
+          const unsubscribe = onSnapshot(
+            activityQuery,
+            (snap) => {
+              bucket.set(bucketKey, snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+              updateActivity();
+            },
+            (error) => {
+              console.warn(`Could not listen to custody activity for ${bucketKey}:`, error);
+              if (!cancelled) {
+                setActivityError(error.message || `Could not read familyActivity for ${bucketKey}.`);
+                setLoadingActivity(false);
+              }
+            }
+          );
+
+          unsubscribers.push(unsubscribe);
+        });
+      });
     };
 
-    const primaryQuery = query(
-      collection(db, "familyActivity"),
-      where("familyId", "==", familyId)
-    );
-    const legacyQuery = query(
-      collection(db, "familyActivity"),
-      where("family_id", "==", familyId)
-    );
-
-    const unsubPrimary = onSnapshot(
-      primaryQuery,
-      (snap) => {
-        primaryDocs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        updateActivity();
-      },
-      (error) => {
-        console.warn("Could not listen to custody activity by familyId:", error);
-        setActivityError(error.message || "Could not read familyActivity by familyId.");
-        setLoadingActivity(false);
-      }
-    );
-
-    const unsubLegacy = onSnapshot(
-      legacyQuery,
-      (snap) => {
-        legacyDocs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        updateActivity();
-      },
-      (error) => {
-        console.warn("Could not listen to custody activity by family_id:", error);
-        setActivityError(error.message || "Could not read familyActivity by family_id.");
-        setLoadingActivity(false);
-      }
-    );
+    setupActivityListeners();
 
     return () => {
-      unsubPrimary();
-      unsubLegacy();
+      cancelled = true;
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      unsubscribers = [];
     };
-  }, [user, familyId]);
+  }, [user, familyId, myEmail]);
 
   const handleCreateTestAuditLog = async () => {
     if (!user || !familyId || isCreatingTestLog) return;
