@@ -14,7 +14,7 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
@@ -190,7 +190,7 @@ function ModuleCard({ module, onClick }) {
 
 function CustodyActivityPanel({ activity = [], loading = false }) {
   return (
-    <div className="px-3 pb-2 pt-1 md:px-6">
+    <div className="px-3 pb-8 pt-4 md:px-6">
       <Card className="mx-auto max-w-7xl rounded-[2rem] border-blue-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -336,49 +336,39 @@ export default function Custody() {
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
 
   useEffect(() => {
-    const loadCustodyActivity = async () => {
-      if (!user || !familyId) {
-        setCustodyActivity([]);
-        return;
-      }
+    if (!user || !familyId) {
+      setCustodyActivity([]);
+      setLoadingActivity(false);
+      return undefined;
+    }
 
-      setLoadingActivity(true);
+    setLoadingActivity(true);
 
-      try {
-        let docs = [];
+    const activityQuery = query(
+      collection(db, "familyActivity"),
+      where("familyId", "==", familyId)
+    );
 
-        try {
-          const activityQuery = query(
-            collection(db, "familyActivity"),
-            where("familyId", "==", familyId)
-          );
-          const snap = await getDocs(activityQuery);
-          docs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        } catch (error) {
-          console.warn("Fallback custody activity query by family_id:", error);
-          const activityQuery = query(
-            collection(db, "familyActivity"),
-            where("family_id", "==", familyId)
-          );
-          const snap = await getDocs(activityQuery);
-          docs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        }
-
+    const unsubscribe = onSnapshot(
+      activityQuery,
+      (snap) => {
+        const docs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
         const filtered = docs
           .filter(isCustodyActivity)
           .sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)))
           .slice(0, 10);
 
         setCustodyActivity(filtered);
-      } catch (error) {
-        console.warn("Could not load custody activity:", error);
+        setLoadingActivity(false);
+      },
+      (error) => {
+        console.warn("Could not listen to custody activity:", error);
         setCustodyActivity([]);
-      } finally {
         setLoadingActivity(false);
       }
-    };
+    );
 
-    loadCustodyActivity();
+    return unsubscribe;
   }, [user, familyId]);
 
   const handleResetCustody = async () => {
@@ -475,7 +465,6 @@ export default function Custody() {
 
       {activeModule === "dashboard" && (
         <>
-          <CustodyActivityPanel activity={custodyActivity} loading={loadingActivity} />
           <CustodyCalendarView
             mode="dashboard"
             activeCalendar={activeCalendar}
@@ -489,6 +478,7 @@ export default function Custody() {
             onOpenBudget={() => setActiveModule("budget")}
             onOpenChat={() => setActiveModule("chat")}
           />
+          <CustodyActivityPanel activity={custodyActivity} loading={loadingActivity} />
         </>
       )}
 
