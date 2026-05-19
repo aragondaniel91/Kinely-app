@@ -53,7 +53,7 @@ export default function AppShell() {
   }
 
   return (
-    <div className="kinly-gradient-bg flex min-h-screen flex-col">
+    <div className="kinly-gradient-bg flex min-h-dvh flex-col overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-transparent px-3 py-2.5 md:px-6 md:py-3">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[1.55rem] border border-white/80 bg-white/76 px-3 py-2 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-2xl md:px-4">
           <Link to="/" className="shrink-0">
@@ -63,11 +63,11 @@ export default function AppShell() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto pb-24 md:pb-24">
+      <main className="flex-1 min-h-0 overflow-x-hidden pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]">
         <Outlet />
       </main>
 
-      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
+      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
         <div className="pointer-events-auto mx-auto max-w-3xl rounded-[1.85rem] border border-white/80 bg-white/78 p-1.5 shadow-[0_20px_52px_rgba(15,23,42,0.15)] backdrop-blur-2xl transition hover:bg-white/86">
           <div className="flex items-center justify-around gap-1 overflow-x-auto">
             {navItems.map((item) => {
