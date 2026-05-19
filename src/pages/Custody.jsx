@@ -4,19 +4,24 @@ import {
   BellRing,
   CalendarDays,
   CreditCard,
+  History,
   LayoutDashboard,
   MessageCircle,
+  Plane,
   Shirt,
+  Sparkles,
   Sun,
   Trash2,
   Truck,
 } from "lucide-react";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
+import { db } from "@/lib/firebase";
 
 const custodyModules = [
   {
@@ -80,6 +85,60 @@ function formatTime(date) {
   });
 }
 
+function getActivitySortValue(activity) {
+  const raw = activity.created_at || activity.createdAt || activity.updated_date || "";
+  if (typeof raw === "string") return raw;
+  if (raw?.toDate) return raw.toDate().toISOString();
+  return String(raw || "");
+}
+
+function formatActivityTime(activity) {
+  const raw = activity?.created_at || activity?.createdAt;
+  const date = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null;
+
+  if (!date || Number.isNaN(date.getTime())) return "Just now";
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function isCustodyActivity(activity) {
+  const type = activity?.type || "";
+  const module = activity?.module || activity?.module_name || "";
+  const entityType = activity?.entityType || activity?.entity_type || "";
+
+  return (
+    module === "custody" ||
+    type.includes("custody") ||
+    type.includes("travel") ||
+    type.includes("special_event") ||
+    entityType.includes("custody")
+  );
+}
+
+function getCustodyActivityIcon(type = "") {
+  if (type.includes("travel")) return Plane;
+  if (type.includes("special_event")) return Sparkles;
+  if (type.includes("deleted")) return Trash2;
+  return CalendarDays;
+}
+
+function getCustodyActivityTone(type = "") {
+  if (type.includes("deleted")) return "bg-rose-50 text-rose-700 border-rose-100";
+  if (type.includes("travel")) return "bg-blue-50 text-blue-700 border-blue-100";
+  if (type.includes("special_event")) return "bg-amber-50 text-amber-700 border-amber-100";
+  return "bg-violet-50 text-violet-700 border-violet-100";
+}
+
 function WeatherTimeBadge() {
   const [now, setNow] = useState(() => new Date());
 
@@ -126,6 +185,73 @@ function ModuleCard({ module, onClick }) {
         {module.description}
       </p>
     </button>
+  );
+}
+
+function CustodyActivityPanel({ activity = [], loading = false }) {
+  return (
+    <div className="px-3 pb-2 pt-1 md:px-6">
+      <Card className="mx-auto max-w-7xl rounded-[2rem] border-blue-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">
+              Audit log
+            </p>
+            <h2 className="text-xl font-black text-slate-950">Custody activity</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Evidence of custody schedule, travel, special event, and delete changes.
+            </p>
+          </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-500">
+            <History className="h-3.5 w-3.5" />
+            {activity.length} recent
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2.5">
+          {loading && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+              Loading custody activity...
+            </div>
+          )}
+
+          {!loading && activity.length === 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+              No custody activity yet. Create or edit a custody day, travel plan, or special event to start the audit trail.
+            </div>
+          )}
+
+          {!loading && activity.slice(0, 6).map((item) => {
+            const Icon = getCustodyActivityIcon(item.type || "");
+            const actor = item.actorName || item.actor_name || item.actorEmail || "Someone";
+
+            return (
+              <div key={item.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getCustodyActivityTone(item.type || "")}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-black text-slate-950">
+                      {item.title || "Custody activity"}
+                    </p>
+                    <span className="shrink-0 text-[11px] font-bold text-slate-400">
+                      {formatActivityTime(item)}
+                    </span>
+                  </div>
+                  <p className="truncate text-xs font-semibold text-slate-500">
+                    {item.description || "Custody record was changed"}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">
+                    by {actor}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -202,10 +328,58 @@ export default function Custody() {
   const [viewMode, setViewMode] = useState("month");
   const [activeModule, setActiveModule] = useState("dashboard");
   const [isResetting, setIsResetting] = useState(false);
+  const [custodyActivity, setCustodyActivity] = useState([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
   const { user, familyId, isAdmin, isOwner } = useFamily();
 
   const canResetCustody = Boolean(user && familyId && (isAdmin || isOwner));
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
+
+  useEffect(() => {
+    const loadCustodyActivity = async () => {
+      if (!user || !familyId) {
+        setCustodyActivity([]);
+        return;
+      }
+
+      setLoadingActivity(true);
+
+      try {
+        let docs = [];
+
+        try {
+          const activityQuery = query(
+            collection(db, "familyActivity"),
+            where("familyId", "==", familyId)
+          );
+          const snap = await getDocs(activityQuery);
+          docs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        } catch (error) {
+          console.warn("Fallback custody activity query by family_id:", error);
+          const activityQuery = query(
+            collection(db, "familyActivity"),
+            where("family_id", "==", familyId)
+          );
+          const snap = await getDocs(activityQuery);
+          docs = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        }
+
+        const filtered = docs
+          .filter(isCustodyActivity)
+          .sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)))
+          .slice(0, 10);
+
+        setCustodyActivity(filtered);
+      } catch (error) {
+        console.warn("Could not load custody activity:", error);
+        setCustodyActivity([]);
+      } finally {
+        setLoadingActivity(false);
+      }
+    };
+
+    loadCustodyActivity();
+  }, [user, familyId]);
 
   const handleResetCustody = async () => {
     if (!canResetCustody || isResetting) return;
@@ -300,19 +474,22 @@ export default function Custody() {
       </div>
 
       {activeModule === "dashboard" && (
-        <CustodyCalendarView
-          mode="dashboard"
-          activeCalendar={activeCalendar}
-          setActiveCalendar={setActiveCalendar}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onOpenSchedule={() => setActiveModule("schedule")}
-          onOpenExchange={() => setActiveModule("exchange")}
-          onOpenPacking={() => setActiveModule("packing")}
-          onOpenNotifications={() => setActiveModule("notifications")}
-          onOpenBudget={() => setActiveModule("budget")}
-          onOpenChat={() => setActiveModule("chat")}
-        />
+        <>
+          <CustodyActivityPanel activity={custodyActivity} loading={loadingActivity} />
+          <CustodyCalendarView
+            mode="dashboard"
+            activeCalendar={activeCalendar}
+            setActiveCalendar={setActiveCalendar}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onOpenSchedule={() => setActiveModule("schedule")}
+            onOpenExchange={() => setActiveModule("exchange")}
+            onOpenPacking={() => setActiveModule("packing")}
+            onOpenNotifications={() => setActiveModule("notifications")}
+            onOpenBudget={() => setActiveModule("budget")}
+            onOpenChat={() => setActiveModule("chat")}
+          />
+        </>
       )}
 
       {activeModule === "schedule" && (
