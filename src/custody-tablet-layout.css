@@ -1,0 +1,78 @@
+/* Tablet-specific overrides for the legacy CustodyCalendar layout.
+   The JSX uses lg:* breakpoints, which makes many tablets render the calendar
+   as a stacked mobile layout. These rules promote the custody calendar to a
+   two-column tablet layout without rewriting the large calendar component. */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .custody-original-calendar-wrapper > div {
+    display: flex !important;
+    flex-direction: row !important;
+    min-height: 720px !important;
+    height: 100% !important;
+  }
+
+  .custody-original-calendar-wrapper > div > aside {
+    width: 13rem !important;
+    max-width: 13rem !important;
+    flex: 0 0 13rem !important;
+    border-right: 1px solid hsl(var(--border)) !important;
+    border-bottom: 0 !important;
+    overflow-y: auto !important;
+    padding: 1rem !important;
+    gap: 1rem !important;
+  }
+
+  .custody-original-calendar-wrapper > div > aside [class*="lg:flex-col"] {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .custody-original-calendar-wrapper > div > aside button {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .custody-original-calendar-wrapper > div > div.flex-1 {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child h2 {
+    font-size: 1rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child .ml-auto {
+    gap: 0.35rem !important;
+  }
+
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child button {
+    min-height: 2rem !important;
+    height: 2rem !important;
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:last-child {
+    padding: 0.75rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 860px) {
+  .custody-original-calendar-wrapper > div > aside {
+    width: 11.5rem !important;
+    max-width: 11.5rem !important;
+    flex-basis: 11.5rem !important;
+  }
+
+  .custody-original-calendar-wrapper > div > div.flex-1 > div:first-child {
+    flex-wrap: wrap !important;
+  }
+}
