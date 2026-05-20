@@ -547,7 +547,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   }
 
   return (
-    <div className="flex flex-col lg:flex-row bg-[#F7F8FC]">
+    <div className="flex flex-col lg:flex-row h-full min-h-screen bg-[#F7F8FC]">
       <CustodyCalendarSidebar
         showFilters={showFilters}
         custodyFilterOptions={custodyFilterOptions}
@@ -569,7 +569,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         upcoming={upcoming}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <CustodyCalendarToolbar
           period={period}
           viewMode={viewMode}
@@ -590,7 +590,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           undoLastBulkCreation={undoLastBulkCreation}
         />
 
-        <div className="p-2 lg:p-3 bg-[#F7F8FC]">
+        <div className="flex-1 overflow-auto p-2 lg:p-3 bg-[#F7F8FC]">
           {viewMode === "day" && (
             <DayDetailView day={anchorDate} custody={finalCustodyMap[format(anchorDate, "yyyy-MM-dd")]} canWrite={canWrite} onEdit={(day) => setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} />
           )}
