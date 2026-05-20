@@ -9,7 +9,6 @@ import {
   startOfWeek,
   endOfWeek,
   addDays,
-  isSameMonth,
   parseISO,
   differenceInCalendarDays,
 } from "date-fns";
@@ -45,7 +44,7 @@ import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
 import BulkCustodyDialog from "@/components/calendar/BulkCustodyDialog";
 import DayDetailView from "@/features/custody/calendar/components/DayDetailView";
-import CustodyDayCard from "@/features/custody/calendar/components/CustodyDayCard";
+import CustodyCalendarGrid from "@/features/custody/calendar/components/CustodyCalendarGrid";
 import CalendarViewControls from "@/components/calendar/CalendarViewControls";
 import { normalizeDate } from "@/features/custody/calendar/utils/custodyDateUtils";
 import {
@@ -724,27 +723,22 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           )}
 
           {(viewMode === "week" || viewMode === "month") && (
-            <>
-              <div className="grid grid-cols-7 gap-1 mb-1">
-                {weekLabels.map((d) => (
-                  <div key={d} className="text-center text-[10px] sm:text-xs font-bold text-gray-400 py-1 uppercase tracking-wider">{d}</div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7 gap-1">
-                {period.days.map((day) => {
-                  const key = format(day, "yyyy-MM-dd");
-                  const custody = visibleCustodyMap[key];
-                  const originalCustody = visibleCustodyDays.find((item) => normalizeDate(item.date) === key);
-                  const filteredOut = originalCustody && !custody;
-                  const inMonth = viewMode === "month" ? isSameMonth(day, anchorDate) : true;
-
-                  return (
-                    <CustodyDayCard key={key} day={day} custody={custody} specialEvents={specialEventsByDate[key] || []} travelPlans={travelPlansByDate[key] || []} canWrite={canWrite} onClick={() => canWrite && setSelectedDate(day)} dadTheme={dadTheme} momTheme={momTheme} dadName={dadName} momName={momName} compact={viewMode === "month"} inMonth={inMonth && !filteredOut} />
-                  );
-                })}
-              </div>
-            </>
+            <CustodyCalendarGrid
+              viewMode={viewMode}
+              period={period}
+              weekLabels={weekLabels}
+              anchorDate={anchorDate}
+              visibleCustodyMap={visibleCustodyMap}
+              visibleCustodyDays={visibleCustodyDays}
+              specialEventsByDate={specialEventsByDate}
+              travelPlansByDate={travelPlansByDate}
+              canWrite={canWrite}
+              setSelectedDate={setSelectedDate}
+              dadTheme={dadTheme}
+              momTheme={momTheme}
+              dadName={dadName}
+              momName={momName}
+            />
           )}
         </div>
       </div>
