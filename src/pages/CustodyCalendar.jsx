@@ -14,12 +14,8 @@ import {
 } from "date-fns";
 
 import {
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
   CalendarDays,
   Heart,
-  CalendarRange,
   RotateCcw,
 } from "lucide-react";
 
@@ -45,7 +41,7 @@ import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
 import BulkCustodyDialog from "@/components/calendar/BulkCustodyDialog";
 import DayDetailView from "@/features/custody/calendar/components/DayDetailView";
 import CustodyCalendarGrid from "@/features/custody/calendar/components/CustodyCalendarGrid";
-import CalendarViewControls from "@/components/calendar/CalendarViewControls";
+import CustodyCalendarToolbar from "@/features/custody/calendar/components/CustodyCalendarToolbar";
 import { normalizeDate } from "@/features/custody/calendar/utils/custodyDateUtils";
 import {
   normalizeCustodyDay,
@@ -675,30 +671,19 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-card border-b border-border px-3 lg:px-4 py-3 flex items-center gap-2 lg:gap-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goPrevious}><ChevronLeft className="w-4 h-4" /></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goNext}><ChevronRight className="w-4 h-4" /></Button>
-
-          <div className="flex items-center gap-2 ml-1 min-w-0">
-            <CalendarDays className="w-4 h-4 text-muted-foreground hidden sm:block" />
-            <h2 className="text-base sm:text-xl font-bold font-heading truncate">{period.title}</h2>
-          </div>
-
-          <div className="ml-auto flex gap-2 flex-wrap justify-end">
-            <Button variant="outline" size="sm" onClick={() => setAnchorDate(new Date())}>Hoy</Button>
-            <CalendarViewControls viewMode={viewMode} setViewMode={setViewMode} showFilters={showFilters} setShowFilters={setShowFilters} />
-            {canWrite && (
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowBulkDialog(true)}>
-                <CalendarRange className="w-3.5 h-3.5" />
-                Range
-              </Button>
-            )}
-            <Button variant="outline" size="sm" className="gap-1.5 hidden sm:flex" disabled title="Google Calendar sync will be enabled in a later step" onClick={() => setShowSync(true)}>
-              <RefreshCw className="w-3.5 h-3.5" />
-              Sync Google
-            </Button>
-          </div>
-        </div>
+        <CustodyCalendarToolbar
+          period={period}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          showFilters={showFilters}
+          setShowFilters={setShowFilters}
+          canWrite={canWrite}
+          goPrevious={goPrevious}
+          goNext={goNext}
+          setAnchorDate={setAnchorDate}
+          setShowBulkDialog={setShowBulkDialog}
+          setShowSync={setShowSync}
+        />
 
         {lastBulkUndo && (
           <div className="border-b border-blue-100 bg-blue-50/80 px-3 py-2 lg:px-4">
