@@ -479,8 +479,8 @@ export default function CustodyCalendarView({
       <div className="mx-auto max-w-7xl space-y-3">
         {groupSelector}
 
-        <div className="rounded-[1.8rem] border border-white/80 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.05)]">
-          <div className="custody-original-calendar-wrapper bg-[#F8F7F4]">
+        <div className="rounded-[1.8rem] border border-white/80 bg-white p-3 shadow-[0_12px_35px_rgba(15,23,42,0.05)] md:p-4">
+          <div className="custody-original-calendar-wrapper overflow-hidden rounded-[1.4rem] bg-[#F7F8FC]">
             {canRenderCalendar ? (
               <FamilyContext.Provider value={scopedFamilyContext}>
                 <CustodyScopeMetadataBackfill>
