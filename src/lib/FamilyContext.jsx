@@ -181,6 +181,21 @@ function normalizeFamilyProfile(family, user) {
 
   const children = normalizeFamilyChildren(rawChildren);
 
+  const parent1PersonId =
+    family.parent1PersonId ||
+    family.parent1_person_id ||
+    family.ownerId ||
+    family.owner_id ||
+    user?.uid ||
+    "";
+
+  const parent2PersonId =
+    family.parent2PersonId ||
+    family.parent2_person_id ||
+    family.parent2Email ||
+    family.parent2_email ||
+    "";
+
   return {
     ...family,
 
@@ -189,15 +204,15 @@ function normalizeFamilyProfile(family, user) {
     ownerId: family.ownerId || family.owner_id,
     ownerEmail: family.ownerEmail || family.owner_email,
 
-    parent1PersonId: family.parent1PersonId || family.parent1_person_id || family.ownerId || family.owner_id || user?.uid || "",
-    parent1_person_id: family.parent1_person_id || family.parent1PersonId || family.ownerId || family.owner_id || user?.uid || "",
+    parent1PersonId,
+    parent1_person_id: parent1PersonId,
     parent1Name:
       family.parent1Name || family.parent1_name || user?.displayName || "",
     parent1Role,
     parent1Color: family.parent1Color || family.parent1_color || "blue",
 
-    parent2PersonId: family.parent2PersonId || family.parent2_person_id || family.parent2Email || family.parent2_email || "",
-    parent2_person_id: family.parent2_person_id || family.parent2PersonId || family.parent2Email || family.parent2_email || "",
+    parent2PersonId,
+    parent2_person_id: parent2PersonId,
     parent2Name: family.parent2Name || family.parent2_name || "",
     parent2Email: family.parent2Email || family.parent2_email || "",
     parent2Role,
@@ -209,13 +224,11 @@ function normalizeFamilyProfile(family, user) {
     owner_email: family.ownerEmail || family.owner_email || user?.email || "",
     created_by: family.createdByEmail || family.created_by || user?.email || "",
 
-    parent1_person_id: family.parent1_person_id || family.parent1PersonId || family.ownerId || family.owner_id || user?.uid || "",
     parent1_name:
       family.parent1Name || family.parent1_name || user?.displayName || "",
     parent1_role: parent1Role,
     parent1_color: family.parent1Color || family.parent1_color || "blue",
 
-    parent2_person_id: family.parent2_person_id || family.parent2PersonId || family.parent2Email || family.parent2_email || "",
     parent2_name: family.parent2Name || family.parent2_name || "",
     parent2_email: family.parent2Email || family.parent2_email || "",
     parent2_role: parent2Role,
