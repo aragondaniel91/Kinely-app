@@ -16,7 +16,6 @@ import {
 import {
   CalendarDays,
   Heart,
-  RotateCcw,
 } from "lucide-react";
 
 import {
@@ -42,6 +41,7 @@ import BulkCustodyDialog from "@/components/calendar/BulkCustodyDialog";
 import DayDetailView from "@/features/custody/calendar/components/DayDetailView";
 import CustodyCalendarGrid from "@/features/custody/calendar/components/CustodyCalendarGrid";
 import CustodyCalendarToolbar from "@/features/custody/calendar/components/CustodyCalendarToolbar";
+import CustodyBulkUndoBanner from "@/features/custody/calendar/components/CustodyBulkUndoBanner";
 import { normalizeDate } from "@/features/custody/calendar/utils/custodyDateUtils";
 import {
   normalizeCustodyDay,
@@ -685,22 +685,11 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           setShowSync={setShowSync}
         />
 
-        {lastBulkUndo && (
-          <div className="border-b border-blue-100 bg-blue-50/80 px-3 py-2 lg:px-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-black text-blue-900">Bulk schedule created</p>
-                <p className="text-xs font-semibold text-blue-700">
-                  {lastBulkUndo.createdCount} day update(s) across {lastBulkUndo.blockCount} block(s). You can undo this latest bulk action.
-                </p>
-              </div>
-              <Button type="button" size="sm" variant="outline" disabled={isSaving} onClick={undoLastBulkCreation} className="w-fit gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-100">
-                <RotateCcw className="h-3.5 w-3.5" />
-                Undo bulk
-              </Button>
-            </div>
-          </div>
-        )}
+        <CustodyBulkUndoBanner
+          lastBulkUndo={lastBulkUndo}
+          isSaving={isSaving}
+          undoLastBulkCreation={undoLastBulkCreation}
+        />
 
         <div className="flex-1 overflow-auto p-2 lg:p-3 bg-[#F7F8FC]">
           {viewMode === "day" && (
