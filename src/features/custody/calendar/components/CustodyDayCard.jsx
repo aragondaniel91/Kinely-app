@@ -2,7 +2,7 @@ import { format, isToday } from "date-fns";
 import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { getCustodyEventCategory } from "@/components/calendar/CustodySpecialEventDialog";
+import { getCustodyEventCategory } from "@/features/custody/calendar/components/CustodySpecialEventDialog";
 import {
   getCustodyParent,
   getParentEmoji,

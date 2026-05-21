@@ -36,8 +36,8 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import CustodySpecialEventDialog, {
   getCustodyEventCategory,
-} from "@/components/calendar/CustodySpecialEventDialog";
-import CustodyTravelPlanDialog from "@/components/calendar/CustodyTravelPlanDialog";
+} from "@/features/custody/calendar/components/CustodySpecialEventDialog";
+import CustodyTravelPlanDialog from "@/features/custody/calendar/components/CustodyTravelPlanDialog";
 
 function normalizeDate(value) {
   if (!value) return "";

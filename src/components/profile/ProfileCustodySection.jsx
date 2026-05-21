@@ -1,7 +1,7 @@
 import React from "react";
 import { CalendarHeart } from "lucide-react";
 
-import CustodyGroupsManager from "@/components/calendar/CustodyGroupsManager";
+import CustodyGroupsManager from "@/features/custody/CustodyGroupsManager";
 import CustodyInviteHelper from "@/components/profile/CustodyInviteHelper";
 import { Card } from "@/components/ui/card";
 

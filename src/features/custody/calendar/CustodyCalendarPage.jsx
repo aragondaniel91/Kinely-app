@@ -31,8 +31,8 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 
-import CustodyDayDialog from "@/components/calendar/CustodyDayDialog";
-import BulkCustodyDialog from "@/components/calendar/BulkCustodyDialog";
+import CustodyDayDialog from "@/features/custody/calendar/components/CustodyDayDialog";
+import BulkCustodyDialog from "@/features/custody/calendar/components/BulkCustodyDialog";
 import DayDetailView from "@/features/custody/calendar/components/DayDetailView";
 import CustodyCalendarGrid from "@/features/custody/calendar/components/CustodyCalendarGrid";
 import CustodyCalendarToolbar from "@/features/custody/calendar/components/CustodyCalendarToolbar";

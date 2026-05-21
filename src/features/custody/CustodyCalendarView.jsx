@@ -11,7 +11,7 @@ import PackingHub from "@/features/custody/PackingHub";
 import SmartNotificationsHub from "@/features/custody/SmartNotificationsHub";
 import BudgetHub from "@/features/custody/BudgetHub";
 import { Badge } from "@/components/ui/badge";
-import CustodyScopeMetadataBackfill from "@/components/calendar/CustodyScopeMetadataBackfill";
+import CustodyScopeMetadataBackfill from "@/features/custody/CustodyScopeMetadataBackfill";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
