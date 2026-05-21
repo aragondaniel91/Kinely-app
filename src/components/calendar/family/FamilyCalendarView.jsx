@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { useFamily } from "@/lib/FamilyContext";
 import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
 import { deleteFamilyEventById } from "@/services/familyEventsService";
-import AddFamilyEventDialog from "@/components/calendar/AddFamilyEventDialog";
+import AddFamilyEventDialog from "@/components/calendar/family/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
 import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
 import FamilyCalendarTimelineGrid from "@/components/calendar/family/FamilyCalendarTimelineGrid";
