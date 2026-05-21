@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { colorClasses } from "@/lib/personColorUtils";
-import { familyGradientStyle } from "@/components/calendar/family/familyCalendarColorStyles";
+import { familyGradientStyle } from "@/features/family-calendar/utils/familyCalendarColorStyles";
 
 const ALL_FILTER_ID = "all";
 const FAMILY_FILTER_ID = "family";

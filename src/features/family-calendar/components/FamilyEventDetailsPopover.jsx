@@ -4,7 +4,7 @@ import { CalendarDays, Clock, MapPin, Pencil, StickyNote, Trash2, X } from "luci
 import { cn } from "@/lib/utils";
 import { colorClasses } from "@/lib/personColorUtils";
 import { getFamilyEventAssignmentLabel } from "@/core/events/familyEventAdapter";
-import { categoryEmoji, categoryLabel, displayTimeRange } from "@/components/calendar/family/familyCalendarUi";
+import { categoryEmoji, categoryLabel, displayTimeRange } from "@/features/family-calendar/utils/familyCalendarUi";
 
 const PANEL_WIDTH = 400;
 const PANEL_HEIGHT = 430;

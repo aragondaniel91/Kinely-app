@@ -5,7 +5,7 @@ import {
   FAMILY_CALENDAR_MIN_EVENT_HEIGHT,
   buildTimelineHourRange,
   parseEventMinutes,
-} from "@/components/calendar/family/familyCalendarUi";
+} from "@/features/family-calendar/utils/familyCalendarUi";
 
 export const TIMELINE_MAX_VISIBLE_COLUMNS = 3;
 

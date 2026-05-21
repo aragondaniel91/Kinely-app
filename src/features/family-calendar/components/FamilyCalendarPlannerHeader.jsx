@@ -2,11 +2,11 @@ import { ChevronLeft, ChevronRight, RefreshCcw, Tag, UserRound, CalendarHeart } 
 import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";
-import FamilyCalendarLegend from "@/components/calendar/family/FamilyCalendarLegend";
-import FamilyCalendarMonthPicker from "@/components/calendar/family/FamilyCalendarMonthPicker";
-import FamilyCalendarFilterDropdown from "@/components/calendar/family/FamilyCalendarFilterDropdown";
-import { ALL_ASSIGNMENT_ID } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
-import { buildCategoryFilterOptions, buildPersonFilterOptions } from "@/components/calendar/family/familyCalendarFilterOptions";
+import FamilyCalendarLegend from "@/features/family-calendar/components/FamilyCalendarLegend";
+import FamilyCalendarMonthPicker from "@/features/family-calendar/components/FamilyCalendarMonthPicker";
+import FamilyCalendarFilterDropdown from "@/features/family-calendar/components/FamilyCalendarFilterDropdown";
+import { ALL_ASSIGNMENT_ID } from "@/features/family-calendar/hooks/useFamilyCalendarFilters";
+import { buildCategoryFilterOptions, buildPersonFilterOptions } from "@/features/family-calendar/utils/familyCalendarFilterOptions";
 
 export function calendarRangeLabel(viewMode, anchorDate, weekStart, weekEnd) {
   if (viewMode === "day") return format(anchorDate, "MMM d, yyyy");

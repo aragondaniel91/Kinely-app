@@ -2,7 +2,7 @@ import { format, isSameMonth, isToday } from "date-fns";
 import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import FamilyEventCard from "@/components/calendar/family/FamilyEventCard";
+import FamilyEventCard from "@/features/family-calendar/components/FamilyEventCard";
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_VISIBLE_EVENT_LIMIT = 3;

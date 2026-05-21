@@ -3,13 +3,13 @@ import { Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { colorClasses } from "@/lib/personColorUtils";
 import { getFamilyEventAssignmentLabel } from "@/core/events/familyEventAdapter";
-import { categoryLabel, displayTimeRange } from "@/components/calendar/family/familyCalendarUi";
+import { categoryLabel, displayTimeRange } from "@/features/family-calendar/utils/familyCalendarUi";
 import {
   familyEventCardStyle,
   familyEventStripeStyle,
   familyGradientStyle,
   isFamilyColorId,
-} from "@/components/calendar/family/familyCalendarColorStyles";
+} from "@/features/family-calendar/utils/familyCalendarColorStyles";
 
 function handleCardClick(event, calendarEvent, onClick) {
   calendarEvent.stopPropagation();

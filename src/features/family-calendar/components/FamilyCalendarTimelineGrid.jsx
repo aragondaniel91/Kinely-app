@@ -2,14 +2,14 @@ import { format, isToday } from "date-fns";
 import { Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import FamilyEventCard from "@/components/calendar/family/FamilyEventCard";
+import FamilyEventCard from "@/features/family-calendar/components/FamilyEventCard";
 import {
   FAMILY_CALENDAR_ALL_DAY_HEIGHT,
   FAMILY_CALENDAR_HOUR_HEIGHT,
   buildTimelineHourRange,
   hourLabel,
-} from "@/components/calendar/family/familyCalendarUi";
-import { buildTimelineLayout } from "@/components/calendar/family/familyCalendarLayout";
+} from "@/features/family-calendar/utils/familyCalendarUi";
+import { buildTimelineLayout } from "@/features/family-calendar/utils/familyCalendarLayout";
 
 function columnClass(viewMode) {
   return viewMode === "day"

@@ -5,16 +5,16 @@ import { Plus } from "lucide-react";
 import { useFamily } from "@/lib/FamilyContext";
 import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
 import { deleteFamilyEventById } from "@/services/familyEventsService";
-import AddFamilyEventDialog from "@/components/calendar/family/AddFamilyEventDialog";
-import FamilyCalendarPlannerHeader from "@/components/calendar/family/FamilyCalendarPlannerHeader";
-import FamilyCalendarMonthGrid from "@/components/calendar/family/FamilyCalendarMonthGrid";
-import FamilyCalendarTimelineGrid from "@/components/calendar/family/FamilyCalendarTimelineGrid";
-import FamilyEventDetailsPopover, { buildEventPanelState } from "@/components/calendar/family/FamilyEventDetailsPopover";
-import FamilyEventOverflowPopover, { buildOverflowPanelState } from "@/components/calendar/family/FamilyEventOverflowPopover";
-import { FAMILY_CALENDAR_CATEGORIES } from "@/components/calendar/family/familyCalendarUi";
-import { ALL_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
-import { useFamilyCalendarDateRange } from "@/components/calendar/family/hooks/useFamilyCalendarDateRange";
-import { useFamilyCalendarEvents } from "@/components/calendar/family/hooks/useFamilyCalendarEvents";
+import AddFamilyEventDialog from "@/features/family-calendar/components/AddFamilyEventDialog";
+import FamilyCalendarPlannerHeader from "@/features/family-calendar/components/FamilyCalendarPlannerHeader";
+import FamilyCalendarMonthGrid from "@/features/family-calendar/components/FamilyCalendarMonthGrid";
+import FamilyCalendarTimelineGrid from "@/features/family-calendar/components/FamilyCalendarTimelineGrid";
+import FamilyEventDetailsPopover, { buildEventPanelState } from "@/features/family-calendar/components/FamilyEventDetailsPopover";
+import FamilyEventOverflowPopover, { buildOverflowPanelState } from "@/features/family-calendar/components/FamilyEventOverflowPopover";
+import { FAMILY_CALENDAR_CATEGORIES } from "@/features/family-calendar/utils/familyCalendarUi";
+import { ALL_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/features/family-calendar/hooks/useFamilyCalendarFilters";
+import { useFamilyCalendarDateRange } from "@/features/family-calendar/hooks/useFamilyCalendarDateRange";
+import { useFamilyCalendarEvents } from "@/features/family-calendar/hooks/useFamilyCalendarEvents";
 
 const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
 

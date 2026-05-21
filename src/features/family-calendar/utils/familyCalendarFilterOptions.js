@@ -1,5 +1,5 @@
 import { colorClasses } from "@/lib/personColorUtils";
-import { ALL_ASSIGNMENT_ID, FAMILY_ASSIGNMENT_ID } from "@/components/calendar/family/hooks/useFamilyCalendarFilters";
+import { ALL_ASSIGNMENT_ID, FAMILY_ASSIGNMENT_ID } from "@/features/family-calendar/hooks/useFamilyCalendarFilters";
 
 export const FAMILY_FILTER_COLOR_CLASS = "bg-gradient-to-r from-blue-500 via-emerald-500 to-orange-500";
 
