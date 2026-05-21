@@ -5,11 +5,11 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
 import CustodyCalendar from "@/features/custody/calendar/CustodyCalendarPage";
-import CustodyDashboardPro from "@/components/custody/CustodyDashboardPro";
-import ExchangeHub from "@/components/custody/ExchangeHub";
-import PackingHub from "@/components/custody/PackingHub";
-import SmartNotificationsHub from "@/components/custody/SmartNotificationsHub";
-import BudgetHub from "@/components/custody/BudgetHub";
+import CustodyDashboardPro from "@/features/custody/CustodyDashboardPro";
+import ExchangeHub from "@/features/custody/ExchangeHub";
+import PackingHub from "@/features/custody/PackingHub";
+import SmartNotificationsHub from "@/features/custody/SmartNotificationsHub";
+import BudgetHub from "@/features/custody/BudgetHub";
 import { Badge } from "@/components/ui/badge";
 import CustodyScopeMetadataBackfill from "@/components/calendar/CustodyScopeMetadataBackfill";
 
