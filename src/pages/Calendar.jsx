@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-import FamilyCalendarView from "@/components/calendar/family/FamilyCalendarView";
+import FamilyCalendarView from "@/features/family-calendar/FamilyCalendarView";
 
 export default function Calendar() {
   const [viewMode, setViewMode] = useState("month");
