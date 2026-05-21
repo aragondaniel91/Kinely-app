@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
 
-import CustodyCalendarView from "@/components/calendar/CustodyCalendarView";
+import CustodyCalendarView from "@/features/custody/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
