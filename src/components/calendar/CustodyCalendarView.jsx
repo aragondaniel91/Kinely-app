@@ -4,7 +4,7 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 
 import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
-import CustodyCalendar from "@/pages/CustodyCalendar";
+import CustodyCalendar from "@/features/custody/calendar/CustodyCalendarPage";
 import CustodyDashboardPro from "@/components/custody/CustodyDashboardPro";
 import ExchangeHub from "@/components/custody/ExchangeHub";
 import PackingHub from "@/components/custody/PackingHub";
