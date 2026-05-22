@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { addDays, addMonths, subMonths } from "date-fns";
 import { Plus } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { useFamily } from "@/lib/FamilyContext";
 import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
 import { deleteFamilyEventById } from "@/services/familyEventsService";
@@ -27,6 +38,9 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [selectedOverflow, setSelectedOverflow] = useState(null);
   const [selectedPersonId, setSelectedPersonId] = useState(ALL_ASSIGNMENT_ID);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [deletingEvent, setDeletingEvent] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [now, setNow] = useState(() => new Date());
 
   const people = familyPeople || [];
@@ -85,20 +99,34 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     setAddDate(event?.date ? new Date(`${event.date}T00:00:00`) : new Date(anchorDate));
   }
 
-  async function handleDeleteEvent(eventOrId) {
+  function handleDeleteEvent(eventOrId) {
     const documentId = typeof eventOrId === "string" ? eventOrId : getFirestoreDocumentId(eventOrId || {});
     if (!documentId) return;
-    const confirmed = window.confirm("Delete this event?");
-    if (!confirmed) return;
+
+    setDeleteError("");
+    setEventToDelete({
+      documentId,
+      title: typeof eventOrId === "string" ? "this event" : eventOrId?.title || "this event",
+    });
+  }
+
+  async function confirmDeleteEvent() {
+    if (!eventToDelete?.documentId) return;
+
+    setDeletingEvent(true);
+    setDeleteError("");
 
     try {
-      await deleteFamilyEventById(documentId);
+      await deleteFamilyEventById(eventToDelete.documentId);
       setSelectedEvent(null);
       setSelectedOverflow(null);
+      setEventToDelete(null);
       await loadEvents();
     } catch (error) {
       console.error("Error deleting family event", error);
-      alert(`There was an error deleting the event: ${error.message}`);
+      setDeleteError(error?.message || "There was an error deleting this event.");
+    } finally {
+      setDeletingEvent(false);
     }
   }
 
@@ -196,6 +224,49 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
       />
+
+      <AlertDialog
+        open={Boolean(eventToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deletingEvent) {
+            setEventToDelete(null);
+            setDeleteError("");
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-[2rem] border-slate-200 bg-white p-6 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black tracking-tight text-slate-950">
+              Delete event?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-semibold leading-6 text-slate-500">
+              This will remove {eventToDelete?.title || "this event"} from the family calendar. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {deleteError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">
+              {deleteError}
+            </div>
+          )}
+
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel disabled={deletingEvent} className="rounded-2xl font-black">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deletingEvent}
+              onClick={(event) => {
+                event.preventDefault();
+                confirmDeleteEvent();
+              }}
+              className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
+            >
+              {deletingEvent ? "Deleting..." : "Delete event"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {addDate && (
         <AddFamilyEventDialog
