@@ -27,7 +27,7 @@ export default function CustodyCalendarToolbar({
       </div>
 
       <div className="ml-auto flex gap-2 flex-wrap justify-end">
-        <Button variant="outline" size="sm" onClick={() => setAnchorDate(new Date())}>Hoy</Button>
+        <Button variant="outline" size="sm" onClick={() => setAnchorDate(new Date())}>Today</Button>
         <CalendarViewControls viewMode={viewMode} setViewMode={setViewMode} showFilters={showFilters} setShowFilters={setShowFilters} />
         {canWrite && (
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowBulkDialog(true)}>
