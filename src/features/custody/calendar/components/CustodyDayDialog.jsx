@@ -676,14 +676,16 @@ export default function CustodyDayDialog({
     }
   };
 
-  const deleteOnlyThisDay = async () => {
+  const deleteOnlyThisDay = async ({ skipConfirm = false } = {}) => {
     if (!existingData) {
       onClose?.();
       return;
     }
 
-    const confirmDelete = window.confirm("Delete custody information for this day?");
-    if (!confirmDelete) return;
+    if (!skipConfirm) {
+      const confirmDelete = window.confirm("Delete custody information for this day?");
+      if (!confirmDelete) return;
+    }
 
     const before = buildCustodyAuditSnapshot(existingData, { dadLabel, momLabel });
 
@@ -707,14 +709,16 @@ export default function CustodyDayDialog({
     });
   };
 
-  const deleteEntireBulkSchedule = async () => {
+  const deleteEntireBulkSchedule = async ({ skipConfirm = false } = {}) => {
     if (!bulkRunId || !familyId) return;
 
-    const confirmDelete = window.confirm(
-      "Delete the entire bulk custody schedule connected to this day? This will remove all days created by the same bulk/template action."
-    );
+    if (!skipConfirm) {
+      const confirmDelete = window.confirm(
+        "Delete the entire bulk custody schedule connected to this day? This will remove all days created by the same bulk/template action."
+      );
 
-    if (!confirmDelete) return;
+      if (!confirmDelete) return;
+    }
 
     setDeletingSeries(true);
 
@@ -1202,7 +1206,7 @@ export default function CustodyDayDialog({
                 className="h-12 w-full rounded-full font-black"
                 variant="destructive"
                 disabled={deletingSeries}
-                onClick={deleteEntireBulkSchedule}
+                onClick={() => deleteEntireBulkSchedule({ skipConfirm: true })}
               >
                 {deletingSeries ? "Deleting..." : "Delete entire schedule"}
               </Button>
@@ -1211,7 +1215,7 @@ export default function CustodyDayDialog({
                 type="button"
                 className="h-12 w-full rounded-full font-black"
                 disabled={deletingSeries || isSaving}
-                onClick={deleteOnlyThisDay}
+                onClick={() => deleteOnlyThisDay({ skipConfirm: true })}
               >
                 Delete only this day
               </Button>
