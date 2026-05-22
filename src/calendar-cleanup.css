@@ -1,0 +1,294 @@
+/* Calendar cleanup branch visual overrides.
+   Keep these isolated while we stabilize the family calendar layout. */
+
+/* The week calendar should remain a normal full-width seven-day view.
+   Event overflow is handled inside React with active-hour +X groups. */
+.family-calendar-live-body div.relative.overflow-x-auto > div {
+  min-width: 100% !important;
+}
+
+/* Day view should stay centered and readable, not stretched across the full screen. */
+.family-calendar-live-body div.relative.overflow-x-auto.flex.justify-center > div {
+  width: min(760px, 100%) !important;
+  max-width: 760px !important;
+  min-width: 0 !important;
+}
+
+.family-calendar-live-body div.relative.overflow-x-auto {
+  scrollbar-width: none;
+  overscroll-behavior-x: auto;
+}
+
+.family-calendar-live-body div.relative.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Kinly Premium Calendar Grid V1
+   Visual-only surface polish. No calendar logic is changed here. */
+.family-calendar-live-body > div.mx-auto {
+  border-color: rgba(226, 232, 240, 0.82) !important;
+  border-radius: 2rem !important;
+  box-shadow: 0 18px 52px rgba(15, 23, 42, 0.08) !important;
+}
+
+.family-calendar-live-body div.rounded-b-\[2rem\].bg-white {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%) !important;
+  padding: 1rem !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button {
+  border-color: rgba(226, 232, 240, 0.9) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045) !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button:hover {
+  border-color: rgba(91, 141, 239, 0.45) !important;
+  background: rgba(239, 246, 255, 0.78) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.075) !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button span.flex.h-7.w-7,
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button span[class*="h-7"] {
+  background: rgba(248, 250, 252, 0.95) !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button[aria-current="date"],
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button.ring-2 {
+  box-shadow: 0 0 0 2px rgba(91, 141, 239, 0.35), 0 14px 34px rgba(91, 141, 239, 0.12) !important;
+}
+
+/* Month event pills */
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button div[role="button"] {
+  border-radius: 0.9rem !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.055) !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease !important;
+}
+
+.family-calendar-live-body div.grid.grid-cols-7.gap-2 > button div[role="button"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Week/day grid surface */
+.family-calendar-live-body div.relative.overflow-x-auto.rounded-b-\[2rem\].bg-white {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+}
+
+.family-calendar-live-body div[style*="grid-template-columns"] > div.border-r.border-slate-200,
+.family-calendar-live-body div[style*="grid-template-columns"] > div.relative.border-r.border-slate-200 {
+  border-color: rgba(226, 232, 240, 0.82) !important;
+}
+
+.family-calendar-live-body div[style*="grid-template-columns"] > div.relative.border-r.border-slate-200 {
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+.family-calendar-live-body div[style*="grid-template-columns"] > div.relative.border-r.border-slate-200:hover {
+  background: rgba(239, 246, 255, 0.4) !important;
+}
+
+/* Timed event cards */
+.family-calendar-live-body button.absolute.overflow-hidden.rounded-xl {
+  border-radius: 1rem !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.075) !important;
+}
+
+.family-calendar-live-body button.absolute.overflow-hidden.rounded-xl:hover {
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.11) !important;
+}
+
+/* All-day event chips */
+.family-calendar-live-body button.w-full.rounded-lg.border {
+  border-radius: 0.9rem !important;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.055) !important;
+}
+
+.family-calendar-live-body button.w-full.rounded-lg.border:hover {
+  box-shadow: 0 9px 20px rgba(15, 23, 42, 0.085) !important;
+}
+
+/* Time gutter softness */
+.family-calendar-live-body div.relative.border-r.border-slate-200.bg-white {
+  background: rgba(248, 250, 252, 0.85) !important;
+}
+
+.family-calendar-live-body div.border-b.border-slate-100 {
+  border-color: rgba(226, 232, 240, 0.62) !important;
+}
+
+/* Kinly Custody Premium Surface V1
+   Visual-only polish. Custody logic, Firestore writes and filters are untouched. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] {
+  background: radial-gradient(circle at top left, rgba(91, 141, 239, 0.14), transparent 34%), linear-gradient(180deg, #f8f7f4 0%, #ffffff 52%, #f8fafc 100%) !important;
+}
+
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside {
+  border-color: rgba(226, 232, 240, 0.82) !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+@media (min-width: 1024px) {
+  div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside {
+    margin: 0.85rem 0 0.85rem 0.85rem !important;
+    border-radius: 1.75rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.72) !important;
+  }
+}
+
+/* Custody sidebar identity card */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside > div:first-child {
+  border-radius: 1.25rem !important;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.86)) !important;
+  padding: 0.75rem !important;
+}
+
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside > div:first-child > div:first-child {
+  border-radius: 1rem !important;
+  background: linear-gradient(135deg, #5b8def, #7bc9a1) !important;
+  box-shadow: 0 10px 24px rgba(91, 141, 239, 0.24) !important;
+}
+
+/* Custody filter chips */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside button.rounded-full,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside button.lg\:rounded-xl {
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045) !important;
+}
+
+/* Today, next change and summary cards */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside div.rounded-xl,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] aside div.bg-muted\/40 {
+  border-color: rgba(226, 232, 240, 0.82) !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.055) !important;
+}
+
+/* Main custody toolbar */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.bg-card.border-b.border-border.px-3,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.bg-card.border-b.border-border.lg\:px-4 {
+  border-color: rgba(226, 232, 240, 0.78) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.045) !important;
+  backdrop-filter: blur(18px) !important;
+  position: relative !important;
+  z-index: 40 !important;
+}
+
+/* Ensure dropdowns render above custody grid */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] [data-radix-popper-content-wrapper],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div[role="menu"],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div[role="listbox"] {
+  z-index: 9999 !important;
+}
+
+/* Custody grid area */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.flex-1.overflow-auto.p-2,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.flex-1.overflow-auto.lg\:p-3 {
+  background: transparent !important;
+  padding: 1rem !important;
+}
+
+/* Custody day cards */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button {
+  border-radius: 1.15rem !important;
+  border-color: rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.055) !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease !important;
+}
+
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(91, 141, 239, 0.46) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.085) !important;
+}
+
+/* Date bubbles and add buttons inside custody cells */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button span.rounded-full,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button span.bg-white\/70 {
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.07) !important;
+}
+
+/* Custody chips */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div.rounded-lg,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div.rounded {
+  border-radius: 0.8rem !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.045) !important;
+}
+
+/* Month notes visibility */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button p.text-\[10px\],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button p.text-\[11px\] {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  line-height: 1.15 !important;
+  margin-top: 0.15rem !important;
+  opacity: 0.92 !important;
+}
+
+/* Day detail cards */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.max-w-3xl .rounded-xl {
+  border-radius: 1.5rem !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.065) !important;
+}
+
+/* Kinly shape system refinement for custody.
+   Goal: one soft-rounded visual DNA instead of mixed square/round frames. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.flex.flex-col.overflow-hidden {
+  margin: 0.85rem !important;
+  overflow: visible !important;
+  border-radius: 2rem !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: 0 18px 52px rgba(15, 23, 42, 0.06) !important;
+}
+
+@media (max-width: 1023px) {
+  div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.flex.flex-col.overflow-hidden {
+    margin: 0.5rem !important;
+    border-radius: 1.5rem !important;
+  }
+}
+
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.flex.flex-col.overflow-hidden > div.bg-card.border-b {
+  border-radius: 2rem 2rem 0 0 !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.72) !important;
+}
+
+/* Family/group selector cards at the top of custody should match Kinly cards. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button[class*="border"],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div[class*="border"] {
+  border-color: rgba(226, 232, 240, 0.82);
+}
+
+/* Toolbar buttons: pill/soft, not square. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-8.w-8,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-10.w-10,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button[aria-label="Previous"],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button[aria-label="Next"] {
+  border-radius: 9999px !important;
+}
+
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-8,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.h-10 {
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.045) !important;
+}
+
+/* Compact dropdown trigger and range buttons should be rounded pills. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.rounded-md,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.rounded-lg,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button.rounded-xl {
+  border-radius: 9999px !important;
+}
+
+/* Month/week labels should feel like part of a soft surface. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1.mb-1 {
+  margin-bottom: 0.5rem !important;
+  padding: 0 0.25rem !important;
+}
+
+/* Main day grid container consistency. */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1:not(.mb-1) {
+  gap: 0.55rem !important;
+}

@@ -1,0 +1,70 @@
+/* Kinly Custody Card Refinement V2
+   Visual-only refinement.
+   Goal: reduce heavy full-color blocks and make custody cards feel calmer, cleaner and more premium. */
+
+/* Neutral premium card base */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button {
+  background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%) !important;
+  border: 1px solid rgba(226,232,240,0.9) !important;
+  border-radius: 1.2rem !important;
+  box-shadow: 0 10px 26px rgba(15,23,42,0.05) !important;
+}
+
+/* Soften the heavy absolute background layers inside custody day cards */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button > div.absolute.inset-0,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button > div.absolute.inset-x-0 {
+  opacity: 0.16 !important;
+}
+
+/* Stronger date hierarchy */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button span.rounded-full {
+  background: rgba(255,255,255,0.96) !important;
+  color: #0f172a !important;
+  font-weight: 850 !important;
+  box-shadow: 0 5px 14px rgba(15,23,42,0.08) !important;
+}
+
+/* Today remains visible but not harsh */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button.ring-2 {
+  box-shadow: 0 0 0 2px rgba(91,141,239,0.28), 0 16px 38px rgba(91,141,239,0.12) !important;
+}
+
+/* Custody assignment pills become the color focus */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div.rounded-lg,
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div.rounded {
+  border-radius: 9999px !important;
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.62) !important;
+}
+
+/* Softer blue custody chip language */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div[class*="blue"] {
+  background: linear-gradient(135deg, rgba(96,165,250,0.24), rgba(59,130,246,0.16)) !important;
+  color: #1d4ed8 !important;
+}
+
+/* Softer yellow/amber custody chip language */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div[class*="yellow"],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button div[class*="amber"] {
+  background: linear-gradient(135deg, rgba(250,204,21,0.28), rgba(253,224,71,0.2)) !important;
+  color: #92400e !important;
+}
+
+/* Notes become subtle context instead of visual noise */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button p.text-\[10px\],
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button p.text-\[11px\] {
+  background: rgba(255,255,255,0.64) !important;
+  color: rgba(71,85,105,0.88) !important;
+  font-weight: 550 !important;
+  border-radius: 0.75rem !important;
+  padding: 0.15rem 0.4rem !important;
+}
+
+/* Hover should feel alive but calm */
+div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.grid.grid-cols-7.gap-1 > button:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(96,165,250,0.3) !important;
+  box-shadow: 0 18px 38px rgba(15,23,42,0.09) !important;
+}

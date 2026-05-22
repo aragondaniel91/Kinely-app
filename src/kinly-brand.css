@@ -1,0 +1,154 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap");
+
+:root {
+  --font-heading: "Poppins", "Inter", sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --kinly-blue: #5b8def;
+  --kinly-soft-blue: #e7f0ff;
+  --kinly-yellow: #ffd166;
+  --kinly-coral: #ff7b72;
+  --kinly-green: #7bc9a1;
+  --kinly-warm-bg: #f8f7f4;
+  --kinly-ink: #12203a;
+  --kinly-muted: #64748b;
+  --kinly-bg-gradient:
+    radial-gradient(circle at top left, rgba(91, 141, 239, 0.15), transparent 34%),
+    radial-gradient(circle at 88% 18%, rgba(255, 209, 102, 0.14), transparent 28%),
+    linear-gradient(180deg, #f8f7f4 0%, #ffffff 56%, #f8fafc 100%);
+  --kinly-bg-gradient-soft:
+    radial-gradient(circle at top left, rgba(91, 141, 239, 0.12), transparent 34%),
+    radial-gradient(circle at 88% 18%, rgba(255, 209, 102, 0.11), transparent 28%),
+    linear-gradient(180deg, rgba(248, 247, 244, 0.96) 0%, rgba(255, 255, 255, 0.90) 56%, rgba(248, 250, 252, 0.92) 100%);
+
+  --background: 45 27% 96%;
+  --foreground: 220 52% 15%;
+  --primary: 217 83% 65%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 42 100% 89%;
+  --secondary-foreground: 220 52% 15%;
+  --accent: 150 45% 64%;
+  --accent-foreground: 220 52% 15%;
+  --ring: 217 83% 65%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--kinly-bg-gradient);
+  color: var(--kinly-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.kinly-wordmark {
+  font-family: var(--font-heading);
+  color: var(--kinly-ink);
+}
+
+.kinly-surface {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 52px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.kinly-gradient-bg {
+  background: var(--kinly-bg-gradient);
+}
+
+.kinly-gradient-bg-soft {
+  background: var(--kinly-bg-gradient-soft);
+}
+
+/* Kinly DNA background bridge.
+   Existing screens still using the old flat warm background inherit the soft Home-style gradient. */
+.bg-\[\#F8F7F4\] {
+  background: var(--kinly-bg-gradient) !important;
+}
+
+.bg-\[\#F8F7F4\]\/95 {
+  background: var(--kinly-bg-gradient-soft) !important;
+}
+
+.bg-background {
+  background: var(--kinly-bg-gradient) !important;
+}
+
+.kinly-family-gradient {
+  background:
+    radial-gradient(circle at top left, rgba(255, 209, 102, 0.22), transparent 34%),
+    linear-gradient(135deg, #ffffff 0%, #eff6ff 48%, #f8f7f4 100%);
+}
+
+.kinly-focus-ring:focus-visible {
+  outline: 3px solid rgba(91, 141, 239, 0.35);
+  outline-offset: 3px;
+}
+
+/* Tone down ultra-heavy weights globally so the UI feels more premium and less template-like. */
+.font-black {
+  font-weight: 800;
+}
+
+/* Custody dashboard polish: keep the existing structure, but prevent split-day names from becoming oversized. */
+div[class*="min-h-[245px]"] h1 {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(1.85rem, 2.45vw, 2.85rem) !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.035em !important;
+}
+
+/* The custody module sub-header should feel like part of the page, not a hard divider under the global Kinly header. */
+.sticky.top-0.z-30 {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Custody schedule wall fit: the calendar sits inside a page that already has a Kinly header and custody selector. */
+.custody-original-calendar-wrapper > div {
+  min-height: 0 !important;
+}
+
+@media (min-width: 1024px) {
+  .custody-original-calendar-wrapper > div {
+    height: calc(100vh - 17.5rem) !important;
+    max-height: calc(100vh - 17.5rem) !important;
+  }
+
+  .custody-original-calendar-wrapper aside {
+    padding: 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .custody-original-calendar-wrapper aside p,
+  .custody-original-calendar-wrapper aside span {
+    line-height: 1.15 !important;
+  }
+
+  .custody-original-calendar-wrapper aside .hidden.lg\:block:last-child {
+    display: none !important;
+  }
+
+  .custody-original-calendar-wrapper button[class*="min-h-[72px]"] {
+    min-height: 56px !important;
+    padding: 0.35rem !important;
+    border-radius: 0.85rem !important;
+  }
+
+  .custody-original-calendar-wrapper .grid.grid-cols-7.gap-1 {
+    gap: 0.35rem !important;
+  }
+
+  .custody-original-calendar-wrapper .flex-1.overflow-auto {
+    overflow: hidden !important;
+    padding: 0.45rem !important;
+  }
+}

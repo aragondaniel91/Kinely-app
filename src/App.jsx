@@ -15,10 +15,10 @@ import Custody from "@/pages/Custody";
 import Tasks from "@/pages/Tasks";
 import Meals from "@/pages/Meals";
 import Groceries from "@/pages/Groceries";
+import ChildProfiles from "@/pages/ChildProfiles";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-import Profile from "@/pages/ProfileV5";
-import FamilyCalendarHeaderPreview from "@/pages/FamilyCalendarHeaderPreview";
+import Profile from "@/pages/ProfileModular";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
 import { FamilyProvider } from "@/lib/FamilyContext";
@@ -62,7 +62,6 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/calendar-header-preview" element={<FamilyCalendarHeaderPreview />} />
 
       <Route
         path="/login"
@@ -92,6 +91,7 @@ function AppRoutes() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/custody" element={<Custody />} />
+        <Route path="/children" element={<ChildProfiles />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/meals" element={<Meals />} />
         <Route path="/groceries" element={<Groceries />} />

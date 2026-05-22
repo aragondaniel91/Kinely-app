@@ -9,7 +9,10 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "firebase:deploy:rules": "npx firebase-tools deploy --only firestore:rules",
+    "firebase:deploy:indexes": "npx firebase-tools deploy --only firestore:indexes",
+    "firebase:deploy:firestore": "npx firebase-tools deploy --only firestore"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
