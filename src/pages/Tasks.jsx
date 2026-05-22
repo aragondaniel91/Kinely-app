@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
@@ -8,13 +8,13 @@ import FamilyHeader from "@/features/tasks/components/FamilyHeader";
 import TaskBoardContent from "@/features/tasks/components/TaskBoardContent";
 import DeleteTaskDialog from "@/features/tasks/components/DeleteTaskDialog";
 
-import { taskPeople } from "@/features/tasks/data/taskPeople";
 import { demoTasks } from "@/features/tasks/data/demoTasks";
 import {
   getActiveChildReward,
   getActiveFamilyReward,
 } from "@/features/tasks/data/demoRewards";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
+import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import {
   getSelectedPerson,
   getSelectedTasks,
@@ -23,12 +23,13 @@ import {
 } from "@/features/tasks/utils/taskSelectors";
 
 export default function Tasks() {
-  const [selectedPersonId, setSelectedPersonId] = useState("joaquin");
+  const { familyId, perms } = useFamily();
+  const { people, defaultPersonId } = useTaskBoardPeople();
+
+  const [selectedPersonId, setSelectedPersonId] = useState(defaultPersonId);
   const [showAdd, setShowAdd] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
-
-  const { familyId, perms } = useFamily();
 
   const canRead = perms?.tasks?.read !== false;
   const canWrite = perms?.tasks?.write !== false;
@@ -45,14 +46,20 @@ export default function Tasks() {
     canWrite,
   });
 
+  useEffect(() => {
+    if (!people.some((person) => person.id === selectedPersonId)) {
+      setSelectedPersonId(defaultPersonId);
+    }
+  }, [defaultPersonId, people, selectedPersonId]);
+
   const displayTasks = tasks.length > 0 ? tasks : demoTasks;
 
   const tasksByPerson = useMemo(
-    () => getTasksByPerson(displayTasks, taskPeople),
-    [displayTasks]
+    () => getTasksByPerson(displayTasks, people),
+    [displayTasks, people]
   );
 
-  const selectedPerson = getSelectedPerson(taskPeople, selectedPersonId);
+  const selectedPerson = getSelectedPerson(people, selectedPersonId);
   const selectedTasks = getSelectedTasks(tasksByPerson, selectedPerson?.id);
   const joaquinTasks = getSelectedTasks(tasksByPerson, "joaquin");
 
@@ -84,7 +91,7 @@ export default function Tasks() {
       <FamilyHeader canWrite={canWrite} onAddTask={() => setShowAdd(true)} />
 
       <TaskBoardContent
-        people={taskPeople}
+        people={people}
         tasksByPerson={tasksByPerson}
         selectedPersonId={selectedPersonId}
         selectedPerson={selectedPerson}
