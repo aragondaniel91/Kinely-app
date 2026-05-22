@@ -292,6 +292,7 @@ export default function CustodyDayDialog({
   const [afternoon, setAfternoon] = useState(existingData?.afternoon || "mom");
   const [notes, setNotes] = useState(existingData?.notes || "");
   const [showDeleteChoice, setShowDeleteChoice] = useState(false);
+  const [showDeleteDayConfirm, setShowDeleteDayConfirm] = useState(false);
   const [deletingSeries, setDeletingSeries] = useState(false);
 
   const [specialEvents, setSpecialEvents] = useState([]);
@@ -782,7 +783,7 @@ export default function CustodyDayDialog({
       return;
     }
 
-    await deleteOnlyThisDay();
+    setShowDeleteDayConfirm(true);
   };
 
   return (
@@ -1179,6 +1180,50 @@ export default function CustodyDayDialog({
           momLabel={momLabel}
         />
       )}
+
+      <Dialog open={showDeleteDayConfirm} onOpenChange={setShowDeleteDayConfirm}>
+        <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden">
+          <DialogHeader className="border-b px-5 py-4">
+            <DialogTitle className="font-heading text-xl">
+              Delete custody day?
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-5 py-6 text-center">
+            <p className="mx-auto max-w-sm text-base font-black text-slate-800">
+              This will remove the custody information for this day.
+            </p>
+            <p className="mx-auto mt-2 max-w-sm text-sm font-semibold text-slate-500">
+              This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isSaving}
+                onClick={() => {
+                  setShowDeleteDayConfirm(false);
+                  deleteOnlyThisDay({ skipConfirm: true });
+                }}
+                className="h-12 rounded-full text-base font-black"
+              >
+                Delete this day
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={isSaving}
+                onClick={() => setShowDeleteDayConfirm(false)}
+                className="h-11 rounded-full text-base font-black text-slate-500"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showDeleteChoice} onOpenChange={setShowDeleteChoice}>
         <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden">
