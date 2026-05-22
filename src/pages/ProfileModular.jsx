@@ -77,7 +77,7 @@ export default function ProfileModular() {
             <div>
               <h1 className="text-3xl font-black tracking-tight text-slate-950">{familyNameOf(profile)}</h1>
               <p className="text-sm font-semibold text-slate-500">
-                Modular family profile: overview, family spaces, children, members, custody, notifications, and settings.
+                Manage your family space, members, children, custody settings, notifications, and app preferences.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {isOwner && <Badge variant="secondary" className="gap-1"><Shield className="h-3 w-3" /> Owner</Badge>}
