@@ -1183,14 +1183,7 @@ export default function CustodyDayDialog({
       <Dialog open={showDeleteChoice} onOpenChange={setShowDeleteChoice}>
         <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden">
           <DialogHeader className="border-b px-5 py-4">
-            <DialogTitle className="font-heading flex items-center gap-3 text-xl">
-              <button
-                type="button"
-                onClick={() => setShowDeleteChoice(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <DialogTitle className="font-heading text-xl">
               Delete custody schedule
             </DialogTitle>
           </DialogHeader>
