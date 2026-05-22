@@ -283,9 +283,9 @@ function HeroPanel({ smartBrief, tasks, meals, groceries, hasCustody }) {
 
       <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         <StatPill icon={CheckSquare} value={tasks.length} label="Tasks" tone="blue" />
-        <StatPill icon={CalendarDays} value={hasCustody ? 1 : meals.length} label="Eventos" tone="blue" />
+        <StatPill icon={CalendarDays} value={hasCustody ? 1 : meals.length} label="Events" tone="blue" />
         <StatPill icon={ShoppingCart} value={groceries.length} label="Groceries" tone="emerald" />
-        <StatPill icon={Heart} value="✓" label="Sin alertas" tone="rose" />
+        <StatPill icon={Heart} value="✓" label="No alerts" tone="rose" />
       </div>
     </div>
   );
@@ -360,7 +360,7 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
                         <p className="mt-0.5 text-sm font-semibold text-slate-500">{age || "Perfil familiar"}</p>
                       </div>
                       <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
-                        Sin alertas
+                        No alerts
                       </span>
                     </div>
                     <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-2.5">
@@ -417,7 +417,7 @@ function TaskPreviewCard({ tasks }) {
             <span className="h-5 w-5 shrink-0 rounded-full border-2 border-slate-200" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-black text-slate-950">{getItemTitle(task, "Tarea familiar")}</span>
-              <span className="block truncate text-xs font-semibold text-slate-500">{getItemDate(task) ? `Para ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Pendiente"}</span>
+              <span className="block truncate text-xs font-semibold text-slate-500">{getItemDate(task) ? `Due ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Pending"}</span>
             </span>
           </Link>
         )) : <CompactItem icon={CheckSquare} title="No pending tasks" text="The family list looks calm." tone="emerald" />}
@@ -442,7 +442,7 @@ function NextSevenDaysCard({ nextChange, nextChangeLabel, tasks, meals, grocerie
 
   const mealEvents = meals.slice(0, 2).map((meal) => ({ id: `meal-${meal.id || getItemTitle(meal)}`, icon: UtensilsCrossed, title: getItemTitle(meal, "Comida planificada"), text: `Comida · ${formatShortDate(meal.date || today)}`, tone: "emerald", to: "/meals" }));
   const custodyEvent = nextChange ? [{ id: "custody-next-change", icon: Heart, title: `Intercambio con ${nextChangeLabel}`, text: `${formatShortDate(nextChange.date)} · en ${nextChange.days} día(s)`, tone: "rose", to: "/custody" }] : [];
-  const groceryEvent = groceries.length ? [{ id: "grocery-open-items", icon: ShoppingCart, title: `${groceries.length} compra${groceries.length === 1 ? "" : "s"} abierta${groceries.length === 1 ? "" : "s"}`, text: "Lista de compras pendiente", tone: "violet", to: "/groceries" }] : [];
+  const groceryEvent = groceries.length ? [{ id: "grocery-open-items", icon: ShoppingCart, title: `${groceries.length} open grocery item${groceries.length === 1 ? "" : "s"}`, text: "Pending grocery list", tone: "violet", to: "/groceries" }] : [];
   const items = [...custodyEvent, ...taskEvents, ...mealEvents, ...groceryEvent].slice(0, 5);
 
   return (
@@ -493,7 +493,7 @@ export default function FamilyHomeDashboard({
     { icon: CalendarDays, label: "Add event", text: "Family calendar", to: "/calendar", tone: "blue" },
     { icon: CheckSquare, label: "Add task", text: "Assign a task", to: "/tasks", tone: "emerald" },
     { icon: UtensilsCrossed, label: "Plan meals", text: "Today’s meals", to: "/meals", tone: "amber" },
-    { icon: ShoppingCart, label: "Abrir compras", text: "Lista compartida", to: "/groceries", tone: "violet" },
+    { icon: ShoppingCart, label: "Open groceries", text: "Shared list", to: "/groceries", tone: "violet" },
   ], []);
 
   return (
