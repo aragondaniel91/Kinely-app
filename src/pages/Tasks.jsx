@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 
+import TasksPageLayout from "@/features/tasks/components/TasksPageLayout";
 import FamilyHeader from "@/features/tasks/components/FamilyHeader";
 import PersonCard from "@/features/tasks/components/PersonCard";
 import TasksFocusPanel from "@/features/tasks/components/TasksFocusPanel";
@@ -91,102 +92,94 @@ export default function Tasks() {
   }
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-[#f8f4ec] px-3 pb-28 pt-2 md:px-6 md:pb-12">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-20 top-10 h-80 w-80 rounded-full bg-emerald-200/30 blur-3xl" />
-        <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-orange-100/70 blur-3xl" />
-        <div className="absolute bottom-10 left-1/3 h-80 w-80 rounded-full bg-violet-100/55 blur-3xl" />
+    <TasksPageLayout>
+      <FamilyHeader canWrite={canWrite} onAddTask={() => setShowAdd(true)} />
+
+      <div className="grid gap-4 xl:grid-cols-5">
+        {taskPeople.map((person) => (
+          <PersonCard
+            key={person.id}
+            person={person}
+            tasks={tasksByPerson[person.id] || []}
+            selected={selectedPersonId === person.id}
+            onSelect={setSelectedPersonId}
+          />
+        ))}
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1500px] space-y-5">
-        <FamilyHeader canWrite={canWrite} onAddTask={() => setShowAdd(true)} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_420px]">
+        <TasksFocusPanel
+          selectedPerson={selectedPerson}
+          selectedTasks={selectedTasks}
+          loading={loading}
+          canWrite={canWrite}
+          pendingCount={pendingCount}
+          completedCount={completedCount}
+          onToggleTask={toggleTask}
+          onEditTask={setEditTask}
+          onDeleteTask={setTaskToDelete}
+        />
 
-        <div className="grid gap-4 xl:grid-cols-5">
-          {taskPeople.map((person) => (
-            <PersonCard
-              key={person.id}
-              person={person}
-              tasks={tasksByPerson[person.id] || []}
-              selected={selectedPersonId === person.id}
-              onSelect={setSelectedPersonId}
-            />
-          ))}
-        </div>
+        <TasksRewardsPanel
+          childReward={childReward}
+          childTasks={joaquinTasks}
+          familyReward={familyReward}
+          allTasks={displayTasks}
+        />
+      </div>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_420px]">
-          <TasksFocusPanel
-            selectedPerson={selectedPerson}
-            selectedTasks={selectedTasks}
-            loading={loading}
-            canWrite={canWrite}
-            pendingCount={pendingCount}
-            completedCount={completedCount}
-            onToggleTask={toggleTask}
-            onEditTask={setEditTask}
-            onDeleteTask={setTaskToDelete}
-          />
+      <BottomFocusBar tasksByPerson={tasksByPerson} />
 
-          <TasksRewardsPanel
-            childReward={childReward}
-            childTasks={joaquinTasks}
-            familyReward={familyReward}
-            allTasks={displayTasks}
-          />
-        </div>
+      <AlertDialog
+        open={Boolean(taskToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setTaskToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-[2rem] border-slate-200 bg-white p-6 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black tracking-tight text-slate-950">
+              Delete task?
+            </AlertDialogTitle>
 
-        <BottomFocusBar tasksByPerson={tasksByPerson} />
+            <AlertDialogDescription className="text-sm font-semibold leading-6 text-slate-500">
+              This will remove “{taskToDelete?.title || "this task"}” from the family task board.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-        <AlertDialog
-          open={Boolean(taskToDelete)}
-          onOpenChange={(open) => {
-            if (!open) setTaskToDelete(null);
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel className="rounded-2xl font-black">
+              Cancel
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                handleDeleteTask(taskToDelete);
+              }}
+              className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
+            >
+              Delete task
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {(showAdd || editTask) && (
+        <AddTaskDialog
+          editTask={editTask}
+          onClose={() => {
+            setShowAdd(false);
+            setEditTask(null);
           }}
-        >
-          <AlertDialogContent className="rounded-[2rem] border-slate-200 bg-white p-6 shadow-2xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-2xl font-black tracking-tight text-slate-950">
-                Delete task?
-              </AlertDialogTitle>
-
-              <AlertDialogDescription className="text-sm font-semibold leading-6 text-slate-500">
-                This will remove “{taskToDelete?.title || "this task"}” from the family task board.
-                This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            <AlertDialogFooter className="gap-2 sm:gap-2">
-              <AlertDialogCancel className="rounded-2xl font-black">
-                Cancel
-              </AlertDialogCancel>
-
-              <AlertDialogAction
-                onClick={(event) => {
-                  event.preventDefault();
-                  handleDeleteTask(taskToDelete);
-                }}
-                className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
-              >
-                Delete task
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {(showAdd || editTask) && (
-          <AddTaskDialog
-            editTask={editTask}
-            onClose={() => {
-              setShowAdd(false);
-              setEditTask(null);
-            }}
-            onSuccess={async () => {
-              await loadTasks();
-              setShowAdd(false);
-              setEditTask(null);
-            }}
-          />
-        )}
-      </div>
-    </div>
+          onSuccess={async () => {
+            await loadTasks();
+            setShowAdd(false);
+            setEditTask(null);
+          }}
+        />
+      )}
+    </TasksPageLayout>
   );
 }
