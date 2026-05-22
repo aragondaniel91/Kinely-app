@@ -216,7 +216,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     }
 
     if (baseEnd < baseStart) {
-      alert("La fecha final no puede ser menor que la inicial.");
+      alert("The end date cannot be earlier than the start date.");
       return;
     }
 
@@ -224,13 +224,13 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     const blockStarts = generateBlockStarts(payload);
 
     if (!blockStarts.length) {
-      alert("No se generaron ocurrencias.");
+      alert("No schedule occurrences were generated.");
       return;
     }
 
     const estimatedTotalDays = payload.generatedDayMap ? Object.keys(payload.generatedDayMap).length : blockStarts.length * (rangeLength + 1);
     const confirmCreate = window.confirm(
-      `Se crearán aproximadamente ${estimatedTotalDays} día(s). Esto sobrescribirá custodia en esas fechas. ¿Deseas continuar?`
+      `This will create approximately ${estimatedTotalDays} custody day(s). Existing custody for those dates may be overwritten. Do you want to continue?`
     );
 
     if (!confirmCreate) return;
