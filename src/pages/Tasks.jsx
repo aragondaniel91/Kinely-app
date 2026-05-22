@@ -84,6 +84,20 @@ const priorityDot = {
   low: "bg-green-500",
 };
 
+function getTaskAssignee(task = {}) {
+  return (
+    task.assignedToName ||
+    task.assigned_to_name ||
+    task.assignedTo ||
+    task.assigned_to ||
+    task.assigneeName ||
+    task.assignee_name ||
+    task.ownerName ||
+    task.owner ||
+    "Family"
+  );
+}
+
 function normalizeTask(docSnap) {
   const data = docSnap.data();
 
@@ -354,12 +368,12 @@ export default function Tasks() {
           <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {columns.map((col) => {
             const ColIcon = col.config.icon;
 
             return (
-              <div key={col.key} className="flex min-w-0 flex-col">
+              <div key={col.key} className="flex min-w-0 flex-col rounded-[1.5rem]">
                 <div
                   className={cn(
                     "rounded-xl px-3 py-2 mb-3 flex items-center gap-2 border",
@@ -417,14 +431,19 @@ export default function Tasks() {
                           )}
                         />
 
-                        <p
-                          className={cn(
-                            "flex-1 font-semibold text-sm leading-snug",
-                            col.config.text
-                          )}
-                        >
-                          {task.title}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              "font-semibold text-sm leading-snug",
+                              col.config.text
+                            )}
+                          >
+                            {task.title}
+                          </p>
+                          <p className="mt-1 text-[11px] font-bold text-slate-500">
+                            Assigned to {getTaskAssignee(task)}
+                          </p>
+                        </div>
 
                         {canWrite && (
                           <div className="flex items-center gap-1 opacity-100 transition-opacity">
@@ -494,7 +513,7 @@ export default function Tasks() {
           })}
 
           {activeCategory === "all" && done.length > 0 && (
-            <div className="flex min-w-0 flex-col">
+            <div className="flex min-w-0 flex-col rounded-[1.5rem]">
               <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-2 border bg-slate-100 border-slate-200">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white bg-slate-400">
                   <Check className="w-4 h-4" />
@@ -524,9 +543,14 @@ export default function Tasks() {
                         <Check className="w-3 h-3 text-slate-600" />
                       </button>
 
-                      <p className="flex-1 text-sm text-slate-500 line-through">
-                        {task.title}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-slate-500 line-through">
+                          {task.title}
+                        </p>
+                        <p className="mt-1 text-[11px] font-bold text-slate-400">
+                          Assigned to {getTaskAssignee(task)}
+                        </p>
+                      </div>
 
                       {canWrite && (
                         <button
