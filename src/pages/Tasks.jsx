@@ -25,6 +25,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -203,6 +204,14 @@ export default function Tasks() {
   const pending = filtered.filter((t) => t.status === "pending");
   const done = filtered.filter((t) => t.status === "done");
 
+  const allPending = tasks.filter((task) => task.status === "pending");
+  const completedTasks = tasks.filter((task) => task.status === "done");
+  const highPriorityTasks = allPending.filter((task) => task.priority === "high");
+  const dueSoonTasks = allPending.filter((task) => task.due_date || task.dueDate);
+  const kidsChorePreviewCount = tasks.filter((task) =>
+    ["school", "house"].includes(task.category)
+  ).length;
+
   const columns =
     activeCategory === "all"
       ? categories.map((cat) => ({
@@ -232,30 +241,58 @@ export default function Tasks() {
   }
 
   return (
-    <div className="p-4 md:p-6 h-full">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-2xl font-bold font-heading">Task Board</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {loading
-              ? "Loading tasks..."
-              : `${
-                  tasks.filter((t) => t.status === "pending").length
-                } pending · ${
-                  tasks.filter((t) => t.status === "done").length
-                } done`}
-          </p>
-        </div>
+    <div className="kinly-gradient-bg min-h-full px-3 pb-28 pt-3 md:px-6 md:pb-12">
+      <div className="mx-auto max-w-7xl space-y-5">
+        <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white/85 p-5 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500">
+                Family Tasks
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+                Today’s family focus
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                Coordinate family tasks, school responsibilities, personal to-dos, and future kids chores with rewards in one calm place.
+              </p>
+            </div>
 
-        {canWrite && (
-          <Button
-            onClick={() => setShowAdd(true)}
-            className="gap-1.5 shadow-md"
-          >
-            <Plus className="w-4 h-4" /> Add Task
-          </Button>
-        )}
-      </div>
+            {canWrite && (
+              <Button
+                onClick={() => setShowAdd(true)}
+                className="h-12 rounded-2xl px-5 font-black shadow-lg shadow-indigo-600/15"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add task
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-3xl border border-blue-100 bg-blue-50/80 p-4">
+              <p className="text-2xl font-black text-blue-700">{allPending.length}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-wide text-blue-500">Pending</p>
+            </div>
+            <div className="rounded-3xl border border-emerald-100 bg-emerald-50/80 p-4">
+              <p className="text-2xl font-black text-emerald-700">{completedTasks.length}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-wide text-emerald-500">Completed</p>
+            </div>
+            <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-4">
+              <p className="text-2xl font-black text-rose-700">{highPriorityTasks.length}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-wide text-rose-500">High priority</p>
+            </div>
+            <div className="rounded-3xl border border-amber-100 bg-amber-50/80 p-4">
+              <p className="text-2xl font-black text-amber-700">{kidsChorePreviewCount}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-wide text-amber-500">Kids & home</p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
+            <p className="text-sm font-black text-slate-950">Kids chores & rewards</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+              Coming next: routines like make the bed, homework, clean toys, and reward unlocks for screen time, treats, or family privileges.
+            </p>
+          </div>
+        </Card>
 
       <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-hide">
         <button
@@ -533,6 +570,7 @@ export default function Tasks() {
           }}
         />
       )}
+      </div>
     </div>
   );
 }
