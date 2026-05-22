@@ -306,7 +306,7 @@ function Hero({ smartBrief, tasks, meals, groceries, hasCustody }) {
         <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr] xl:items-end">
           <div>
             <h1 className="max-w-2xl text-4xl font-black tracking-tight text-slate-950 md:text-5xl lg:text-6xl">
-              {getGreeting()}, familia <span className="text-amber-400">♥</span>
+              {getGreeting()}, family <span className="text-amber-400">♥</span>
             </h1>
             <p className="mt-3 max-w-xl text-base font-semibold leading-7 text-slate-600">
               Calendar, children, tasks, meals, and groceries in one calm place.
@@ -416,7 +416,7 @@ function TaskPreviewCard({ tasks }) {
           <Link key={task.id || `${getItemTitle(task)}-${index}`} to="/tasks" className="flex items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-amber-100 hover:bg-amber-50/40">
             <span className="h-5 w-5 shrink-0 rounded-full border-2 border-slate-200" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-black text-slate-950">{getItemTitle(task, "Tarea familiar")}</span>
+              <span className="block truncate text-sm font-black text-slate-950">{getItemTitle(task, "Family task")}</span>
               <span className="block truncate text-xs font-semibold text-slate-500">{getItemDate(task) ? `Due ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Pending"}</span>
             </span>
           </Link>
