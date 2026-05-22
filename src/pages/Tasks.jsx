@@ -242,7 +242,7 @@ export default function Tasks() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f6f8fc] px-3 pb-28 pt-3 md:px-6 md:pb-12">
+    <div className="relative min-h-full overflow-hidden px-3 pb-28 pt-1 md:px-6 md:pb-12">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-28 left-10 h-72 w-72 rounded-full bg-blue-200/35 blur-3xl" />
         <div className="absolute top-20 right-10 h-80 w-80 rounded-full bg-indigo-200/30 blur-3xl" />
@@ -250,76 +250,45 @@ export default function Tasks() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl space-y-5">
-        <Card className="overflow-hidden rounded-[2.25rem] border border-white/80 bg-white/88 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-          <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="p-5 md:p-6">
-              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-3 py-1.5 shadow-sm">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white">
-                  <Check className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-600">
-                  Family Tasks
-                </span>
+        <Card className="rounded-[2rem] border border-white/80 bg-white/82 p-4 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl md:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
+                  <Check className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-500">
+                    Family Tasks
+                  </p>
+                  <h1 className="truncate text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+                    Today’s focus
+                  </h1>
+                </div>
               </div>
-
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
-                Today’s focus
-              </h1>
-
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                Keep family tasks, school responsibilities, personal to-dos, and future kids chores organized in one calm place.
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                Family tasks, school responsibilities, personal to-dos, and kids routines in one calm daily view.
               </p>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">
-                  {allPending.length} pending
-                </span>
-                <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                  {completedTasks.length} completed
-                </span>
-                <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
-                  {highPriorityTasks.length} high priority
-                </span>
-                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
-                  Kids rewards soon
-                </span>
-              </div>
             </div>
 
-            <div className="border-t border-white/70 bg-gradient-to-br from-indigo-50/90 via-blue-50/70 to-white p-5 md:p-6 lg:border-l lg:border-t-0">
-              <div className="flex h-full flex-col justify-between gap-5">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                    Smart task brief
-                  </p>
-                  <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950">
-                    {allPending.length ? "There are tasks waiting" : "Everything looks clear"}
-                  </h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                    Coming next: kid routines, chores, and reward unlocks for screen time, treats, or family privileges.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-white/80 bg-white/80 p-3 shadow-sm">
-                    <p className="text-xl font-black text-blue-700">{allPending.length}</p>
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Pending</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/80 bg-white/80 p-3 shadow-sm">
-                    <p className="text-xl font-black text-amber-700">{kidsChorePreviewCount}</p>
-                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Kids & home</p>
-                  </div>
-                </div>
-
-                {canWrite && (
-                  <Button
-                    onClick={() => setShowAdd(true)}
-                    className="h-11 w-full rounded-2xl bg-slate-950 font-black text-white shadow-lg shadow-slate-900/15 hover:bg-slate-800"
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Add task
-                  </Button>
-                )}
-              </div>
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">
+                {allPending.length} pending
+              </span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                {completedTasks.length} completed
+              </span>
+              <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
+                {highPriorityTasks.length} high priority
+              </span>
+              {canWrite && (
+                <Button
+                  onClick={() => setShowAdd(true)}
+                  className="h-10 rounded-2xl bg-slate-950 px-4 font-black text-white shadow-lg shadow-slate-900/15 hover:bg-slate-800"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add task
+                </Button>
+              )}
             </div>
           </div>
         </Card>
@@ -345,7 +314,7 @@ export default function Tasks() {
             </p>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-hide">
+          <div className="mb-5 flex flex-wrap gap-2">
         <button
           onClick={() => setActiveCategory("all")}
           className={cn(
@@ -385,12 +354,12 @@ export default function Tasks() {
           <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="family-scroll-x flex gap-4 overflow-x-auto pb-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {columns.map((col) => {
             const ColIcon = col.config.icon;
 
             return (
-              <div key={col.key} className="flex w-[285px] shrink-0 flex-col">
+              <div key={col.key} className="flex min-w-0 flex-col">
                 <div
                   className={cn(
                     "rounded-xl px-3 py-2 mb-3 flex items-center gap-2 border",
@@ -524,7 +493,7 @@ export default function Tasks() {
           })}
 
           {activeCategory === "all" && done.length > 0 && (
-            <div className="flex w-[285px] shrink-0 flex-col">
+            <div className="flex min-w-0 flex-col">
               <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-2 border bg-slate-100 border-slate-200">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white bg-slate-400">
                   <Check className="w-4 h-4" />
