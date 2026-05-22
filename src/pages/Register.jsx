@@ -226,21 +226,21 @@ export default function Register() {
               <Sparkles className="h-8 w-8" />
             </div>
             <h1 className="mt-6 text-4xl font-black tracking-tight text-slate-950">
-              Family Wall Organizer
+              Create your private family space
             </h1>
             <p className="mt-4 text-base font-semibold leading-7 text-slate-600">
-              Create a trusted family space for custody schedules, shared calendars, children, tasks, meals, groceries, and important family information.
+              Start a calm, organized space for custody schedules, shared calendars, children, tasks, meals, groceries, and important family details.
             </p>
             <div className="mt-8 grid gap-3">
               <div className="rounded-3xl border border-indigo-100 bg-white p-4">
                 <Shield className="h-5 w-5 text-indigo-600" />
                 <p className="mt-2 text-sm font-black text-slate-950">Private by family space</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Each household keeps its own data isolated.</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Each family space keeps its own data, members, and permissions separated.</p>
               </div>
               <div className="rounded-3xl border border-blue-100 bg-white p-4">
                 <HeartHandshake className="h-5 w-5 text-blue-600" />
                 <p className="mt-2 text-sm font-black text-slate-950">Designed for co-parenting</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Share custody calendars without mixing household data.</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Coordinate custody calendars, exchanges, and family plans with clearer boundaries.</p>
               </div>
             </div>
           </div>
