@@ -6,6 +6,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
+import { CalendarDays, CheckCircle2, Gift, Sparkles } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -29,6 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+const categoryCopy = {
+  house: "Family/home responsibilities",
+  work: "Personal or work focus",
+  school: "School and learning",
+  personal: "Private personal task",
+  other: "General task",
+};
 
 export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
   const [title, setTitle] = useState(editTask?.title || "");
@@ -88,32 +97,45 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="font-heading text-xl">
-            {editTask ? "Edit Task" : "New Task"}
-          </DialogTitle>
+      <DialogContent className="max-w-lg overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl">
+        <DialogHeader className="border-b bg-gradient-to-br from-indigo-50 via-white to-blue-50 px-5 py-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-500">
+                Family task
+              </p>
+              <DialogTitle className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                {editTask ? "Edit task" : "New task"}
+              </DialogTitle>
+              <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+                Add something the family can track, finish, or turn into a future routine.
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-5 px-5 py-5">
           <div>
             <Label>Task</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
-              className="mt-1"
+              className="mt-1 h-11 rounded-2xl"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && title.trim()) handleSave();
               }}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1">
+                <SelectTrigger className="mt-1 h-11 rounded-2xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -124,12 +146,15 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
                   <SelectItem value="other">📌 Other</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="mt-1 text-xs font-semibold text-slate-400">
+                {categoryCopy[category]}
+              </p>
             </div>
 
             <div>
               <Label>Priority</Label>
               <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="mt-1">
+                <SelectTrigger className="mt-1 h-11 rounded-2xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -138,30 +163,64 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
                   <SelectItem value="low">🟢 Low</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="mt-1 text-xs font-semibold text-slate-400">
+                Helps the family know what needs attention first.
+              </p>
             </div>
           </div>
 
           <div>
-            <Label>Due Date (optional)</Label>
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="mt-1"
-            />
+            <Label>Due date</Label>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+                <CalendarDays className="h-5 w-5" />
+              </div>
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="h-11 rounded-2xl"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-amber-100 bg-amber-50/80 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
+                <Gift className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-slate-950">
+                  Rewards are coming next
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                  Soon you will be able to turn kids chores into routines with points, rewards, and parent approval.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+              <p className="text-xs font-semibold leading-5 text-slate-500">
+                Tip: use House or School for kid-friendly chores today. A dedicated Kids Chores flow will be added later.
+              </p>
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="border-t bg-slate-50/70 px-5 py-4">
+          <Button variant="outline" onClick={onClose} className="rounded-2xl font-black">
             Cancel
           </Button>
 
           <Button
             onClick={handleSave}
             disabled={!title.trim() || saving || !familyId}
+            className="rounded-2xl font-black"
           >
-            {saving ? "Saving..." : editTask ? "Save Changes" : "Add Task"}
+            {saving ? "Saving..." : editTask ? "Save changes" : "Add task"}
           </Button>
         </DialogFooter>
       </DialogContent>
