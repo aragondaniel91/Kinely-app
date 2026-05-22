@@ -241,55 +241,64 @@ export default function Tasks() {
   }
 
   return (
-    <div className="kinly-gradient-bg min-h-full px-3 pb-28 pt-3 md:px-6 md:pb-12">
+    <div className="min-h-full bg-gradient-to-br from-indigo-50 via-white to-blue-50 px-3 pb-28 pt-3 md:px-6 md:pb-12">
       <div className="mx-auto max-w-7xl space-y-5">
-        <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white/85 p-5 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-500">
-                Family Tasks
-              </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
-                Today’s family focus
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-                Coordinate family tasks, school responsibilities, personal to-dos, and future kids chores with rewards in one calm place.
+        <Card className="rounded-[1.75rem] border-white/80 bg-white/90 p-4 shadow-[0_16px_45px_rgba(15,23,42,0.07)] backdrop-blur-xl md:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
+                  <Check className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-500">
+                    Family Tasks
+                  </p>
+                  <h1 className="truncate text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+                    Today’s focus
+                  </h1>
+                </div>
+              </div>
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                Coordinate family tasks, school responsibilities, personal to-dos, and future kids chores with rewards.
               </p>
             </div>
 
             {canWrite && (
               <Button
                 onClick={() => setShowAdd(true)}
-                className="h-12 rounded-2xl px-5 font-black shadow-lg shadow-indigo-600/15"
+                className="h-11 rounded-2xl px-5 font-black shadow-lg shadow-indigo-600/15"
               >
                 <Plus className="mr-2 h-4 w-4" /> Add task
               </Button>
             )}
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-3xl border border-blue-100 bg-blue-50/80 p-4">
-              <p className="text-2xl font-black text-blue-700">{allPending.length}</p>
-              <p className="mt-1 text-xs font-black uppercase tracking-wide text-blue-500">Pending</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-3">
+              <p className="text-xl font-black text-blue-700">{allPending.length}</p>
+              <p className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-blue-500">Pending</p>
             </div>
-            <div className="rounded-3xl border border-emerald-100 bg-emerald-50/80 p-4">
-              <p className="text-2xl font-black text-emerald-700">{completedTasks.length}</p>
-              <p className="mt-1 text-xs font-black uppercase tracking-wide text-emerald-500">Completed</p>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
+              <p className="text-xl font-black text-emerald-700">{completedTasks.length}</p>
+              <p className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-500">Completed</p>
             </div>
-            <div className="rounded-3xl border border-rose-100 bg-rose-50/80 p-4">
-              <p className="text-2xl font-black text-rose-700">{highPriorityTasks.length}</p>
-              <p className="mt-1 text-xs font-black uppercase tracking-wide text-rose-500">High priority</p>
+            <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-3">
+              <p className="text-xl font-black text-rose-700">{highPriorityTasks.length}</p>
+              <p className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-rose-500">High priority</p>
             </div>
-            <div className="rounded-3xl border border-amber-100 bg-amber-50/80 p-4">
-              <p className="text-2xl font-black text-amber-700">{kidsChorePreviewCount}</p>
-              <p className="mt-1 text-xs font-black uppercase tracking-wide text-amber-500">Kids & home</p>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
+              <p className="text-xl font-black text-amber-700">{kidsChorePreviewCount}</p>
+              <p className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-amber-500">Kids & home</p>
             </div>
           </div>
 
-          <div className="mt-4 rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
-            <p className="text-sm font-black text-slate-950">Kids chores & rewards</p>
+          <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-wide text-indigo-600">
+              Coming next
+            </p>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-              Coming next: routines like make the bed, homework, clean toys, and reward unlocks for screen time, treats, or family privileges.
+              Kids routines, chores, and reward unlocks for screen time, treats, or family privileges.
             </p>
           </div>
         </Card>
