@@ -239,7 +239,7 @@ function ActivityItem({ item }) {
 function RecentActivityCard({ activity = [] }) {
   return (
     <Card className="rounded-[1.8rem] border-blue-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="Actividad" title="Recent activity" />
+      <SectionHeader kicker="Activity" title="Recent activity" />
       <div className="mt-4 space-y-2.5">
         {activity.length ? (
           activity.slice(0, 5).map((item, index) => (
@@ -272,7 +272,7 @@ function HeroPanel({ smartBrief, tasks, meals, groceries, hasCustody }) {
     <div className="rounded-[1.55rem] border border-white/80 bg-white/82 p-4 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Resumen inteligente</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Smart summary</p>
           <h2 className="mt-1.5 text-xl font-black text-slate-950">{smartBrief.title}</h2>
           <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{smartBrief.text}</p>
         </div>
@@ -313,7 +313,7 @@ function Hero({ smartBrief, tasks, meals, groceries, hasCustody }) {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link to="/calendar" className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
-                Abrir calendario
+                Open calendar
               </Link>
               <Link to="/tasks" className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:text-blue-700 hover:shadow-md">
                 Add task
@@ -357,7 +357,7 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-xl font-black text-slate-950">{name}</p>
-                        <p className="mt-0.5 text-sm font-semibold text-slate-500">{age || "Perfil familiar"}</p>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-500">{age || "Family profile"}</p>
                       </div>
                       <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
                         No alerts
