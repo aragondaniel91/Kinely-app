@@ -98,6 +98,21 @@ function getTaskAssignee(task = {}) {
   );
 }
 
+function getTaskDueLabel(task = {}) {
+  const value = task.due_date || task.dueDate;
+  if (!value) return "No due date";
+
+  try {
+    const date = new Date(`${value}T12:00:00`);
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return value;
+  }
+}
+
 function normalizeTask(docSnap) {
   const data = docSnap.data();
 
