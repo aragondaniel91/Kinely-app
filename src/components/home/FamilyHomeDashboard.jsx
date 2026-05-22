@@ -162,9 +162,8 @@ function WeatherPill() {
         {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
       </span>
       <span className="h-1 w-1 rounded-full bg-slate-300" />
-      <span className="text-sm font-bold text-slate-500">68°</span>
       <Sun className="h-4 w-4 text-amber-400" />
-      <span className="hidden text-sm font-bold text-slate-500 sm:inline">Sunny</span>
+      <span className="hidden text-sm font-bold text-slate-500 sm:inline">Today</span>
     </div>
   );
 }
