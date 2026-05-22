@@ -379,6 +379,7 @@ export default function Tasks() {
                             </button>
 
                             <button
+                              type="button"
                               onClick={() => setTaskToDelete(task)}
                               className="text-destructive"
                             >
@@ -468,6 +469,7 @@ export default function Tasks() {
 
                       {canWrite && (
                         <button
+                          type="button"
                           onClick={() => setTaskToDelete(task)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
                         >
@@ -482,6 +484,40 @@ export default function Tasks() {
           )}
         </div>
       )}
+
+      <AlertDialog
+        open={Boolean(taskToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setTaskToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-[2rem] border-slate-200 bg-white p-6 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black tracking-tight text-slate-950">
+              Delete task?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-semibold leading-6 text-slate-500">
+              This will remove “{taskToDelete?.title || "this task"}” from the family task board.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel className="rounded-2xl font-black">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                deleteTask(taskToDelete);
+              }}
+              className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
+            >
+              Delete task
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {(showAdd || editTask) && (
         <AddTaskDialog
