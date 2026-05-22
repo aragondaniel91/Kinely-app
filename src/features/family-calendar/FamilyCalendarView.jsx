@@ -175,10 +175,11 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
       <button
         type="button"
         onClick={() => setAddDate(new Date(anchorDate))}
-        className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/25 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8 md:right-8 md:h-16 md:w-16"
+        className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-white shadow-xl shadow-blue-600/25 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
         aria-label="Add event"
       >
-        <Plus className="h-7 w-7" />
+        <Plus className="h-6 w-6" />
+        <span className="hidden text-sm font-black md:inline">Add event</span>
       </button>
 
       <FamilyEventOverflowPopover

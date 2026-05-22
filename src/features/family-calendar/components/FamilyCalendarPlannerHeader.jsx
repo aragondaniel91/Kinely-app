@@ -97,7 +97,7 @@ export default function FamilyCalendarPlannerHeader({
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600/80">
-                Kinly Planner
+                Family Planning
               </p>
               <h1 className="mt-0.5 text-[1.85rem] font-black leading-none tracking-tight text-slate-950 sm:text-[2.05rem]">
                 Family Calendar
