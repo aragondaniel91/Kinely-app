@@ -81,6 +81,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const [loading, setLoading] = useState(true);
   const [lastBulkUndo, setLastBulkUndo] = useState(null);
   const [pendingBulkConfirm, setPendingBulkConfirm] = useState(null);
+  const [pendingUndoConfirm, setPendingUndoConfirm] = useState(false);
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
@@ -300,15 +301,15 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     }
   };
 
-  const undoLastBulkCreation = async () => {
+  const undoLastBulkCreation = async (confirmed = false) => {
     if (!lastBulkUndo || isSaving) return;
 
-    const confirmed = window.confirm(
-      `Undo the latest bulk schedule? This will restore ${lastBulkUndo.entries.length} affected day(s) to their previous state.`
-    );
+    if (!confirmed) {
+      setPendingUndoConfirm(true);
+      return;
+    }
 
-    if (!confirmed) return;
-
+    setPendingUndoConfirm(false);
     setIsSaving(true);
 
     try {
@@ -660,6 +661,40 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
               className="rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
             >
               {isSaving ? "Creating..." : "Create schedule"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingUndoConfirm}
+        onOpenChange={(open) => {
+          if (!open && !isSaving) setPendingUndoConfirm(false);
+        }}
+      >
+        <AlertDialogContent className="rounded-[2rem] border-slate-200 bg-white p-6 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black tracking-tight text-slate-950">
+              Undo bulk schedule?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-semibold leading-6 text-slate-500">
+              This will restore {lastBulkUndo?.entries?.length || 0} affected day(s) to their previous state.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel disabled={isSaving} className="rounded-2xl font-black">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSaving}
+              onClick={(event) => {
+                event.preventDefault();
+                undoLastBulkCreation(true);
+              }}
+              className="rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
+            >
+              {isSaving ? "Restoring..." : "Undo bulk"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
