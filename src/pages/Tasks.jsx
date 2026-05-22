@@ -35,13 +35,14 @@ import {
 } from "@/features/tasks/data/demoRewards";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
 import {
-  getTaskAssignee,
-  isDone,
-  normalizeAssignee,
-} from "@/features/tasks/utils/taskHelpers";
+  getSelectedPerson,
+  getSelectedTasks,
+  getTaskStats,
+  getTasksByPerson,
+} from "@/features/tasks/utils/taskSelectors";
 
 export default function Tasks() {
-  const [selectedPerson, setSelectedPerson] = useState("joaquin");
+  const [selectedPersonId, setSelectedPersonId] = useState("joaquin");
   const [showAdd, setShowAdd] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -65,27 +66,19 @@ export default function Tasks() {
 
   const displayTasks = tasks.length > 0 ? tasks : demoTasks;
 
-  const tasksByPerson = useMemo(() => {
-    return taskPeople.reduce((acc, person) => {
-      acc[person.id] = displayTasks.filter(
-        (task) => normalizeAssignee(getTaskAssignee(task)) === person.id
-      );
+  const tasksByPerson = useMemo(
+    () => getTasksByPerson(displayTasks, taskPeople),
+    [displayTasks]
+  );
 
-      return acc;
-    }, {});
-  }, [displayTasks]);
-
-  const selected =
-    taskPeople.find((person) => person.id === selectedPerson) || taskPeople[0];
-
-  const selectedTasks = tasksByPerson[selected.id] || [];
-  const joaquinTasks = tasksByPerson.joaquin || [];
+  const selectedPerson = getSelectedPerson(taskPeople, selectedPersonId);
+  const selectedTasks = getSelectedTasks(tasksByPerson, selectedPerson?.id);
+  const joaquinTasks = getSelectedTasks(tasksByPerson, "joaquin");
 
   const childReward = getActiveChildReward("joaquin");
   const familyReward = getActiveFamilyReward();
 
-  const completedCount = displayTasks.filter(isDone).length;
-  const pendingCount = displayTasks.filter((task) => !isDone(task)).length;
+  const { completedCount, pendingCount } = getTaskStats(displayTasks);
 
   const handleDeleteTask = async (task) => {
     await deleteTask(task);
@@ -122,8 +115,8 @@ export default function Tasks() {
               key={person.id}
               person={person}
               tasks={tasksByPerson[person.id] || []}
-              selected={selectedPerson === person.id}
-              onSelect={setSelectedPerson}
+              selected={selectedPersonId === person.id}
+              onSelect={setSelectedPersonId}
             />
           ))}
         </div>
@@ -137,7 +130,7 @@ export default function Tasks() {
                   Focus del día
                 </p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                  Tareas de {selected.name}
+                  Tareas de {selectedPerson?.name || "Familia"}
                 </h2>
                 <p className="mt-1 text-sm font-extrabold text-slate-500">
                   Iconos grandes, checks claros y lectura rápida para wall screen.
@@ -173,7 +166,7 @@ export default function Tasks() {
                   <div className="col-span-full rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/80 p-10 text-center">
                     <MoreHorizontal className="mx-auto h-10 w-10 text-slate-300" />
                     <p className="mt-3 text-xl font-black text-slate-900">
-                      No hay tareas para {selected.name}
+                      No hay tareas para {selectedPerson?.name || "esta persona"}
                     </p>
                     <p className="mt-1 text-sm font-bold text-slate-500">
                       Agrega una tarea nueva para verla en este board.
