@@ -380,189 +380,130 @@ export default function Tasks() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-          {columns.map((col) => {
-            const ColIcon = col.config.icon;
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-3">
+            {pending.length > 0 ? (
+              pending.map((task) => {
+                const cfg = categoryConfig[task.category] || categoryConfig.other;
+                const TaskIcon = cfg.icon;
 
-            return (
-              <div key={col.key} className="flex min-w-0 flex-col rounded-[1.5rem]">
-                <div
-                  className={cn(
-                    "rounded-xl px-3 py-2 mb-3 flex items-center gap-2 border",
-                    col.config.card
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-7 h-7 rounded-lg flex items-center justify-center text-white",
-                      col.config.bg
-                    )}
-                  >
-                    <ColIcon className="w-4 h-4" />
-                  </div>
-
-                  <span
-                    className={cn(
-                      "font-bold font-heading text-sm flex-1",
-                      col.config.text
-                    )}
-                  >
-                    {col.config.label}
-                  </span>
-
-                  <span
-                    className={cn(
-                      "text-xs font-bold px-2 py-0.5 rounded-full",
-                      col.config.card,
-                      col.config.text
-                    )}
-                  >
-                    {col.tasks.length}
-                  </span>
-                </div>
-
-                <div className="space-y-2 flex-1">
-                  {col.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className={cn(
-                        "rounded-2xl border p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md group",
-                        col.config.card
-                      )}
-                    >
-                      <div className="flex items-start gap-2">
-                        <button
-                          onClick={() => toggleTask(task)}
-                          disabled={!canWrite}
-                          className={cn(
-                            "mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
-                            col.config.text.replace("text-", "border-"),
-                            canWrite
-                              ? "hover:opacity-70"
-                              : "opacity-40 cursor-not-allowed"
-                          )}
-                        />
-
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={cn(
-                              "font-semibold text-sm leading-snug",
-                              col.config.text
-                            )}
-                          >
-                            {task.title}
-                          </p>
-                          <p className="mt-1 text-[11px] font-bold text-slate-500">
-                            Assigned to {getTaskAssignee(task)}
-                          </p>
-                        </div>
-
-                        {canWrite && (
-                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
-                            <button
-                              type="button"
-                              onClick={() => setEditTask(task)}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-900"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setTaskToDelete(task)}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-red-500 shadow-sm transition hover:bg-red-50 hover:text-red-700"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {(task.priority || task.due_date) && (
-                        <div className="flex items-center gap-2 mt-2 pl-7">
-                          {task.priority && (
-                            <div className="flex items-center gap-1">
-                              <div
-                                className={cn(
-                                  "w-2 h-2 rounded-full",
-                                  priorityDot[task.priority] || "bg-gray-400"
-                                )}
-                              />
-                              <span className="text-xs text-muted-foreground capitalize">
-                                {task.priority}
-                              </span>
-                            </div>
-                          )}
-
-                          {task.due_date && (
-                            <span className="text-xs text-muted-foreground">
-                              📅 {task.due_date}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {col.tasks.length === 0 && (
-                    <div
-                      className={cn(
-                        "rounded-2xl border-2 border-dashed p-5 text-center",
-                        col.config.card
-                      )}
-                    >
-                      <p className={cn("text-sm font-black", col.config.text)}>
-                        All clear
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-slate-400">
-                        No open tasks here.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {activeCategory === "all" && done.length > 0 && (
-            <div className="flex min-w-0 flex-col rounded-[1.5rem]">
-              <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-2 border bg-slate-100 border-slate-200">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white bg-slate-400">
-                  <Check className="w-4 h-4" />
-                </div>
-
-                <span className="font-bold font-heading text-sm flex-1 text-slate-600">
-                  Done
-                </span>
-
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  {done.length}
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {done.map((task) => (
+                return (
                   <div
                     key={task.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 opacity-75 group"
+                    className={cn(
+                      "rounded-[1.5rem] border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+                      cfg.card
+                    )}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-3">
                       <button
+                        type="button"
                         onClick={() => toggleTask(task)}
                         disabled={!canWrite}
-                        className="mt-0.5 w-5 h-5 rounded-full border-2 border-slate-400 bg-slate-300 flex items-center justify-center shrink-0"
+                        className={cn(
+                          "mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 bg-white/75 transition",
+                          cfg.text.replace("text-", "border-"),
+                          canWrite ? "hover:scale-105" : "cursor-not-allowed opacity-40"
+                        )}
+                        aria-label="Mark task complete"
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={cn("inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-black", cfg.text)}>
+                            <TaskIcon className="h-3.5 w-3.5" />
+                            {cfg.label}
+                          </span>
+                          <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-black capitalize text-slate-500">
+                            {task.priority || "medium"}
+                          </span>
+                          <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-black text-slate-500">
+                            📅 {getTaskDueLabel(task)}
+                          </span>
+                        </div>
+
+                        <p className={cn("mt-2 text-base font-black leading-snug", cfg.text)}>
+                          {task.title}
+                        </p>
+
+                        <p className="mt-1 text-xs font-bold text-slate-500">
+                          Assigned to {getTaskAssignee(task)}
+                        </p>
+                      </div>
+
+                      {canWrite && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditTask(task)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/75 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-900"
+                            aria-label="Edit task"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setTaskToDelete(task)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/75 text-red-500 shadow-sm transition hover:bg-red-50 hover:text-red-700"
+                            aria-label="Delete task"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/80 p-8 text-center">
+                <p className="text-lg font-black text-slate-900">All clear</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  No open tasks match this filter.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50/80 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Completed
+                </p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">
+                  Finished tasks
+                </h3>
+              </div>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">
+                {done.length}
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {done.length > 0 ? (
+                done.slice(0, 6).map((task) => (
+                  <div key={task.id} className="rounded-2xl border border-slate-200 bg-white/80 p-3">
+                    <div className="flex items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleTask(task)}
+                        disabled={!canWrite}
+                        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-slate-100"
+                        aria-label="Reopen task"
                       >
-                        <Check className="w-3 h-3 text-slate-600" />
+                        <Check className="h-3 w-3 text-slate-500" />
                       </button>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-slate-500 line-through">
+                        <p className="truncate text-sm font-bold text-slate-500 line-through">
                           {task.title}
                         </p>
-                        <p className="mt-1 text-[11px] font-bold text-slate-400">
+                        <p className="mt-0.5 text-[11px] font-bold text-slate-400">
                           Assigned to {getTaskAssignee(task)}
                         </p>
                       </div>
@@ -571,17 +512,25 @@ export default function Tasks() {
                         <button
                           type="button"
                           onClick={() => setTaskToDelete(task)}
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-red-500 shadow-sm transition hover:bg-red-50 hover:text-red-700"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-500 shadow-sm transition hover:bg-red-50"
+                          aria-label="Delete completed task"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 p-5 text-center">
+                  <p className="text-sm font-black text-slate-700">Nothing completed yet</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-400">
+                    Finished tasks will appear here.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
