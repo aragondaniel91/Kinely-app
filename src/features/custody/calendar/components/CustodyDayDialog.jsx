@@ -515,13 +515,11 @@ export default function CustodyDayDialog({
     }
   };
 
-  const deleteSpecialEvent = async (event, { skipConfirm = false } = {}) => {
+  const deleteSpecialEvent = async (event) => {
     if (!event?.id) return;
 
-    if (!skipConfirm) {
-      setSpecialEventToDelete(event);
-      return;
-    }
+    const confirmed = window.confirm(`Delete "${event.title}" from this day?`);
+    if (!confirmed) return;
 
     setSavingSpecialEvent(true);
 
@@ -635,13 +633,11 @@ export default function CustodyDayDialog({
     }
   };
 
-  const deleteTravelPlan = async (plan, { skipConfirm = false } = {}) => {
+  const deleteTravelPlan = async (plan) => {
     if (!plan?.id) return;
 
-    if (!skipConfirm) {
-      setTravelPlanToDelete(plan);
-      return;
-    }
+    const confirmed = window.confirm(`Delete "${plan.title}" travel plan?`);
+    if (!confirmed) return;
 
     setSavingTravelPlan(true);
 
@@ -1184,96 +1180,6 @@ export default function CustodyDayDialog({
           momLabel={momLabel}
         />
       )}
-
-      <Dialog open={Boolean(specialEventToDelete)} onOpenChange={(open) => !open && setSpecialEventToDelete(null)}>
-        <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden">
-          <DialogHeader className="border-b px-5 py-4">
-            <DialogTitle className="font-heading text-xl">
-              Delete special event?
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="px-5 py-6 text-center">
-            <p className="mx-auto max-w-sm text-base font-black text-slate-800">
-              This will remove “{specialEventToDelete?.title || "this event"}” from this custody day.
-            </p>
-            <p className="mx-auto mt-2 max-w-sm text-sm font-semibold text-slate-500">
-              This action cannot be undone.
-            </p>
-
-            <div className="mt-6 flex flex-col gap-3">
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={savingSpecialEvent}
-                onClick={() => {
-                  const event = specialEventToDelete;
-                  setSpecialEventToDelete(null);
-                  deleteSpecialEvent(event, { skipConfirm: true });
-                }}
-                className="h-12 rounded-full text-base font-black"
-              >
-                Delete event
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={savingSpecialEvent}
-                onClick={() => setSpecialEventToDelete(null)}
-                className="h-11 rounded-full text-base font-black text-slate-500"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(travelPlanToDelete)} onOpenChange={(open) => !open && setTravelPlanToDelete(null)}>
-        <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden">
-          <DialogHeader className="border-b px-5 py-4">
-            <DialogTitle className="font-heading text-xl">
-              Delete travel plan?
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="px-5 py-6 text-center">
-            <p className="mx-auto max-w-sm text-base font-black text-slate-800">
-              This will remove “{travelPlanToDelete?.title || "this travel plan"}” from the custody calendar.
-            </p>
-            <p className="mx-auto mt-2 max-w-sm text-sm font-semibold text-slate-500">
-              This action cannot be undone.
-            </p>
-
-            <div className="mt-6 flex flex-col gap-3">
-              <Button
-                type="button"
-                variant="destructive"
-                disabled={savingTravelPlan}
-                onClick={() => {
-                  const plan = travelPlanToDelete;
-                  setTravelPlanToDelete(null);
-                  deleteTravelPlan(plan, { skipConfirm: true });
-                }}
-                className="h-12 rounded-full text-base font-black"
-              >
-                Delete travel plan
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={savingTravelPlan}
-                onClick={() => setTravelPlanToDelete(null)}
-                className="h-11 rounded-full text-base font-black text-slate-500"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showDeleteDayConfirm} onOpenChange={setShowDeleteDayConfirm}>
         <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden">
