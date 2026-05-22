@@ -10,6 +10,7 @@ import { CalendarDays, CheckCircle2, Gift, Sparkles } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { normalizeChildren } from "@/lib/personColorUtils";
 
 import {
   Dialog,
@@ -46,9 +47,24 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
   const [dueDate, setDueDate] = useState(
     editTask?.due_date || editTask?.dueDate || ""
   );
+  const [assignedTo, setAssignedTo] = useState(editTask?.assignedTo || editTask?.assigned_to || "family");
   const [saving, setSaving] = useState(false);
 
   const { profile, familyId, user } = useFamily();
+
+  const children = normalizeChildren(profile?.children || []);
+  const parent1Name = profile?.parent1_name || profile?.parent1Name || user?.displayName || "Me";
+  const parent2Name = profile?.parent2_name || profile?.parent2Name || "Co-parent";
+  const hasParent2 = Boolean(profile?.parent2_name || profile?.parent2Name || profile?.parent2_email || profile?.parent2Email);
+
+  const assigneeOptions = [
+    { value: "family", label: "Family" },
+    { value: "parent1", label: parent1Name },
+    ...(hasParent2 ? [{ value: "parent2", label: parent2Name }] : []),
+    ...children.map((child) => ({ value: `child:${child.id || child.childId || child.name}`, label: child.name || "Child" })),
+  ];
+
+  const selectedAssignee = assigneeOptions.find((option) => option.value === assignedTo) || assigneeOptions[0];
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -65,6 +81,12 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
         title: title.trim(),
         category,
         priority,
+        assignedTo,
+        assigned_to: assignedTo,
+        assignedToName: selectedAssignee?.label || "Family",
+        assigned_to_name: selectedAssignee?.label || "Family",
+        assignedChildId: assignedTo.startsWith("child:") ? assignedTo.replace("child:", "") : "",
+        assigned_child_id: assignedTo.startsWith("child:") ? assignedTo.replace("child:", "") : "",
         due_date: dueDate || "",
         dueDate: dueDate || "",
         familyId,
@@ -167,6 +189,25 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
                 Helps the family know what needs attention first.
               </p>
             </div>
+          </div>
+
+          <div>
+            <Label>Assigned to</Label>
+            <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <SelectTrigger className="mt-1 h-11 rounded-2xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {assigneeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.value === "family" ? "👨‍👩‍👧‍👦" : option.value.startsWith("child:") ? "⭐" : "👤"} {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs font-semibold text-slate-400">
+              Choose who this task is for. Kids chores will become more powerful in the next phase.
+            </p>
           </div>
 
           <div>
