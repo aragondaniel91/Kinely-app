@@ -400,7 +400,7 @@ export default function Tasks() {
                     <div
                       key={task.id}
                       className={cn(
-                        "rounded-xl border p-3 shadow-sm hover:shadow-md transition-all group",
+                        "rounded-2xl border p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md group",
                         col.config.card
                       )}
                     >
@@ -427,10 +427,11 @@ export default function Tasks() {
                         </p>
 
                         {canWrite && (
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1 opacity-100 transition-opacity">
                             <button
+                              type="button"
                               onClick={() => setEditTask(task)}
-                              className="text-muted-foreground hover:text-foreground"
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-900"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -438,7 +439,7 @@ export default function Tasks() {
                             <button
                               type="button"
                               onClick={() => setTaskToDelete(task)}
-                              className="text-destructive"
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-red-500 shadow-sm transition hover:bg-red-50 hover:text-red-700"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -512,7 +513,7 @@ export default function Tasks() {
                 {done.map((task) => (
                   <div
                     key={task.id}
-                    className="rounded-xl border p-3 bg-slate-100 border-slate-200 opacity-60 group"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 opacity-75 group"
                   >
                     <div className="flex items-start gap-2">
                       <button
@@ -531,7 +532,7 @@ export default function Tasks() {
                         <button
                           type="button"
                           onClick={() => setTaskToDelete(task)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-red-500 shadow-sm transition hover:bg-red-50 hover:text-red-700"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
