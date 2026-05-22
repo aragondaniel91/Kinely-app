@@ -127,13 +127,13 @@ function getInitials(name) {
 }
 
 function getSmartBrief({ loading, tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel }) {
-  if (loading) return { title: "Cargando el día familiar", text: "Preparando el resumen de hoy...", tone: "blue" };
-  if (hasCustody && nextChange?.days <= 1) return { title: "Transición cerca", text: `Próximo intercambio con ${nextChangeLabel}.`, tone: "rose" };
-  if (tasks.length >= 4 || groceries.length >= 6) return { title: "Día ocupado", text: `${tasks.length} tarea(s) y ${groceries.length} compra(s) necesitan atención.`, tone: "amber" };
-  if (groceries.length > 0) return { title: "Compras por revisar", text: `${groceries.length} artículo(s) siguen pendientes.`, tone: "violet" };
-  if (tasks.length > 0) return { title: "Tareas pendientes", text: `${tasks.length} tarea(s) familiares siguen abiertas.`, tone: "amber" };
-  if (meals.length > 0) return { title: "Día organizado", text: "Hay comida planificada y el día se ve manejable.", tone: "emerald" };
-  return { title: "Día familiar", text: "Lo importante está organizado aquí.", tone: "blue" };
+  if (loading) return { title: "Loading your family day", text: "Preparing today’s summary...", tone: "blue" };
+  if (hasCustody && nextChange?.days <= 1) return { title: "Exchange coming up", text: `Next exchange with ${nextChangeLabel}.`, tone: "rose" };
+  if (tasks.length >= 4 || groceries.length >= 6) return { title: "Busy day", text: `${tasks.length} task(s) and ${groceries.length} grocery item(s) need attention.`, tone: "amber" };
+  if (groceries.length > 0) return { title: "Groceries to review", text: `${groceries.length} grocery item(s) are still pending.`, tone: "violet" };
+  if (tasks.length > 0) return { title: "Pending tasks", text: `${tasks.length} family task(s) are still open.`, tone: "amber" };
+  if (meals.length > 0) return { title: "Organized day", text: "Meals are planned and the day looks manageable.", tone: "emerald" };
+  return { title: "Family day", text: "The important things are organized here.", tone: "blue" };
 }
 
 function getToneClasses(tone = "blue") {
@@ -282,9 +282,9 @@ function HeroPanel({ smartBrief, tasks, meals, groceries, hasCustody }) {
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-        <StatPill icon={CheckSquare} value={tasks.length} label="Tareas" tone="blue" />
+        <StatPill icon={CheckSquare} value={tasks.length} label="Tasks" tone="blue" />
         <StatPill icon={CalendarDays} value={hasCustody ? 1 : meals.length} label="Eventos" tone="blue" />
-        <StatPill icon={ShoppingCart} value={groceries.length} label="Compras" tone="emerald" />
+        <StatPill icon={ShoppingCart} value={groceries.length} label="Groceries" tone="emerald" />
         <StatPill icon={Heart} value="✓" label="Sin alertas" tone="rose" />
       </div>
     </div>
@@ -309,14 +309,14 @@ function Hero({ smartBrief, tasks, meals, groceries, hasCustody }) {
               {getGreeting()}, familia <span className="text-amber-400">♥</span>
             </h1>
             <p className="mt-3 max-w-xl text-base font-semibold leading-7 text-slate-600">
-              Agenda, niños, tareas, comidas y compras en un solo lugar.
+              Calendar, children, tasks, meals, and groceries in one calm place.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link to="/calendar" className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
                 Abrir calendario
               </Link>
               <Link to="/tasks" className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:text-blue-700 hover:shadow-md">
-                Agregar tarea
+                Add task
               </Link>
             </div>
           </div>
@@ -333,7 +333,7 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
 
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="Niños" title="Perfiles familiares" action="Ver todo" to="/children" />
+      <SectionHeader kicker="Children" title="Family profiles" action="View all" to="/children" />
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {visibleChildren.slice(0, 4).map((child, index) => {
           const name = getChildName(child, index);
@@ -341,9 +341,9 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
           const isFirst = index === 0;
           const nextText = isFirst
             ? nextChange
-              ? `Próximo: ${formatShortDate(nextChange.date)} con ${nextChangeLabel}`
+              ? `Next: ${formatShortDate(nextChange.date)} with ${nextChangeLabel}`
               : todayLabel
-            : "Próximo: revisar calendario";
+            : "Next: review calendar";
 
           return (
             <Link key={`${name}-${index}`} to="/children" className="group overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md">
@@ -365,7 +365,7 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
                     </div>
                     <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-2.5">
                       <p className="truncate text-xs font-black text-slate-800">{nextText}</p>
-                      <p className="mt-0.5 text-xs font-semibold text-slate-500">{tasksCount} tareas · {mealsCount} comidas hoy</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-500">{tasksCount} tasks · {mealsCount} meals today</p>
                     </div>
                   </div>
                 </div>
@@ -381,14 +381,14 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
 function TodayFocusSection({ tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel }) {
   const focusItems = [
     hasCustody ? { icon: CalendarDays, title: "Custodia", text: nextChange ? `${formatShortDate(nextChange.date)} con ${nextChangeLabel}` : "Estado disponible", tone: "blue", to: "/custody" } : null,
-    tasks.length ? { icon: School, title: "Preparar pendientes", text: `${tasks.length} tarea${tasks.length === 1 ? "" : "s"} por revisar`, tone: "emerald", to: "/tasks" } : { icon: School, title: "Sin pendientes", text: "No hay tareas urgentes", tone: "emerald", to: "/tasks" },
-    meals.length ? { icon: UtensilsCrossed, title: "Comida planificada", text: `${meals.length} comida${meals.length === 1 ? "" : "s"} para hoy`, tone: "amber", to: "/meals" } : { icon: UtensilsCrossed, title: "Planear comida", text: "Todavía no hay comida planeada", tone: "amber", to: "/meals" },
-    groceries.length ? { icon: ShoppingCart, title: "Lista de compras", text: `${groceries.length} artículo${groceries.length === 1 ? "" : "s"} pendiente${groceries.length === 1 ? "" : "s"}`, tone: "violet", to: "/groceries" } : { icon: Heart, title: "Tiempo para conectar", text: "Todo se ve calmado por ahora", tone: "rose", to: "/calendar" },
+    tasks.length ? { icon: School, title: "Review tasks", text: `${tasks.length} task${tasks.length === 1 ? "" : "s"} to review`, tone: "emerald", to: "/tasks" } : { icon: School, title: "No pending tasks", text: "No urgent tasks", tone: "emerald", to: "/tasks" },
+    meals.length ? { icon: UtensilsCrossed, title: "Meals planned", text: `${meals.length} meal${meals.length === 1 ? "" : "s"} for today`, tone: "amber", to: "/meals" } : { icon: UtensilsCrossed, title: "Plan meals", text: "No meals planned yet", tone: "amber", to: "/meals" },
+    groceries.length ? { icon: ShoppingCart, title: "Grocery list", text: `${groceries.length} pending item${groceries.length === 1 ? "" : "s"}`, tone: "violet", to: "/groceries" } : { icon: Heart, title: "Time to connect", text: "Everything looks calm for now", tone: "rose", to: "/calendar" },
   ].filter(Boolean).slice(0, 4);
 
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="En foco hoy" title="Lo importante" action="Ver todo" to="/calendar" />
+      <SectionHeader kicker="Today’s focus" title="What matters" action="View all" to="/calendar" />
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {focusItems.map((item) => (
           <Link key={item.title} to={item.to} className="flex min-h-[128px] flex-col justify-between rounded-[1.35rem] border border-slate-200 bg-white/80 p-4 transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md">
@@ -410,7 +410,7 @@ function TaskPreviewCard({ tasks }) {
   const visibleTasks = tasks.slice(0, 4);
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="Tareas de hoy" title={tasks.length ? `${tasks.length} pendientes` : "Todo claro"} action="Ver todas" to="/tasks" />
+      <SectionHeader kicker="Today’s tasks" title={tasks.length ? `${tasks.length} pending` : "All clear"} action="View all" to="/tasks" />
       <div className="mt-4 space-y-2.5">
         {visibleTasks.length ? visibleTasks.map((task, index) => (
           <Link key={task.id || `${getItemTitle(task)}-${index}`} to="/tasks" className="flex items-center gap-3 rounded-[1.1rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-amber-100 hover:bg-amber-50/40">
@@ -420,7 +420,7 @@ function TaskPreviewCard({ tasks }) {
               <span className="block truncate text-xs font-semibold text-slate-500">{getItemDate(task) ? `Para ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Pendiente"}</span>
             </span>
           </Link>
-        )) : <CompactItem icon={CheckSquare} title="No hay tareas pendientes" text="La lista familiar se ve tranquila." tone="emerald" />}
+        )) : <CompactItem icon={CheckSquare} title="No pending tasks" text="The family list looks calm." tone="emerald" />}
       </div>
     </Card>
   );
@@ -447,9 +447,9 @@ function NextSevenDaysCard({ nextChange, nextChangeLabel, tasks, meals, grocerie
 
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="Próximos 7 días" title="Lo que viene" action="Ver calendario" to="/calendar" />
+      <SectionHeader kicker="Next 7 days" title="Coming up" action="View calendar" to="/calendar" />
       <div className="mt-4 space-y-2.5">
-        {items.length ? items.map((item) => <CompactItem key={item.id} icon={item.icon} title={item.title} text={item.text} tone={item.tone} to={item.to} />) : <CompactItem icon={CalendarDays} title="Sin eventos importantes" text="La próxima semana se ve tranquila." tone="blue" to="/calendar" />}
+        {items.length ? items.map((item) => <CompactItem key={item.id} icon={item.icon} title={item.title} text={item.text} tone={item.tone} to={item.to} />) : <CompactItem icon={CalendarDays} title="No major events" text="The next week looks calm." tone="blue" to="/calendar" />}
       </div>
     </Card>
   );
@@ -459,7 +459,7 @@ function ShoppingPreviewCard({ groceries, canReadGroceries }) {
   if (!canReadGroceries || groceries.length === 0) return null;
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="Compras" title={`${groceries.length} pendientes`} action="Ver lista" to="/groceries" />
+      <SectionHeader kicker="Groceries" title={`${groceries.length} pending`} action="View list" to="/groceries" />
       <div className="mt-4 flex flex-wrap gap-2">
         {groceries.slice(0, 7).map((item, index) => (
           <Link key={item.id || `${getItemTitle(item)}-${index}`} to="/groceries" className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm">
@@ -490,9 +490,9 @@ export default function FamilyHomeDashboard({
   const smartBrief = getSmartBrief({ loading, tasks, meals, groceries, hasCustody, nextChange, nextChangeLabel });
 
   const quickActions = useMemo(() => [
-    { icon: CalendarDays, label: "Agregar evento", text: "Calendario familiar", to: "/calendar", tone: "blue" },
-    { icon: CheckSquare, label: "Agregar tarea", text: "Asignar pendiente", to: "/tasks", tone: "emerald" },
-    { icon: UtensilsCrossed, label: "Planear comida", text: "Comidas del día", to: "/meals", tone: "amber" },
+    { icon: CalendarDays, label: "Add event", text: "Family calendar", to: "/calendar", tone: "blue" },
+    { icon: CheckSquare, label: "Add task", text: "Assign a task", to: "/tasks", tone: "emerald" },
+    { icon: UtensilsCrossed, label: "Plan meals", text: "Today’s meals", to: "/meals", tone: "amber" },
     { icon: ShoppingCart, label: "Abrir compras", text: "Lista compartida", to: "/groceries", tone: "violet" },
   ], []);
 
@@ -525,7 +525,7 @@ export default function FamilyHomeDashboard({
           {canReadTasks && <TaskPreviewCard tasks={tasks} />}
           <NextSevenDaysCard nextChange={nextChange} nextChangeLabel={nextChangeLabel} tasks={tasks} meals={meals} groceries={groceries} />
           <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-            <SectionHeader kicker="Acciones rápidas" title="Agregar" />
+            <SectionHeader kicker="Quick actions" title="Add" />
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {quickActions.map((action) => <QuickAction key={action.label} {...action} />)}
             </div>
