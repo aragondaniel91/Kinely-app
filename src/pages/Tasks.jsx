@@ -29,6 +29,10 @@ import BottomFocusBar from "@/features/tasks/components/BottomFocusBar";
 
 import { taskPeople } from "@/features/tasks/data/taskPeople";
 import { demoTasks } from "@/features/tasks/data/demoTasks";
+import {
+  getActiveChildReward,
+  getActiveFamilyReward,
+} from "@/features/tasks/data/demoRewards";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
 import {
   getTaskAssignee,
@@ -76,6 +80,9 @@ export default function Tasks() {
 
   const selectedTasks = tasksByPerson[selected.id] || [];
   const joaquinTasks = tasksByPerson.joaquin || [];
+
+  const childReward = getActiveChildReward("joaquin");
+  const familyReward = getActiveFamilyReward();
 
   const completedCount = displayTasks.filter(isDone).length;
   const pendingCount = displayTasks.filter((task) => !isDone(task)).length;
@@ -179,13 +186,12 @@ export default function Tasks() {
 
           <div className="space-y-5">
             <ChildRewardCard
-              childName="Joaquin"
-              rewardName="Helado"
+              reward={childReward}
               childTasks={joaquinTasks}
             />
 
             <FamilyRewardCard
-              rewardName="Pizza Night"
+              reward={familyReward}
               allTasks={displayTasks}
             />
 

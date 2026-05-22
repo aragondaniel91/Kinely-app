@@ -4,9 +4,11 @@ import { Trophy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { isDone } from "@/features/tasks/utils/taskHelpers";
 
-export default function ChildRewardCard({ childName = "Joaquin", rewardName = "Helado", childTasks }) {
+export default function ChildRewardCard({ reward, childTasks }) {
+  if (!reward) return null;
+
   const completed = childTasks.filter(isDone).length;
-  const total = Math.max(childTasks.length, 5);
+  const total = Math.max(reward.requiredTasks || childTasks.length, 1);
   const left = Math.max(total - completed, 0);
   const percent = Math.min(Math.round((completed / total) * 100), 100);
 
@@ -15,10 +17,10 @@ export default function ChildRewardCard({ childName = "Joaquin", rewardName = "H
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">
-            Recompensa de {childName}
+            Recompensa de {reward.childName}
           </p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-            {rewardName} 🍦
+            {reward.title} 🍦
           </h3>
           <p className="mt-1 text-sm font-extrabold text-slate-500">
             {left > 0 ? `Faltan ${left} tareas` : "¡Lista para celebrar!"}
@@ -37,8 +39,11 @@ export default function ChildRewardCard({ childName = "Joaquin", rewardName = "H
             style={{ width: `${percent}%` }}
           />
         </div>
+
         <div className="mt-2 flex items-center justify-between text-sm font-black text-slate-600">
-          <span>{completed}/{total} completadas</span>
+          <span>
+            {completed}/{total} completadas
+          </span>
           <span>{percent}%</span>
         </div>
       </div>

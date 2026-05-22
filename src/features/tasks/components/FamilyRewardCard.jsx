@@ -4,9 +4,11 @@ import { Pizza } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { isDone } from "@/features/tasks/utils/taskHelpers";
 
-export default function FamilyRewardCard({ rewardName = "Pizza Night", allTasks }) {
+export default function FamilyRewardCard({ reward, allTasks }) {
+  if (!reward) return null;
+
   const completed = allTasks.filter(isDone).length;
-  const total = Math.max(allTasks.length, 8);
+  const total = Math.max(reward.requiredTasks || allTasks.length, 1);
   const left = Math.max(total - completed, 0);
   const percent = Math.min(Math.round((completed / total) * 100), 100);
 
@@ -18,7 +20,7 @@ export default function FamilyRewardCard({ rewardName = "Pizza Night", allTasks 
             Recompensa familiar
           </p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-            {rewardName}
+            {reward.title}
           </h3>
           <p className="mt-1 text-sm font-extrabold text-slate-500">
             {left > 0 ? `Faltan ${left} tareas para lograrla` : "¡Familia lista!"}
@@ -37,8 +39,11 @@ export default function FamilyRewardCard({ rewardName = "Pizza Night", allTasks 
             style={{ width: `${percent}%` }}
           />
         </div>
+
         <div className="mt-2 flex items-center justify-between text-sm font-black text-slate-600">
-          <span>{completed}/{total} completadas</span>
+          <span>
+            {completed}/{total} completadas
+          </span>
           <span>{percent}%</span>
         </div>
       </div>
