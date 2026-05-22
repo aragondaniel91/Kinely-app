@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
+import KidsChoresPreview from "@/features/tasks/components/KidsChoresPreview";
 
 const categoryConfig = {
   house: {
@@ -104,7 +105,7 @@ export default function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const { familyId, perms } = useFamily();
+  const { familyId, perms, profile } = useFamily();
 
   const canRead = perms?.tasks?.read !== false;
   const canWrite = perms?.tasks?.write !== false;
@@ -322,6 +323,12 @@ export default function Tasks() {
             </div>
           </div>
         </Card>
+
+        <KidsChoresPreview
+          profile={profile}
+          canWrite={canWrite}
+          onAddTask={() => setShowAdd(true)}
+        />
 
       <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-hide">
         <button
