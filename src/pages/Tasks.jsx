@@ -25,6 +25,16 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 
@@ -89,6 +99,7 @@ export default function Tasks() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
   const [editTask, setEditTask] = useState(null);
+  const [taskToDelete, setTaskToDelete] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -165,14 +176,15 @@ export default function Tasks() {
     }
   };
 
-  const deleteTask = async (id) => {
+  const deleteTask = async (taskOrId) => {
     if (!canWrite) return;
 
-    const confirmDelete = window.confirm("Delete this task?");
-    if (!confirmDelete) return;
+    const id = typeof taskOrId === "string" ? taskOrId : taskOrId?.id;
+    if (!id) return;
 
     try {
       await deleteDoc(doc(db, "tasks", id));
+      setTaskToDelete(null);
       await loadTasks();
     } catch (error) {
       console.error("Error deleting task:", error);
@@ -367,7 +379,7 @@ export default function Tasks() {
                             </button>
 
                             <button
-                              onClick={() => deleteTask(task.id)}
+                              onClick={() => setTaskToDelete(task)}
                               className="text-destructive"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -456,7 +468,7 @@ export default function Tasks() {
 
                       {canWrite && (
                         <button
-                          onClick={() => deleteTask(task.id)}
+                          onClick={() => setTaskToDelete(task)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
