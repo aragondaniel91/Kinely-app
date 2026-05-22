@@ -1,14 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from "firebase/firestore";
+import React, { useMemo, useState } from "react";
 import {
   Clock,
   Gift,
@@ -16,7 +6,6 @@ import {
   Star,
 } from "lucide-react";
 
-import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { Card } from "@/components/ui/card";
 import {
@@ -40,12 +29,11 @@ import BottomFocusBar from "@/features/tasks/components/BottomFocusBar";
 
 import { taskPeople } from "@/features/tasks/data/taskPeople";
 import { demoTasks } from "@/features/tasks/data/demoTasks";
+import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
 import {
   getTaskAssignee,
-  isDemoTask,
   isDone,
   normalizeAssignee,
-  normalizeTask,
 } from "@/features/tasks/utils/taskHelpers";
 
 export default function Tasks() {
@@ -53,50 +41,23 @@ export default function Tasks() {
   const [showAdd, setShowAdd] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   const { familyId, perms } = useFamily();
 
   const canRead = perms?.tasks?.read !== false;
   const canWrite = perms?.tasks?.write !== false;
 
-  const loadTasks = async () => {
-    if (!familyId || !canRead) {
-      setTasks([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      let snap;
-
-      try {
-        const q = query(collection(db, "tasks"), where("familyId", "==", familyId));
-        snap = await getDocs(q);
-      } catch (error) {
-        console.warn("Fallback to family_id query:", error);
-
-        const q = query(collection(db, "tasks"), where("family_id", "==", familyId));
-        snap = await getDocs(q);
-      }
-
-      const data = snap.docs.map(normalizeTask);
-      setTasks(data);
-    } catch (error) {
-      console.error("Error loading tasks:", error);
-      setTasks([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [familyId, canRead]);
+  const {
+    tasks,
+    loading,
+    loadTasks,
+    toggleTask,
+    deleteTask,
+  } = useFamilyTasks({
+    familyId,
+    canRead,
+    canWrite,
+  });
 
   const displayTasks = tasks.length > 0 ? tasks : demoTasks;
 
@@ -119,36 +80,9 @@ export default function Tasks() {
   const completedCount = displayTasks.filter(isDone).length;
   const pendingCount = displayTasks.filter((task) => !isDone(task)).length;
 
-  const toggleTask = async (task) => {
-    if (!canWrite || isDemoTask(task)) return;
-
-    try {
-      await updateDoc(doc(db, "tasks", task.id), {
-        status: isDone(task) ? "pending" : "done",
-        updatedAt: serverTimestamp(),
-      });
-
-      await loadTasks();
-    } catch (error) {
-      console.error("Error toggling task:", error);
-      alert(`There was an error updating the task: ${error.message}`);
-    }
-  };
-
-  const deleteTask = async (taskOrId) => {
-    if (!canWrite) return;
-
-    const id = typeof taskOrId === "string" ? taskOrId : taskOrId?.id;
-    if (!id || String(id).startsWith("demo-")) return;
-
-    try {
-      await deleteDoc(doc(db, "tasks", id));
-      setTaskToDelete(null);
-      await loadTasks();
-    } catch (error) {
-      console.error("Error deleting task:", error);
-      alert(`There was an error deleting the task: ${error.message}`);
-    }
+  const handleDeleteTask = async (task) => {
+    await deleteTask(task);
+    setTaskToDelete(null);
   };
 
   if (!canRead) {
@@ -244,8 +178,16 @@ export default function Tasks() {
           </Card>
 
           <div className="space-y-5">
-            <ChildRewardCard childName="Joaquin" rewardName="Helado" childTasks={joaquinTasks} />
-            <FamilyRewardCard rewardName="Pizza Night" allTasks={displayTasks} />
+            <ChildRewardCard
+              childName="Joaquin"
+              rewardName="Helado"
+              childTasks={joaquinTasks}
+            />
+
+            <FamilyRewardCard
+              rewardName="Pizza Night"
+              allTasks={displayTasks}
+            />
 
             <Card className="rounded-[2rem] border-white/80 bg-white/80 p-5 shadow-[0_18px_45px_rgba(38,50,56,0.07)]">
               <div className="flex items-start gap-4">
@@ -295,7 +237,7 @@ export default function Tasks() {
               <AlertDialogAction
                 onClick={(event) => {
                   event.preventDefault();
-                  deleteTask(taskToDelete);
+                  handleDeleteTask(taskToDelete);
                 }}
                 className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
               >
