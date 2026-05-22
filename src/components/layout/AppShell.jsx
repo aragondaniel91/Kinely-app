@@ -15,13 +15,13 @@ import KinlyLogo from "@/components/brand/KinlyLogo";
 import { useFamily } from "@/lib/FamilyContext";
 
 const navItems = [
-  { icon: Home, label: "Inicio", path: "/" },
-  { icon: Calendar, label: "Calendario", path: "/calendar" },
-  { icon: HeartHandshake, label: "Custodia", path: "/custody" },
-  { icon: CheckSquare, label: "Tareas", path: "/tasks" },
-  { icon: UtensilsCrossed, label: "Comidas", path: "/meals" },
-  { icon: ShoppingCart, label: "Compras", path: "/groceries" },
-  { icon: User, label: "Perfil", path: "/profile" },
+  { icon: Home, label: "Home", path: "/" },
+  { icon: Calendar, label: "Calendar", path: "/calendar" },
+  { icon: HeartHandshake, label: "Custody", path: "/custody" },
+  { icon: CheckSquare, label: "Tasks", path: "/tasks" },
+  { icon: UtensilsCrossed, label: "Meals", path: "/meals" },
+  { icon: ShoppingCart, label: "Groceries", path: "/groceries" },
+  { icon: User, label: "Profile", path: "/profile" },
 ];
 
 function AppShellLoader() {
