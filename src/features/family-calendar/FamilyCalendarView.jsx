@@ -104,6 +104,8 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     if (!documentId) return;
 
     setDeleteError("");
+    setSelectedEvent(null);
+    setSelectedOverflow(null);
     setEventToDelete({
       documentId,
       title: typeof eventOrId === "string" ? "this event" : eventOrId?.title || "this event",
