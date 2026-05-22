@@ -26,6 +26,16 @@ import {
 } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -70,6 +80,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastBulkUndo, setLastBulkUndo] = useState(null);
+  const [pendingBulkConfirm, setPendingBulkConfirm] = useState(null);
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
@@ -204,7 +215,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     }
   };
 
-  const saveBulkCustodyDays = async (payload) => {
+  const saveBulkCustodyDays = async (payload, confirmed = false) => {
     if (!user || !familyId || !canWrite) return;
 
     const baseStart = parseISO(`${payload.startDate}T12:00:00`);
@@ -229,12 +240,13 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     }
 
     const estimatedTotalDays = payload.generatedDayMap ? Object.keys(payload.generatedDayMap).length : blockStarts.length * (rangeLength + 1);
-    const confirmCreate = window.confirm(
-      `This will create approximately ${estimatedTotalDays} custody day(s). Existing custody for those dates may be overwritten. Do you want to continue?`
-    );
 
-    if (!confirmCreate) return;
+    if (!confirmed) {
+      setPendingBulkConfirm({ payload, estimatedTotalDays });
+      return;
+    }
 
+    setPendingBulkConfirm(null);
     setIsSaving(true);
 
     try {
@@ -615,6 +627,43 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           )}
         </div>
       </div>
+
+      <AlertDialog
+        open={Boolean(pendingBulkConfirm)}
+        onOpenChange={(open) => {
+          if (!open && !isSaving) setPendingBulkConfirm(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-[2rem] border-slate-200 bg-white p-6 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black tracking-tight text-slate-950">
+              Create custody schedule?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-semibold leading-6 text-slate-500">
+              This will create approximately {pendingBulkConfirm?.estimatedTotalDays || 0} custody day(s).
+              Existing custody information for those dates may be overwritten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel disabled={isSaving} className="rounded-2xl font-black">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSaving}
+              onClick={(event) => {
+                event.preventDefault();
+                if (pendingBulkConfirm?.payload) {
+                  saveBulkCustodyDays(pendingBulkConfirm.payload, true);
+                }
+              }}
+              className="rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
+            >
+              {isSaving ? "Creating..." : "Create schedule"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {showBulkDialog && (
         <BulkCustodyDialog defaultDate={anchorDate} onClose={() => setShowBulkDialog(false)} onSave={saveBulkCustodyDays} isSaving={isSaving} dadLabel={dadName || "Dad"} momLabel={momName || "Mom"} />
