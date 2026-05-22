@@ -88,7 +88,7 @@ export default function FamilyCalendarPlannerHeader({
   const categoryFilterOptions = buildCategoryFilterOptions(categoryOptions);
 
   return (
-    <header className="kinly-family-gradient p-3 md:p-3.5 lg:p-4">
+    <header className="kinly-family-gradient rounded-[2rem] p-3 md:p-3.5 lg:p-4">
       <div className="grid gap-2.5 xl:grid-cols-[1fr_auto] xl:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -96,10 +96,7 @@ export default function FamilyCalendarPlannerHeader({
               <CalendarHeart className="h-4.5 w-4.5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-600/80">
-                Family Planning
-              </p>
-              <h1 className="mt-0.5 text-[1.85rem] font-black leading-none tracking-tight text-slate-950 sm:text-[2.05rem]">
+              <h1 className="text-[1.85rem] font-black leading-none tracking-tight text-slate-950 sm:text-[2.05rem]">
                 Family Calendar
               </h1>
             </div>
