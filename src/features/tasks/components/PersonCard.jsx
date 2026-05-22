@@ -1,0 +1,123 @@
+import React from "react";
+import { Check, Circle } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { getTaskIcon, isDone } from "@/features/tasks/utils/taskHelpers";
+
+function ProgressRing({ completed, total, person }) {
+  const safeTotal = Math.max(total, 1);
+  const percent = Math.round((completed / safeTotal) * 100);
+  const radius = 28;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percent / 100) * circumference;
+
+  return (
+    <div className="relative flex h-20 w-20 items-center justify-center">
+      <svg className="h-20 w-20 -rotate-90" viewBox="0 0 72 72">
+        <circle
+          cx="36"
+          cy="36"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="7"
+          className="text-white/75"
+        />
+        <circle
+          cx="36"
+          cy="36"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          className={person.ring}
+        />
+      </svg>
+
+      <div className="absolute text-center">
+        <p className="text-xl font-black leading-none text-slate-900">
+          {completed}/{total}
+        </p>
+        <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+          tareas
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PersonAvatar({ person }) {
+  const Icon = person.icon;
+
+  return (
+    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white text-2xl shadow-inner">
+      <div className={cn("absolute inset-1 rounded-full opacity-20", person.accent)} />
+      <Icon className={cn("h-8 w-8", person.ring)} />
+      <span className="sr-only">{person.name}</span>
+    </div>
+  );
+}
+
+export default function PersonCard({ person, tasks, selected, onSelect }) {
+  const completed = tasks.filter(isDone).length;
+  const total = tasks.length;
+  const quickTasks = tasks.slice(0, 3);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(person.id)}
+      className={cn(
+        "group min-h-[250px] rounded-[2rem] border bg-gradient-to-br p-4 text-left shadow-[0_18px_45px_rgba(38,50,56,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(38,50,56,0.12)]",
+        person.gradient,
+        selected ? `${person.border} ring-4 ring-white/80` : "border-white/80"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <PersonAvatar person={person} />
+          <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-900">
+            {person.name}
+          </h3>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            {person.role}
+          </p>
+        </div>
+
+        <ProgressRing completed={completed} total={total || 0} person={person} />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {quickTasks.length > 0 ? (
+          quickTasks.map((task) => {
+            const TaskIcon = getTaskIcon(task);
+
+            return (
+              <div
+                key={task.id}
+                className="flex items-center gap-2 rounded-2xl border border-white/75 bg-white/70 px-3 py-2"
+              >
+                <TaskIcon className={cn("h-4 w-4 shrink-0", person.ring)} />
+                <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-slate-700">
+                  {task.title}
+                </span>
+                {isDone(task) ? (
+                  <Check className="h-4 w-4 shrink-0 text-emerald-700" />
+                ) : (
+                  <Circle className="h-4 w-4 shrink-0 text-slate-400" />
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-white/75 bg-white/70 px-3 py-4 text-center">
+            <p className="text-sm font-extrabold text-slate-500">Sin tareas hoy</p>
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
