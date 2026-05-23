@@ -1,118 +1,75 @@
-import {
-  getTaskAssignee,
-  isDone,
-  normalizeAssignee,
-} from "@/features/tasks/utils/taskHelpers";
+import { isDone } from "@/features/tasks/utils/taskHelpers";
 
-function slugify(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+export function getTaskPersonId(task = {}) {
+  return (
+    task.assignedToPersonId ||
+    task.assigned_to_person_id ||
+    task.personId ||
+    task.person_id ||
+    task.childId ||
+    task.child_id ||
+    task.assignedTo ||
+    task.assigned_to ||
+    "family"
+  );
 }
 
-function normalizeLoose(value) {
-  return slugify(value).replace(/-/g, "");
-}
+export function getTasksByPerson(tasks = []) {
+  return tasks.reduce((acc, task) => {
+    const personId = getTaskPersonId(task);
 
-function getTaskPersonIds(task = {}) {
-  return [
-    task.assignedToPersonId,
-    task.assigned_to_person_id,
-    task.personId,
-    task.person_id,
-    task.childId,
-    task.child_id,
-    task.assignedToId,
-    task.assigned_to_id,
-  ]
-    .filter(Boolean)
-    .map(String);
-}
+    if (!acc[personId]) acc[personId] = [];
+    acc[personId].push(task);
 
-function getPersonIds(person = {}) {
-  return [
-    person.id,
-    person.personId,
-    person.person_id,
-    person.childId,
-    person.child_id,
-    person.userId,
-    person.user_id,
-    person.uid,
-  ]
-    .filter(Boolean)
-    .map(String);
-}
+    if (!acc.family) acc.family = [];
 
-function getPersonAliases(person = {}) {
-  return [
-    ...(person.aliases || []),
-    person.id,
-    person.name,
-    person.role,
-    person.roleType,
-    person.personId,
-    person.person_id,
-    person.childId,
-    person.child_id,
-  ]
-    .filter(Boolean)
-    .map(String);
-}
+    const isFamilyTask =
+      personId === "family" ||
+      task.assignedTo === "Family" ||
+      task.assigned_to === "Family" ||
+      task.assignedToName === "Family" ||
+      task.assigned_to_name === "Family";
 
-function taskMatchesPerson(task = {}, person = {}) {
-  const taskIds = getTaskPersonIds(task);
-  const personIds = getPersonIds(person);
-
-  if (taskIds.some((taskId) => personIds.includes(taskId))) {
-    return true;
-  }
-
-  const assignee = getTaskAssignee(task);
-  const normalizedAssignee = normalizeLoose(assignee);
-  const normalizedLegacyAssignee = normalizeAssignee(assignee);
-
-  const aliases = getPersonAliases(person);
-  const normalizedAliases = aliases.map(normalizeLoose);
-
-  if (normalizedAliases.includes(normalizedAssignee)) {
-    return true;
-  }
-
-  if (normalizedLegacyAssignee === person.id) {
-    return true;
-  }
-
-  if (normalizedLegacyAssignee === person.roleType) {
-    return true;
-  }
-
-  return false;
-}
-
-export function getTasksByPerson(tasks = [], people = []) {
-  return people.reduce((acc, person) => {
-    acc[person.id] = tasks.filter((task) => taskMatchesPerson(task, person));
+    if (isFamilyTask) {
+      acc.family.push(task);
+    }
 
     return acc;
   }, {});
 }
 
-export function getSelectedPerson(people = [], selectedPersonId) {
-  return people.find((person) => person.id === selectedPersonId) || people[0] || null;
+export function getSelectedPerson(people = [], selectedPersonId = "") {
+  return (
+    people.find((person) => person.id === selectedPersonId) ||
+    people.find((person) => person.id === "family") ||
+    people[0] ||
+    null
+  );
 }
 
-export function getSelectedTasks(tasksByPerson = {}, selectedPersonId) {
+export function getSelectedTasks(tasksByPerson = {}, selectedPersonId = "") {
+  if (!selectedPersonId) return [];
+
+  if (selectedPersonId === "family") {
+    const allTasksById = new Map();
+
+    Object.values(tasksByPerson).forEach((personTasks) => {
+      if (!Array.isArray(personTasks)) return;
+
+      personTasks.forEach((task) => {
+        if (task?.id) allTasksById.set(task.id, task);
+      });
+    });
+
+    return Array.from(allTasksById.values());
+  }
+
   return tasksByPerson[selectedPersonId] || [];
 }
 
 export function getTaskStats(tasks = []) {
   const completedCount = tasks.filter(isDone).length;
-  const pendingCount = tasks.filter((task) => !isDone(task)).length;
+  const pendingCount = Math.max(tasks.length - completedCount, 0);
 
   return {
     completedCount,
