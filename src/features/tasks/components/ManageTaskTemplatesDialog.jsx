@@ -57,6 +57,13 @@ const TEMPLATE_TYPE_OPTIONS = [
   { value: "custom", label: "Custom" },
 ];
 
+const RECURRENCE_OPTIONS = [
+  { value: "manual", label: "Manual" },
+  { value: "daily", label: "Daily" },
+  { value: "weekdays", label: "Weekdays" },
+  { value: "weekends", label: "Weekends" },
+];
+
 const routineVisuals = {
   daily: { icon: Repeat, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
   weekday: { icon: School, tone: "bg-violet-50 text-violet-700 ring-violet-100" },
@@ -97,6 +104,7 @@ function getEmptyDraft() {
     type: "custom",
     category: "house",
     defaultPriority: "medium",
+    recurrence: "manual",
     taskLines: "",
     mode: "new",
   };
@@ -135,6 +143,7 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
     type: template.type || "custom",
     category: template.category || "house",
     defaultPriority: template.tasks?.[0]?.priority || "medium",
+    recurrence: template.recurrence || template.repeat || "manual",
     taskLines: tasksToLines(template.tasks || []),
     mode: clone ? "copy" : "edit",
   };
@@ -192,6 +201,10 @@ function RoutineCard({ template, onEdit, onCopy, onDelete }) {
             <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1", getPriorityTone(priority))}>
               <Flag className="h-3 w-3" />
               {priority}
+            </span>
+
+            <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-purple-700 ring-1 ring-purple-100">
+              {template.recurrence || template.repeat || "manual"}
             </span>
 
             <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
@@ -377,6 +390,8 @@ export default function ManageTaskTemplatesDialog({
         description: draft.description.trim(),
         type: draft.type,
         category: draft.category,
+        recurrence: draft.recurrence || "manual",
+        repeat: draft.recurrence || "manual",
         icon: getDefaultTaskIcon(draft.category),
         active: true,
         tasks: parsedTasks,
@@ -582,7 +597,7 @@ export default function ManageTaskTemplatesDialog({
                   />
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <Label>Type</Label>
                     <select
@@ -627,6 +642,25 @@ export default function ManageTaskTemplatesDialog({
                       ))}
                     </select>
                   </div>
+
+                  <div>
+                    <Label>Repeats</Label>
+                    <select
+                      value={draft.recurrence}
+                      onChange={(event) => patchDraft({ recurrence: event.target.value })}
+                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                    >
+                      {RECURRENCE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-500 ring-1 ring-slate-100">
+                  Repeats controls future auto-generation. Manual routines only run when you apply them.
                 </div>
 
                 <div className="mt-4">
