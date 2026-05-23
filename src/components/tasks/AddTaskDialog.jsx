@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
@@ -9,8 +9,10 @@ import {
 import {
   CalendarDays,
   Check,
+  ClipboardCheck,
   Save,
   Sparkles,
+  Star,
   Users,
 } from "lucide-react";
 
@@ -101,35 +103,6 @@ function buildPeopleFromFamily({
 }) {
   const peopleById = new Map();
 
-  function addPerson(person) {
-    if (!person) return;
-
-    const id =
-      person.id ||
-      person.uid ||
-      person.childId ||
-      person.child_id ||
-      person.email ||
-      "";
-
-    const name =
-      person.name ||
-      person.displayName ||
-      person.fullName ||
-      person.label ||
-      "";
-
-    if (!id || !name) return;
-
-    peopleById.set(id, {
-      id,
-      name,
-      role: person.role || person.relationship || "Family",
-      roleType: person.roleType || person.role_type || "",
-      childId: person.childId || person.child_id || "",
-    });
-  }
-
   peopleById.set("family", {
     id: "family",
     name: "Family",
@@ -173,6 +146,35 @@ function buildPeopleFromFamily({
     });
   }
 
+  function addPerson(person) {
+    if (!person) return;
+
+    const id =
+      person.id ||
+      person.uid ||
+      person.personId ||
+      person.person_id ||
+      person.email ||
+      "";
+
+    const name =
+      person.name ||
+      person.displayName ||
+      person.fullName ||
+      person.label ||
+      "";
+
+    if (!id || !name) return;
+
+    peopleById.set(id, {
+      id,
+      name,
+      role: person.role || person.relationship || "Family",
+      roleType: person.roleType || person.role_type || "",
+      childId: person.childId || person.child_id || "",
+    });
+  }
+
   [...familyAdults, ...familyPeople].forEach(addPerson);
 
   return Array.from(peopleById.values());
@@ -193,16 +195,23 @@ const fallbackPriorities = [
   { value: "low", label: "Low" },
 ];
 
-function OptionButton({ active, children, onClick }) {
+const dueOptions = [
+  { value: "none", label: "No date" },
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "custom", label: "Pick date" },
+];
+
+function SegmentedButton({ active, children, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl border px-3.5 py-2 text-sm font-black transition",
+        "rounded-2xl px-3.5 py-2 text-sm font-black transition",
         active
-          ? "border-primary/25 bg-primary text-primary-foreground shadow-lg shadow-primary/15"
-          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/15"
+          : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900"
       )}
     >
       {children}
@@ -210,37 +219,49 @@ function OptionButton({ active, children, onClick }) {
   );
 }
 
-function AssigneeButton({ person, active, onClick }) {
+function AssigneePill({ person, active, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-h-[58px] items-center gap-2.5 rounded-2xl border p-2.5 text-left transition",
+        "flex shrink-0 items-center gap-2 rounded-2xl border px-3 py-2 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
         active
-          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
+          ? "border-primary/20 bg-primary/5 ring-4 ring-primary/5"
           : "border-slate-200 bg-white hover:bg-slate-50"
       )}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+          active ? "bg-primary text-primary-foreground" : "bg-slate-50 text-slate-400"
+        )}
+      >
         <Users className="h-4 w-4" />
       </div>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-slate-950">
+      <div className="min-w-[72px]">
+        <p className="max-w-[115px] truncate text-sm font-black text-slate-950">
           {person.name}
         </p>
-        <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+        <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
           {person.role}
         </p>
       </div>
 
-      {active && (
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-          <Check className="h-4 w-4" />
-        </div>
-      )}
+      {active && <Check className="h-4 w-4 shrink-0 text-primary" />}
     </button>
+  );
+}
+
+function DetailBlock({ label, children }) {
+  return (
+    <div className="rounded-3xl bg-white p-3 ring-1 ring-slate-100">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </p>
+      {children}
+    </div>
   );
 }
 
@@ -280,9 +301,8 @@ export default function AddTaskDialog({
   );
 
   const people = useMemo(() => {
-    const sourcePeople = Array.isArray(boardPeople) && boardPeople.length
-      ? boardPeople
-      : fallbackPeople;
+    const sourcePeople =
+      Array.isArray(boardPeople) && boardPeople.length ? boardPeople : fallbackPeople;
 
     return dedupePeopleByNameAndRole(sourcePeople);
   }, [boardPeople, fallbackPeople]);
@@ -297,35 +317,45 @@ export default function AddTaskDialog({
       ? TASK_PRIORITY_OPTIONS
       : fallbackPriorities;
 
-  const initialAssignee = editTask
-    ? getTaskAssigneeValue(editTask)
-    : initialAssigneePersonId || "family";
-
-  const existingDueDate = editTask?.dueDate || editTask?.due_date || "";
-
-  const [title, setTitle] = useState(editTask?.title || "");
-  const [taskKind, setTaskKind] = useState(
-    editTask?.chore || editTask?.isChore || editTask?.is_chore ? "chore" : "task"
-  );
-  const [assignedToPersonId, setAssignedToPersonId] = useState(initialAssignee);
-  const [category, setCategory] = useState(editTask?.category || "house");
-  const [priority, setPriority] = useState(editTask?.priority || "medium");
-  const [dueMode, setDueMode] = useState(existingDueDate ? "custom" : "today");
-  const [customDueDate, setCustomDueDate] = useState(existingDueDate || getDateKey(0));
-  const [rewardEligible, setRewardEligible] = useState(
-    editTask?.rewardEligible ??
-      editTask?.reward_eligible ??
-      (editTask ? false : taskKind === "chore")
-  );
+  const [title, setTitle] = useState("");
+  const [taskKind, setTaskKind] = useState("task");
+  const [assignedToPersonId, setAssignedToPersonId] = useState("family");
+  const [category, setCategory] = useState("house");
+  const [priority, setPriority] = useState("medium");
+  const [dueMode, setDueMode] = useState("today");
+  const [customDueDate, setCustomDueDate] = useState(getDateKey(0));
+  const [rewardEligible, setRewardEligible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+
+    const existingDueDate = editTask?.dueDate || editTask?.due_date || "";
+    const isChore = Boolean(editTask?.chore || editTask?.isChore || editTask?.is_chore);
+    const nextTaskKind = isChore ? "chore" : "task";
+
+    setTitle(editTask?.title || "");
+    setTaskKind(nextTaskKind);
+    setAssignedToPersonId(
+      editTask ? getTaskAssigneeValue(editTask) : initialAssigneePersonId || "family"
+    );
+    setCategory(editTask?.category || "house");
+    setPriority(editTask?.priority || "medium");
+    setDueMode(existingDueDate ? "custom" : "today");
+    setCustomDueDate(existingDueDate || getDateKey(0));
+    setRewardEligible(
+      editTask?.rewardEligible ??
+        editTask?.reward_eligible ??
+        (!editTask && nextTaskKind === "chore")
+    );
+    setError("");
+  }, [open, editTask, initialAssigneePersonId]);
 
   const selectedPerson =
     people.find((person) => person.id === assignedToPersonId) ||
     people.find((person) => person.id === "family") ||
     people[0];
-
-  const shouldShowReward = true;
 
   function getDueDate() {
     if (dueMode === "none") return "";
@@ -378,8 +408,8 @@ export default function AddTaskDialog({
         dueDate,
         due_date: dueDate,
 
-        rewardEligible: shouldShowReward ? rewardEligible : false,
-        reward_eligible: shouldShowReward ? rewardEligible : false,
+        rewardEligible,
+        reward_eligible: rewardEligible,
 
         chore: taskKind === "chore",
         isChore: taskKind === "chore",
@@ -420,13 +450,13 @@ export default function AddTaskDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange?.(nextOpen)}>
       <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.25rem)] max-w-2xl flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
-        <DialogHeader className="shrink-0 bg-gradient-to-br from-white via-secondary/25 to-accent/5 px-4 pb-3 pt-4 sm:px-5">
+        <DialogHeader className="shrink-0 bg-gradient-to-br from-white via-secondary/20 to-accent/5 px-4 pb-3 pt-4 sm:px-5">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
               <Sparkles className="h-5 w-5" />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-accent">
                 Family task
               </p>
@@ -436,7 +466,7 @@ export default function AddTaskDialog({
               </DialogTitle>
 
               <p className="mt-1 text-sm font-semibold text-slate-500">
-                Create a task or chore for the right person and date.
+                Assign it, name it, choose when it matters.
               </p>
             </div>
           </div>
@@ -451,45 +481,29 @@ export default function AddTaskDialog({
 
           <div className="space-y-4">
             <section>
-              <Label>Who is this for?</Label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <Label>Assign to</Label>
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Swipe if needed
+                </span>
+              </div>
 
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {people.map((person) => (
-                  <AssigneeButton
-                    key={person.id}
-                    person={person}
-                    active={assignedToPersonId === person.id}
-                    onClick={() => setAssignedToPersonId(person.id)}
-                  />
-                ))}
+              <div className="-mx-1 overflow-x-auto px-1 pb-1">
+                <div className="flex min-w-max gap-2">
+                  {people.map((person) => (
+                    <AssigneePill
+                      key={person.id}
+                      person={person}
+                      active={assignedToPersonId === person.id}
+                      onClick={() => setAssignedToPersonId(person.id)}
+                    />
+                  ))}
+                </div>
               </div>
             </section>
 
-            <section>
-              <Label>Task type</Label>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                <OptionButton
-                  active={taskKind === "task"}
-                  onClick={() => setTaskKind("task")}
-                >
-                  Task
-                </OptionButton>
-
-                <OptionButton
-                  active={taskKind === "chore"}
-                  onClick={() => {
-                    setTaskKind("chore");
-                    setRewardEligible(true);
-                  }}
-                >
-                  Chore
-                </OptionButton>
-              </div>
-            </section>
-
-            <section>
-              <Label>Task title</Label>
+            <section className="rounded-[1.75rem] bg-slate-50/75 p-3 ring-1 ring-slate-100">
+              <Label>What needs to be done?</Label>
 
               <Input
                 value={title}
@@ -497,115 +511,144 @@ export default function AddTaskDialog({
                   setError("");
                   setTitle(event.target.value);
                 }}
-                placeholder="Example: Make bed"
-                className="mt-2 h-11 rounded-2xl text-base font-bold"
+                placeholder="Example: Brush teeth"
+                className="mt-2 h-12 rounded-2xl border-slate-200 bg-white text-base font-black"
                 autoFocus
               />
-            </section>
 
-            <section>
-              <Label>Category</Label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <SegmentedButton
+                  active={taskKind === "task"}
+                  onClick={() => setTaskKind("task")}
+                >
+                  Task
+                </SegmentedButton>
 
-              <div className="mt-2 flex flex-wrap gap-2">
-                {categoryOptions.map((option) => (
-                  <OptionButton
-                    key={option.value}
-                    active={category === option.value}
-                    onClick={() => setCategory(option.value)}
-                  >
-                    {option.label}
-                  </OptionButton>
-                ))}
+                <SegmentedButton
+                  active={taskKind === "chore"}
+                  onClick={() => {
+                    setTaskKind("chore");
+                    setRewardEligible(true);
+                  }}
+                >
+                  Chore
+                </SegmentedButton>
               </div>
             </section>
 
-            <section>
-              <Label>Due date</Label>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                <OptionButton active={dueMode === "none"} onClick={() => setDueMode("none")}>
-                  No date
-                </OptionButton>
-
-                <OptionButton active={dueMode === "today"} onClick={() => setDueMode("today")}>
-                  Today
-                </OptionButton>
-
-                <OptionButton active={dueMode === "tomorrow"} onClick={() => setDueMode("tomorrow")}>
-                  Tomorrow
-                </OptionButton>
-
-                <OptionButton active={dueMode === "custom"} onClick={() => setDueMode("custom")}>
-                  Pick date
-                </OptionButton>
+            <section className="rounded-[1.75rem] bg-slate-50/75 p-3 ring-1 ring-slate-100">
+              <div className="mb-3 flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-accent" />
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Details
+                </p>
               </div>
 
-              {dueMode === "custom" && (
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
-                    <CalendarDays className="h-5 w-5" />
+              <div className="grid gap-3">
+                <DetailBlock label="When">
+                  <div className="flex flex-wrap gap-2">
+                    {dueOptions.map((option) => (
+                      <SegmentedButton
+                        key={option.value}
+                        active={dueMode === option.value}
+                        onClick={() => setDueMode(option.value)}
+                      >
+                        {option.label}
+                      </SegmentedButton>
+                    ))}
                   </div>
 
-                  <Input
-                    type="date"
-                    value={customDueDate}
-                    onChange={(event) => setCustomDueDate(event.target.value)}
-                    className="h-11 rounded-2xl"
-                  />
-                </div>
-              )}
-            </section>
+                  {dueMode === "custom" && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+                        <CalendarDays className="h-4 w-4" />
+                      </div>
 
-            <section>
-              <Label>Priority</Label>
+                      <Input
+                        type="date"
+                        value={customDueDate}
+                        onChange={(event) => setCustomDueDate(event.target.value)}
+                        className="h-10 rounded-2xl bg-white"
+                      />
+                    </div>
+                  )}
+                </DetailBlock>
 
-              <div className="mt-2 flex flex-wrap gap-2">
-                {priorityOptions.map((option) => (
-                  <OptionButton
-                    key={option.value}
-                    active={priority === option.value}
-                    onClick={() => setPriority(option.value)}
-                  >
-                    {option.label}
-                  </OptionButton>
-                ))}
+                <DetailBlock label="Category">
+                  <div className="flex flex-wrap gap-2">
+                    {categoryOptions.map((option) => (
+                      <SegmentedButton
+                        key={option.value}
+                        active={category === option.value}
+                        onClick={() => setCategory(option.value)}
+                      >
+                        {option.label}
+                      </SegmentedButton>
+                    ))}
+                  </div>
+                </DetailBlock>
+
+                <DetailBlock label="Importance">
+                  <div className="flex flex-wrap gap-2">
+                    {priorityOptions.map((option) => (
+                      <SegmentedButton
+                        key={option.value}
+                        active={priority === option.value}
+                        onClick={() => setPriority(option.value)}
+                      >
+                        {option.label}
+                      </SegmentedButton>
+                    ))}
+                  </div>
+                </DetailBlock>
               </div>
             </section>
 
-            {shouldShowReward && (
-              <section>
-                <button
-                  type="button"
-                  onClick={() => setRewardEligible((current) => !current)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-3xl border p-4 text-left transition",
-                    rewardEligible
-                      ? "border-accent/20 bg-accent/10"
-                      : "border-slate-200 bg-white"
-                  )}
-                >
+            <section>
+              <button
+                type="button"
+                onClick={() => setRewardEligible((current) => !current)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-[1.75rem] border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+                  rewardEligible
+                    ? "border-accent/20 bg-accent/8 ring-4 ring-accent/5"
+                    : "border-slate-200 bg-white"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl",
+                      rewardEligible
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-slate-50 text-slate-400"
+                    )}
+                  >
+                    <Star className="h-4 w-4" />
+                  </div>
+
                   <div>
                     <p className="text-sm font-black text-slate-950">
                       Counts toward rewards
                     </p>
                     <p className="text-xs font-semibold text-slate-500">
-                      Useful for chores and kid responsibilities.
+                      Works for both tasks and chores.
                     </p>
                   </div>
+                </div>
 
-                  <div
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full border",
-                      rewardEligible
-                        ? "border-accent bg-accent text-accent-foreground"
-                        : "border-slate-200 bg-white text-transparent"
-                    )}
-                  >
-                    <Check className="h-4 w-4" />
-                  </div>
-                </button>
-              </section>
-            )}
+                <div
+                  className={cn(
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                    rewardEligible
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : "border-slate-200 bg-white text-transparent"
+                  )}
+                >
+                  <Check className="h-4 w-4" />
+                </div>
+              </button>
+            </section>
           </div>
         </div>
 
