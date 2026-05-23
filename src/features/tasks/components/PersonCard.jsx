@@ -4,7 +4,12 @@ import { Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTaskIcon, isDone } from "@/features/tasks/utils/taskHelpers";
 
+function getPersonColorClasses(person = {}) {
+  return person.colorClasses || {};
+}
+
 function ProgressRing({ completed, total, person }) {
+  const colorClasses = getPersonColorClasses(person);
   const safeTotal = Math.max(total, 1);
   const percent = Math.round((completed / safeTotal) * 100);
   const radius = 28;
@@ -33,7 +38,7 @@ function ProgressRing({ completed, total, person }) {
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          className={person.ring}
+          className={colorClasses.text || person.ring || "text-primary"}
         />
       </svg>
 
@@ -42,7 +47,7 @@ function ProgressRing({ completed, total, person }) {
           {completed}/{total}
         </p>
         <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
-          tareas
+          tasks
         </p>
       </div>
     </div>
@@ -51,17 +56,40 @@ function ProgressRing({ completed, total, person }) {
 
 function PersonAvatar({ person }) {
   const Icon = person.icon;
+  const colorClasses = getPersonColorClasses(person);
+  const avatarUrl = person.avatarUrl || person.avatar_url || person.photoURL || person.photoUrl || "";
 
   return (
-    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-white text-2xl shadow-inner">
-      <div className={cn("absolute inset-1 rounded-full opacity-20", person.accent)} />
-      <Icon className={cn("h-8 w-8", person.ring)} />
+    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-2xl shadow-inner">
+      <div
+        className={cn(
+          "absolute inset-1 rounded-full opacity-25",
+          colorClasses.stripe || person.accent || "bg-primary"
+        )}
+      />
+
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={person.name}
+          className="relative h-full w-full rounded-full object-cover p-1"
+        />
+      ) : (
+        <Icon
+          className={cn(
+            "relative h-8 w-8",
+            colorClasses.text || person.ring || "text-primary"
+          )}
+        />
+      )}
+
       <span className="sr-only">{person.name}</span>
     </div>
   );
 }
 
 export default function PersonCard({ person, tasks, selected, onSelect }) {
+  const colorClasses = getPersonColorClasses(person);
   const completed = tasks.filter(isDone).length;
   const total = tasks.length;
   const quickTasks = tasks.slice(0, 3);
@@ -71,13 +99,28 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
       type="button"
       onClick={() => onSelect(person.id)}
       className={cn(
-        "group min-h-[250px] rounded-[2rem] border bg-gradient-to-br p-4 text-left shadow-[0_18px_45px_rgba(38,50,56,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(38,50,56,0.12)]",
-        person.gradient,
-        selected ? `${person.border} ring-4 ring-white/80` : "border-white/80"
+        "group relative min-h-[250px] overflow-hidden rounded-[2rem] border p-4 text-left shadow-[0_18px_45px_rgba(38,50,56,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(38,50,56,0.12)]",
+        colorClasses.bg || person.bg || "bg-white",
+        selected
+          ? cn(
+              colorClasses.borderStrong || colorClasses.border || person.border || "border-primary/30",
+              "ring-4 ring-white/80"
+            )
+          : "border-white/80"
       )}
     >
-      <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-2", colorClasses.stripe || person.accent || "bg-primary")} />
-      <div className={cn("pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-25 blur-2xl", colorClasses.bgStrong || colorClasses.stripe || "bg-primary")} />
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 h-2",
+          colorClasses.stripe || person.accent || "bg-primary"
+        )}
+      />
+      <div
+        className={cn(
+          "pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-25 blur-2xl",
+          colorClasses.bgStrong || colorClasses.stripe || "bg-primary"
+        )}
+      />
 
       <div className="relative flex items-start justify-between gap-3">
         <div>
@@ -103,12 +146,17 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
                 key={task.id}
                 className="flex items-center gap-2 rounded-2xl border border-white/75 bg-white/70 px-3 py-2"
               >
-                <TaskIcon className={cn("h-4 w-4 shrink-0", person.ring)} />
+                <TaskIcon
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    colorClasses.text || person.ring || "text-primary"
+                  )}
+                />
                 <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-slate-700">
                   {task.title}
                 </span>
                 {isDone(task) ? (
-                  <Check className="h-4 w-4 shrink-0 text-emerald-700" />
+                  <Check className="h-4 w-4 shrink-0 text-accent" />
                 ) : (
                   <Circle className="h-4 w-4 shrink-0 text-slate-400" />
                 )}
@@ -117,7 +165,7 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
           })
         ) : (
           <div className="rounded-2xl border border-white/75 bg-white/70 px-3 py-4 text-center">
-            <p className="text-sm font-extrabold text-slate-500">Sin tareas hoy</p>
+            <p className="text-sm font-extrabold text-slate-500">No tasks today</p>
           </div>
         )}
       </div>

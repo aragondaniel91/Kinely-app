@@ -6,7 +6,11 @@ import {
   isDone,
 } from "@/features/tasks/utils/taskHelpers";
 
-export default function BottomFocusBar({ people = [], tasksByPerson }) {
+function getPersonColorClasses(person = {}) {
+  return person.colorClasses || {};
+}
+
+export default function BottomFocusBar({ people = [], tasksByPerson = {} }) {
   const nextItems = people
     .map((person) => {
       const task = (tasksByPerson[person.id] || []).find((item) => !isDone(item));
@@ -28,13 +32,23 @@ export default function BottomFocusBar({ people = [], tasksByPerson }) {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {nextItems.map(({ person, task }) => {
             const TaskIcon = getTaskIcon(task);
+            const colorClasses = getPersonColorClasses(person);
 
             return (
               <div
                 key={`${person.id}-${task.id}`}
-                className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-secondary/60 px-3 py-2"
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl border px-3 py-2",
+                  colorClasses.bg || "bg-secondary/60",
+                  colorClasses.border || "border-slate-100"
+                )}
               >
-                <TaskIcon className={cn("h-6 w-6 shrink-0", person.ring)} />
+                <TaskIcon
+                  className={cn(
+                    "h-6 w-6 shrink-0",
+                    colorClasses.text || person.ring || "text-primary"
+                  )}
+                />
                 <div className="min-w-0">
                   <p className="text-xs font-black text-slate-400">{person.name}</p>
                   <p className="truncate text-sm font-black text-slate-800">{task.title}</p>
