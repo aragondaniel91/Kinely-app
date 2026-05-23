@@ -101,6 +101,7 @@ export default function PersonCard({
   const completed = tasks.filter(isDone).length;
   const total = tasks.length;
   const quickTasks = tasks.slice(0, 3);
+  const extraTaskCount = Math.max(tasks.length - quickTasks.length, 0);
 
   return (
     <div
@@ -111,7 +112,7 @@ export default function PersonCard({
         if (event.key === "Enter" || event.key === " ") onSelect(person.id);
       }}
       className={cn(
-        "group relative flex min-h-[260px] flex-col overflow-hidden rounded-[2rem] border p-4 text-left shadow-[0_18px_45px_rgba(38,50,56,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(38,50,56,0.12)]",
+        "group relative flex h-[270px] flex-col overflow-hidden rounded-[2rem] border p-4 text-left shadow-[0_18px_45px_rgba(38,50,56,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(38,50,56,0.12)]",
         colorClasses.bg || person.bg || "bg-white",
         selected
           ? cn(
@@ -173,31 +174,39 @@ export default function PersonCard({
 
       <div className="relative mt-4 flex-1 space-y-2">
         {quickTasks.length > 0 ? (
-          quickTasks.map((task) => {
-            const TaskIcon = getTaskIcon(task);
+<>
+            {quickTasks.map((task) => {
+              const TaskIcon = getTaskIcon(task);
 
-            return (
-              <div
-                key={task.id}
-                className="flex items-center gap-2 rounded-2xl border border-white/75 bg-white/70 px-3 py-2"
-              >
-                <TaskIcon
-                  className={cn(
-                    "h-4 w-4 shrink-0",
-                    colorClasses.text || person.ring || "text-primary"
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 rounded-2xl border border-white/75 bg-white/70 px-3 py-2"
+                >
+                  <TaskIcon
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      colorClasses.text || person.ring || "text-primary"
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-slate-700">
+                    {task.title}
+                  </span>
+                  {isDone(task) ? (
+                    <Check className="h-4 w-4 shrink-0 text-accent" />
+                  ) : (
+                    <Circle className="h-4 w-4 shrink-0 text-slate-400" />
                   )}
-                />
-                <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-slate-700">
-                  {task.title}
-                </span>
-                {isDone(task) ? (
-                  <Check className="h-4 w-4 shrink-0 text-accent" />
-                ) : (
-                  <Circle className="h-4 w-4 shrink-0 text-slate-400" />
-                )}
+                </div>
+              );
+            })}
+
+            {extraTaskCount > 0 && (
+              <div className="rounded-2xl border border-white/75 bg-white/50 px-3 py-2 text-center text-xs font-black text-slate-500">
+                +{extraTaskCount} more
               </div>
-            );
-          })
+            )}
+          </>
         ) : (
           <div className="flex min-h-[86px] items-center justify-center rounded-2xl border border-white/75 bg-white/70 px-3 py-4 text-center">
             <p className="text-sm font-extrabold text-slate-500">No tasks today</p>

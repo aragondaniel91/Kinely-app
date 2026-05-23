@@ -36,7 +36,7 @@ export default function TaskBoardContent({
         onChange={onCategoryChange}
       />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
+      <div className="mx-auto grid w-full max-w-[1860px] grid-cols-[repeat(auto-fill,minmax(280px,340px))] justify-center gap-4">
         {people.map((person) => (
           <PersonCard
             key={person.id}
@@ -50,7 +50,7 @@ export default function TaskBoardContent({
         ))}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_420px]">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.4fr)_420px]">
         <TasksFocusPanel
           selectedPerson={selectedPerson}
           selectedTasks={selectedTasks}

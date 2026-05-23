@@ -1,16 +1,20 @@
 import React from "react";
 import {
+  Check,
+  Circle,
   Clock,
   MoreHorizontal,
+  Pencil,
   Plus,
   Sparkles,
   Star,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import TaskTile from "@/features/tasks/components/TaskTile";
-import { isDone } from "@/features/tasks/utils/taskHelpers";
+import { cn } from "@/lib/utils";
+import { getTaskIcon, isDemoTask, isDone } from "@/features/tasks/utils/taskHelpers";
 
 const priorityRank = {
   high: 0,
@@ -18,15 +22,102 @@ const priorityRank = {
   low: 2,
 };
 
-function getTopPriorityTasks(tasks = []) {
+const priorityStyles = {
+  high: "bg-red-50 text-red-700 border-red-100",
+  medium: "bg-amber-50 text-amber-700 border-amber-100",
+  low: "bg-emerald-50 text-emerald-700 border-emerald-100",
+};
+
+function getPriorityTasks(tasks = []) {
   return [...tasks]
     .filter((task) => !isDone(task))
     .sort((a, b) => {
       const aRank = priorityRank[a.priority || "medium"] ?? 1;
       const bRank = priorityRank[b.priority || "medium"] ?? 1;
       return aRank - bRank;
-    })
-    .slice(0, 3);
+    });
+}
+
+function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }) {
+  const TaskIcon = getTaskIcon(task);
+  const done = isDone(task);
+  const disabled = !canWrite || isDemoTask(task);
+  const priority = task.priority || "medium";
+  const category = task.category || "other";
+
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-3 rounded-3xl border px-4 py-3 transition",
+        done
+          ? "border-accent/15 bg-accent/5"
+          : "border-slate-100 bg-white/90 hover:border-slate-200 hover:shadow-sm"
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onToggleTask(task)}
+        disabled={disabled}
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition",
+          done
+            ? "border-accent bg-accent text-accent-foreground"
+            : "border-slate-200 bg-slate-50 text-slate-400 hover:border-accent hover:text-accent",
+          disabled && "cursor-not-allowed opacity-60"
+        )}
+        aria-label="Toggle task"
+      >
+        {done ? <Check className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+      </button>
+
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-secondary text-slate-700">
+        <TaskIcon className="h-5 w-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className={cn("truncate text-base font-black", done ? "text-slate-400 line-through" : "text-slate-900")}>
+          {task.title}
+        </p>
+
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <span
+            className={cn(
+              "rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
+              priorityStyles[priority] || priorityStyles.medium
+            )}
+          >
+            {priority}
+          </span>
+
+          <span className="rounded-full border border-slate-100 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+            {category}
+          </span>
+        </div>
+      </div>
+
+      {canWrite && !isDemoTask(task) && (
+        <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            onClick={() => onEditTask(task)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-500 transition hover:bg-white hover:text-slate-900 hover:shadow-sm"
+            aria-label="Edit task"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDeleteTask(task)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500 transition hover:bg-white hover:text-red-700 hover:shadow-sm"
+            aria-label="Delete task"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function TasksFocusPanel({
@@ -41,117 +132,120 @@ export default function TasksFocusPanel({
   onEditTask,
   onDeleteTask,
 }) {
-  const topPriorityTasks = getTopPriorityTasks(selectedTasks);
+  const priorityTasks = getPriorityTasks(selectedTasks);
+  const visibleTasks = priorityTasks.slice(0, 6);
+  const completedTasks = selectedTasks.filter(isDone).slice(0, 3);
 
   return (
-    <Card className="rounded-[2.25rem] border-border bg-white/86 p-5 shadow-[0_24px_70px_rgba(38,50,56,0.08)] backdrop-blur-xl">
-      <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <div>
-          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-accent">
-            <Star className="h-4 w-4" />
-            Today’s Focus
-          </p>
+    <Card className="overflow-hidden rounded-[2.25rem] border-border bg-white/88 shadow-[0_24px_70px_rgba(38,50,56,0.08)] backdrop-blur-xl">
+      <div className="border-b border-slate-100 bg-gradient-to-br from-white via-secondary/35 to-accent/5 p-5">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-accent">
+              <Star className="h-4 w-4" />
+              Today’s Focus
+            </p>
 
-          <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {selectedPerson?.name || "Family"} tasks
-          </h2>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+              {selectedPerson?.name || "Family"}
+            </h2>
 
-          <p className="mt-1 max-w-2xl text-sm font-extrabold leading-6 text-slate-500">
-            A quick view of the most important tasks for the selected person.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3">
-            <Clock className="h-5 w-5 text-slate-400" />
-            <span className="text-sm font-black text-slate-600">
-              {pendingCount} pending · {completedCount} done
-            </span>
-          </div>
-
-          {canWrite && (
-            <Button
-              type="button"
-              onClick={() => onAddTask?.(selectedPerson)}
-              className="h-12 rounded-2xl font-black shadow-lg shadow-primary/15"
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Add task
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {topPriorityTasks.length > 0 && (
-        <div className="mb-5 rounded-[2rem] border border-accent/15 bg-accent/5 p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-accent" />
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
-              Top priorities
+            <p className="mt-1 max-w-2xl text-sm font-extrabold leading-6 text-slate-500">
+              Priority tasks, quick actions, and progress for the selected person.
             </p>
           </div>
 
-          <div className="grid gap-2 md:grid-cols-3">
-            {topPriorityTasks.map((task) => (
-              <div
-                key={task.id}
-                className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm"
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white">
+              <Clock className="h-5 w-5 text-slate-400" />
+              <span className="text-sm font-black text-slate-600">
+                {pendingCount} pending · {completedCount} done
+              </span>
+            </div>
+
+            {canWrite && (
+              <Button
+                type="button"
+                onClick={() => onAddTask?.(selectedPerson)}
+                className="h-12 rounded-2xl font-black shadow-lg shadow-primary/15"
               >
-                <p className="truncate text-sm font-black text-slate-900">
-                  {task.title}
-                </p>
-                <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-400">
-                  {task.priority || "medium"} priority
-                </p>
-              </div>
-            ))}
+                <Plus className="mr-2 h-5 w-5" />
+                Add task
+              </Button>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {selectedTasks.length > 0 ? (
-            selectedTasks.map((task) => (
-              <TaskTile
+      <div className="p-5">
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
+          </div>
+        ) : visibleTasks.length > 0 ? (
+          <div className="space-y-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-accent" />
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Up next
+              </p>
+            </div>
+
+            {visibleTasks.map((task) => (
+              <FocusTaskRow
                 key={task.id}
                 task={task}
                 canWrite={canWrite}
-                onToggle={onToggleTask}
-                onEdit={onEditTask}
-                onDelete={onDeleteTask}
+                onToggleTask={onToggleTask}
+                onEditTask={onEditTask}
+                onDeleteTask={onDeleteTask}
               />
-            ))
-          ) : (
-            <div className="col-span-full rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/80 p-10 text-center">
-              <MoreHorizontal className="mx-auto h-10 w-10 text-slate-300" />
+            ))}
 
-              <p className="mt-3 text-xl font-black text-slate-900">
-                No tasks for {selectedPerson?.name || "this person"}
-              </p>
+            {completedTasks.length > 0 && (
+              <div className="pt-3">
+                <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Completed recently
+                </p>
 
-              <p className="mt-1 text-sm font-bold text-slate-500">
-                Add a task to show it on this board.
-              </p>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {completedTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="truncate rounded-2xl border border-accent/10 bg-accent/5 px-3 py-2 text-sm font-black text-accent"
+                    >
+                      ✓ {task.title}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/80 p-10 text-center">
+            <MoreHorizontal className="mx-auto h-10 w-10 text-slate-300" />
 
-              {canWrite && (
-                <Button
-                  type="button"
-                  onClick={() => onAddTask?.(selectedPerson)}
-                  className="mt-5 rounded-2xl font-black"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add task
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+            <p className="mt-3 text-xl font-black text-slate-900">
+              No pending tasks for {selectedPerson?.name || "this person"}
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              Add a task to show it on this board.
+            </p>
+
+            {canWrite && (
+              <Button
+                type="button"
+                onClick={() => onAddTask?.(selectedPerson)}
+                className="mt-5 rounded-2xl font-black"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add task
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
