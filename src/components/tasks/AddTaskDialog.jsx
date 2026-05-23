@@ -356,7 +356,7 @@ export default function AddTaskDialog({
               </DialogTitle>
 
               <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
-                Create a visual task that is clear for kids, caregivers, and the wall screen.
+                Create a clear task with a category icon, priority, and person assignment.
               </p>
             </div>
           </div>
@@ -390,7 +390,7 @@ export default function AddTaskDialog({
                 <Input
                   value={title}
                   onChange={(event) => handleTitleChange(event.target.value)}
-                  placeholder="Example: Make bed, brush teeth, homework..."
+                  placeholder="Example: Make bed, homework, groceries..."
                   className="mt-2 h-14 rounded-3xl border-slate-200 px-4 text-lg font-black"
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && title.trim()) handleSave();
@@ -444,7 +444,7 @@ export default function AddTaskDialog({
 
                       <div>
                         <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
-                          Smart suggestion
+                          Category icon
                         </p>
                         <p className="text-sm font-black text-slate-950">
                           {suggestedIcon?.label || "Routine"}
@@ -459,7 +459,7 @@ export default function AddTaskDialog({
                       className="rounded-2xl font-black"
                     >
                       <WandSparkles className="mr-2 h-4 w-4" />
-                      Use suggestion
+                      Use category icon
                     </Button>
                   </div>
                 </div>
@@ -571,7 +571,7 @@ export default function AddTaskDialog({
                 <div className="flex items-start gap-3">
                   <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
                   <p className="text-xs font-semibold leading-5 text-slate-500">
-                    Tip: short titles plus smart icons make the wall screen easier for kids and caregivers.
+                    Tip: short titles and clear categories make the wall screen easier for kids and caregivers.
                   </p>
                 </div>
               </div>

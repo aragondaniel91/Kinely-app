@@ -36,7 +36,7 @@ export default function TaskBoardContent({
         onChange={onCategoryChange}
       />
 
-      <div className="mx-auto grid w-full max-w-[1860px] grid-cols-[repeat(auto-fill,minmax(280px,340px))] justify-center gap-4">
+      <div className="mx-auto grid w-full max-w-[1800px] grid-cols-[repeat(auto-fit,minmax(170px,220px))] justify-center gap-4">
         {people.map((person) => (
           <PersonCard
             key={person.id}

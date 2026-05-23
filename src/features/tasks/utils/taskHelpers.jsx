@@ -86,6 +86,7 @@ export const iconMap = {
   calendar: CalendarDays,
   schedule: CalendarDays,
   work: Briefcase,
+  personal: Sparkles,
   home: Home,
 
   teeth: Sparkles,
