@@ -246,7 +246,7 @@ export default function ManageTaskRewardsDialog({
               icon={Trophy}
               eyebrow="Child reward"
               title={selectedChild?.name ? `${selectedChild.name}'s reward` : "Child reward"}
-              description="A personal goal for a child. Only reward-eligible tasks count."
+              description="Choose a child, then set or update that child’s personal reward goal."
             >
               {childPeople.length > 0 ? (
                 <div className="space-y-3">

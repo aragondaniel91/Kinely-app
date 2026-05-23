@@ -8,15 +8,30 @@ import FamilyRewardCard from "@/features/tasks/components/FamilyRewardCard";
 export default function TasksRewardsPanel({
   childReward,
   childTasks,
+  childRewardItems = [],
   familyReward,
   allTasks,
 }) {
+  const items =
+    Array.isArray(childRewardItems) && childRewardItems.length
+      ? childRewardItems
+      : childReward
+        ? [{ reward: childReward, tasks: childTasks || [] }]
+        : [];
+
   return (
     <div className="space-y-5">
-      <ChildRewardCard
-        reward={childReward}
-        childTasks={childTasks}
-      />
+      {items.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {items.map((item) => (
+            <ChildRewardCard
+              key={item.reward?.id || item.reward?.childPersonId || item.reward?.childName}
+              reward={item.reward}
+              childTasks={item.tasks || []}
+            />
+          ))}
+        </div>
+      )}
 
       <FamilyRewardCard
         reward={familyReward}

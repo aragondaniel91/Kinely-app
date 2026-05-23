@@ -25,6 +25,7 @@ export default function TaskBoardContent({
   selectedTasks,
   childReward,
   childTasks,
+  childRewardItems,
   familyReward,
   allTasks,
   loading,
@@ -104,6 +105,7 @@ export default function TaskBoardContent({
       <TasksRewardsPanel
         childReward={childReward}
         childTasks={childTasks}
+        childRewardItems={childRewardItems}
         familyReward={familyReward}
         allTasks={allTasks}
       />

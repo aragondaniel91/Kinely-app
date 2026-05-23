@@ -31,6 +31,22 @@ function normalizeReward(docSnap) {
   };
 }
 
+function findRewardForChild(rewards = [], childPerson) {
+  if (!childPerson) return null;
+
+  const childId = childPerson.childId || childPerson.child_id || childPerson.id;
+
+  return rewards.find((reward) => {
+    if (reward.type !== "child") return false;
+
+    return (
+      reward.childPersonId === childPerson.id ||
+      reward.childId === childId ||
+      reward.childName === childPerson.name
+    );
+  });
+}
+
 export function useTaskRewards({ familyId, canRead, people = [] }) {
   const [rewards, setRewards] = useState([]);
   const [loadingRewards, setLoadingRewards] = useState(true);
@@ -80,28 +96,23 @@ export function useTaskRewards({ familyId, canRead, people = [] }) {
     loadRewards();
   }, [loadRewards]);
 
-  const firstChildPerson = useMemo(
-    () => people.find((person) => person.roleType === "child"),
+  const childPeople = useMemo(
+    () => people.filter((person) => person.roleType === "child"),
     [people]
   );
 
-  const childReward = useMemo(() => {
-    if (!firstChildPerson) return null;
+  const childRewards = useMemo(
+    () =>
+      childPeople
+        .map((childPerson) => {
+          const realReward = findRewardForChild(rewards, childPerson);
+          return realReward || buildDemoChildReward(childPerson);
+        })
+        .filter(Boolean),
+    [childPeople, rewards]
+  );
 
-    const childId = firstChildPerson.childId || firstChildPerson.id;
-
-    const realReward = rewards.find((reward) => {
-      if (reward.type !== "child") return false;
-
-      return (
-        reward.childPersonId === firstChildPerson.id ||
-        reward.childId === childId ||
-        reward.childName === firstChildPerson.name
-      );
-    });
-
-    return realReward || buildDemoChildReward(firstChildPerson);
-  }, [firstChildPerson, rewards]);
+  const childReward = childRewards[0] || null;
 
   const familyReward = useMemo(() => {
     const realReward = rewards.find((reward) => reward.type === "family");
@@ -113,8 +124,10 @@ export function useTaskRewards({ familyId, canRead, people = [] }) {
     rewards,
     loadingRewards,
     loadRewards,
+    childPeople,
+    childRewards,
     childReward,
     familyReward,
-    firstChildPerson,
+    firstChildPerson: childPeople[0] || null,
   };
 }

@@ -94,6 +94,8 @@ export default function Tasks() {
 
   const {
     childReward,
+    childRewards,
+    childPeople,
     familyReward,
     firstChildPerson,
     loadRewards,
@@ -148,6 +150,32 @@ export default function Tasks() {
 
   const childRewardPersonId = firstChildPerson?.id || people[0]?.id;
   const childTasks = getSelectedTasks(rewardTasksByPerson, childRewardPersonId);
+
+  const childRewardItems = useMemo(
+    () =>
+      childRewards.map((reward) => {
+        const childPerson =
+          childPeople.find((person) => {
+            const childId = person.childId || person.child_id || person.id;
+
+            return (
+              reward.childPersonId === person.id ||
+              reward.child_person_id === person.id ||
+              reward.childId === childId ||
+              reward.child_id === childId ||
+              reward.childName === person.name ||
+              reward.child_name === person.name
+            );
+          }) || null;
+
+        return {
+          reward,
+          person: childPerson,
+          tasks: childPerson ? getSelectedTasks(rewardTasksByPerson, childPerson.id) : [],
+        };
+      }),
+    [childRewards, childPeople, rewardTasksByPerson]
+  );
 
   const childRewardCompleted = childTasks.filter(isDone).length;
   const childRewardRequired = Math.max(
@@ -266,6 +294,7 @@ export default function Tasks() {
         selectedTasks={selectedTasks}
         childReward={childReward}
         childTasks={childTasks}
+        childRewardItems={childRewardItems}
         familyReward={familyReward}
         allTasks={rewardEligibleTasks}
         loading={loading}
