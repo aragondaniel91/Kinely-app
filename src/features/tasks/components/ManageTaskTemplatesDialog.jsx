@@ -8,14 +8,13 @@ import {
 } from "firebase/firestore";
 import {
   AlertCircle,
-  AlertTriangle,
+  ArrowLeft,
   Copy,
   Edit3,
   Layers,
   Plus,
   Save,
   Trash2,
-  X,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -57,6 +56,7 @@ function getEmptyDraft() {
     category: "house",
     defaultPriority: "medium",
     taskLines: "",
+    mode: "new",
   };
 }
 
@@ -94,27 +94,21 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
     category: template.category || "house",
     defaultPriority: template.tasks?.[0]?.priority || "medium",
     taskLines: tasksToLines(template.tasks || []),
+    mode: clone ? "copy" : "edit",
   };
 }
 
-function TemplateListItem({ template, active, onEdit, onClone, onDelete }) {
+function RoutineCard({ template, onEdit, onCopy, onDelete }) {
   const isStarter = template.source === "starter";
 
   return (
-    <div
-      className={cn(
-        "rounded-3xl border p-4 transition",
-        active
-          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
-          : "border-slate-200 bg-white hover:border-slate-300"
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => (isStarter ? onClone(template) : onEdit(template))}
-          className="min-w-0 flex-1 text-left"
-        >
+    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-secondary text-slate-700">
+          <Layers className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 flex-1">
           <p className="truncate text-base font-black text-slate-950">
             {template.title}
           </p>
@@ -122,60 +116,99 @@ function TemplateListItem({ template, active, onEdit, onClone, onDelete }) {
           <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
             {template.description || "Reusable family routine."}
           </p>
-        </button>
 
-        <div className="flex shrink-0 gap-1">
-          {isStarter ? (
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
-              onClick={() => onClone(template)}
-              className="h-9 w-9 rounded-full"
-              title="Use as starting point"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
-              onClick={() => onEdit(template)}
-              className="h-9 w-9 rounded-full"
-              title="Edit routine"
-            >
-              <Edit3 className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              {template.type || "custom"}
+            </span>
 
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            onClick={() => onDelete(template)}
-            className="h-9 w-9 rounded-full border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
-            title={isStarter ? "Hide starter routine" : "Delete routine"}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
+              {(template.tasks || []).length} tasks
+            </span>
+
+            {isStarter && (
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
+                starter
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-          {template.type || "custom"}
-        </span>
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        {isStarter ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onCopy(template)}
+            className="h-10 rounded-2xl font-black"
+          >
+            <Copy className="mr-2 h-4 w-4" />
+            Copy
+          </Button>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onEdit(template)}
+              className="h-10 rounded-2xl font-black"
+            >
+              <Edit3 className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
 
-        <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
-          {(template.tasks || []).length} tasks
-        </span>
-
-        {isStarter && (
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
-            starter
-          </span>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onDelete(template)}
+              className="h-10 rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function DeleteRoutinePanel({ template, saving, onCancel, onConfirm }) {
+  return (
+    <div className="rounded-[2rem] border border-red-100 bg-red-50/70 p-5">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-red-500">
+        Delete routine
+      </p>
+
+      <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+        Delete “{template.title}”?
+      </h3>
+
+      <p className="mt-2 text-sm font-semibold leading-6 text-red-700">
+        This removes the custom routine from your family templates. Existing tasks already created from it will stay on the board.
+      </p>
+
+      <div className="mt-5 flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={saving}
+          className="rounded-2xl font-black"
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          onClick={onConfirm}
+          disabled={saving}
+          className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          {saving ? "Deleting..." : "Delete routine"}
+        </Button>
       </div>
     </div>
   );
@@ -185,8 +218,6 @@ export default function ManageTaskTemplatesDialog({
   open,
   onOpenChange,
   templates = [],
-  hiddenStarterTemplateIds = [],
-  updateActiveFamily,
   onSaved,
 }) {
   const { familyId, user } = useFamily();
@@ -201,10 +232,11 @@ export default function ManageTaskTemplatesDialog({
     [templates]
   );
 
+  const [view, setView] = useState("list");
   const [draft, setDraft] = useState(getEmptyDraft());
+  const [templateToDelete, setTemplateToDelete] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [templateToDelete, setTemplateToDelete] = useState(null);
 
   const parsedTasks = parseTaskLines(
     draft.taskLines,
@@ -213,41 +245,57 @@ export default function ManageTaskTemplatesDialog({
     draft.type
   );
 
-  function patch(updates) {
+  function resetToList() {
+    setError("");
+    setSaving(false);
+    setTemplateToDelete(null);
+    setDraft(getEmptyDraft());
+    setView("list");
+  }
+
+  function startNewRoutine() {
+    setError("");
+    setTemplateToDelete(null);
+    setDraft(getEmptyDraft());
+    setView("editor");
+  }
+
+  function startEditRoutine(template) {
+    setError("");
+    setTemplateToDelete(null);
+    setDraft(buildDraftFromTemplate(template));
+    setView("editor");
+  }
+
+  function startCopyRoutine(template) {
+    setError("");
+    setTemplateToDelete(null);
+    setDraft(buildDraftFromTemplate(template, { clone: true }));
+    setView("editor");
+  }
+
+  function patchDraft(updates) {
     setError("");
     setDraft((current) => ({ ...current, ...updates }));
   }
 
-  function startNew() {
+  function requestDeleteRoutine(template) {
     setError("");
-    setTemplateToDelete(null);
-    setDraft(getEmptyDraft());
+    setTemplateToDelete(template);
+    setView("delete");
   }
 
-  function editTemplate(template) {
-    setError("");
-    setTemplateToDelete(null);
-    setDraft(buildDraftFromTemplate(template));
-  }
-
-  function cloneTemplate(template) {
-    setError("");
-    setTemplateToDelete(null);
-    setDraft(buildDraftFromTemplate(template, { clone: true }));
-  }
-
-  async function saveTemplate() {
+  async function saveRoutine() {
     if (!familyId || saving) return;
 
     const title = draft.title.trim();
-    const tasks = parsedTasks;
 
     if (!title) {
       setError("Please enter a routine title.");
       return;
     }
 
-    if (!tasks.length) {
+    if (!parsedTasks.length) {
       setError("Please add at least one task.");
       return;
     }
@@ -265,7 +313,7 @@ export default function ManageTaskTemplatesDialog({
         category: draft.category,
         icon: getDefaultTaskIcon(draft.category),
         active: true,
-        tasks,
+        tasks: parsedTasks,
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid || null,
       };
@@ -281,7 +329,7 @@ export default function ManageTaskTemplatesDialog({
       }
 
       await onSaved?.();
-      setDraft(getEmptyDraft());
+      resetToList();
     } catch (err) {
       console.error("Error saving routine:", err);
       setError(err?.message || "There was an error saving the routine.");
@@ -290,338 +338,311 @@ export default function ManageTaskTemplatesDialog({
     }
   }
 
-  function requestDeleteTemplate(template) {
-    if (!template?.id || saving) return;
-
-    setError("");
-    setTemplateToDelete(template);
-  }
-
-  async function confirmDeleteTemplate() {
-    const template = templateToDelete;
-
-    if (!template?.id || saving) return;
+  async function confirmDeleteRoutine() {
+    if (!templateToDelete?.id || saving) return;
 
     setSaving(true);
     setError("");
 
     try {
-      if (template.source === "starter") {
-        const nextHiddenIds = Array.from(
-          new Set([...(hiddenStarterTemplateIds || []), template.id])
-        );
-
-        await updateActiveFamily?.({
-          hiddenStarterTaskTemplateIds: nextHiddenIds,
-          hidden_starter_task_template_ids: nextHiddenIds,
-        });
-      } else {
-        await updateDoc(doc(db, TASK_COLLECTIONS.templates, template.id), {
-          active: false,
-          deletedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          updatedBy: user?.uid || null,
-        });
-
-        if (draft.id === template.id) {
-          setDraft(getEmptyDraft());
-        }
-      }
+      await updateDoc(doc(db, TASK_COLLECTIONS.templates, templateToDelete.id), {
+        active: false,
+        deletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
 
       await onSaved?.();
-      setTemplateToDelete(null);
+      resetToList();
     } catch (err) {
-      console.error("Error removing routine:", err);
-      setError(err?.message || "There was an error removing the routine.");
+      console.error("Error deleting routine:", err);
+      setError(err?.message || "There was an error deleting the routine.");
     } finally {
       setSaving(false);
     }
   }
 
+  const isEditor = view === "editor";
+  const isDelete = view === "delete";
+
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange?.(nextOpen)}>
-      <DialogContent className="max-h-[92vh] max-w-6xl overflow-hidden rounded-[2.25rem] border-slate-200 bg-white p-0 shadow-2xl">
-        <DialogHeader className="border-b bg-gradient-to-br from-white via-secondary/35 to-accent/10 px-5 py-5">
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (saving) return;
+
+        if (!nextOpen) {
+          resetToList();
+        }
+
+        onOpenChange?.(nextOpen);
+      }}
+    >
+      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-4xl flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
+        <DialogHeader className="shrink-0 border-b bg-gradient-to-br from-white via-secondary/35 to-accent/10 px-4 py-4 sm:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <Layers className="h-6 w-6" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <Layers className="h-5 w-5" />
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-accent">
                 Routine manager
               </p>
 
-              <DialogTitle className="mt-1 text-3xl font-black tracking-tight text-slate-950">
-                Manage routines
+              <DialogTitle className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                {isEditor ? (draft.id ? "Edit routine" : "New routine") : isDelete ? "Delete routine" : "Manage routines"}
               </DialogTitle>
 
               <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
-                Create reusable routines and chores, or copy a starter routine and customize it.
+                {isEditor
+                  ? "Create or update a reusable routine for your family."
+                  : isDelete
+                    ? "Confirm before removing this custom routine."
+                    : "Create custom routines or copy starter routines."}
               </p>
             </div>
           </div>
         </DialogHeader>
 
         {error && (
-          <div className="mx-5 mt-5 flex items-start gap-3 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+          <div className="mx-4 mt-4 flex shrink-0 items-start gap-3 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700 sm:mx-5">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="grid max-h-[calc(92vh-155px)] gap-5 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1fr)_420px]">
-          <section>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <Label>Your routines</Label>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+          {view === "list" && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-black text-slate-950">
+                    Your routines
+                  </h3>
+                  <p className="text-sm font-semibold text-slate-500">
+                    Custom routines can be edited or deleted.
+                  </p>
+                </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={startNew}
-                disabled={saving}
-                className="rounded-2xl font-black"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New routine
-              </Button>
-            </div>
+                <Button
+                  type="button"
+                  onClick={startNewRoutine}
+                  disabled={saving}
+                  className="h-11 rounded-2xl font-black"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  New routine
+                </Button>
+              </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
               {familyTemplates.length > 0 ? (
-                familyTemplates.map((template) => (
-                  <TemplateListItem
-                    key={template.id}
-                    template={template}
-                    active={draft.id === template.id}
-                    onEdit={editTemplate}
-                    onClone={cloneTemplate}
-                    onDelete={requestDeleteTemplate}
-                  />
-                ))
+                <div className="grid gap-3 md:grid-cols-2">
+                  {familyTemplates.map((template) => (
+                    <RoutineCard
+                      key={template.id}
+                      template={template}
+                      onEdit={startEditRoutine}
+                      onCopy={startCopyRoutine}
+                      onDelete={requestDeleteRoutine}
+                    />
+                  ))}
+                </div>
               ) : (
-                <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-8 text-center md:col-span-2">
+                <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-8 text-center">
                   <p className="text-lg font-black text-slate-950">
                     No custom routines yet
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Start from scratch or copy a starter routine below.
+                    Create one from scratch or copy a starter routine.
                   </p>
                 </div>
               )}
-            </div>
 
-            <div className="mt-5">
-              <Label>Starter routines</Label>
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                Click a starter or the copy icon to load it into the editor.
-              </p>
-
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {starterTemplates.map((template) => (
-                  <TemplateListItem
-                    key={template.id}
-                    template={template}
-                    active={false}
-                    onEdit={editTemplate}
-                    onClone={cloneTemplate}
-                    onDelete={requestDeleteTemplate}
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <aside className="space-y-4 rounded-[2rem] border border-slate-100 bg-slate-50/80 p-4">
-            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                  Editor
-                </p>
-                <h3 className="mt-1 text-xl font-black text-slate-950">
-                  {draft.id ? "Edit routine" : "New routine"}
+                <h3 className="text-lg font-black text-slate-950">
+                  Starter routines
                 </h3>
-              </div>
+                <p className="text-sm font-semibold text-slate-500">
+                  Starters are built into the app. Copy one to customize it.
+                </p>
 
-              {(draft.id || draft.title || draft.taskLines) && (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={startNew}
-                  disabled={saving}
-                  className="h-9 w-9 rounded-full"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-
-            <div>
-              <Label>Routine title</Label>
-              <Input
-                value={draft.title}
-                onChange={(event) => patch({ title: event.target.value })}
-                placeholder="Example: Saturday chores"
-                className="mt-1 h-11 rounded-2xl"
-              />
-            </div>
-
-            <div>
-              <Label>Description</Label>
-              <Input
-                value={draft.description}
-                onChange={(event) => patch({ description: event.target.value })}
-                placeholder="Short description"
-                className="mt-1 h-11 rounded-2xl"
-              />
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Type</Label>
-                <select
-                  value={draft.type}
-                  onChange={(event) => patch({ type: event.target.value })}
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                >
-                  {TEMPLATE_TYPE_OPTIONS.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {starterTemplates.map((template) => (
+                    <RoutineCard
+                      key={template.id}
+                      template={template}
+                      onEdit={startEditRoutine}
+                      onCopy={startCopyRoutine}
+                      onDelete={requestDeleteRoutine}
+                    />
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <Label>Category</Label>
-                <select
-                  value={draft.category}
-                  onChange={(event) => patch({ category: event.target.value })}
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                >
-                  {TASK_CREATE_CATEGORY_OPTIONS.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
+                </div>
               </div>
             </div>
+          )}
 
-            <div>
-              <Label>Default priority</Label>
-              <select
-                value={draft.defaultPriority}
-                onChange={(event) => patch({ defaultPriority: event.target.value })}
-                className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+          {view === "editor" && (
+            <div className="mx-auto max-w-2xl space-y-4">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={resetToList}
+                disabled={saving}
+                className="rounded-2xl px-0 font-black text-slate-500 hover:bg-transparent hover:text-slate-950"
               >
-                {TASK_PRIORITY_OPTIONS.map((priority) => (
-                  <option key={priority.value} value={priority.value}>
-                    {priority.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to routines
+              </Button>
 
-            <div>
-              <Label>Tasks</Label>
-              <textarea
-                value={draft.taskLines}
-                onChange={(event) => patch({ taskLines: event.target.value })}
-                placeholder={"One task per line\nMake bed\nClean room\nLaundry in basket"}
-                className="mt-1 min-h-[170px] w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-ring"
-              />
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                {parsedTasks.length} task{parsedTasks.length === 1 ? "" : "s"} in this routine.
-              </p>
+              <div className="rounded-[2rem] border border-slate-100 bg-slate-50/80 p-4 sm:p-5">
+                <div>
+                  <Label>Routine title</Label>
+                  <Input
+                    value={draft.title}
+                    onChange={(event) => patchDraft({ title: event.target.value })}
+                    placeholder="Example: Saturday chores"
+                    className="mt-1 h-11 rounded-2xl bg-white"
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <Label>Description</Label>
+                  <Input
+                    value={draft.description}
+                    onChange={(event) => patchDraft({ description: event.target.value })}
+                    placeholder="Short description"
+                    className="mt-1 h-11 rounded-2xl bg-white"
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label>Type</Label>
+                    <select
+                      value={draft.type}
+                      onChange={(event) => patchDraft({ type: event.target.value })}
+                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                    >
+                      {TEMPLATE_TYPE_OPTIONS.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label>Category</Label>
+                    <select
+                      value={draft.category}
+                      onChange={(event) => patchDraft({ category: event.target.value })}
+                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                    >
+                      {TASK_CREATE_CATEGORY_OPTIONS.map((category) => (
+                        <option key={category.value} value={category.value}>
+                          {category.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label>Priority</Label>
+                    <select
+                      value={draft.defaultPriority}
+                      onChange={(event) => patchDraft({ defaultPriority: event.target.value })}
+                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                    >
+                      {TASK_PRIORITY_OPTIONS.map((priority) => (
+                        <option key={priority.value} value={priority.value}>
+                          {priority.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <Label>Tasks</Label>
+                  <textarea
+                    value={draft.taskLines}
+                    onChange={(event) => patchDraft({ taskLines: event.target.value })}
+                    placeholder={"One task per line\nMake bed\nClean room\nLaundry in basket"}
+                    className="mt-1 min-h-[170px] w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <p className="mt-1 text-xs font-semibold text-slate-400">
+                    {parsedTasks.length} task{parsedTasks.length === 1 ? "" : "s"} in this routine.
+                  </p>
+                </div>
+              </div>
             </div>
-          </aside>
+          )}
+
+          {view === "delete" && templateToDelete && (
+            <div className="mx-auto max-w-xl">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={resetToList}
+                disabled={saving}
+                className="mb-4 rounded-2xl px-0 font-black text-slate-500 hover:bg-transparent hover:text-slate-950"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to routines
+              </Button>
+
+              <DeleteRoutinePanel
+                template={templateToDelete}
+                saving={saving}
+                onCancel={resetToList}
+                onConfirm={confirmDeleteRoutine}
+              />
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="border-t bg-slate-50/70 px-5 py-4">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange?.(false)}
-            disabled={saving}
-            className="rounded-2xl font-black"
-          >
-            Close
-          </Button>
+        <DialogFooter className="shrink-0 border-t bg-slate-50/70 px-4 py-3 sm:px-5">
+          {view === "list" ? (
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange?.(false)}
+              disabled={saving}
+              className="rounded-2xl font-black"
+            >
+              Close
+            </Button>
+          ) : view === "editor" ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={resetToList}
+                disabled={saving}
+                className="rounded-2xl font-black"
+              >
+                Cancel
+              </Button>
 
-          <Button
-            onClick={saveTemplate}
-            disabled={saving || !familyId}
-            className="rounded-2xl font-black"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Saving..." : draft.id ? "Save changes" : "Save routine"}
-          </Button>
+              <Button
+                onClick={saveRoutine}
+                disabled={saving || !familyId}
+                className="rounded-2xl font-black"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Saving..." : draft.id ? "Save changes" : "Save routine"}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={resetToList}
+              disabled={saving}
+              className="rounded-2xl font-black"
+            >
+              Cancel
+            </Button>
+          )}
         </DialogFooter>
-
-        {templateToDelete && (
-          <div className="absolute inset-0 z-[10020] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-3xl bg-red-50 text-red-600">
-                  <AlertTriangle className="h-6 w-6" />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-red-500">
-                    Delete routine
-                  </p>
-
-                  <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                    {templateToDelete.source === "starter" ? "Hide" : "Delete"} “{templateToDelete.title}”?
-                  </h3>
-
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                    {templateToDelete.source === "starter"
-                      ? "This will hide the starter routine from this family. You can add it back later when we add routine library settings."
-                      : "This will remove the routine from your custom family templates. Existing tasks already created from this routine will stay on the board."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-3xl border border-red-100 bg-red-50/70 p-4">
-                <p className="text-sm font-bold text-red-700">
-                  {templateToDelete.source === "starter"
-                    ? "Starter routines are not deleted globally. They are only hidden for this family."
-                    : "This action hides the routine from your list, but it does not delete completed or pending tasks that were already created."}
-                </p>
-              </div>
-
-              <div className="mt-5 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setTemplateToDelete(null)}
-                  disabled={saving}
-                  className="rounded-2xl font-black"
-                >
-                  Cancel
-                </Button>
-
-                <Button
-                  type="button"
-                  onClick={confirmDeleteTemplate}
-                  disabled={saving}
-                  className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {saving
-                    ? templateToDelete.source === "starter"
-                      ? "Hiding..."
-                      : "Deleting..."
-                    : templateToDelete.source === "starter"
-                      ? "Hide starter"
-                      : "Delete routine"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

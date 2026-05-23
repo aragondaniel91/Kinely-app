@@ -30,11 +30,7 @@ function normalizeTemplate(docSnap) {
   };
 }
 
-export function useTaskTemplates({
-  familyId,
-  canRead = true,
-  hiddenStarterTemplateIds = [],
-} = {}) {
+export function useTaskTemplates({ familyId, canRead = true } = {}) {
   const [familyTemplates, setFamilyTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templateError, setTemplateError] = useState("");
@@ -76,17 +72,8 @@ export function useTaskTemplates({
   }, [loadTemplates]);
 
   const templates = useMemo(() => {
-    const hidden = new Set(hiddenStarterTemplateIds || []);
-
-    const visibleStarterTemplates = starterTaskTemplates.filter(
-      (template) => !hidden.has(template.id)
-    );
-
-    return [
-      ...familyTemplates,
-      ...visibleStarterTemplates,
-    ];
-  }, [familyTemplates, hiddenStarterTemplateIds]);
+    return [...familyTemplates, ...starterTaskTemplates];
+  }, [familyTemplates]);
 
   return {
     templates,

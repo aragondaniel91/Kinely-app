@@ -37,7 +37,6 @@ export default function Tasks() {
     familyId,
     perms,
     profile,
-    updateActiveFamily,
   } = useFamily();
 
   const boardChildren = children?.length ? children : familyChildrenCore;
@@ -76,15 +75,9 @@ export default function Tasks() {
     canWrite,
   });
 
-  const hiddenStarterTemplateIds =
-    profile?.hiddenStarterTaskTemplateIds ||
-    profile?.hidden_starter_task_template_ids ||
-    [];
-
   const { templates, loadTemplates } = useTaskTemplates({
     familyId,
     canRead,
-    hiddenStarterTemplateIds,
   });
 
   useEffect(() => {
@@ -207,9 +200,7 @@ export default function Tasks() {
         open={showManageTemplates}
         onOpenChange={setShowManageTemplates}
         templates={templates}
-        hiddenStarterTemplateIds={hiddenStarterTemplateIds}
-        updateActiveFamily={updateActiveFamily}
-        onSaved={loadTemplates}
+                onSaved={loadTemplates}
       />
 
       <ApplyTaskTemplateDialog
