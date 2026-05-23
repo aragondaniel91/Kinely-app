@@ -9,7 +9,9 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
+  CheckCircle,
   Briefcase,
+  Clock,
   Copy,
   Edit3,
   Flag,
@@ -157,7 +159,7 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
   };
 }
 
-function RoutineCard({ template, onEdit, onCopy, onDelete }) {
+function RoutineCard({ template, hasRunToday = false, onEdit, onCopy, onDelete }) {
   const isStarter = template.source === "starter";
   const routineVisual = getRoutineVisual(template.type);
   const RoutineIcon = routineVisual.icon;
@@ -165,6 +167,8 @@ function RoutineCard({ template, onEdit, onCopy, onDelete }) {
   const CategoryIcon = categoryVisual.icon;
   const priority = template.tasks?.[0]?.priority || "medium";
   const taskCount = (template.tasks || []).length;
+  const recurrence = template.recurrence || template.repeat || "manual";
+  const isRecurring = recurrence !== "manual";
   const assignedName =
     template.assignedToName ||
     template.assigned_to_name ||
@@ -218,8 +222,26 @@ function RoutineCard({ template, onEdit, onCopy, onDelete }) {
             </span>
 
             <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-purple-700 ring-1 ring-purple-100">
-              {template.recurrence || template.repeat || "manual"}
+              {recurrence}
             </span>
+
+            {isRecurring && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1",
+                  hasRunToday
+                    ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                    : "bg-slate-50 text-slate-600 ring-slate-100"
+                )}
+              >
+                {hasRunToday ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <Clock className="h-3 w-3" />
+                )}
+                {hasRunToday ? "Ran today" : "Pending today"}
+              </span>
+            )}
 
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600 ring-1 ring-slate-100">
               <Users className="h-3 w-3" />
@@ -317,6 +339,7 @@ export default function ManageTaskTemplatesDialog({
   onOpenChange,
   templates = [],
   people = [],
+  routineRuns = [],
   onSaved,
 }) {
   const { familyId, user } = useFamily();
@@ -367,6 +390,16 @@ export default function ManageTaskTemplatesDialog({
     assigneeOptions.find((person) => person.id === draft.assignedToPersonId) ||
     assigneeOptions.find((person) => person.id === "family") ||
     assigneeOptions[0];
+
+  const runTemplateIds = useMemo(
+    () =>
+      new Set(
+        (Array.isArray(routineRuns) ? routineRuns : [])
+          .map((run) => run.templateId || run.template_id)
+          .filter(Boolean)
+      ),
+    [routineRuns]
+  );
 
   function resetToList() {
     setError("");
@@ -587,6 +620,7 @@ export default function ManageTaskTemplatesDialog({
                     <RoutineCard
                       key={template.id}
                       template={template}
+                      hasRunToday={runTemplateIds.has(template.id)}
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}
@@ -617,6 +651,7 @@ export default function ManageTaskTemplatesDialog({
                     <RoutineCard
                       key={template.id}
                       template={template}
+                      hasRunToday={runTemplateIds.has(template.id)}
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}

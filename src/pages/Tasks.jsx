@@ -17,6 +17,7 @@ import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
 import { useTaskTemplates } from "@/features/tasks/hooks/useTaskTemplates";
 import { useTaskRewards } from "@/features/tasks/hooks/useTaskRewards";
 import { useRecurringTaskGenerator } from "@/features/tasks/hooks/useRecurringTaskGenerator";
+import { useRoutineRuns } from "@/features/tasks/hooks/useRoutineRuns";
 import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import {
   getSelectedPerson,
@@ -93,6 +94,11 @@ export default function Tasks() {
     canRead,
   });
 
+  const { routineRuns, loadRoutineRuns } = useRoutineRuns({
+    familyId,
+    canRead,
+  });
+
   const {
     childReward,
     childRewards,
@@ -117,7 +123,10 @@ export default function Tasks() {
     people,
     user,
     profile,
-    onGenerated: loadTasks,
+    onGenerated: async () => {
+      await loadTasks();
+      await loadRoutineRuns();
+    },
   });
 
   useEffect(() => {
@@ -342,7 +351,11 @@ export default function Tasks() {
         onOpenChange={setShowManageTemplates}
         templates={templates}
         people={people}
-        onSaved={loadTemplates}
+        routineRuns={routineRuns}
+        onSaved={async () => {
+          await loadTemplates();
+          await loadRoutineRuns();
+        }}
       />
 
       <ManageTaskRewardsDialog
