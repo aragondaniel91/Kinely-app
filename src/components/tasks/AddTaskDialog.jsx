@@ -559,7 +559,7 @@ export default function AddTaskDialog({
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 border-t bg-slate-50/70 px-4 py-3 sm:px-5">
+        <DialogFooter className="shrink-0 bg-white/95 px-4 pb-4 pt-2 sm:px-5">
           <Button
             variant="outline"
             onClick={() => onOpenChange?.(false)}

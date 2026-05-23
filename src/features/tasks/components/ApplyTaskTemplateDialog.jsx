@@ -357,7 +357,7 @@ export default function ApplyTaskTemplateDialog({
           </div>
         </div>
 
-        <DialogFooter className="border-t bg-slate-50/70 px-5 py-4">
+        <DialogFooter className="bg-white/95 px-5 pb-4 pt-2">
           <Button
             variant="outline"
             onClick={() => onOpenChange?.(false)}
