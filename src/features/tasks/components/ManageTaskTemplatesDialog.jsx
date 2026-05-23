@@ -25,6 +25,7 @@ import {
   Sun,
   Trash2,
   UserRound,
+  Users,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -164,6 +165,12 @@ function RoutineCard({ template, onEdit, onCopy, onDelete }) {
   const CategoryIcon = categoryVisual.icon;
   const priority = template.tasks?.[0]?.priority || "medium";
   const taskCount = (template.tasks || []).length;
+  const assignedName =
+    template.assignedToName ||
+    template.assigned_to_name ||
+    template.defaultPersonName ||
+    template.default_person_name ||
+    "Family";
 
   return (
     <div className="rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
@@ -212,6 +219,11 @@ function RoutineCard({ template, onEdit, onCopy, onDelete }) {
 
             <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-purple-700 ring-1 ring-purple-100">
               {template.recurrence || template.repeat || "manual"}
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600 ring-1 ring-slate-100">
+              <Users className="h-3 w-3" />
+              {assignedName}
             </span>
 
             <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
