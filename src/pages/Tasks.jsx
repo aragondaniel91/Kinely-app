@@ -48,6 +48,7 @@ export default function Tasks() {
 
   const [selectedPersonId, setSelectedPersonId] = useState(defaultPersonId);
   const [showAdd, setShowAdd] = useState(false);
+  const [quickAddPerson, setQuickAddPerson] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -107,6 +108,18 @@ export default function Tasks() {
     setTaskToDelete(null);
   };
 
+  const handleOpenAddTask = (person = null) => {
+    setQuickAddPerson(person);
+    if (person?.id) setSelectedPersonId(person.id);
+    setShowAdd(true);
+  };
+
+  const handleCloseAddTask = () => {
+    setShowAdd(false);
+    setQuickAddPerson(null);
+    setEditTask(null);
+  };
+
   if (!canRead) {
     return (
       <div className="mx-auto max-w-xl p-6 text-center">
@@ -122,7 +135,7 @@ export default function Tasks() {
 
   return (
     <TasksPageLayout>
-      <FamilyHeader canWrite={canWrite} onAddTask={() => setShowAdd(true)} />
+      <FamilyHeader canWrite={canWrite} onAddTask={() => handleOpenAddTask(selectedPerson)} />
 
       <TaskBoardContent
         people={people}
@@ -139,6 +152,8 @@ export default function Tasks() {
         pendingCount={pendingCount}
         completedCount={completedCount}
         onSelectPerson={setSelectedPersonId}
+        onQuickAddTask={handleOpenAddTask}
+        onAddTask={handleOpenAddTask}
         onToggleTask={toggleTask}
         onEditTask={setEditTask}
         onDeleteTask={setTaskToDelete}
@@ -158,14 +173,11 @@ export default function Tasks() {
       {(showAdd || editTask) && (
         <AddTaskDialog
           editTask={editTask}
-          onClose={() => {
-            setShowAdd(false);
-            setEditTask(null);
-          }}
+          initialAssigneePersonId={quickAddPerson?.id || selectedPerson?.id || ""}
+          onClose={handleCloseAddTask}
           onSuccess={async () => {
             await loadTasks();
-            setShowAdd(false);
-            setEditTask(null);
+            handleCloseAddTask();
           }}
         />
       )}

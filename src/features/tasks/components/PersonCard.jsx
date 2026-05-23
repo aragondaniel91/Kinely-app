@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, Circle } from "lucide-react";
+import { Check, Circle, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { getTaskIcon, isDone } from "@/features/tasks/utils/taskHelpers";
@@ -12,13 +12,13 @@ function ProgressRing({ completed, total, person }) {
   const colorClasses = getPersonColorClasses(person);
   const safeTotal = Math.max(total, 1);
   const percent = Math.round((completed / safeTotal) * 100);
-  const radius = 28;
+  const radius = 26;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percent / 100) * circumference;
 
   return (
-    <div className="relative flex h-20 w-20 items-center justify-center">
-      <svg className="h-20 w-20 -rotate-90" viewBox="0 0 72 72">
+    <div className="relative flex h-16 w-16 items-center justify-center">
+      <svg className="h-16 w-16 -rotate-90" viewBox="0 0 72 72">
         <circle
           cx="36"
           cy="36"
@@ -43,10 +43,10 @@ function ProgressRing({ completed, total, person }) {
       </svg>
 
       <div className="absolute text-center">
-        <p className="text-xl font-black leading-none text-slate-900">
+        <p className="text-lg font-black leading-none text-slate-900">
           {completed}/{total}
         </p>
-        <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+        <p className="mt-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
           tasks
         </p>
       </div>
@@ -57,10 +57,11 @@ function ProgressRing({ completed, total, person }) {
 function PersonAvatar({ person }) {
   const Icon = person.icon;
   const colorClasses = getPersonColorClasses(person);
-  const avatarUrl = person.avatarUrl || person.avatar_url || person.photoURL || person.photoUrl || "";
+  const avatarUrl =
+    person.avatarUrl || person.avatar_url || person.photoURL || person.photoUrl || "";
 
   return (
-    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-2xl shadow-inner">
+    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-2xl shadow-inner">
       <div
         className={cn(
           "absolute inset-1 rounded-full opacity-25",
@@ -77,7 +78,7 @@ function PersonAvatar({ person }) {
       ) : (
         <Icon
           className={cn(
-            "relative h-8 w-8",
+            "relative h-7 w-7",
             colorClasses.text || person.ring || "text-primary"
           )}
         />
@@ -88,22 +89,36 @@ function PersonAvatar({ person }) {
   );
 }
 
-export default function PersonCard({ person, tasks, selected, onSelect }) {
+export default function PersonCard({
+  person,
+  tasks,
+  selected,
+  canWrite,
+  onSelect,
+  onQuickAdd,
+}) {
   const colorClasses = getPersonColorClasses(person);
   const completed = tasks.filter(isDone).length;
   const total = tasks.length;
   const quickTasks = tasks.slice(0, 3);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(person.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onSelect(person.id);
+      }}
       className={cn(
-        "group relative min-h-[250px] overflow-hidden rounded-[2rem] border p-4 text-left shadow-[0_18px_45px_rgba(38,50,56,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(38,50,56,0.12)]",
+        "group relative flex min-h-[260px] flex-col overflow-hidden rounded-[2rem] border p-4 text-left shadow-[0_18px_45px_rgba(38,50,56,0.08)] transition-all hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(38,50,56,0.12)]",
         colorClasses.bg || person.bg || "bg-white",
         selected
           ? cn(
-              colorClasses.borderStrong || colorClasses.border || person.border || "border-primary/30",
+              colorClasses.borderStrong ||
+                colorClasses.border ||
+                person.border ||
+                "border-primary/30",
               "ring-4 ring-white/80"
             )
           : "border-white/80"
@@ -122,12 +137,32 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
         )}
       />
 
-      <div className="relative flex items-start justify-between gap-3">
-        <div>
+      {canWrite && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onQuickAdd?.(person);
+          }}
+          className={cn(
+            "absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm ring-1 ring-white transition hover:scale-105 hover:bg-white",
+            colorClasses.text || person.ring || "text-primary"
+          )}
+          aria-label={`Add task for ${person.name}`}
+          title={`Add task for ${person.name}`}
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      )}
+
+      <div className="relative flex items-start justify-between gap-3 pr-10">
+        <div className="min-w-0">
           <PersonAvatar person={person} />
-          <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-900">
+
+          <h3 className="mt-3 truncate text-2xl font-black tracking-tight text-slate-900">
             {person.name}
           </h3>
+
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
             {person.role}
           </p>
@@ -136,7 +171,7 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
         <ProgressRing completed={completed} total={total || 0} person={person} />
       </div>
 
-      <div className="relative mt-4 space-y-2">
+      <div className="relative mt-4 flex-1 space-y-2">
         {quickTasks.length > 0 ? (
           quickTasks.map((task) => {
             const TaskIcon = getTaskIcon(task);
@@ -164,11 +199,11 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
             );
           })
         ) : (
-          <div className="rounded-2xl border border-white/75 bg-white/70 px-3 py-4 text-center">
+          <div className="flex min-h-[86px] items-center justify-center rounded-2xl border border-white/75 bg-white/70 px-3 py-4 text-center">
             <p className="text-sm font-extrabold text-slate-500">No tasks today</p>
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }

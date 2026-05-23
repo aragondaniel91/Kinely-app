@@ -21,6 +21,8 @@ export default function TaskBoardContent({
   pendingCount,
   completedCount,
   onSelectPerson,
+  onQuickAddTask,
+  onAddTask,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -34,14 +36,16 @@ export default function TaskBoardContent({
         onChange={onCategoryChange}
       />
 
-      <div className="grid gap-4 xl:grid-cols-5">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
         {people.map((person) => (
           <PersonCard
             key={person.id}
             person={person}
             tasks={tasksByPerson[person.id] || []}
             selected={selectedPersonId === person.id}
+            canWrite={canWrite}
             onSelect={onSelectPerson}
+            onQuickAdd={onQuickAddTask}
           />
         ))}
       </div>
@@ -54,6 +58,7 @@ export default function TaskBoardContent({
           canWrite={canWrite}
           pendingCount={pendingCount}
           completedCount={completedCount}
+          onAddTask={onAddTask}
           onToggleTask={onToggleTask}
           onEditTask={onEditTask}
           onDeleteTask={onDeleteTask}

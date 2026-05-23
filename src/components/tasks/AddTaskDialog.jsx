@@ -66,7 +66,12 @@ function SelectField({ label, value, onChange, options, helper }) {
   );
 }
 
-export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
+export default function AddTaskDialog({
+  onClose,
+  onSuccess,
+  editTask = null,
+  initialAssigneePersonId = "",
+}) {
   const {
     children,
     dadName,
@@ -95,7 +100,9 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
     [people]
   );
 
-  const initialAssigneeValue = getTaskAssigneeValue(editTask);
+  const initialAssigneeValue = editTask
+    ? getTaskAssigneeValue(editTask)
+    : initialAssigneePersonId || "family";
   const initialAssignee = assigneeOptions.some(
     (option) => option.value === initialAssigneeValue
   )
