@@ -16,6 +16,7 @@ import { demoTasks } from "@/features/tasks/data/demoTasks";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
 import { useTaskTemplates } from "@/features/tasks/hooks/useTaskTemplates";
 import { useTaskRewards } from "@/features/tasks/hooks/useTaskRewards";
+import { useRecurringTaskGenerator } from "@/features/tasks/hooks/useRecurringTaskGenerator";
 import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import {
   getSelectedPerson,
@@ -106,6 +107,17 @@ export default function Tasks() {
     people,
     user,
     profile,
+  });
+
+  useRecurringTaskGenerator({
+    familyId,
+    canRead,
+    canWrite,
+    templates,
+    people,
+    user,
+    profile,
+    onGenerated: loadTasks,
   });
 
   useEffect(() => {
