@@ -21,6 +21,7 @@ import {
   getTaskStats,
   getTasksByPerson,
 } from "@/features/tasks/utils/taskSelectors";
+import { filterTasksByDateScope } from "@/features/tasks/utils/taskDateFilters";
 
 export default function Tasks() {
   const {
@@ -52,6 +53,7 @@ export default function Tasks() {
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [activeTaskScope, setActiveTaskScope] = useState("today");
 
   const canRead = perms?.tasks?.read !== false;
   const canWrite = perms?.tasks?.write !== false;
@@ -92,7 +94,11 @@ export default function Tasks() {
   );
 
   const selectedPerson = getSelectedPerson(people, selectedPersonId);
-  const selectedTasks = getSelectedTasks(tasksByPerson, selectedPerson?.id);
+  const selectedTasksBase = getSelectedTasks(tasksByPerson, selectedPerson?.id);
+  const selectedTasks = useMemo(
+    () => filterTasksByDateScope(selectedTasksBase, activeTaskScope),
+    [selectedTasksBase, activeTaskScope]
+  );
 
   const firstChildPerson = people.find((person) => person.roleType === "child");
   const childRewardPersonId = firstChildPerson?.id || people[0]?.id;
@@ -101,7 +107,7 @@ export default function Tasks() {
 
   const familyReward = getActiveFamilyReward();
 
-  const { completedCount, pendingCount } = getTaskStats(filteredTasks);
+  const { completedCount, pendingCount } = getTaskStats(selectedTasks);
 
   const handleDeleteTask = async (task) => {
     await deleteTask(task);
@@ -151,6 +157,8 @@ export default function Tasks() {
         canWrite={canWrite}
         pendingCount={pendingCount}
         completedCount={completedCount}
+        activeTaskScope={activeTaskScope}
+        onTaskScopeChange={setActiveTaskScope}
         onSelectPerson={setSelectedPersonId}
         onQuickAddTask={handleOpenAddTask}
         onAddTask={handleOpenAddTask}

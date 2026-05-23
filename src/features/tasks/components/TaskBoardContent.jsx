@@ -20,6 +20,8 @@ export default function TaskBoardContent({
   canWrite,
   pendingCount,
   completedCount,
+  activeTaskScope,
+  onTaskScopeChange,
   onSelectPerson,
   onQuickAddTask,
   onAddTask,
@@ -58,6 +60,8 @@ export default function TaskBoardContent({
           canWrite={canWrite}
           pendingCount={pendingCount}
           completedCount={completedCount}
+          activeTaskScope={activeTaskScope}
+          onTaskScopeChange={onTaskScopeChange}
           onAddTask={onAddTask}
           onToggleTask={onToggleTask}
           onEditTask={onEditTask}

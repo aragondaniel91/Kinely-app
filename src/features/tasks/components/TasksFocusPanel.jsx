@@ -7,7 +7,6 @@ import {
   Pencil,
   Plus,
   Sparkles,
-  Star,
   Trash2,
 } from "lucide-react";
 
@@ -15,6 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getTaskIcon, isDemoTask, isDone } from "@/features/tasks/utils/taskHelpers";
+import {
+  TASK_DATE_SCOPES,
+  getTaskDateScopeTitle,
+  getTaskDueDateKey,
+} from "@/features/tasks/utils/taskDateFilters";
 
 const priorityRank = {
   high: 0,
@@ -44,6 +48,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   const disabled = !canWrite || isDemoTask(task);
   const priority = task.priority || "medium";
   const category = task.category || "other";
+  const dueDate = getTaskDueDateKey(task);
 
   return (
     <div
@@ -92,6 +97,12 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
           <span className="rounded-full border border-slate-100 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
             {category}
           </span>
+
+          {dueDate && (
+            <span className="rounded-full border border-slate-100 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              {dueDate}
+            </span>
+          )}
         </div>
       </div>
 
@@ -127,6 +138,8 @@ export default function TasksFocusPanel({
   canWrite,
   pendingCount,
   completedCount,
+  activeTaskScope,
+  onTaskScopeChange,
   onAddTask,
   onToggleTask,
   onEditTask,
@@ -135,6 +148,7 @@ export default function TasksFocusPanel({
   const priorityTasks = getPriorityTasks(selectedTasks);
   const visibleTasks = priorityTasks.slice(0, 6);
   const completedTasks = selectedTasks.filter(isDone).slice(0, 3);
+  const scopeTitle = getTaskDateScopeTitle(activeTaskScope);
 
   return (
     <Card className="overflow-hidden rounded-[2.25rem] border-border bg-white/88 shadow-[0_24px_70px_rgba(38,50,56,0.08)] backdrop-blur-xl">
@@ -142,16 +156,16 @@ export default function TasksFocusPanel({
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
           <div>
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-accent">
-              <Star className="h-4 w-4" />
-              Today’s Focus
+              <Sparkles className="h-4 w-4" />
+              Task Focus
             </p>
 
             <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-              {selectedPerson?.name || "Family"}
+              {selectedPerson?.name || "Family"} · {scopeTitle}
             </h2>
 
             <p className="mt-1 max-w-2xl text-sm font-extrabold leading-6 text-slate-500">
-              Priority tasks, quick actions, and progress for the selected person.
+              Select a person, then switch between today, upcoming, or all tasks.
             </p>
           </div>
 
@@ -174,6 +188,28 @@ export default function TasksFocusPanel({
               </Button>
             )}
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {TASK_DATE_SCOPES.map((scope) => {
+            const active = activeTaskScope === scope.value;
+
+            return (
+              <button
+                key={scope.value}
+                type="button"
+                onClick={() => onTaskScopeChange?.(scope.value)}
+                className={cn(
+                  "rounded-full px-4 py-2 text-sm font-black transition",
+                  active
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/15"
+                    : "bg-white/80 text-slate-500 ring-1 ring-white hover:bg-white hover:text-slate-900"
+                )}
+              >
+                {scope.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -205,7 +241,7 @@ export default function TasksFocusPanel({
             {completedTasks.length > 0 && (
               <div className="pt-3">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Completed recently
+                  Completed
                 </p>
 
                 <div className="grid gap-2 md:grid-cols-3">
@@ -226,11 +262,11 @@ export default function TasksFocusPanel({
             <MoreHorizontal className="mx-auto h-10 w-10 text-slate-300" />
 
             <p className="mt-3 text-xl font-black text-slate-900">
-              No pending tasks for {selectedPerson?.name || "this person"}
+              No {scopeTitle.toLowerCase()} for {selectedPerson?.name || "this person"}
             </p>
 
             <p className="mt-1 text-sm font-bold text-slate-500">
-              Add a task to show it on this board.
+              Add a task or switch the filter to see more tasks.
             </p>
 
             {canWrite && (
