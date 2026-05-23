@@ -139,6 +139,7 @@
 export const TASK_COLLECTIONS = {
   tasks: "tasks",
   rewards: "rewards",
+  templates: "taskTemplates",
   children: "children",
   familyMembers: "familyMembers",
 };
@@ -193,4 +194,16 @@ export const DEFAULT_MEMBER_MODULE_ACCESS = {
   read: false,
   write: false,
   assignable: false,
+};
+
+
+/**
+ * Supported routine/template types.
+ */
+export const TASK_TEMPLATE_TYPES = {
+  daily: "daily",
+  weekday: "weekday",
+  weekend: "weekend",
+  bedtime: "bedtime",
+  custom: "custom",
 };

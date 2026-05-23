@@ -141,6 +141,7 @@ export default function TasksFocusPanel({
   activeTaskScope,
   onTaskScopeChange,
   onAddTask,
+  onApplyTemplate,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -178,14 +179,26 @@ export default function TasksFocusPanel({
             </div>
 
             {canWrite && (
-              <Button
-                type="button"
-                onClick={() => onAddTask?.(selectedPerson)}
-                className="h-12 rounded-2xl font-black shadow-lg shadow-primary/15"
-              >
-                <Plus className="mr-2 h-5 w-5" />
-                Add task
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onApplyTemplate?.(selectedPerson)}
+                  className="h-12 rounded-2xl bg-white/90 font-black"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Apply routine
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={() => onAddTask?.(selectedPerson)}
+                  className="h-12 rounded-2xl font-black shadow-lg shadow-primary/15"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Add task
+                </Button>
+              </>
             )}
           </div>
         </div>

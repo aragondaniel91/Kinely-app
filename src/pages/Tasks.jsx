@@ -7,6 +7,7 @@ import TasksPageLayout from "@/features/tasks/components/TasksPageLayout";
 import FamilyHeader from "@/features/tasks/components/FamilyHeader";
 import TaskBoardContent from "@/features/tasks/components/TaskBoardContent";
 import DeleteTaskDialog from "@/features/tasks/components/DeleteTaskDialog";
+import ApplyTaskTemplateDialog from "@/features/tasks/components/ApplyTaskTemplateDialog";
 
 import { demoTasks } from "@/features/tasks/data/demoTasks";
 import {
@@ -14,6 +15,7 @@ import {
   getActiveFamilyReward,
 } from "@/features/tasks/data/demoRewards";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
+import { useTaskTemplates } from "@/features/tasks/hooks/useTaskTemplates";
 import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import {
   getSelectedPerson,
@@ -49,6 +51,7 @@ export default function Tasks() {
 
   const [selectedPersonId, setSelectedPersonId] = useState(defaultPersonId);
   const [showAdd, setShowAdd] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [quickAddPerson, setQuickAddPerson] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -68,6 +71,11 @@ export default function Tasks() {
     familyId,
     canRead,
     canWrite,
+  });
+
+  const { templates } = useTaskTemplates({
+    familyId,
+    canRead,
   });
 
   useEffect(() => {
@@ -126,6 +134,12 @@ export default function Tasks() {
     setEditTask(null);
   };
 
+  const handleOpenTemplates = (person = null) => {
+    setQuickAddPerson(person);
+    if (person?.id) setSelectedPersonId(person.id);
+    setShowTemplates(true);
+  };
+
   if (!canRead) {
     return (
       <div className="mx-auto max-w-xl p-6 text-center">
@@ -162,6 +176,7 @@ export default function Tasks() {
         onSelectPerson={setSelectedPersonId}
         onQuickAddTask={handleOpenAddTask}
         onAddTask={handleOpenAddTask}
+        onApplyTemplate={handleOpenTemplates}
         onToggleTask={toggleTask}
         onEditTask={setEditTask}
         onDeleteTask={setTaskToDelete}
@@ -176,6 +191,15 @@ export default function Tasks() {
           if (!open) setTaskToDelete(null);
         }}
         onConfirm={handleDeleteTask}
+      />
+
+      <ApplyTaskTemplateDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+        templates={templates}
+        people={people}
+        initialPersonId={quickAddPerson?.id || selectedPerson?.id || ""}
+        onApplied={loadTasks}
       />
 
       {(showAdd || editTask) && (
