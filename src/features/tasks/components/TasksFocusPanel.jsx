@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Repeat,
   Sparkles,
   Trash2,
   Layers,
@@ -51,6 +52,12 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   const priority = task.priority || "medium";
   const category = task.category || "other";
   const dueDate = getTaskDueDateKey(task);
+  const isGeneratedRoutine = Boolean(
+    task.generatedFromRoutine ||
+      task.generated_from_routine ||
+      task.routineRunId ||
+      task.routine_run_id
+  );
 
   return (
     <div
@@ -103,6 +110,13 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
           {(task.chore || task.isChore || task.is_chore) && (
             <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
               chore
+            </span>
+          )}
+
+          {isGeneratedRoutine && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-purple-700">
+              <Repeat className="h-3 w-3" />
+              routine
             </span>
           )}
 
