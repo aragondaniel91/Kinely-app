@@ -24,7 +24,7 @@ import {
   getTasksByPerson,
 } from "@/features/tasks/utils/taskSelectors";
 import { filterTasksByDateScope } from "@/features/tasks/utils/taskDateFilters";
-import { isDone } from "@/features/tasks/utils/taskHelpers";
+import { getRewardProgress } from "@/features/tasks/utils/rewardProgress";
 
 export default function Tasks() {
   const {
@@ -99,10 +99,13 @@ export default function Tasks() {
     familyReward,
     firstChildPerson,
     loadRewards,
+    resetReward,
   } = useTaskRewards({
     familyId,
     canRead,
     people,
+    user,
+    profile,
   });
 
   useEffect(() => {
@@ -177,17 +180,13 @@ export default function Tasks() {
     [childRewards, childPeople, rewardTasksByPerson]
   );
 
-  const childRewardCompleted = childTasks.filter(isDone).length;
-  const childRewardRequired = Math.max(
-    Number(childReward?.requiredTasks || childReward?.required_tasks || childTasks.length || 1),
-    1
-  );
+  const childRewardProgress = getRewardProgress(childTasks, childReward);
+  const childRewardCompleted = childRewardProgress.completed;
+  const childRewardRequired = childRewardProgress.required;
 
-  const familyRewardCompleted = rewardEligibleTasks.filter(isDone).length;
-  const familyRewardRequired = Math.max(
-    Number(familyReward?.requiredTasks || familyReward?.required_tasks || rewardEligibleTasks.length || 1),
-    1
-  );
+  const familyRewardProgress = getRewardProgress(rewardEligibleTasks, familyReward);
+  const familyRewardCompleted = familyRewardProgress.completed;
+  const familyRewardRequired = familyRewardProgress.required;
 
   useEffect(() => {
     const previous = previousRewardProgressRef.current;
@@ -309,6 +308,7 @@ export default function Tasks() {
         onApplyTemplate={handleOpenTemplates}
         onManageTemplates={() => setShowManageTemplates(true)}
         onManageRewards={() => setShowManageRewards(true)}
+        onClaimReward={resetReward}
         onToggleTask={toggleTask}
         onEditTask={setEditTask}
         onDeleteTask={setTaskToDelete}

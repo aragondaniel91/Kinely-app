@@ -40,6 +40,7 @@ export default function TaskBoardContent({
   onApplyTemplate,
   onManageTemplates,
   onManageRewards,
+  onClaimReward,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -108,6 +109,8 @@ export default function TaskBoardContent({
         childRewardItems={childRewardItems}
         familyReward={familyReward}
         allTasks={allTasks}
+        canWrite={canWrite}
+        onClaimReward={onClaimReward}
       />
     </div>
   );

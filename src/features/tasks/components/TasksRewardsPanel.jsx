@@ -11,6 +11,8 @@ export default function TasksRewardsPanel({
   childRewardItems = [],
   familyReward,
   allTasks,
+  canWrite = false,
+  onClaimReward,
 }) {
   const items =
     Array.isArray(childRewardItems) && childRewardItems.length
@@ -28,6 +30,8 @@ export default function TasksRewardsPanel({
               key={item.reward?.id || item.reward?.childPersonId || item.reward?.childName}
               reward={item.reward}
               childTasks={item.tasks || []}
+              canWrite={canWrite}
+              onClaimReward={onClaimReward}
             />
           ))}
         </div>
@@ -36,6 +40,8 @@ export default function TasksRewardsPanel({
       <FamilyRewardCard
         reward={familyReward}
         allTasks={allTasks}
+        canWrite={canWrite}
+        onClaimReward={onClaimReward}
       />
 
       <Card className="rounded-[2rem] border-white/80 bg-white/80 p-5 shadow-[0_18px_45px_rgba(38,50,56,0.07)]">

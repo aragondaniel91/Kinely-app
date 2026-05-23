@@ -1,16 +1,22 @@
 import React from "react";
-import { Trophy } from "lucide-react";
+import { RotateCcw, Trophy } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { isDone } from "@/features/tasks/utils/taskHelpers";
+import { getRewardProgress } from "@/features/tasks/utils/rewardProgress";
 
-export default function ChildRewardCard({ reward, childTasks }) {
+export default function ChildRewardCard({
+  reward,
+  childTasks,
+  canWrite = false,
+  onClaimReward,
+}) {
   if (!reward) return null;
 
-  const completed = childTasks.filter(isDone).length;
-  const total = Math.max(reward.requiredTasks || childTasks.length, 1);
-  const left = Math.max(total - completed, 0);
-  const percent = Math.min(Math.round((completed / total) * 100), 100);
+  const { completed, required, left, percent, ready } = getRewardProgress(
+    childTasks,
+    reward
+  );
 
   return (
     <Card className="rounded-[2rem] border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-5 shadow-[0_18px_45px_rgba(120,72,20,0.08)]">
@@ -19,11 +25,13 @@ export default function ChildRewardCard({ reward, childTasks }) {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">
             {reward.childName} reward
           </p>
+
           <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
             {reward.title} 🍦
           </h3>
+
           <p className="mt-1 text-sm font-extrabold text-slate-500">
-            {left > 0 ? `${left} tasks to go` : "Ready to celebrate!"}
+            {ready ? "Ready to celebrate!" : `${left} tasks to go`}
           </p>
         </div>
 
@@ -42,11 +50,22 @@ export default function ChildRewardCard({ reward, childTasks }) {
 
         <div className="mt-2 flex items-center justify-between text-sm font-black text-slate-600">
           <span>
-            {completed}/{total} completed
+            {completed}/{required} completed
           </span>
           <span>{percent}%</span>
         </div>
       </div>
+
+      {ready && canWrite && (
+        <Button
+          type="button"
+          onClick={() => onClaimReward?.(reward)}
+          className="mt-5 w-full rounded-2xl bg-amber-600 font-black text-white hover:bg-amber-700"
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Claim & reset
+        </Button>
+      )}
     </Card>
   );
 }
