@@ -16,6 +16,10 @@ import {
   getColorClasses,
   normalizeColorId,
 } from "@/lib/appColorUtils";
+import {
+  canAssignTasksToMember,
+  shouldShowMemberInTasks,
+} from "@/features/tasks/utils/memberModuleVisibility";
 
 function slugify(value) {
   return String(value || "")
@@ -161,19 +165,25 @@ function buildCaregiverPeople(profile = {}) {
 
   return members
     .filter((member) => {
-      const relationship = String(member.relationship || member.role || "").toLowerCase();
+      const relationship = String(member.relationship || member.role || "")
+        .trim()
+        .toLowerCase();
       const name = getDisplayName(member, "");
 
       if (!name) return false;
 
-      const isParent =
-        relationship.includes("father") ||
-        relationship.includes("mother") ||
-        relationship.includes("dad") ||
-        relationship.includes("mom") ||
-        relationship.includes("owner");
+      const parentRoles = new Set([
+        "parent",
+        "dad",
+        "father",
+        "mom",
+        "mother",
+        "owner",
+        "co-parent",
+        "coparent",
+      ]);
 
-      if (isParent) return false;
+      if (parentRoles.has(relationship)) return false;
 
       return shouldShowMemberInTasks(member);
     })
