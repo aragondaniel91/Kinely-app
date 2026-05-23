@@ -18,7 +18,7 @@ import {
   normalizeTask,
 } from "@/features/tasks/utils/taskHelpers";
 
-export function useFamilyTasks({ familyId, canRead, canWrite }) {
+export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profile = null }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,10 +61,27 @@ export function useFamilyTasks({ familyId, canRead, canWrite }) {
   const toggleTask = async (task) => {
     if (!canWrite || isDemoTask(task)) return;
 
+    const nextDone = !isDone(task);
+    const completedByName =
+      profile?.displayName ||
+      profile?.name ||
+      user?.displayName ||
+      user?.email ||
+      "";
+
     try {
       await updateDoc(doc(db, TASK_COLLECTIONS.tasks, task.id), {
-        status: isDone(task) ? "pending" : "done",
+        status: nextDone ? "done" : "pending",
+
+        completedAt: nextDone ? serverTimestamp() : null,
+        completed_at: nextDone ? serverTimestamp() : null,
+        completedBy: nextDone ? user?.uid || null : null,
+        completed_by: nextDone ? user?.uid || null : null,
+        completedByName: nextDone ? completedByName : "",
+        completed_by_name: nextDone ? completedByName : "",
+
         updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
       });
 
       await loadTasks();

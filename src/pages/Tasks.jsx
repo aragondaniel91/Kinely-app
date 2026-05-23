@@ -37,6 +37,7 @@ export default function Tasks() {
     familyId,
     perms,
     profile,
+    user,
   } = useFamily();
 
   const boardChildren = children?.length ? children : familyChildrenCore;
@@ -73,6 +74,8 @@ export default function Tasks() {
     familyId,
     canRead,
     canWrite,
+    user,
+    profile,
   });
 
   const { templates, loadTemplates } = useTaskTemplates({
@@ -110,9 +113,22 @@ export default function Tasks() {
     [selectedTasksBase, activeTaskScope]
   );
 
+  const rewardEligibleTasks = useMemo(
+    () =>
+      displayTasks.filter(
+        (task) => task.rewardEligible === true || task.reward_eligible === true
+      ),
+    [displayTasks]
+  );
+
+  const rewardTasksByPerson = useMemo(
+    () => getTasksByPerson(rewardEligibleTasks, people),
+    [rewardEligibleTasks, people]
+  );
+
   const firstChildPerson = people.find((person) => person.roleType === "child");
   const childRewardPersonId = firstChildPerson?.id || people[0]?.id;
-  const childTasks = getSelectedTasks(allTasksByPerson, childRewardPersonId);
+  const childTasks = getSelectedTasks(rewardTasksByPerson, childRewardPersonId);
   const childReward = buildDemoChildReward(firstChildPerson);
 
   const familyReward = getActiveFamilyReward();
@@ -168,7 +184,7 @@ export default function Tasks() {
         childReward={childReward}
         childTasks={childTasks}
         familyReward={familyReward}
-        allTasks={displayTasks}
+        allTasks={rewardEligibleTasks}
         loading={loading}
         canWrite={canWrite}
         pendingCount={pendingCount}
