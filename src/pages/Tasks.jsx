@@ -11,12 +11,9 @@ import ApplyTaskTemplateDialog from "@/features/tasks/components/ApplyTaskTempla
 import ManageTaskTemplatesDialog from "@/features/tasks/components/ManageTaskTemplatesDialog";
 
 import { demoTasks } from "@/features/tasks/data/demoTasks";
-import {
-  buildDemoChildReward,
-  getActiveFamilyReward,
-} from "@/features/tasks/data/demoRewards";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
 import { useTaskTemplates } from "@/features/tasks/hooks/useTaskTemplates";
+import { useTaskRewards } from "@/features/tasks/hooks/useTaskRewards";
 import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import {
   getSelectedPerson,
@@ -83,6 +80,16 @@ export default function Tasks() {
     canRead,
   });
 
+  const {
+    childReward,
+    familyReward,
+    firstChildPerson,
+  } = useTaskRewards({
+    familyId,
+    canRead,
+    people,
+  });
+
   useEffect(() => {
     if (!people.some((person) => person.id === selectedPersonId)) {
       setSelectedPersonId(defaultPersonId);
@@ -126,12 +133,8 @@ export default function Tasks() {
     [rewardEligibleTasks, people]
   );
 
-  const firstChildPerson = people.find((person) => person.roleType === "child");
   const childRewardPersonId = firstChildPerson?.id || people[0]?.id;
   const childTasks = getSelectedTasks(rewardTasksByPerson, childRewardPersonId);
-  const childReward = buildDemoChildReward(firstChildPerson);
-
-  const familyReward = getActiveFamilyReward();
 
   const { completedCount, pendingCount } = getTaskStats(selectedTasks);
 
