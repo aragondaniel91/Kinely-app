@@ -602,7 +602,7 @@ export default function ManageTaskTemplatesDialog({
           )}
         </div>
 
-        <DialogFooter className="shrink-0 bg-white/95 px-4 pb-4 pt-2 sm:px-5">
+        <DialogFooter className="shrink-0 bg-transparent px-4 pb-4 pt-1 sm:px-5">
           {view === "list" ? (
             <Button
               variant="outline"

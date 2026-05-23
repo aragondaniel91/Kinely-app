@@ -392,7 +392,7 @@ export default function AddTaskDialog({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-3 sm:px-5">
           {error && (
             <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
               {error}
@@ -559,7 +559,7 @@ export default function AddTaskDialog({
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 bg-white/95 px-4 pb-4 pt-2 sm:px-5">
+        <DialogFooter className="shrink-0 bg-transparent px-4 pb-4 pt-1 sm:px-5">
           <Button
             variant="outline"
             onClick={() => onOpenChange?.(false)}
