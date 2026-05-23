@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 
 import PersonCard from "@/features/tasks/components/PersonCard";
 import TasksFocusPanel from "@/features/tasks/components/TasksFocusPanel";
+import TasksRewardsPanel from "@/features/tasks/components/TasksRewardsPanel";
 import { filterTasksByDateScope } from "@/features/tasks/utils/taskDateFilters";
 
 function getAggregatedFamilyTasks(tasksByPerson = {}) {
@@ -22,6 +23,10 @@ export default function TaskBoardContent({
   people,
   selectedPerson,
   selectedTasks,
+  childReward,
+  childTasks,
+  familyReward,
+  allTasks,
   loading,
   canWrite,
   pendingCount,
@@ -94,6 +99,13 @@ export default function TaskBoardContent({
         onToggleTask={onToggleTask}
         onEditTask={onEditTask}
         onDeleteTask={onDeleteTask}
+      />
+
+      <TasksRewardsPanel
+        childReward={childReward}
+        childTasks={childTasks}
+        familyReward={familyReward}
+        allTasks={allTasks}
       />
     </div>
   );
