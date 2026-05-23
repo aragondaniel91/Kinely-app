@@ -9,10 +9,12 @@ import {
 import {
   CalendarDays,
   Check,
-  CheckCircle2,
-  Gift,
+  Home,
+  Layers,
+  Save,
   Sparkles,
-  WandSparkles,
+  Star,
+  UserRound,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -31,7 +33,6 @@ import { Label } from "@/components/ui/label";
 
 import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
-import { getTaskIcon } from "@/features/tasks/utils/taskHelpers";
 import {
   TASK_CATEGORY_COPY,
   TASK_CREATE_CATEGORY_OPTIONS,
@@ -39,144 +40,192 @@ import {
   buildAssigneeOptions,
   buildTaskPayload,
   findAssigneeOption,
-  getAvailableTaskIcons,
   getDefaultTaskIcon,
-  getTaskIconOption,
-  inferTaskIconFromTitle,
   getTaskAssigneeValue,
 } from "@/features/tasks/utils/taskDialogOptions";
 
-const priorityStyles = {
-  high: {
-    active: "border-red-200 bg-red-50 text-red-700 ring-red-100",
-    idle: "border-slate-200 bg-white text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-700",
-    label: "Important",
-  },
-  medium: {
-    active: "border-amber-200 bg-amber-50 text-amber-700 ring-amber-100",
-    idle: "border-slate-200 bg-white text-slate-500 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700",
-    label: "Normal",
-  },
-  low: {
-    active: "border-emerald-200 bg-emerald-50 text-emerald-700 ring-emerald-100",
-    idle: "border-slate-200 bg-white text-slate-500 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700",
-    label: "Light",
-  },
-};
+function getTodayKey() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
-function getPersonColorClasses(person = {}) {
-  return person.colorClasses || {};
+  return `${year}-${month}-${day}`;
 }
 
-function AssigneeCard({ option, active, onClick }) {
-  const colorClasses = getPersonColorClasses(option.person);
-  const initials = String(option.label || "F").charAt(0).toUpperCase();
+function getTomorrowKey() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
 
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+const taskKindOptions = [
+  {
+    value: "task",
+    label: "Task",
+    description: "One-time family task",
+    icon: Layers,
+  },
+  {
+    value: "chore",
+    label: "Chore",
+    description: "Kid-friendly responsibility",
+    icon: Home,
+  },
+];
+
+const dueDateOptions = [
+  { value: "none", label: "No date" },
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "custom", label: "Pick date" },
+];
+
+const priorityStyles = {
+  high: "border-red-100 bg-red-50 text-red-700",
+  medium: "border-amber-100 bg-amber-50 text-amber-700",
+  low: "border-emerald-100 bg-emerald-50 text-emerald-700",
+};
+
+const categoryStyles = {
+  house: "border-blue-100 bg-blue-50/80 text-blue-700",
+  school: "border-violet-100 bg-violet-50/80 text-violet-700",
+  personal: "border-emerald-100 bg-emerald-50/80 text-emerald-700",
+  work: "border-slate-200 bg-slate-50 text-slate-700",
+  family: "border-rose-100 bg-rose-50/80 text-rose-700",
+  other: "border-amber-100 bg-amber-50/80 text-amber-700",
+};
+
+function getPersonTone(option = {}) {
+  const roleType = option.roleType || "";
+
+  if (roleType === "child") {
+    return "border-blue-100 bg-blue-50/75 text-blue-800";
+  }
+
+  if (roleType === "parent") {
+    return "border-emerald-100 bg-emerald-50/75 text-emerald-800";
+  }
+
+  if (roleType === "caregiver") {
+    return "border-violet-100 bg-violet-50/75 text-violet-800";
+  }
+
+  return "border-slate-200 bg-white text-slate-700";
+}
+
+function AssigneeButton({ option, active, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "relative min-h-[92px] rounded-3xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md",
+        "flex min-h-[72px] items-center gap-3 rounded-3xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
         active
-          ? cn(
-              colorClasses.borderStrong || colorClasses.border || "border-primary/40",
-              colorClasses.bg || "bg-primary/5",
-              "ring-4 ring-white"
-            )
-          : "border-slate-200 bg-white hover:border-slate-300"
+          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
+          : getPersonTone(option)
       )}
     >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 shadow-inner ring-1 ring-white">
+        <UserRound className="h-5 w-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black">
+          {option.label}
+        </p>
+        <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] opacity-60">
+          {option.role || "Family"}
+        </p>
+      </div>
+
       {active && (
-        <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Check className="h-4 w-4" />
         </div>
       )}
+    </button>
+  );
+}
 
+function PillButton({ active, children, className, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-2xl border px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:shadow-sm",
+        active
+          ? "border-primary/25 bg-primary text-primary-foreground shadow-lg shadow-primary/15"
+          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function KindCard({ option, active, onClick }) {
+  const Icon = option.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+        active
+          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
+          : "border-slate-200 bg-white hover:border-slate-300"
+      )}
+    >
       <div
         className={cn(
-          "flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-black",
-          active ? "bg-white text-slate-900" : "bg-slate-50 text-slate-500"
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+          active ? "bg-primary text-primary-foreground" : "bg-slate-50 text-slate-500"
         )}
       >
-        {initials}
+        <Icon className="h-5 w-5" />
       </div>
 
-      <p className="mt-2 truncate text-sm font-black text-slate-950">
-        {option.label}
-      </p>
-
-      <p className="truncate text-[11px] font-bold uppercase tracking-wide text-slate-400">
-        {option.role || "Family"}
-      </p>
-    </button>
-  );
-}
-
-function CategoryChip({ option, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-2xl border px-4 py-3 text-sm font-black transition",
-        active
-          ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/15"
-          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-      )}
-    >
-      {option.label}
-    </button>
-  );
-}
-
-function PriorityChip({ option, active, onClick }) {
-  const style = priorityStyles[option.value] || priorityStyles.medium;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-2xl border px-4 py-3 text-left transition",
-        active ? cn(style.active, "ring-4") : style.idle
-      )}
-    >
-      <p className="text-sm font-black">{option.label}</p>
-      <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide opacity-70">
-        {style.label}
-      </p>
-    </button>
-  );
-}
-
-function IconButton({ option, active, onClick }) {
-  const Icon = getTaskIcon({ icon: option.value });
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-black transition",
-        active
-          ? "border-accent/25 bg-accent/10 text-accent ring-4 ring-accent/5"
-          : "border-slate-200 bg-white text-slate-500 hover:border-accent/25 hover:bg-accent/5 hover:text-accent"
-      )}
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="truncate">{option.label}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-black text-slate-950">
+          {option.label}
+        </p>
+        <p className="mt-0.5 text-xs font-semibold text-slate-500">
+          {option.description}
+        </p>
+      </div>
     </button>
   );
 }
 
 export default function AddTaskDialog({
-  onClose,
-  onSuccess,
+  open,
+  onOpenChange,
+  onTaskSaved,
   editTask = null,
   initialAssigneePersonId = "",
 }) {
   const {
+    children = [],
+    dadName,
+    momName,
+    familyChildrenCore = [],
+    familyAdults = [],
+    familyPeople = [],
+    familyId,
+    profile,
+    user,
+  } = useFamily();
+
+  const people = useTaskBoardPeople({
     children,
     dadName,
     momName,
@@ -184,134 +233,98 @@ export default function AddTaskDialog({
     familyAdults,
     familyPeople,
     profile,
-    familyId,
-    user,
-  } = useFamily();
-
-  const boardChildren = children?.length ? children : familyChildrenCore;
-
-  const { people } = useTaskBoardPeople({
-    children: boardChildren,
-    dadName,
-    momName,
-    familyAdults,
-    familyPeople,
-    profile,
   });
 
-  const peopleById = useMemo(() => {
-    return new Map(people.map((person) => [person.id, person]));
-  }, [people]);
+  const assigneeOptions = useMemo(() => buildAssigneeOptions(people), [people]);
 
-  const assigneeOptions = useMemo(() => {
-    return buildAssigneeOptions(people).map((option) => ({
-      ...option,
-      person: peopleById.get(option.value),
-    }));
-  }, [people, peopleById]);
+  const initialAssignee = getTaskAssigneeValue(editTask || {});
+  const defaultAssigneeId =
+    editTask
+      ? initialAssignee
+      : initialAssigneePersonId || assigneeOptions[0]?.value || "family";
 
-  const initialAssigneeValue = editTask
-    ? getTaskAssigneeValue(editTask)
-    : initialAssigneePersonId || "family";
-
-  const initialAssignee = assigneeOptions.some(
-    (option) => option.value === initialAssigneeValue
-  )
-    ? initialAssigneeValue
-    : assigneeOptions[0]?.value || "family";
-
-  const initialCategory = editTask?.category || "house";
+  const existingCategory = editTask?.category || "house";
+  const existingIcon = editTask?.icon || getDefaultTaskIcon(existingCategory);
+  const existingDueDate = editTask?.dueDate || editTask?.due_date || "";
 
   const [title, setTitle] = useState(editTask?.title || "");
-  const [category, setCategory] = useState(initialCategory);
+  const [taskKind, setTaskKind] = useState(
+    editTask?.chore || editTask?.isChore || editTask?.is_chore ? "chore" : "task"
+  );
+  const [category, setCategory] = useState(existingCategory);
   const [priority, setPriority] = useState(editTask?.priority || "medium");
-  const [dueDate, setDueDate] = useState(
-    editTask?.due_date || editTask?.dueDate || ""
-  );
-  const [assignedToPersonId, setAssignedToPersonId] = useState(initialAssignee);
-  const [icon, setIcon] = useState(
-    editTask?.icon || inferTaskIconFromTitle(editTask?.title || "", initialCategory)
-  );
-  const [iconManuallySelected, setIconManuallySelected] = useState(
-    Boolean(editTask?.icon)
-  );
+  const [assignedToPersonId, setAssignedToPersonId] = useState(defaultAssigneeId);
+  const [dueDateMode, setDueDateMode] = useState(existingDueDate ? "custom" : "today");
+  const [customDueDate, setCustomDueDate] = useState(existingDueDate || getTodayKey());
   const [rewardEligible, setRewardEligible] = useState(
-    editTask?.rewardEligible ?? editTask?.reward_eligible ?? true
+    editTask?.rewardEligible ??
+      editTask?.reward_eligible ??
+      (taskKind === "chore")
   );
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const selectedAssignee = findAssigneeOption(
-    assigneeOptions,
-    assignedToPersonId
+  const selectedAssignee = findAssigneeOption(assigneeOptions, assignedToPersonId);
+  const selectedCategory = TASK_CREATE_CATEGORY_OPTIONS.find(
+    (option) => option.value === category
   );
+  const selectedIcon = getDefaultTaskIcon(category);
 
-  const availableIcons = getAvailableTaskIcons(category);
-  const suggestedIconValue = inferTaskIconFromTitle(title, category);
-  const suggestedIcon = getTaskIconOption(suggestedIconValue);
-  const currentIconOption = getTaskIconOption(icon);
-  const SuggestedIcon = getTaskIcon({ icon: suggestedIconValue });
+  const shouldShowReward =
+    selectedAssignee?.roleType === "child" || taskKind === "chore";
 
-  const handleTitleChange = (nextTitle) => {
-    setTitle(nextTitle);
+  function getResolvedDueDate() {
+    if (dueDateMode === "none") return "";
+    if (dueDateMode === "today") return getTodayKey();
+    if (dueDateMode === "tomorrow") return getTomorrowKey();
+    return customDueDate || "";
+  }
 
-    if (!iconManuallySelected) {
-      setIcon(inferTaskIconFromTitle(nextTitle, category));
-    }
-  };
-
-  const handleCategoryChange = (nextCategory) => {
+  function handleCategoryChange(nextCategory) {
     setCategory(nextCategory);
+  }
 
-    if (!iconManuallySelected) {
-      setIcon(inferTaskIconFromTitle(title, nextCategory));
+  async function handleSave() {
+    const cleanTitle = title.trim();
+
+    if (!cleanTitle) {
+      setError("Please enter a task title.");
       return;
     }
 
-    const nextIcons = getAvailableTaskIcons(nextCategory);
-    const currentIconStillValid = nextIcons.some((option) => option.value === icon);
-
-    if (!currentIconStillValid) {
-      setIcon(getDefaultTaskIcon(nextCategory));
-    }
-  };
-
-  const handleIconChange = (nextIcon) => {
-    setIcon(nextIcon);
-    setIconManuallySelected(true);
-  };
-
-  const applySuggestedIcon = () => {
-    setIcon(suggestedIconValue);
-    setIconManuallySelected(false);
-  };
-
-  const handleClose = () => {
-    if (!saving) onClose?.();
-  };
-
-  const handleSave = async () => {
-    if (!title.trim() || saving) return;
-
     if (!familyId) {
-      alert("No active family found.");
+      setError("Family profile is not ready yet.");
       return;
     }
 
     setSaving(true);
+    setError("");
 
     try {
+      const dueDate = getResolvedDueDate();
+
       const payload = {
         ...buildTaskPayload({
-          title,
+          title: cleanTitle,
           category,
           priority,
-          icon,
-          rewardEligible,
+          icon: selectedIcon || existingIcon,
+          rewardEligible: shouldShowReward ? rewardEligible : false,
           selectedAssignee,
           dueDate,
           familyId,
         }),
+
+        chore: taskKind === "chore",
+        isChore: taskKind === "chore",
+        is_chore: taskKind === "chore",
+
+        taskKind,
+        task_kind: taskKind,
+
+        familyName: profile?.family_name || profile?.familyName || "",
         updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
       };
 
       if (editTask?.id) {
@@ -322,28 +335,28 @@ export default function AddTaskDialog({
           status: "pending",
           createdBy: user?.uid || null,
           createdByEmail: user?.email || null,
-          created_date: new Date().toISOString(),
           createdAt: serverTimestamp(),
-          familyName: profile?.family_name || profile?.familyName || "",
+          created_date: new Date().toISOString(),
         });
       }
 
-      onSuccess?.();
-    } catch (error) {
-      console.error("Error saving task:", error);
-      alert(`There was an error saving the task: ${error.message}`);
+      await onTaskSaved?.();
+      onOpenChange?.(false);
+    } catch (err) {
+      console.error("Error saving task:", err);
+      setError(err?.message || "There was an error saving the task.");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="max-h-[92vh] max-w-4xl overflow-hidden rounded-[2.25rem] border-slate-200 bg-white p-0 shadow-2xl">
-        <DialogHeader className="border-b bg-gradient-to-br from-white via-secondary/35 to-accent/10 px-5 py-5">
+    <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange?.(nextOpen)}>
+      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-3xl flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
+        <DialogHeader className="shrink-0 border-b bg-gradient-to-br from-white via-secondary/35 to-accent/10 px-4 py-4 sm:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <CheckCircle2 className="h-6 w-6" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <Sparkles className="h-5 w-5" />
             </div>
 
             <div className="min-w-0">
@@ -351,238 +364,215 @@ export default function AddTaskDialog({
                 Family task
               </p>
 
-              <DialogTitle className="mt-1 text-3xl font-black tracking-tight text-slate-950">
-                {editTask ? "Edit task" : "New task"}
+              <DialogTitle className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                {editTask ? "Edit task" : "Add task"}
               </DialogTitle>
 
               <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
-                Create a clear task with a category icon, priority, and person assignment.
+                Create a clear task or chore for the right person and date.
               </p>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="max-h-[calc(92vh-150px)] overflow-y-auto px-5 py-5">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_320px]">
-            <div className="space-y-5">
-              <section>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <Label>Who is this for?</Label>
-                  <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                    Person first
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-                  {assigneeOptions.map((option) => (
-                    <AssigneeCard
-                      key={option.value}
-                      option={option}
-                      active={assignedToPersonId === option.value}
-                      onClick={() => setAssignedToPersonId(option.value)}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <Label>Task</Label>
-                <Input
-                  value={title}
-                  onChange={(event) => handleTitleChange(event.target.value)}
-                  placeholder="Example: Make bed, homework, groceries..."
-                  className="mt-2 h-14 rounded-3xl border-slate-200 px-4 text-lg font-black"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && title.trim()) handleSave();
-                  }}
-                />
-              </section>
-
-              <section>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <Label>Category</Label>
-                  <p className="text-xs font-semibold text-slate-400">
-                    {TASK_CATEGORY_COPY[category]}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {TASK_CREATE_CATEGORY_OPTIONS.map((option) => (
-                    <CategoryChip
-                      key={option.value}
-                      option={option}
-                      active={category === option.value}
-                      onClick={() => handleCategoryChange(option.value)}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <Label>Priority</Label>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  {TASK_PRIORITY_OPTIONS.map((option) => (
-                    <PriorityChip
-                      key={option.value}
-                      option={option}
-                      active={priority === option.value}
-                      onClick={() => setPriority(option.value)}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <Label>Visual icon</Label>
-
-                <div className="mt-2 rounded-3xl border border-accent/15 bg-accent/5 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-accent shadow-sm">
-                        <SuggestedIcon className="h-6 w-6" />
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
-                          Category icon
-                        </p>
-                        <p className="text-sm font-black text-slate-950">
-                          {suggestedIcon?.label || "Routine"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={applySuggestedIcon}
-                      className="rounded-2xl font-black"
-                    >
-                      <WandSparkles className="mr-2 h-4 w-4" />
-                      Use category icon
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2">
-                  {availableIcons.map((option) => (
-                    <IconButton
-                      key={option.value}
-                      option={option}
-                      active={icon === option.value}
-                      onClick={() => handleIconChange(option.value)}
-                    />
-                  ))}
-                </div>
-              </section>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+          {error && (
+            <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+              {error}
             </div>
+          )}
 
-            <aside className="space-y-4">
-              <div className="rounded-[2rem] border border-slate-100 bg-slate-50/80 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                  Preview
-                </p>
-
-                <div className="mt-4 rounded-3xl border border-white bg-white p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-secondary text-slate-700">
-                      {(() => {
-                        const PreviewIcon = getTaskIcon({ icon, title, category });
-                        return <PreviewIcon className="h-7 w-7" />;
-                      })()}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-lg font-black text-slate-950">
-                        {title.trim() || "New task"}
-                      </p>
-
-                      <p className="mt-1 text-sm font-bold text-slate-500">
-                        {selectedAssignee?.label || "Family"}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        <span
-                          className={cn(
-                            "rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                            priorityStyles[priority]?.active ||
-                              priorityStyles.medium.active
-                          )}
-                        >
-                          {priority}
-                        </span>
-
-                        <span className="rounded-full border border-slate-100 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-                          {category}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <div className="space-y-6">
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <Label>Who is this for?</Label>
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Assignment
+                </span>
               </div>
 
-              <div>
-                <Label>Due date</Label>
-                <div className="mt-2 flex items-center gap-2">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {assigneeOptions.map((option) => (
+                  <AssigneeButton
+                    key={option.value}
+                    option={option}
+                    active={assignedToPersonId === option.value}
+                    onClick={() => setAssignedToPersonId(option.value)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <Label>Task type</Label>
+
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {taskKindOptions.map((option) => (
+                  <KindCard
+                    key={option.value}
+                    option={option}
+                    active={taskKind === option.value}
+                    onClick={() => {
+                      setTaskKind(option.value);
+                      if (option.value === "chore") setRewardEligible(true);
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <Label>Task title</Label>
+
+              <Input
+                value={title}
+                onChange={(event) => {
+                  setError("");
+                  setTitle(event.target.value);
+                }}
+                placeholder="Example: Make bed"
+                className="mt-2 h-12 rounded-2xl text-base font-bold"
+                autoFocus
+              />
+            </section>
+
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <Label>Category</Label>
+
+                <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-black text-slate-500">
+                  Icon by category
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {TASK_CREATE_CATEGORY_OPTIONS.map((option) => (
+                  <PillButton
+                    key={option.value}
+                    active={category === option.value}
+                    onClick={() => handleCategoryChange(option.value)}
+                    className={
+                      category === option.value
+                        ? ""
+                        : categoryStyles[option.value] || categoryStyles.other
+                    }
+                  >
+                    {option.label}
+                  </PillButton>
+                ))}
+              </div>
+
+              <p className="mt-2 text-xs font-semibold text-slate-400">
+                {TASK_CATEGORY_COPY[category] || "General task."}
+              </p>
+            </section>
+
+            <section>
+              <Label>Due date</Label>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {dueDateOptions.map((option) => (
+                  <PillButton
+                    key={option.value}
+                    active={dueDateMode === option.value}
+                    onClick={() => setDueDateMode(option.value)}
+                  >
+                    {option.label}
+                  </PillButton>
+                ))}
+              </div>
+
+              {dueDateMode === "custom" && (
+                <div className="mt-3 flex items-center gap-2">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
                     <CalendarDays className="h-5 w-5" />
                   </div>
 
                   <Input
                     type="date"
-                    value={dueDate}
-                    onChange={(event) => setDueDate(event.target.value)}
+                    value={customDueDate}
+                    onChange={(event) => setCustomDueDate(event.target.value)}
                     className="h-11 rounded-2xl"
                   />
                 </div>
-              </div>
+              )}
+            </section>
 
-              {selectedAssignee?.roleType === "child" && (
+            <section>
+              <Label>Priority</Label>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {TASK_PRIORITY_OPTIONS.map((option) => (
+                  <PillButton
+                    key={option.value}
+                    active={priority === option.value}
+                    onClick={() => setPriority(option.value)}
+                    className={
+                      priority === option.value
+                        ? ""
+                        : priorityStyles[option.value] || priorityStyles.medium
+                    }
+                  >
+                    {option.label}
+                  </PillButton>
+                ))}
+              </div>
+            </section>
+
+            {shouldShowReward && (
+              <section>
                 <button
                   type="button"
-                  onClick={() => setRewardEligible((value) => !value)}
+                  onClick={() => setRewardEligible((current) => !current)}
                   className={cn(
-                    "w-full rounded-3xl border p-4 text-left transition",
+                    "flex w-full items-center justify-between gap-3 rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
                     rewardEligible
-                      ? "border-amber-200 bg-amber-50"
+                      ? "border-accent/20 bg-accent/8 ring-4 ring-accent/5"
                       : "border-slate-200 bg-white"
                   )}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
-                      <Gift className="h-5 w-5" />
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+                        rewardEligible
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-slate-50 text-slate-400"
+                      )}
+                    >
+                      <Star className="h-5 w-5" />
                     </div>
 
                     <div>
                       <p className="text-sm font-black text-slate-950">
-                        Count toward child reward
+                        Counts toward rewards
                       </p>
-                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                        {rewardEligible
-                          ? "This task will count toward the child reward."
-                          : "This task will not count toward the child reward."}
+                      <p className="text-xs font-semibold text-slate-500">
+                        Useful for chores and kid responsibilities.
                       </p>
                     </div>
                   </div>
-                </button>
-              )}
 
-              <div className="rounded-3xl border border-accent/15 bg-accent/5 p-4">
-                <div className="flex items-start gap-3">
-                  <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
-                  <p className="text-xs font-semibold leading-5 text-slate-500">
-                    Tip: short titles and clear categories make the wall screen easier for kids and caregivers.
-                  </p>
-                </div>
-              </div>
-            </aside>
+                  <div
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                      rewardEligible
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-slate-200 bg-white text-transparent"
+                    )}
+                  >
+                    <Check className="h-4 w-4" />
+                  </div>
+                </button>
+              </section>
+            )}
           </div>
         </div>
 
-        <DialogFooter className="border-t bg-slate-50/70 px-5 py-4">
+        <DialogFooter className="shrink-0 border-t bg-slate-50/70 px-4 py-3 sm:px-5">
           <Button
             variant="outline"
-            onClick={handleClose}
+            onClick={() => onOpenChange?.(false)}
             disabled={saving}
             className="rounded-2xl font-black"
           >
@@ -591,9 +581,10 @@ export default function AddTaskDialog({
 
           <Button
             onClick={handleSave}
-            disabled={!title.trim() || saving || !familyId}
+            disabled={saving}
             className="rounded-2xl font-black"
           >
+            <Save className="mr-2 h-4 w-4" />
             {saving ? "Saving..." : editTask ? "Save changes" : "Add task"}
           </Button>
         </DialogFooter>
