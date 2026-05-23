@@ -8,6 +8,7 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  Layers,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,7 @@ export default function TasksFocusPanel({
   onTaskScopeChange,
   onAddTask,
   onApplyTemplate,
+  onManageTemplates,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -186,6 +188,16 @@ export default function TasksFocusPanel({
 
             {canWrite && (
               <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onManageTemplates?.()}
+                  className="h-12 rounded-2xl bg-white/90 font-black"
+                >
+                  <Layers className="mr-2 h-5 w-5" />
+                  Manage routines
+                </Button>
+
                 <Button
                   type="button"
                   variant="outline"

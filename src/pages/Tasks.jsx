@@ -8,6 +8,7 @@ import FamilyHeader from "@/features/tasks/components/FamilyHeader";
 import TaskBoardContent from "@/features/tasks/components/TaskBoardContent";
 import DeleteTaskDialog from "@/features/tasks/components/DeleteTaskDialog";
 import ApplyTaskTemplateDialog from "@/features/tasks/components/ApplyTaskTemplateDialog";
+import ManageTaskTemplatesDialog from "@/features/tasks/components/ManageTaskTemplatesDialog";
 
 import { demoTasks } from "@/features/tasks/data/demoTasks";
 import {
@@ -52,6 +53,7 @@ export default function Tasks() {
   const [selectedPersonId, setSelectedPersonId] = useState(defaultPersonId);
   const [showAdd, setShowAdd] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showManageTemplates, setShowManageTemplates] = useState(false);
   const [quickAddPerson, setQuickAddPerson] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -73,7 +75,7 @@ export default function Tasks() {
     canWrite,
   });
 
-  const { templates } = useTaskTemplates({
+  const { templates, loadTemplates } = useTaskTemplates({
     familyId,
     canRead,
   });
@@ -177,6 +179,7 @@ export default function Tasks() {
         onQuickAddTask={handleOpenAddTask}
         onAddTask={handleOpenAddTask}
         onApplyTemplate={handleOpenTemplates}
+        onManageTemplates={() => setShowManageTemplates(true)}
         onToggleTask={toggleTask}
         onEditTask={setEditTask}
         onDeleteTask={setTaskToDelete}
@@ -191,6 +194,13 @@ export default function Tasks() {
           if (!open) setTaskToDelete(null);
         }}
         onConfirm={handleDeleteTask}
+      />
+
+      <ManageTaskTemplatesDialog
+        open={showManageTemplates}
+        onOpenChange={setShowManageTemplates}
+        templates={templates}
+        onSaved={loadTemplates}
       />
 
       <ApplyTaskTemplateDialog

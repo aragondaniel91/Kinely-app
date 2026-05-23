@@ -26,6 +26,7 @@ export default function TaskBoardContent({
   onQuickAddTask,
   onAddTask,
   onApplyTemplate,
+  onManageTemplates,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -65,6 +66,7 @@ export default function TaskBoardContent({
           onTaskScopeChange={onTaskScopeChange}
           onAddTask={onAddTask}
           onApplyTemplate={onApplyTemplate}
+          onManageTemplates={onManageTemplates}
           onToggleTask={onToggleTask}
           onEditTask={onEditTask}
           onDeleteTask={onDeleteTask}
