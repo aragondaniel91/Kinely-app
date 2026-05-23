@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
@@ -10,6 +10,7 @@ import DeleteTaskDialog from "@/features/tasks/components/DeleteTaskDialog";
 import ApplyTaskTemplateDialog from "@/features/tasks/components/ApplyTaskTemplateDialog";
 import ManageTaskTemplatesDialog from "@/features/tasks/components/ManageTaskTemplatesDialog";
 import ManageTaskRewardsDialog from "@/features/tasks/components/ManageTaskRewardsDialog";
+import RewardCelebrationOverlay from "@/features/tasks/components/RewardCelebrationOverlay";
 
 import { demoTasks } from "@/features/tasks/data/demoTasks";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
@@ -23,6 +24,7 @@ import {
   getTasksByPerson,
 } from "@/features/tasks/utils/taskSelectors";
 import { filterTasksByDateScope } from "@/features/tasks/utils/taskDateFilters";
+import { isDone } from "@/features/tasks/utils/taskHelpers";
 
 export default function Tasks() {
   const {
@@ -54,6 +56,14 @@ export default function Tasks() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showManageTemplates, setShowManageTemplates] = useState(false);
   const [showManageRewards, setShowManageRewards] = useState(false);
+  const [rewardCelebration, setRewardCelebration] = useState(null);
+  const previousRewardProgressRef = useRef({
+    initialized: false,
+    childCompleted: 0,
+    childRequired: 0,
+    familyCompleted: 0,
+    familyRequired: 0,
+  });
   const [quickAddPerson, setQuickAddPerson] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -138,6 +148,73 @@ export default function Tasks() {
 
   const childRewardPersonId = firstChildPerson?.id || people[0]?.id;
   const childTasks = getSelectedTasks(rewardTasksByPerson, childRewardPersonId);
+
+  const childRewardCompleted = childTasks.filter(isDone).length;
+  const childRewardRequired = Math.max(
+    Number(childReward?.requiredTasks || childReward?.required_tasks || childTasks.length || 1),
+    1
+  );
+
+  const familyRewardCompleted = rewardEligibleTasks.filter(isDone).length;
+  const familyRewardRequired = Math.max(
+    Number(familyReward?.requiredTasks || familyReward?.required_tasks || rewardEligibleTasks.length || 1),
+    1
+  );
+
+  useEffect(() => {
+    const previous = previousRewardProgressRef.current;
+
+    if (!previous.initialized) {
+      previousRewardProgressRef.current = {
+        initialized: true,
+        childCompleted: childRewardCompleted,
+        childRequired: childRewardRequired,
+        familyCompleted: familyRewardCompleted,
+        familyRequired: familyRewardRequired,
+      };
+      return;
+    }
+
+    const childJustUnlocked =
+      childReward &&
+      previous.childCompleted < childRewardRequired &&
+      childRewardCompleted >= childRewardRequired;
+
+    const familyJustUnlocked =
+      familyReward &&
+      previous.familyCompleted < familyRewardRequired &&
+      familyRewardCompleted >= familyRewardRequired;
+
+    if (childJustUnlocked) {
+      setRewardCelebration({
+        type: "child",
+        title: `${childReward.childName || firstChildPerson?.name || "Your child"} earned ${childReward.title}!`,
+        message: `${childRewardCompleted}/${childRewardRequired} reward tasks completed. Time to celebrate.`,
+      });
+    } else if (familyJustUnlocked) {
+      setRewardCelebration({
+        type: "family",
+        title: `${familyReward.title} unlocked!`,
+        message: `${familyRewardCompleted}/${familyRewardRequired} family reward tasks completed together.`,
+      });
+    }
+
+    previousRewardProgressRef.current = {
+      initialized: true,
+      childCompleted: childRewardCompleted,
+      childRequired: childRewardRequired,
+      familyCompleted: familyRewardCompleted,
+      familyRequired: familyRewardRequired,
+    };
+  }, [
+    childReward,
+    childRewardCompleted,
+    childRewardRequired,
+    familyReward,
+    familyRewardCompleted,
+    familyRewardRequired,
+    firstChildPerson,
+  ]);
 
   const { completedCount, pendingCount } = getTaskStats(selectedTasks);
 
@@ -256,6 +333,11 @@ export default function Tasks() {
           await loadTasks();
           handleCloseAddTask();
         }}
+      />
+
+      <RewardCelebrationOverlay
+        celebration={rewardCelebration}
+        onClose={() => setRewardCelebration(null)}
       />
     </TasksPageLayout>
   );
