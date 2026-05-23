@@ -6,7 +6,17 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { AlertCircle, AlertTriangle, Copy, Edit3, Layers, Plus, Save, Trash2, X } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Copy,
+  Edit3,
+  Layers,
+  Plus,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -68,7 +78,10 @@ function parseTaskLines(taskLines = "", category = "house", priority = "medium",
       priority,
       icon: getDefaultTaskIcon(category),
       rewardEligible: true,
+      reward_eligible: true,
       chore: type === "chore",
+      isChore: type === "chore",
+      is_chore: type === "chore",
     }));
 }
 
@@ -105,6 +118,7 @@ function TemplateListItem({ template, active, onEdit, onClone, onDelete }) {
           <p className="truncate text-base font-black text-slate-950">
             {template.title}
           </p>
+
           <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
             {template.description || "Reusable family routine."}
           </p>
@@ -140,9 +154,8 @@ function TemplateListItem({ template, active, onEdit, onClone, onDelete }) {
             size="icon"
             variant="outline"
             onClick={() => onDelete(template)}
-            disabled={isStarter}
-            className="h-9 w-9 rounded-full border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:opacity-40"
-            title={isStarter ? "Starter routines cannot be deleted" : "Delete routine"}
+            className="h-9 w-9 rounded-full border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+            title={isStarter ? "Hide starter routine" : "Delete routine"}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -172,6 +185,8 @@ export default function ManageTaskTemplatesDialog({
   open,
   onOpenChange,
   templates = [],
+  hiddenStarterTemplateIds = [],
+  updateActiveFamily,
   onSaved,
 }) {
   const { familyId, user } = useFamily();
@@ -205,16 +220,19 @@ export default function ManageTaskTemplatesDialog({
 
   function startNew() {
     setError("");
+    setTemplateToDelete(null);
     setDraft(getEmptyDraft());
   }
 
   function editTemplate(template) {
     setError("");
+    setTemplateToDelete(null);
     setDraft(buildDraftFromTemplate(template));
   }
 
   function cloneTemplate(template) {
     setError("");
+    setTemplateToDelete(null);
     setDraft(buildDraftFromTemplate(template, { clone: true }));
   }
 
@@ -234,9 +252,8 @@ export default function ManageTaskTemplatesDialog({
       return;
     }
 
-    setError("");
-
     setSaving(true);
+    setError("");
 
     try {
       const payload = {
@@ -265,16 +282,17 @@ export default function ManageTaskTemplatesDialog({
 
       await onSaved?.();
       setDraft(getEmptyDraft());
-    } catch (error) {
-      console.error("Error saving routine:", error);
-      setError(error?.message || "There was an error saving the routine.");
+    } catch (err) {
+      console.error("Error saving routine:", err);
+      setError(err?.message || "There was an error saving the routine.");
     } finally {
       setSaving(false);
     }
   }
 
   function requestDeleteTemplate(template) {
-    if (!template?.id || template.source === "starter" || saving) return;
+    if (!template?.id || saving) return;
+
     setError("");
     setTemplateToDelete(template);
   }
@@ -282,29 +300,39 @@ export default function ManageTaskTemplatesDialog({
   async function confirmDeleteTemplate() {
     const template = templateToDelete;
 
-    if (!template?.id || template.source === "starter" || saving) return;
+    if (!template?.id || saving) return;
 
     setSaving(true);
     setError("");
 
     try {
-      await updateDoc(doc(db, TASK_COLLECTIONS.templates, template.id), {
-        active: false,
-        deletedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        updatedBy: user?.uid || null,
-      });
+      if (template.source === "starter") {
+        const nextHiddenIds = Array.from(
+          new Set([...(hiddenStarterTemplateIds || []), template.id])
+        );
 
-      await onSaved?.();
+        await updateActiveFamily?.({
+          hiddenStarterTaskTemplateIds: nextHiddenIds,
+          hidden_starter_task_template_ids: nextHiddenIds,
+        });
+      } else {
+        await updateDoc(doc(db, TASK_COLLECTIONS.templates, template.id), {
+          active: false,
+          deletedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          updatedBy: user?.uid || null,
+        });
 
-      if (draft.id === template.id) {
-        setDraft(getEmptyDraft());
+        if (draft.id === template.id) {
+          setDraft(getEmptyDraft());
+        }
       }
 
+      await onSaved?.();
       setTemplateToDelete(null);
-    } catch (error) {
-      console.error("Error deleting routine:", error);
-      setError(error?.message || "There was an error deleting the routine.");
+    } catch (err) {
+      console.error("Error removing routine:", err);
+      setError(err?.message || "There was an error removing the routine.");
     } finally {
       setSaving(false);
     }
@@ -351,6 +379,7 @@ export default function ManageTaskTemplatesDialog({
                 type="button"
                 variant="outline"
                 onClick={startNew}
+                disabled={saving}
                 className="rounded-2xl font-black"
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -420,6 +449,7 @@ export default function ManageTaskTemplatesDialog({
                   size="icon"
                   variant="outline"
                   onClick={startNew}
+                  disabled={saving}
                   className="h-9 w-9 rounded-full"
                 >
                   <X className="h-4 w-4" />
@@ -543,18 +573,22 @@ export default function ManageTaskTemplatesDialog({
                   </p>
 
                   <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                    Delete “{templateToDelete.title}”?
+                    {templateToDelete.source === "starter" ? "Hide" : "Delete"} “{templateToDelete.title}”?
                   </h3>
 
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                    This will remove the routine from your custom family templates. Existing tasks already created from this routine will stay on the board.
+                    {templateToDelete.source === "starter"
+                      ? "This will hide the starter routine from this family. You can add it back later when we add routine library settings."
+                      : "This will remove the routine from your custom family templates. Existing tasks already created from this routine will stay on the board."}
                   </p>
                 </div>
               </div>
 
               <div className="mt-5 rounded-3xl border border-red-100 bg-red-50/70 p-4">
                 <p className="text-sm font-bold text-red-700">
-                  This action hides the routine from your list, but it does not delete completed or pending tasks that were already created.
+                  {templateToDelete.source === "starter"
+                    ? "Starter routines are not deleted globally. They are only hidden for this family."
+                    : "This action hides the routine from your list, but it does not delete completed or pending tasks that were already created."}
                 </p>
               </div>
 
@@ -576,7 +610,13 @@ export default function ManageTaskTemplatesDialog({
                   className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {saving ? "Deleting..." : "Delete routine"}
+                  {saving
+                    ? templateToDelete.source === "starter"
+                      ? "Hiding..."
+                      : "Deleting..."
+                    : templateToDelete.source === "starter"
+                      ? "Hide starter"
+                      : "Delete routine"}
                 </Button>
               </div>
             </div>
