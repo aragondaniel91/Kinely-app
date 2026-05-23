@@ -30,13 +30,14 @@ import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
   TASK_CATEGORY_COPY,
-  TASK_CATEGORY_OPTIONS,
+  TASK_CREATE_CATEGORY_OPTIONS,
   TASK_PRIORITY_OPTIONS,
   buildAssigneeOptions,
   buildTaskPayload,
   findAssigneeOption,
   getAvailableTaskIcons,
   getDefaultTaskIcon,
+  inferTaskIconFromTitle,
   getTaskAssigneeValue,
 } from "@/features/tasks/utils/taskDialogOptions";
 
@@ -109,8 +110,9 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
   const [dueDate, setDueDate] = useState(editTask?.due_date || editTask?.dueDate || "");
   const [assignedToPersonId, setAssignedToPersonId] = useState(initialAssignee);
   const [icon, setIcon] = useState(
-    editTask?.icon || getDefaultTaskIcon(initialCategory)
+    editTask?.icon || inferTaskIconFromTitle(editTask?.title || "", initialCategory)
   );
+  const [iconManuallySelected, setIconManuallySelected] = useState(Boolean(editTask?.icon));
   const [rewardEligible, setRewardEligible] = useState(
     editTask?.rewardEligible ?? editTask?.reward_eligible ?? true
   );
@@ -123,8 +125,21 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
 
   const availableIcons = getAvailableTaskIcons(category);
 
+  const handleTitleChange = (nextTitle) => {
+    setTitle(nextTitle);
+
+    if (!iconManuallySelected) {
+      setIcon(inferTaskIconFromTitle(nextTitle, category));
+    }
+  };
+
   const handleCategoryChange = (nextCategory) => {
     setCategory(nextCategory);
+
+    if (!iconManuallySelected) {
+      setIcon(inferTaskIconFromTitle(title, nextCategory));
+      return;
+    }
 
     const nextIcons = getAvailableTaskIcons(nextCategory);
     const currentIconStillValid = nextIcons.some((option) => option.value === icon);
@@ -132,6 +147,11 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
     if (!currentIconStillValid) {
       setIcon(getDefaultTaskIcon(nextCategory));
     }
+  };
+
+  const handleIconChange = (nextIcon) => {
+    setIcon(nextIcon);
+    setIconManuallySelected(true);
   };
 
   const handleClose = () => {
@@ -216,7 +236,7 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
             <Label>Task</Label>
             <Input
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => handleTitleChange(event.target.value)}
               placeholder="What needs to be done?"
               className="mt-1 h-11 rounded-2xl"
               onKeyDown={(event) => {
@@ -238,7 +258,7 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
               label="Category"
               value={category}
               onChange={handleCategoryChange}
-              options={TASK_CATEGORY_OPTIONS}
+              options={TASK_CREATE_CATEGORY_OPTIONS}
               helper={TASK_CATEGORY_COPY[category]}
             />
 
@@ -254,7 +274,7 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
           <SelectField
             label="Visual icon"
             value={icon}
-            onChange={setIcon}
+            onChange={handleIconChange}
             options={availableIcons}
             helper="Large icons help kids and grandparents recognize tasks quickly."
           />

@@ -97,6 +97,9 @@ function buildChildPerson(child, index) {
       roleType: "child",
       icon: Baby,
       avatar: name.charAt(0).toUpperCase(),
+      avatarUrl: typeof child === "object" && child !== null
+        ? child.avatarUrl || child.avatar_url || child.photoURL || child.photoUrl || child.photo_url || ""
+        : "",
       color: colorId,
       colorId,
       aliases: [
@@ -136,6 +139,7 @@ function buildAdultPerson({
       roleType,
       icon,
       avatar: cleanName.charAt(0).toUpperCase(),
+      avatarUrl: "",
       color: colorId,
       colorId,
       aliases: [

@@ -76,7 +76,10 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
         selected ? `${person.border} ring-4 ring-white/80` : "border-white/80"
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className={cn("pointer-events-none absolute inset-x-0 top-0 h-2", colorClasses.stripe || person.accent || "bg-primary")} />
+      <div className={cn("pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-25 blur-2xl", colorClasses.bgStrong || colorClasses.stripe || "bg-primary")} />
+
+      <div className="relative flex items-start justify-between gap-3">
         <div>
           <PersonAvatar person={person} />
           <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-900">
@@ -90,7 +93,7 @@ export default function PersonCard({ person, tasks, selected, onSelect }) {
         <ProgressRing completed={completed} total={total || 0} person={person} />
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="relative mt-4 space-y-2">
         {quickTasks.length > 0 ? (
           quickTasks.map((task) => {
             const TaskIcon = getTaskIcon(task);

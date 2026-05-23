@@ -50,6 +50,7 @@ export default function Tasks() {
   const [showAdd, setShowAdd] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [activeCategory, setActiveCategory] = useState("all");
 
   const canRead = perms?.tasks?.read !== false;
   const canWrite = perms?.tasks?.write !== false;
@@ -74,9 +75,19 @@ export default function Tasks() {
 
   const displayTasks = tasks.length > 0 ? tasks : demoTasks;
 
-  const tasksByPerson = useMemo(
+  const filteredTasks = useMemo(() => {
+    if (activeCategory === "all") return displayTasks;
+    return displayTasks.filter((task) => (task.category || "other") === activeCategory);
+  }, [activeCategory, displayTasks]);
+
+  const allTasksByPerson = useMemo(
     () => getTasksByPerson(displayTasks, people),
     [displayTasks, people]
+  );
+
+  const tasksByPerson = useMemo(
+    () => getTasksByPerson(filteredTasks, people),
+    [filteredTasks, people]
   );
 
   const selectedPerson = getSelectedPerson(people, selectedPersonId);
@@ -84,12 +95,12 @@ export default function Tasks() {
 
   const firstChildPerson = people.find((person) => person.roleType === "child");
   const childRewardPersonId = firstChildPerson?.id || people[0]?.id;
-  const childTasks = getSelectedTasks(tasksByPerson, childRewardPersonId);
+  const childTasks = getSelectedTasks(allTasksByPerson, childRewardPersonId);
   const childReward = buildDemoChildReward(firstChildPerson);
 
   const familyReward = getActiveFamilyReward();
 
-  const { completedCount, pendingCount } = getTaskStats(displayTasks);
+  const { completedCount, pendingCount } = getTaskStats(filteredTasks);
 
   const handleDeleteTask = async (task) => {
     await deleteTask(task);
@@ -131,6 +142,8 @@ export default function Tasks() {
         onToggleTask={toggleTask}
         onEditTask={setEditTask}
         onDeleteTask={setTaskToDelete}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
       />
 
       <DeleteTaskDialog

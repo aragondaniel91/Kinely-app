@@ -4,6 +4,7 @@ import PersonCard from "@/features/tasks/components/PersonCard";
 import TasksFocusPanel from "@/features/tasks/components/TasksFocusPanel";
 import TasksRewardsPanel from "@/features/tasks/components/TasksRewardsPanel";
 import BottomFocusBar from "@/features/tasks/components/BottomFocusBar";
+import TaskCategoryFilter from "@/features/tasks/components/TaskCategoryFilter";
 
 export default function TaskBoardContent({
   people,
@@ -23,9 +24,16 @@ export default function TaskBoardContent({
   onToggleTask,
   onEditTask,
   onDeleteTask,
+  activeCategory,
+  onCategoryChange,
 }) {
   return (
     <>
+      <TaskCategoryFilter
+        activeCategory={activeCategory}
+        onChange={onCategoryChange}
+      />
+
       <div className="grid gap-4 xl:grid-cols-5">
         {people.map((person) => (
           <PersonCard

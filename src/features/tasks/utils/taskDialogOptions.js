@@ -8,6 +8,7 @@ export const TASK_CATEGORY_COPY = {
 };
 
 export const TASK_CATEGORY_OPTIONS = [
+  { value: "all", label: "All" },
   { value: "house", label: "House" },
   { value: "school", label: "School" },
   { value: "personal", label: "Personal" },
@@ -16,6 +17,10 @@ export const TASK_CATEGORY_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+export const TASK_CREATE_CATEGORY_OPTIONS = TASK_CATEGORY_OPTIONS.filter(
+  (option) => option.value !== "all"
+);
+
 export const TASK_PRIORITY_OPTIONS = [
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
@@ -23,18 +28,40 @@ export const TASK_PRIORITY_OPTIONS = [
 ];
 
 export const TASK_ICON_OPTIONS = [
-  { value: "bed", label: "Bed", categories: ["house", "personal"] },
-  { value: "read", label: "Read", categories: ["school", "personal"] },
-  { value: "backpack", label: "Backpack", categories: ["school"] },
-  { value: "plant", label: "Plants", categories: ["house"] },
-  { value: "trash", label: "Trash", categories: ["house"] },
-  { value: "medicine", label: "Medicine", categories: ["personal"] },
-  { value: "grocery", label: "Groceries", categories: ["house", "family"] },
-  { value: "dinner", label: "Dinner", categories: ["house", "family"] },
-  { value: "family", label: "Family", categories: ["family"] },
-  { value: "home", label: "Home", categories: ["house", "other"] },
-  { value: "sparkles", label: "Routine", categories: ["personal", "other"] },
+  { value: "bed", label: "Bed", categories: ["house", "personal"], keywords: ["bed", "make bed", "cama", "hacer cama"] },
+  { value: "read", label: "Read", categories: ["school", "personal"], keywords: ["read", "reading", "book", "leer", "lectura", "libro"] },
+  { value: "backpack", label: "Backpack", categories: ["school"], keywords: ["backpack", "bag", "school bag", "mochila"] },
+  { value: "plant", label: "Plants", categories: ["house"], keywords: ["plant", "plants", "water plants", "regar", "plantas"] },
+  { value: "trash", label: "Trash", categories: ["house"], keywords: ["trash", "garbage", "basura", "sacar basura"] },
+  { value: "medicine", label: "Medicine", categories: ["personal"], keywords: ["medicine", "medication", "pill", "medicina", "medicación", "pastilla"] },
+  { value: "grocery", label: "Groceries", categories: ["house", "family"], keywords: ["grocery", "groceries", "milk", "leche", "compras", "supermarket"] },
+  { value: "dinner", label: "Dinner", categories: ["house", "family"], keywords: ["dinner", "lunch", "meal", "food", "cena", "almuerzo", "comida"] },
+  { value: "family", label: "Family", categories: ["family"], keywords: ["family", "together", "movie", "pizza", "familia", "juntos", "película"] },
+  { value: "home", label: "Home", categories: ["house", "other"], keywords: ["home", "house", "clean", "casa", "limpiar"] },
+  { value: "sparkles", label: "Routine", categories: ["personal", "other"], keywords: ["routine", "brush", "teeth", "shower", "rutina", "cepillar", "dientes"] },
 ];
+
+export function normalizeTaskText(value = "") {
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+export function inferTaskIconFromTitle(title = "", category = "other") {
+  const text = normalizeTaskText(title);
+
+  if (!text) return getDefaultTaskIcon(category);
+
+  const directMatch = TASK_ICON_OPTIONS.find((option) =>
+    option.keywords.some((keyword) => text.includes(normalizeTaskText(keyword)))
+  );
+
+  if (directMatch) return directMatch.value;
+
+  return getDefaultTaskIcon(category);
+}
 
 export function getDefaultTaskIcon(category) {
   if (category === "school") return "read";
