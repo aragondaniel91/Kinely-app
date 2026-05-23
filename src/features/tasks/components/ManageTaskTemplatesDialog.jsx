@@ -7,7 +7,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { Edit3, Layers, Plus, Save, Trash2, X } from "lucide-react";
+import { Copy, Edit3, Layers, Plus, Save, Trash2, X } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -73,7 +73,19 @@ function parseTaskLines(taskLines = "", category = "house", priority = "medium",
     }));
 }
 
-function TemplateListItem({ template, active, onEdit, onDelete }) {
+function buildDraftFromTemplate(template, { clone = false } = {}) {
+  return {
+    id: clone ? "" : template.id || "",
+    title: clone ? `${template.title || "Routine"} copy` : template.title || "",
+    description: template.description || "",
+    type: template.type || "custom",
+    category: template.category || "house",
+    defaultPriority: template.tasks?.[0]?.priority || "medium",
+    taskLines: tasksToLines(template.tasks || []),
+  };
+}
+
+function TemplateListItem({ template, active, onEdit, onClone, onDelete }) {
   const isStarter = template.source === "starter";
 
   return (
@@ -82,31 +94,47 @@ function TemplateListItem({ template, active, onEdit, onDelete }) {
         "rounded-3xl border p-4 transition",
         active
           ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
-          : "border-slate-200 bg-white"
+          : "border-slate-200 bg-white hover:border-slate-300"
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <button
+          type="button"
+          onClick={() => (isStarter ? onClone(template) : onEdit(template))}
+          className="min-w-0 flex-1 text-left"
+        >
           <p className="truncate text-base font-black text-slate-950">
             {template.title}
           </p>
           <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
             {template.description || "Reusable family routine."}
           </p>
-        </div>
+        </button>
 
         <div className="flex shrink-0 gap-1">
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            onClick={() => onEdit(template)}
-            disabled={isStarter}
-            className="h-9 w-9 rounded-full"
-            title={isStarter ? "Starter routines cannot be edited yet" : "Edit routine"}
-          >
-            <Edit3 className="h-4 w-4" />
-          </Button>
+          {isStarter ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => onClone(template)}
+              className="h-9 w-9 rounded-full"
+              title="Use as starting point"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => onEdit(template)}
+              className="h-9 w-9 rounded-full"
+              title="Edit routine"
+            >
+              <Edit3 className="h-4 w-4" />
+            </Button>
+          )}
 
           <Button
             type="button"
@@ -114,7 +142,7 @@ function TemplateListItem({ template, active, onEdit, onDelete }) {
             variant="outline"
             onClick={() => onDelete(template)}
             disabled={isStarter}
-            className="h-9 w-9 rounded-full border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+            className="h-9 w-9 rounded-full border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 disabled:opacity-40"
             title={isStarter ? "Starter routines cannot be deleted" : "Delete routine"}
           >
             <Trash2 className="h-4 w-4" />
@@ -154,6 +182,11 @@ export default function ManageTaskTemplatesDialog({
     [templates]
   );
 
+  const starterTemplates = useMemo(
+    () => templates.filter((template) => template.source === "starter"),
+    [templates]
+  );
+
   const [draft, setDraft] = useState(getEmptyDraft());
   const [saving, setSaving] = useState(false);
 
@@ -173,15 +206,11 @@ export default function ManageTaskTemplatesDialog({
   }
 
   function editTemplate(template) {
-    setDraft({
-      id: template.id,
-      title: template.title || "",
-      description: template.description || "",
-      type: template.type || "custom",
-      category: template.category || "house",
-      defaultPriority: template.tasks?.[0]?.priority || "medium",
-      taskLines: tasksToLines(template.tasks || []),
-    });
+    setDraft(buildDraftFromTemplate(template));
+  }
+
+  function cloneTemplate(template) {
+    setDraft(buildDraftFromTemplate(template, { clone: true }));
   }
 
   async function saveTemplate() {
@@ -279,7 +308,7 @@ export default function ManageTaskTemplatesDialog({
               </DialogTitle>
 
               <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
-                Create reusable routines and chores that can be applied to any person and date.
+                Create reusable routines and chores, or copy a starter routine and customize it.
               </p>
             </div>
           </div>
@@ -309,6 +338,7 @@ export default function ManageTaskTemplatesDialog({
                     template={template}
                     active={draft.id === template.id}
                     onEdit={editTemplate}
+                    onClone={cloneTemplate}
                     onDelete={deleteTemplate}
                   />
                 ))
@@ -318,7 +348,7 @@ export default function ManageTaskTemplatesDialog({
                     No custom routines yet
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Create your first routine for daily chores, school mornings, or weekends.
+                    Start from scratch or copy a starter routine below.
                   </p>
                 </div>
               )}
@@ -326,18 +356,21 @@ export default function ManageTaskTemplatesDialog({
 
             <div className="mt-5">
               <Label>Starter routines</Label>
+              <p className="mt-1 text-xs font-semibold text-slate-400">
+                Click a starter or the copy icon to load it into the editor.
+              </p>
+
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                {templates
-                  .filter((template) => template.source === "starter")
-                  .map((template) => (
-                    <TemplateListItem
-                      key={template.id}
-                      template={template}
-                      active={false}
-                      onEdit={editTemplate}
-                      onDelete={deleteTemplate}
-                    />
-                  ))}
+                {starterTemplates.map((template) => (
+                  <TemplateListItem
+                    key={template.id}
+                    template={template}
+                    active={false}
+                    onEdit={editTemplate}
+                    onClone={cloneTemplate}
+                    onDelete={deleteTemplate}
+                  />
+                ))}
               </div>
             </div>
           </section>
@@ -353,7 +386,7 @@ export default function ManageTaskTemplatesDialog({
                 </h3>
               </div>
 
-              {draft.id && (
+              {(draft.id || draft.title || draft.taskLines) && (
                 <Button
                   type="button"
                   size="icon"
@@ -464,7 +497,7 @@ export default function ManageTaskTemplatesDialog({
             className="rounded-2xl font-black"
           >
             <Save className="mr-2 h-4 w-4" />
-            {saving ? "Saving..." : "Save routine"}
+            {saving ? "Saving..." : draft.id ? "Save changes" : "Save routine"}
           </Button>
         </DialogFooter>
       </DialogContent>
