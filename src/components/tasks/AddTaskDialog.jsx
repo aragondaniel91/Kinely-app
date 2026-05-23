@@ -51,6 +51,46 @@ function normalizeName(value, fallback) {
   return String(value || fallback || "").trim();
 }
 
+function normalizePersonKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function dedupePeopleByNameAndRole(people = []) {
+  const seen = new Set();
+
+  return people.filter((person) => {
+    if (!person?.id || !person?.name) return false;
+
+    const nameKey = normalizePersonKey(person.name);
+    const roleKey = String(person.roleType || person.role || "").toLowerCase();
+
+    const isParentLike = [
+      "parent",
+      "dad",
+      "mom",
+      "father",
+      "mother",
+      "owner",
+      "admin",
+      "co-parent",
+      "coparent",
+    ].includes(roleKey);
+
+    const key = isParentLike ? `parent-${nameKey}` : `${roleKey}-${nameKey}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
 function buildPeopleFromFamily({
   children = [],
   familyChildrenCore = [],
@@ -208,6 +248,7 @@ export default function AddTaskDialog({
   open,
   onOpenChange,
   onTaskSaved,
+  people: boardPeople = [],
   editTask = null,
   initialAssigneePersonId = "",
 }) {
@@ -225,7 +266,7 @@ export default function AddTaskDialog({
     user,
   } = family || {};
 
-  const people = useMemo(
+  const fallbackPeople = useMemo(
     () =>
       buildPeopleFromFamily({
         children,
@@ -237,6 +278,14 @@ export default function AddTaskDialog({
       }),
     [children, dadName, momName, familyChildrenCore, familyAdults, familyPeople]
   );
+
+  const people = useMemo(() => {
+    const sourcePeople = Array.isArray(boardPeople) && boardPeople.length
+      ? boardPeople
+      : fallbackPeople;
+
+    return dedupePeopleByNameAndRole(sourcePeople);
+  }, [boardPeople, fallbackPeople]);
 
   const categoryOptions =
     Array.isArray(TASK_CREATE_CATEGORY_OPTIONS) && TASK_CREATE_CATEGORY_OPTIONS.length
@@ -264,7 +313,9 @@ export default function AddTaskDialog({
   const [dueMode, setDueMode] = useState(existingDueDate ? "custom" : "today");
   const [customDueDate, setCustomDueDate] = useState(existingDueDate || getDateKey(0));
   const [rewardEligible, setRewardEligible] = useState(
-    editTask?.rewardEligible ?? editTask?.reward_eligible ?? false
+    editTask?.rewardEligible ??
+      editTask?.reward_eligible ??
+      (editTask ? false : taskKind === "chore")
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -274,8 +325,7 @@ export default function AddTaskDialog({
     people.find((person) => person.id === "family") ||
     people[0];
 
-  const shouldShowReward =
-    taskKind === "chore" || selectedPerson?.roleType === "child";
+  const shouldShowReward = true;
 
   function getDueDate() {
     if (dueMode === "none") return "";

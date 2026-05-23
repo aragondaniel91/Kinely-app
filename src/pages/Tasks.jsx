@@ -217,6 +217,7 @@ export default function Tasks() {
         onOpenChange={(open) => {
           if (!open) handleCloseAddTask();
         }}
+        people={people}
         editTask={editTask}
         initialAssigneePersonId={quickAddPerson?.id || selectedPerson?.id || ""}
         onTaskSaved={async () => {
