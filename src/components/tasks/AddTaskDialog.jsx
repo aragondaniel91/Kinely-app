@@ -60,16 +60,18 @@ function getDefaultIcon(category) {
   return "sparkles";
 }
 
-function getAssigneeFromTask(task = {}) {
+function getAssigneeFromTask(task) {
+  const safeTask = task || {};
+
   return (
-    task.assignedToPersonId ||
-    task.assigned_to_person_id ||
-    task.personId ||
-    task.person_id ||
-    task.childId ||
-    task.child_id ||
-    task.assignedTo ||
-    task.assigned_to ||
+    safeTask.assignedToPersonId ||
+    safeTask.assigned_to_person_id ||
+    safeTask.personId ||
+    safeTask.person_id ||
+    safeTask.childId ||
+    safeTask.child_id ||
+    safeTask.assignedTo ||
+    safeTask.assigned_to ||
     "family"
   );
 }
