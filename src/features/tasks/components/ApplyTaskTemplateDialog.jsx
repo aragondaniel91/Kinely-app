@@ -1,15 +1,23 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   Check,
+  ClipboardCheck,
+  Home,
   Layers,
+  Moon,
+  Repeat,
+  School,
   Sparkles,
+  Sun,
+  UserRound,
+  Users,
 } from "lucide-react";
 import {
   collection,
+  doc,
   serverTimestamp,
   writeBatch,
-  doc,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -27,20 +35,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
-import { buildAssigneeOptions, findAssigneeOption } from "@/features/tasks/utils/taskDialogOptions";
+import {
+  buildAssigneeOptions,
+  findAssigneeOption,
+} from "@/features/tasks/utils/taskDialogOptions";
 
-
-const TEMPLATE_TYPE_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "chore", label: "Chores" },
-  { value: "weekday", label: "Weekday" },
-  { value: "weekend", label: "Weekend" },
-  { value: "bedtime", label: "Bedtime" },
-  { value: "daily", label: "Daily" },
-];
-
-function getTodayKey() {
+function getDateKey(offsetDays = 0) {
   const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -48,47 +51,53 @@ function getTodayKey() {
   return `${year}-${month}-${day}`;
 }
 
-function TemplateCard({ template, active, onClick }) {
+const routineFilters = [
+  { value: "all", label: "All", icon: Layers },
+  { value: "chore", label: "Chores", icon: Home },
+  { value: "weekday", label: "Weekday", icon: School },
+  { value: "weekend", label: "Weekend", icon: Sun },
+  { value: "bedtime", label: "Bedtime", icon: Moon },
+  { value: "daily", label: "Daily", icon: Repeat },
+];
+
+const dueOptions = [
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+  { value: "custom", label: "Pick date" },
+];
+
+function getRoutineIcon(type = "") {
+  if (type === "chore") return Home;
+  if (type === "weekday") return School;
+  if (type === "weekend") return Sun;
+  if (type === "bedtime") return Moon;
+  if (type === "daily") return Repeat;
+  return Layers;
+}
+
+function getRoutineTone(type = "") {
+  if (type === "chore") return "bg-blue-50 text-blue-700 ring-blue-100";
+  if (type === "weekday") return "bg-violet-50 text-violet-700 ring-violet-100";
+  if (type === "weekend") return "bg-amber-50 text-amber-700 ring-amber-100";
+  if (type === "bedtime") return "bg-indigo-50 text-indigo-700 ring-indigo-100";
+  if (type === "daily") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  return "bg-slate-50 text-slate-600 ring-slate-100";
+}
+
+function SegmentedButton({ active, icon: Icon, children, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md",
+        "inline-flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-black ring-1 transition hover:-translate-y-0.5 hover:shadow-sm",
         active
-          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
-          : "border-slate-200 bg-white hover:border-slate-300"
+          ? "bg-primary text-primary-foreground ring-transparent shadow-lg shadow-primary/15"
+          : "bg-white text-slate-500 ring-slate-200 hover:bg-slate-50 hover:text-slate-900"
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-slate-700">
-          <Layers className="h-5 w-5" />
-        </div>
-
-        {active && (
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Check className="h-4 w-4" />
-          </div>
-        )}
-      </div>
-
-      <p className="mt-3 text-base font-black text-slate-950">
-        {template.title}
-      </p>
-
-      <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
-        {template.description || "Reusable family routine."}
-      </p>
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-          {template.type || "custom"}
-        </span>
-
-        <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
-          {(template.tasks || []).length} tasks
-        </span>
-      </div>
+      {Icon && <Icon className="h-4 w-4" />}
+      {children}
     </button>
   );
 }
@@ -99,16 +108,84 @@ function PersonPill({ option, active, onClick }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl border px-4 py-3 text-left transition",
+        "flex shrink-0 items-center gap-2 rounded-2xl border px-3 py-2 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
         active
-          ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/15"
-          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+          ? "border-primary/20 bg-primary/5 ring-4 ring-primary/5"
+          : "border-slate-200 bg-white hover:bg-slate-50"
       )}
     >
-      <p className="text-sm font-black">{option.label}</p>
-      <p className="text-[11px] font-bold uppercase tracking-wide opacity-75">
-        {option.role || "Family"}
-      </p>
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+          active ? "bg-primary text-primary-foreground" : "bg-slate-50 text-slate-400"
+        )}
+      >
+        <Users className="h-4 w-4" />
+      </div>
+
+      <div className="min-w-[72px]">
+        <p className="max-w-[120px] truncate text-sm font-black text-slate-950">
+          {option.label}
+        </p>
+        <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+          {option.role || "Family"}
+        </p>
+      </div>
+
+      {active && <Check className="h-4 w-4 shrink-0 text-primary" />}
+    </button>
+  );
+}
+
+function RoutineCard({ template, active, onClick }) {
+  const Icon = getRoutineIcon(template.type);
+  const tone = getRoutineTone(template.type);
+  const taskCount = (template.tasks || []).length;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-[1.75rem] border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+        active
+          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
+          : "border-slate-200 bg-white hover:border-slate-300"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1", tone)}>
+          <Icon className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="truncate text-sm font-black text-slate-950">
+              {template.title}
+            </p>
+
+            {active && (
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Check className="h-3.5 w-3.5" />
+              </div>
+            )}
+          </div>
+
+          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
+            {template.description || "Reusable family routine."}
+          </p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              {template.type || "custom"}
+            </span>
+
+            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
+              {taskCount} tasks
+            </span>
+          </div>
+        </div>
+      </div>
     </button>
   );
 }
@@ -124,15 +201,14 @@ export default function ApplyTaskTemplateDialog({
   const { familyId, user, profile } = useFamily();
 
   const assigneeOptions = useMemo(() => buildAssigneeOptions(people), [people]);
+
   const [templateTypeFilter, setTemplateTypeFilter] = useState("all");
-  const [selectedTemplateId, setSelectedTemplateId] = useState(
-    templates[0]?.id || ""
-  );
-  const [selectedPersonId, setSelectedPersonId] = useState(
-    initialPersonId || assigneeOptions[0]?.value || "family"
-  );
-  const [dueDate, setDueDate] = useState(getTodayKey());
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedPersonId, setSelectedPersonId] = useState("family");
+  const [dueMode, setDueMode] = useState("today");
+  const [customDueDate, setCustomDueDate] = useState(getDateKey(0));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const filteredTemplates = useMemo(() => {
     if (templateTypeFilter === "all") return templates;
@@ -146,25 +222,61 @@ export default function ApplyTaskTemplateDialog({
 
   const selectedAssignee = findAssigneeOption(assigneeOptions, selectedPersonId);
 
-  const handleApply = async () => {
+  useEffect(() => {
+    if (!open) return;
+
+    setTemplateTypeFilter("all");
+    setSelectedTemplateId(templates[0]?.id || "");
+    setSelectedPersonId(initialPersonId || assigneeOptions[0]?.value || "family");
+    setDueMode("today");
+    setCustomDueDate(getDateKey(0));
+    setError("");
+  }, [open, templates, initialPersonId, assigneeOptions]);
+
+  function getDueDate() {
+    if (dueMode === "today") return getDateKey(0);
+    if (dueMode === "tomorrow") return getDateKey(1);
+    return customDueDate || getDateKey(0);
+  }
+
+  function handleFilterChange(filterValue) {
+    setTemplateTypeFilter(filterValue);
+
+    const nextTemplate =
+      filterValue === "all"
+        ? templates[0]
+        : templates.find((template) => template.type === filterValue);
+
+    setSelectedTemplateId(nextTemplate?.id || "");
+  }
+
+  async function handleApply() {
     if (!familyId || !selectedTemplate || saving) return;
 
     const templateTasks = Array.isArray(selectedTemplate.tasks)
       ? selectedTemplate.tasks
       : [];
 
-    if (!templateTasks.length) return;
+    if (!templateTasks.length) {
+      setError("This routine does not have any tasks.");
+      return;
+    }
 
     setSaving(true);
+    setError("");
 
     try {
       const batch = writeBatch(db);
+      const dueDate = getDueDate();
       const childId =
         selectedAssignee?.roleType === "child"
           ? selectedAssignee.childId || selectedAssignee.value
           : "";
 
       templateTasks.forEach((task) => {
+        const isChore = task.chore === true || selectedTemplate.type === "chore";
+        const rewardEligible = task.rewardEligible !== false;
+
         const taskRef = doc(collection(db, TASK_COLLECTIONS.tasks));
 
         batch.set(taskRef, {
@@ -172,11 +284,15 @@ export default function ApplyTaskTemplateDialog({
           category: task.category || selectedTemplate.category || "other",
           priority: task.priority || "medium",
           icon: task.icon || selectedTemplate.icon || "sparkles",
-          rewardEligible: task.rewardEligible !== false,
-          reward_eligible: task.rewardEligible !== false,
-          chore: task.chore === true || selectedTemplate.type === "chore",
-          isChore: task.chore === true || selectedTemplate.type === "chore",
-          is_chore: task.chore === true || selectedTemplate.type === "chore",
+
+          rewardEligible,
+          reward_eligible: rewardEligible,
+
+          chore: isChore,
+          isChore,
+          is_chore: isChore,
+          taskKind: isChore ? "chore" : "task",
+          task_kind: isChore ? "chore" : "task",
 
           assignedTo: selectedAssignee?.label || "Family",
           assigned_to: selectedAssignee?.label || "Family",
@@ -214,81 +330,83 @@ export default function ApplyTaskTemplateDialog({
       await batch.commit();
       await onApplied?.();
       onOpenChange?.(false);
-    } catch (error) {
-      console.error("Error applying task template:", error);
-      alert(`There was an error applying the routine: ${error.message}`);
+    } catch (err) {
+      console.error("Error applying task template:", err);
+      setError(err?.message || "There was an error applying the routine.");
     } finally {
       setSaving(false);
     }
-  };
+  }
+
+  const previewTasks = selectedTemplate?.tasks || [];
+  const RoutineIcon = getRoutineIcon(selectedTemplate?.type);
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange?.(nextOpen)}>
-      <DialogContent className="max-h-[92vh] max-w-5xl overflow-hidden rounded-[2.25rem] border-slate-200 bg-white p-0 shadow-2xl">
-        <DialogHeader className="border-b bg-gradient-to-br from-white via-secondary/35 to-accent/10 px-5 py-5">
+      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.25rem)] max-w-3xl flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
+        <DialogHeader className="shrink-0 bg-gradient-to-br from-white via-secondary/20 to-accent/5 px-4 pb-3 pt-4 sm:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              <Sparkles className="h-6 w-6" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
+              <Sparkles className="h-5 w-5" />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-accent">
                 Routine templates
               </p>
 
-              <DialogTitle className="mt-1 text-3xl font-black tracking-tight text-slate-950">
+              <DialogTitle className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                 Apply routine
               </DialogTitle>
 
-              <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
-                Pick a reusable routine, assign it to a person, and create real tasks for a specific date.
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Choose a routine, assign it, and create tasks for a date.
               </p>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="max-h-[calc(92vh-155px)] overflow-y-auto p-5">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_340px]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-3 sm:px-5">
+          {error && (
+            <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
             <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <Label>Choose routine</Label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <Label>Routine type</Label>
                 <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                  {filteredTemplates.length} shown · {templates.length} total
+                  {filteredTemplates.length} shown
                 </span>
               </div>
 
-              <div className="mb-4 flex flex-wrap gap-2">
-                {TEMPLATE_TYPE_FILTERS.map((filter) => {
-                  const active = templateTypeFilter === filter.value;
+              <div className="flex flex-wrap gap-2">
+                {routineFilters.map((filter) => (
+                  <SegmentedButton
+                    key={filter.value}
+                    active={templateTypeFilter === filter.value}
+                    icon={filter.icon}
+                    onClick={() => handleFilterChange(filter.value)}
+                  >
+                    {filter.label}
+                  </SegmentedButton>
+                ))}
+              </div>
+            </section>
 
-                  return (
-                    <button
-                      key={filter.value}
-                      type="button"
-                      onClick={() => {
-                        setTemplateTypeFilter(filter.value);
-                        const nextTemplate = filter.value === "all"
-                          ? templates[0]
-                          : templates.find((template) => template.type === filter.value);
-
-                        if (nextTemplate) setSelectedTemplateId(nextTemplate.id);
-                      }}
-                      className={cn(
-                        "rounded-full px-4 py-2 text-sm font-black transition",
-                        active
-                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/15"
-                          : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900"
-                      )}
-                    >
-                      {filter.label}
-                    </button>
-                  );
-                })}
+            <section className="rounded-[1.75rem] bg-slate-50/75 p-3 ring-1 ring-slate-100">
+              <div className="mb-3 flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4 text-accent" />
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Choose routine
+                </p>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {filteredTemplates.map((template) => (
-                  <TemplateCard
+                  <RoutineCard
                     key={template.id}
                     template={template}
                     active={selectedTemplate?.id === template.id}
@@ -296,12 +414,29 @@ export default function ApplyTaskTemplateDialog({
                   />
                 ))}
               </div>
+
+              {!filteredTemplates.length && (
+                <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center">
+                  <p className="text-sm font-black text-slate-900">
+                    No routines in this group
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    Try All or create one in Manage routines.
+                  </p>
+                </div>
+              )}
             </section>
 
-            <aside className="space-y-5">
-              <section>
+            <section>
+              <div className="mb-2 flex items-center justify-between gap-3">
                 <Label>Assign to</Label>
-                <div className="mt-2 grid gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Swipe if needed
+                </span>
+              </div>
+
+              <div className="-mx-1 overflow-x-auto px-1 pb-1">
+                <div className="flex min-w-max gap-2">
                   {assigneeOptions.map((option) => (
                     <PersonPill
                       key={option.value}
@@ -311,53 +446,83 @@ export default function ApplyTaskTemplateDialog({
                     />
                   ))}
                 </div>
-              </section>
+              </div>
+            </section>
 
-              <section>
-                <Label>Due date</Label>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
-                    <CalendarDays className="h-5 w-5" />
+            <section className="rounded-[1.75rem] bg-slate-50/75 p-3 ring-1 ring-slate-100">
+              <div className="mb-3 flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-accent" />
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  When
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {dueOptions.map((option) => (
+                  <SegmentedButton
+                    key={option.value}
+                    active={dueMode === option.value}
+                    onClick={() => setDueMode(option.value)}
+                  >
+                    {option.label}
+                  </SegmentedButton>
+                ))}
+              </div>
+
+              {dueMode === "custom" && (
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-500 ring-1 ring-slate-100">
+                    <CalendarDays className="h-4 w-4" />
                   </div>
 
                   <Input
                     type="date"
-                    value={dueDate}
-                    onChange={(event) => setDueDate(event.target.value)}
-                    className="h-11 rounded-2xl"
+                    value={customDueDate}
+                    onChange={(event) => setCustomDueDate(event.target.value)}
+                    className="h-10 rounded-2xl bg-white"
                   />
                 </div>
-              </section>
+              )}
+            </section>
 
-              <section className="rounded-3xl border border-slate-100 bg-slate-50/80 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                  Preview
-                </p>
-
-                <p className="mt-3 text-lg font-black text-slate-950">
-                  {selectedTemplate?.title || "Routine"}
-                </p>
-
-                <p className="mt-1 text-sm font-bold text-slate-500">
-                  {(selectedTemplate?.tasks || []).length} tasks for {selectedAssignee?.label || "Family"}
-                </p>
-
-                <div className="mt-3 space-y-2">
-                  {(selectedTemplate?.tasks || []).slice(0, 5).map((task, index) => (
-                    <div
-                      key={`${task.title}-${index}`}
-                      className="rounded-2xl bg-white px-3 py-2 text-sm font-black text-slate-700"
-                    >
-                      {task.title}
-                    </div>
-                  ))}
+            <section className="rounded-[1.75rem] border border-accent/10 bg-accent/5 p-3">
+              <div className="flex items-start gap-3">
+                <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1", getRoutineTone(selectedTemplate?.type))}>
+                  <RoutineIcon className="h-5 w-5" />
                 </div>
-              </section>
-            </aside>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-slate-950">
+                    {selectedTemplate?.title || "Routine"}
+                  </p>
+
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    {previewTasks.length} tasks will be created for {selectedAssignee?.label || "Family"}.
+                  </p>
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {previewTasks.slice(0, 4).map((task, index) => (
+                      <div
+                        key={`${task.title}-${index}`}
+                        className="truncate rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-white"
+                      >
+                        {task.title}
+                      </div>
+                    ))}
+                  </div>
+
+                  {previewTasks.length > 4 && (
+                    <p className="mt-2 text-xs font-black text-accent">
+                      +{previewTasks.length - 4} more tasks
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
           </div>
         </div>
 
-        <DialogFooter className="bg-transparent px-5 pb-4 pt-1">
+        <DialogFooter className="shrink-0 bg-transparent px-4 pb-4 pt-1 sm:px-5">
           <Button
             variant="outline"
             onClick={() => onOpenChange?.(false)}
