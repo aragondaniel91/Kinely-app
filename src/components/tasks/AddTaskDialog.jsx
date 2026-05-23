@@ -159,7 +159,7 @@ function OptionButton({ active, children, onClick }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl border px-4 py-2.5 text-sm font-black transition",
+        "rounded-2xl border px-3.5 py-2 text-sm font-black transition",
         active
           ? "border-primary/25 bg-primary text-primary-foreground shadow-lg shadow-primary/15"
           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -176,14 +176,14 @@ function AssigneeButton({ person, active, onClick }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-h-[64px] items-center gap-3 rounded-3xl border p-3 text-left transition",
+        "flex min-h-[58px] items-center gap-2.5 rounded-2xl border p-2.5 text-left transition",
         active
           ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
           : "border-slate-200 bg-white hover:bg-slate-50"
       )}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
-        <Users className="h-5 w-5" />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
+        <Users className="h-4 w-4" />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -369,10 +369,10 @@ export default function AddTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange?.(nextOpen)}>
-      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-3xl flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
-        <DialogHeader className="shrink-0 border-b bg-gradient-to-br from-white via-secondary/35 to-accent/10 px-4 py-4 sm:px-5">
+      <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.25rem)] max-w-2xl flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
+        <DialogHeader className="shrink-0 bg-gradient-to-br from-white via-secondary/25 to-accent/5 px-4 pb-3 pt-4 sm:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
               <Sparkles className="h-5 w-5" />
             </div>
 
@@ -381,7 +381,7 @@ export default function AddTaskDialog({
                 Family task
               </p>
 
-              <DialogTitle className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+              <DialogTitle className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                 {editTask ? "Edit task" : "Add task"}
               </DialogTitle>
 
@@ -392,18 +392,18 @@ export default function AddTaskDialog({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           {error && (
             <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
               {error}
             </div>
           )}
 
-          <div className="space-y-5">
+          <div className="space-y-4">
             <section>
               <Label>Who is this for?</Label>
 
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {people.map((person) => (
                   <AssigneeButton
                     key={person.id}
@@ -448,7 +448,7 @@ export default function AddTaskDialog({
                   setTitle(event.target.value);
                 }}
                 placeholder="Example: Make bed"
-                className="mt-2 h-12 rounded-2xl text-base font-bold"
+                className="mt-2 h-11 rounded-2xl text-base font-bold"
                 autoFocus
               />
             </section>
