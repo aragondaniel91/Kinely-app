@@ -1,14 +1,13 @@
 import React from "react";
 
 import { cn } from "@/lib/utils";
-import { taskPeople } from "@/features/tasks/data/taskPeople";
 import {
   getTaskIcon,
   isDone,
 } from "@/features/tasks/utils/taskHelpers";
 
-export default function BottomFocusBar({ tasksByPerson }) {
-  const nextItems = taskPeople
+export default function BottomFocusBar({ people = [], tasksByPerson }) {
+  const nextItems = people
     .map((person) => {
       const task = (tasksByPerson[person.id] || []).find((item) => !isDone(item));
       return task ? { person, task } : null;

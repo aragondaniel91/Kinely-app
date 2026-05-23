@@ -23,8 +23,28 @@ import {
 } from "@/features/tasks/utils/taskSelectors";
 
 export default function Tasks() {
-  const { familyId, perms } = useFamily();
-  const { people, defaultPersonId } = useTaskBoardPeople();
+  const {
+    children,
+    dadName,
+    momName,
+    familyChildrenCore,
+    familyAdults,
+    familyPeople,
+    familyId,
+    perms,
+    profile,
+  } = useFamily();
+
+  const boardChildren = children?.length ? children : familyChildrenCore;
+
+  const { people, defaultPersonId } = useTaskBoardPeople({
+    children: boardChildren,
+    dadName,
+    momName,
+    familyAdults,
+    familyPeople,
+    profile,
+  });
 
   const [selectedPersonId, setSelectedPersonId] = useState(defaultPersonId);
   const [showAdd, setShowAdd] = useState(false);
@@ -61,9 +81,12 @@ export default function Tasks() {
 
   const selectedPerson = getSelectedPerson(people, selectedPersonId);
   const selectedTasks = getSelectedTasks(tasksByPerson, selectedPerson?.id);
-  const joaquinTasks = getSelectedTasks(tasksByPerson, "joaquin");
 
-  const childReward = getActiveChildReward("joaquin");
+  const firstChildPerson = people.find((person) => person.roleType === "child");
+  const childRewardPersonId = firstChildPerson?.id || "joaquin";
+  const childTasks = getSelectedTasks(tasksByPerson, childRewardPersonId);
+
+  const childReward = getActiveChildReward(childRewardPersonId) || getActiveChildReward("joaquin");
   const familyReward = getActiveFamilyReward();
 
   const { completedCount, pendingCount } = getTaskStats(displayTasks);
@@ -97,7 +120,7 @@ export default function Tasks() {
         selectedPerson={selectedPerson}
         selectedTasks={selectedTasks}
         childReward={childReward}
-        childTasks={joaquinTasks}
+        childTasks={childTasks}
         familyReward={familyReward}
         allTasks={displayTasks}
         loading={loading}

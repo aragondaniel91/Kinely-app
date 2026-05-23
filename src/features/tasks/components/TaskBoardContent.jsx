@@ -59,7 +59,7 @@ export default function TaskBoardContent({
         />
       </div>
 
-      <BottomFocusBar tasksByPerson={tasksByPerson} />
+      <BottomFocusBar people={people} tasksByPerson={tasksByPerson} />
     </>
   );
 }
