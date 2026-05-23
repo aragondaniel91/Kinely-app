@@ -9,12 +9,9 @@ import {
 import {
   CalendarDays,
   Check,
-  Home,
-  Layers,
   Save,
   Sparkles,
-  Star,
-  UserRound,
+  Users,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -31,31 +28,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
-  TASK_CATEGORY_COPY,
   TASK_CREATE_CATEGORY_OPTIONS,
   TASK_PRIORITY_OPTIONS,
-  buildAssigneeOptions,
-  buildTaskPayload,
-  findAssigneeOption,
   getDefaultTaskIcon,
   getTaskAssigneeValue,
 } from "@/features/tasks/utils/taskDialogOptions";
 
-function getTodayKey() {
+function getDateKey(offsetDays = 0) {
   const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getTomorrowKey() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
+  date.setDate(date.getDate() + offsetDays);
 
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -64,29 +47,98 @@ function getTomorrowKey() {
   return `${year}-${month}-${day}`;
 }
 
-const taskKindOptions = [
-  {
-    value: "task",
-    label: "Task",
-    description: "One-time family task",
-    icon: Layers,
-  },
-  {
-    value: "chore",
-    label: "Chore",
-    description: "Kid-friendly responsibility",
-    icon: Home,
-  },
-];
+function normalizeName(value, fallback) {
+  return String(value || fallback || "").trim();
+}
 
-const dueDateOptions = [
-  { value: "none", label: "No date" },
-  { value: "today", label: "Today" },
-  { value: "tomorrow", label: "Tomorrow" },
-  { value: "custom", label: "Pick date" },
-];
+function buildPeopleFromFamily({
+  children = [],
+  familyChildrenCore = [],
+  familyAdults = [],
+  familyPeople = [],
+  dadName,
+  momName,
+}) {
+  const peopleById = new Map();
 
-const fallbackCategoryOptions = [
+  function addPerson(person) {
+    if (!person) return;
+
+    const id =
+      person.id ||
+      person.uid ||
+      person.childId ||
+      person.child_id ||
+      person.email ||
+      "";
+
+    const name =
+      person.name ||
+      person.displayName ||
+      person.fullName ||
+      person.label ||
+      "";
+
+    if (!id || !name) return;
+
+    peopleById.set(id, {
+      id,
+      name,
+      role: person.role || person.relationship || "Family",
+      roleType: person.roleType || person.role_type || "",
+      childId: person.childId || person.child_id || "",
+    });
+  }
+
+  peopleById.set("family", {
+    id: "family",
+    name: "Family",
+    role: "Together",
+    roleType: "family",
+    childId: "",
+  });
+
+  [...children, ...familyChildrenCore].forEach((child) => {
+    const id = child.id || child.childId || child.child_id || child.name;
+    const name = child.name || child.displayName || "Child";
+
+    if (!id || !name) return;
+
+    peopleById.set(id, {
+      id,
+      name,
+      role: "Child",
+      roleType: "child",
+      childId: child.id || child.childId || child.child_id || id,
+    });
+  });
+
+  if (dadName) {
+    peopleById.set("dad", {
+      id: "dad",
+      name: normalizeName(dadName, "Dad"),
+      role: "Parent",
+      roleType: "parent",
+      childId: "",
+    });
+  }
+
+  if (momName) {
+    peopleById.set("mom", {
+      id: "mom",
+      name: normalizeName(momName, "Mom"),
+      role: "Parent",
+      roleType: "parent",
+      childId: "",
+    });
+  }
+
+  [...familyAdults, ...familyPeople].forEach(addPerson);
+
+  return Array.from(peopleById.values());
+}
+
+const fallbackCategories = [
   { value: "house", label: "House" },
   { value: "school", label: "School" },
   { value: "personal", label: "Personal" },
@@ -95,76 +147,51 @@ const fallbackCategoryOptions = [
   { value: "other", label: "Other" },
 ];
 
-const fallbackPriorityOptions = [
+const fallbackPriorities = [
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
   { value: "low", label: "Low" },
 ];
 
-const safeCategoryCopy = {
-  house: "Family and home responsibilities.",
-  school: "School and learning.",
-  personal: "Personal routine or care.",
-  work: "Personal or work focus.",
-  family: "Shared family moment or responsibility.",
-  other: "General task.",
-};
-
-const priorityStyles = {
-  high: "border-red-100 bg-red-50 text-red-700",
-  medium: "border-amber-100 bg-amber-50 text-amber-700",
-  low: "border-emerald-100 bg-emerald-50 text-emerald-700",
-};
-
-const categoryStyles = {
-  house: "border-blue-100 bg-blue-50/80 text-blue-700",
-  school: "border-violet-100 bg-violet-50/80 text-violet-700",
-  personal: "border-emerald-100 bg-emerald-50/80 text-emerald-700",
-  work: "border-slate-200 bg-slate-50 text-slate-700",
-  family: "border-rose-100 bg-rose-50/80 text-rose-700",
-  other: "border-amber-100 bg-amber-50/80 text-amber-700",
-};
-
-function getPersonTone(option = {}) {
-  const roleType = option.roleType || "";
-
-  if (roleType === "child") {
-    return "border-blue-100 bg-blue-50/75 text-blue-800";
-  }
-
-  if (roleType === "parent") {
-    return "border-emerald-100 bg-emerald-50/75 text-emerald-800";
-  }
-
-  if (roleType === "caregiver") {
-    return "border-violet-100 bg-violet-50/75 text-violet-800";
-  }
-
-  return "border-slate-200 bg-white text-slate-700";
-}
-
-function AssigneeButton({ option, active, onClick }) {
+function OptionButton({ active, children, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-h-[72px] items-center gap-3 rounded-3xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+        "rounded-2xl border px-4 py-2.5 text-sm font-black transition",
         active
-          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
-          : getPersonTone(option)
+          ? "border-primary/25 bg-primary text-primary-foreground shadow-lg shadow-primary/15"
+          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
       )}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/85 shadow-inner ring-1 ring-white">
-        <UserRound className="h-5 w-5" />
+      {children}
+    </button>
+  );
+}
+
+function AssigneeButton({ person, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex min-h-[64px] items-center gap-3 rounded-3xl border p-3 text-left transition",
+        active
+          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
+          : "border-slate-200 bg-white hover:bg-slate-50"
+      )}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+        <Users className="h-5 w-5" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black">
-          {option.label}
+        <p className="truncate text-sm font-black text-slate-950">
+          {person.name}
         </p>
-        <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] opacity-60">
-          {option.role || "Family"}
+        <p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+          {person.role}
         </p>
       </div>
 
@@ -177,59 +204,6 @@ function AssigneeButton({ option, active, onClick }) {
   );
 }
 
-function PillButton({ active, children, className, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-2xl border px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:shadow-sm",
-        active
-          ? "border-primary/25 bg-primary text-primary-foreground shadow-lg shadow-primary/15"
-          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-        className
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function KindCard({ option, active, onClick }) {
-  const Icon = option.icon;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
-        active
-          ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
-          : "border-slate-200 bg-white hover:border-slate-300"
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
-          active ? "bg-primary text-primary-foreground" : "bg-slate-50 text-slate-500"
-        )}
-      >
-        <Icon className="h-5 w-5" />
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-black text-slate-950">
-          {option.label}
-        </p>
-        <p className="mt-0.5 text-xs font-semibold text-slate-500">
-          {option.description}
-        </p>
-      </div>
-    </button>
-  );
-}
-
 export default function AddTaskDialog({
   open,
   onOpenChange,
@@ -237,6 +211,8 @@ export default function AddTaskDialog({
   editTask = null,
   initialAssigneePersonId = "",
 }) {
+  const family = useFamily();
+
   const {
     children = [],
     dadName,
@@ -247,77 +223,65 @@ export default function AddTaskDialog({
     familyId,
     profile,
     user,
-  } = useFamily();
+  } = family || {};
 
-  const rawPeople = useTaskBoardPeople({
-    children,
-    dadName,
-    momName,
-    familyChildrenCore,
-    familyAdults,
-    familyPeople,
-    profile,
-  });
+  const people = useMemo(
+    () =>
+      buildPeopleFromFamily({
+        children,
+        dadName,
+        momName,
+        familyChildrenCore,
+        familyAdults,
+        familyPeople,
+      }),
+    [children, dadName, momName, familyChildrenCore, familyAdults, familyPeople]
+  );
 
-  const people = Array.isArray(rawPeople) ? rawPeople : [];
+  const categoryOptions =
+    Array.isArray(TASK_CREATE_CATEGORY_OPTIONS) && TASK_CREATE_CATEGORY_OPTIONS.length
+      ? TASK_CREATE_CATEGORY_OPTIONS
+      : fallbackCategories;
 
-  const assigneeOptions = useMemo(() => {
-    return buildAssigneeOptions(people);
-  }, [people]);
+  const priorityOptions =
+    Array.isArray(TASK_PRIORITY_OPTIONS) && TASK_PRIORITY_OPTIONS.length
+      ? TASK_PRIORITY_OPTIONS
+      : fallbackPriorities;
 
-  const categoryOptions = Array.isArray(TASK_CREATE_CATEGORY_OPTIONS) && TASK_CREATE_CATEGORY_OPTIONS.length
-    ? TASK_CREATE_CATEGORY_OPTIONS
-    : fallbackCategoryOptions;
+  const initialAssignee = editTask
+    ? getTaskAssigneeValue(editTask)
+    : initialAssigneePersonId || "family";
 
-  const priorityOptions = Array.isArray(TASK_PRIORITY_OPTIONS) && TASK_PRIORITY_OPTIONS.length
-    ? TASK_PRIORITY_OPTIONS
-    : fallbackPriorityOptions;
-
-  const initialAssignee = getTaskAssigneeValue(editTask || {});
-  const defaultAssigneeId =
-    editTask
-      ? initialAssignee
-      : initialAssigneePersonId || assigneeOptions[0]?.value || "family";
-
-  const existingCategory = editTask?.category || "house";
-  const existingIcon = editTask?.icon || getDefaultTaskIcon(existingCategory);
   const existingDueDate = editTask?.dueDate || editTask?.due_date || "";
 
   const [title, setTitle] = useState(editTask?.title || "");
   const [taskKind, setTaskKind] = useState(
     editTask?.chore || editTask?.isChore || editTask?.is_chore ? "chore" : "task"
   );
-  const [category, setCategory] = useState(existingCategory);
+  const [assignedToPersonId, setAssignedToPersonId] = useState(initialAssignee);
+  const [category, setCategory] = useState(editTask?.category || "house");
   const [priority, setPriority] = useState(editTask?.priority || "medium");
-  const [assignedToPersonId, setAssignedToPersonId] = useState(defaultAssigneeId);
-  const [dueDateMode, setDueDateMode] = useState(existingDueDate ? "custom" : "today");
-  const [customDueDate, setCustomDueDate] = useState(existingDueDate || getTodayKey());
+  const [dueMode, setDueMode] = useState(existingDueDate ? "custom" : "today");
+  const [customDueDate, setCustomDueDate] = useState(existingDueDate || getDateKey(0));
   const [rewardEligible, setRewardEligible] = useState(
-    editTask?.rewardEligible ??
-      editTask?.reward_eligible ??
-      (taskKind === "chore")
+    editTask?.rewardEligible ?? editTask?.reward_eligible ?? false
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const selectedAssignee = findAssigneeOption(assigneeOptions, assignedToPersonId);
-  const selectedCategory = categoryOptions.find(
-    (option) => option.value === category
-  );
-  const selectedIcon = getDefaultTaskIcon(category);
+  const selectedPerson =
+    people.find((person) => person.id === assignedToPersonId) ||
+    people.find((person) => person.id === "family") ||
+    people[0];
 
   const shouldShowReward =
-    selectedAssignee?.roleType === "child" || taskKind === "chore";
+    taskKind === "chore" || selectedPerson?.roleType === "child";
 
-  function getResolvedDueDate() {
-    if (dueDateMode === "none") return "";
-    if (dueDateMode === "today") return getTodayKey();
-    if (dueDateMode === "tomorrow") return getTomorrowKey();
+  function getDueDate() {
+    if (dueMode === "none") return "";
+    if (dueMode === "today") return getDateKey(0);
+    if (dueMode === "tomorrow") return getDateKey(1);
     return customDueDate || "";
-  }
-
-  function handleCategoryChange(nextCategory) {
-    setCategory(nextCategory);
   }
 
   async function handleSave() {
@@ -337,27 +301,44 @@ export default function AddTaskDialog({
     setError("");
 
     try {
-      const dueDate = getResolvedDueDate();
+      const dueDate = getDueDate();
+      const childId =
+        selectedPerson?.roleType === "child"
+          ? selectedPerson.childId || selectedPerson.id
+          : "";
 
       const payload = {
-        ...buildTaskPayload({
-          title: cleanTitle,
-          category,
-          priority,
-          icon: selectedIcon || existingIcon,
-          rewardEligible: shouldShowReward ? rewardEligible : false,
-          selectedAssignee,
-          dueDate,
-          familyId,
-        }),
+        title: cleanTitle,
+        category,
+        priority,
+        icon: getDefaultTaskIcon(category),
+
+        assignedTo: selectedPerson?.name || "Family",
+        assigned_to: selectedPerson?.name || "Family",
+        assignedToName: selectedPerson?.name || "Family",
+        assigned_to_name: selectedPerson?.name || "Family",
+        assignedToPersonId: selectedPerson?.id || "family",
+        assigned_to_person_id: selectedPerson?.id || "family",
+
+        childId,
+        child_id: childId,
+        assignedChildId: childId,
+        assigned_child_id: childId,
+
+        dueDate,
+        due_date: dueDate,
+
+        rewardEligible: shouldShowReward ? rewardEligible : false,
+        reward_eligible: shouldShowReward ? rewardEligible : false,
 
         chore: taskKind === "chore",
         isChore: taskKind === "chore",
         is_chore: taskKind === "chore",
-
         taskKind,
         task_kind: taskKind,
 
+        familyId,
+        family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid || null,
@@ -369,9 +350,9 @@ export default function AddTaskDialog({
         await addDoc(collection(db, TASK_COLLECTIONS.tasks), {
           ...payload,
           status: "pending",
+          createdAt: serverTimestamp(),
           createdBy: user?.uid || null,
           createdByEmail: user?.email || null,
-          createdAt: serverTimestamp(),
           created_date: new Date().toISOString(),
         });
       }
@@ -395,7 +376,7 @@ export default function AddTaskDialog({
               <Sparkles className="h-5 w-5" />
             </div>
 
-            <div className="min-w-0">
+            <div>
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-accent">
                 Family task
               </p>
@@ -404,8 +385,8 @@ export default function AddTaskDialog({
                 {editTask ? "Edit task" : "Add task"}
               </DialogTitle>
 
-              <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
-                Create a clear task or chore for the right person and date.
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Create a task or chore for the right person and date.
               </p>
             </div>
           </div>
@@ -418,22 +399,17 @@ export default function AddTaskDialog({
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-5">
             <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <Label>Who is this for?</Label>
-                <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                  Assignment
-                </span>
-              </div>
+              <Label>Who is this for?</Label>
 
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {assigneeOptions.map((option) => (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {people.map((person) => (
                   <AssigneeButton
-                    key={option.value}
-                    option={option}
-                    active={assignedToPersonId === option.value}
-                    onClick={() => setAssignedToPersonId(option.value)}
+                    key={person.id}
+                    person={person}
+                    active={assignedToPersonId === person.id}
+                    onClick={() => setAssignedToPersonId(person.id)}
                   />
                 ))}
               </div>
@@ -442,18 +418,23 @@ export default function AddTaskDialog({
             <section>
               <Label>Task type</Label>
 
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {taskKindOptions.map((option) => (
-                  <KindCard
-                    key={option.value}
-                    option={option}
-                    active={taskKind === option.value}
-                    onClick={() => {
-                      setTaskKind(option.value);
-                      if (option.value === "chore") setRewardEligible(true);
-                    }}
-                  />
-                ))}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <OptionButton
+                  active={taskKind === "task"}
+                  onClick={() => setTaskKind("task")}
+                >
+                  Task
+                </OptionButton>
+
+                <OptionButton
+                  active={taskKind === "chore"}
+                  onClick={() => {
+                    setTaskKind("chore");
+                    setRewardEligible(true);
+                  }}
+                >
+                  Chore
+                </OptionButton>
               </div>
             </section>
 
@@ -473,52 +454,43 @@ export default function AddTaskDialog({
             </section>
 
             <section>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <Label>Category</Label>
+              <Label>Category</Label>
 
-                <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-black text-slate-500">
-                  Icon by category
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {categoryOptions.map((option) => (
-                  <PillButton
+                  <OptionButton
                     key={option.value}
                     active={category === option.value}
-                    onClick={() => handleCategoryChange(option.value)}
-                    className={
-                      category === option.value
-                        ? ""
-                        : categoryStyles[option.value] || categoryStyles.other
-                    }
+                    onClick={() => setCategory(option.value)}
                   >
                     {option.label}
-                  </PillButton>
+                  </OptionButton>
                 ))}
               </div>
-
-              <p className="mt-2 text-xs font-semibold text-slate-400">
-                {(TASK_CATEGORY_COPY || safeCategoryCopy)[category] || safeCategoryCopy[category] || "General task."}
-              </p>
             </section>
 
             <section>
               <Label>Due date</Label>
 
               <div className="mt-2 flex flex-wrap gap-2">
-                {dueDateOptions.map((option) => (
-                  <PillButton
-                    key={option.value}
-                    active={dueDateMode === option.value}
-                    onClick={() => setDueDateMode(option.value)}
-                  >
-                    {option.label}
-                  </PillButton>
-                ))}
+                <OptionButton active={dueMode === "none"} onClick={() => setDueMode("none")}>
+                  No date
+                </OptionButton>
+
+                <OptionButton active={dueMode === "today"} onClick={() => setDueMode("today")}>
+                  Today
+                </OptionButton>
+
+                <OptionButton active={dueMode === "tomorrow"} onClick={() => setDueMode("tomorrow")}>
+                  Tomorrow
+                </OptionButton>
+
+                <OptionButton active={dueMode === "custom"} onClick={() => setDueMode("custom")}>
+                  Pick date
+                </OptionButton>
               </div>
 
-              {dueDateMode === "custom" && (
+              {dueMode === "custom" && (
                 <div className="mt-3 flex items-center gap-2">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
                     <CalendarDays className="h-5 w-5" />
@@ -539,18 +511,13 @@ export default function AddTaskDialog({
 
               <div className="mt-2 flex flex-wrap gap-2">
                 {priorityOptions.map((option) => (
-                  <PillButton
+                  <OptionButton
                     key={option.value}
                     active={priority === option.value}
                     onClick={() => setPriority(option.value)}
-                    className={
-                      priority === option.value
-                        ? ""
-                        : priorityStyles[option.value] || priorityStyles.medium
-                    }
                   >
                     {option.label}
-                  </PillButton>
+                  </OptionButton>
                 ))}
               </div>
             </section>
@@ -561,37 +528,24 @@ export default function AddTaskDialog({
                   type="button"
                   onClick={() => setRewardEligible((current) => !current)}
                   className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+                    "flex w-full items-center justify-between gap-3 rounded-3xl border p-4 text-left transition",
                     rewardEligible
-                      ? "border-accent/20 bg-accent/8 ring-4 ring-accent/5"
+                      ? "border-accent/20 bg-accent/10"
                       : "border-slate-200 bg-white"
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
-                        rewardEligible
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-slate-50 text-slate-400"
-                      )}
-                    >
-                      <Star className="h-5 w-5" />
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-black text-slate-950">
-                        Counts toward rewards
-                      </p>
-                      <p className="text-xs font-semibold text-slate-500">
-                        Useful for chores and kid responsibilities.
-                      </p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-950">
+                      Counts toward rewards
+                    </p>
+                    <p className="text-xs font-semibold text-slate-500">
+                      Useful for chores and kid responsibilities.
+                    </p>
                   </div>
 
                   <div
                     className={cn(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                      "flex h-7 w-7 items-center justify-center rounded-full border",
                       rewardEligible
                         ? "border-accent bg-accent text-accent-foreground"
                         : "border-slate-200 bg-white text-transparent"
