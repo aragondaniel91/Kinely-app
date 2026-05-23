@@ -341,6 +341,7 @@ export default function Tasks() {
         open={showManageTemplates}
         onOpenChange={setShowManageTemplates}
         templates={templates}
+        people={people}
         onSaved={loadTemplates}
       />
 

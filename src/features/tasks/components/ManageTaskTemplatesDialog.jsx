@@ -105,6 +105,7 @@ function getEmptyDraft() {
     category: "house",
     defaultPriority: "medium",
     recurrence: "manual",
+    assignedToPersonId: "family",
     taskLines: "",
     mode: "new",
   };
@@ -144,6 +145,12 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
     category: template.category || "house",
     defaultPriority: template.tasks?.[0]?.priority || "medium",
     recurrence: template.recurrence || template.repeat || "manual",
+    assignedToPersonId:
+      template.assignedToPersonId ||
+      template.assigned_to_person_id ||
+      template.defaultPersonId ||
+      template.default_person_id ||
+      "family",
     taskLines: tasksToLines(template.tasks || []),
     mode: clone ? "copy" : "edit",
   };
@@ -297,6 +304,7 @@ export default function ManageTaskTemplatesDialog({
   open,
   onOpenChange,
   templates = [],
+  people = [],
   onSaved,
 }) {
   const { familyId, user } = useFamily();
@@ -323,6 +331,30 @@ export default function ManageTaskTemplatesDialog({
     draft.defaultPriority,
     draft.type
   );
+
+  const assigneeOptions = useMemo(() => {
+    const basePeople = Array.isArray(people) ? people : [];
+
+    if (basePeople.some((person) => person.id === "family")) {
+      return basePeople;
+    }
+
+    return [
+      {
+        id: "family",
+        name: "Family",
+        role: "Together",
+        roleType: "family",
+        childId: "",
+      },
+      ...basePeople,
+    ];
+  }, [people]);
+
+  const selectedAssignee =
+    assigneeOptions.find((person) => person.id === draft.assignedToPersonId) ||
+    assigneeOptions.find((person) => person.id === "family") ||
+    assigneeOptions[0];
 
   function resetToList() {
     setError("");
@@ -392,6 +424,26 @@ export default function ManageTaskTemplatesDialog({
         category: draft.category,
         recurrence: draft.recurrence || "manual",
         repeat: draft.recurrence || "manual",
+
+        assignedToPersonId: selectedAssignee?.id || "family",
+        assigned_to_person_id: selectedAssignee?.id || "family",
+        defaultPersonId: selectedAssignee?.id || "family",
+        default_person_id: selectedAssignee?.id || "family",
+        assignedToName: selectedAssignee?.name || "Family",
+        assigned_to_name: selectedAssignee?.name || "Family",
+        defaultPersonName: selectedAssignee?.name || "Family",
+        default_person_name: selectedAssignee?.name || "Family",
+        assignedRoleType: selectedAssignee?.roleType || selectedAssignee?.role || "family",
+        assigned_role_type: selectedAssignee?.roleType || selectedAssignee?.role || "family",
+        childId:
+          selectedAssignee?.roleType === "child"
+            ? selectedAssignee.childId || selectedAssignee.id
+            : "",
+        child_id:
+          selectedAssignee?.roleType === "child"
+            ? selectedAssignee.childId || selectedAssignee.id
+            : "",
+
         icon: getDefaultTaskIcon(draft.category),
         active: true,
         tasks: parsedTasks,
@@ -597,7 +649,7 @@ export default function ManageTaskTemplatesDialog({
                   />
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   <div>
                     <Label>Type</Label>
                     <select
@@ -657,10 +709,25 @@ export default function ManageTaskTemplatesDialog({
                       ))}
                     </select>
                   </div>
+
+                  <div>
+                    <Label>Default assignee</Label>
+                    <select
+                      value={draft.assignedToPersonId}
+                      onChange={(event) => patchDraft({ assignedToPersonId: event.target.value })}
+                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                    >
+                      {assigneeOptions.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-500 ring-1 ring-slate-100">
-                  Repeats controls future auto-generation. Manual routines only run when you apply them.
+                  Repeats controls future auto-generation. Default assignee decides who receives generated tasks. Manual routines only run when you apply them.
                 </div>
 
                 <div className="mt-4">
