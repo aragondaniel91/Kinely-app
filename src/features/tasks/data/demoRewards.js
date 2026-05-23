@@ -1,15 +1,11 @@
-export const demoChildRewards = [
-  {
-    id: "joaquin-ice-cream",
-    type: "child",
-    childId: "joaquin",
-    childName: "Joaquin",
-    title: "Helado",
-    icon: "ice-cream",
-    requiredTasks: 5,
-    active: true,
-  },
-];
+export const demoChildRewardTemplate = {
+  id: "child-ice-cream",
+  type: "child",
+  title: "Ice cream",
+  icon: "ice-cream",
+  requiredTasks: 5,
+  active: true,
+};
 
 export const demoFamilyReward = {
   id: "family-pizza-night",
@@ -20,12 +16,16 @@ export const demoFamilyReward = {
   active: true,
 };
 
-export function getActiveChildReward(childId) {
-  return (
-    demoChildRewards.find(
-      (reward) => reward.childId === childId && reward.active
-    ) || null
-  );
+export function buildDemoChildReward(childPerson) {
+  if (!childPerson) return null;
+
+  return {
+    ...demoChildRewardTemplate,
+    id: `${childPerson.id}-ice-cream`,
+    childId: childPerson.childId || childPerson.child_id || childPerson.id,
+    childPersonId: childPerson.id,
+    childName: childPerson.name,
+  };
 }
 
 export function getActiveFamilyReward() {

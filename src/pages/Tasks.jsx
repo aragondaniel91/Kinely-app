@@ -10,7 +10,7 @@ import DeleteTaskDialog from "@/features/tasks/components/DeleteTaskDialog";
 
 import { demoTasks } from "@/features/tasks/data/demoTasks";
 import {
-  getActiveChildReward,
+  buildDemoChildReward,
   getActiveFamilyReward,
 } from "@/features/tasks/data/demoRewards";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
@@ -83,10 +83,10 @@ export default function Tasks() {
   const selectedTasks = getSelectedTasks(tasksByPerson, selectedPerson?.id);
 
   const firstChildPerson = people.find((person) => person.roleType === "child");
-  const childRewardPersonId = firstChildPerson?.id || "joaquin";
+  const childRewardPersonId = firstChildPerson?.id || people[0]?.id;
   const childTasks = getSelectedTasks(tasksByPerson, childRewardPersonId);
+  const childReward = buildDemoChildReward(firstChildPerson);
 
-  const childReward = getActiveChildReward(childRewardPersonId) || getActiveChildReward("joaquin");
   const familyReward = getActiveFamilyReward();
 
   const { completedCount, pendingCount } = getTaskStats(displayTasks);
