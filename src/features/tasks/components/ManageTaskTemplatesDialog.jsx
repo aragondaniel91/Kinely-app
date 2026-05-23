@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { AlertCircle, Copy, Edit3, Layers, Plus, Save, Trash2, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Copy, Edit3, Layers, Plus, Save, Trash2, X } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -189,6 +189,7 @@ export default function ManageTaskTemplatesDialog({
   const [draft, setDraft] = useState(getEmptyDraft());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [templateToDelete, setTemplateToDelete] = useState(null);
 
   const parsedTasks = parseTaskLines(
     draft.taskLines,
@@ -272,13 +273,19 @@ export default function ManageTaskTemplatesDialog({
     }
   }
 
-  async function deleteTemplate(template) {
+  function requestDeleteTemplate(template) {
+    if (!template?.id || template.source === "starter" || saving) return;
+    setError("");
+    setTemplateToDelete(template);
+  }
+
+  async function confirmDeleteTemplate() {
+    const template = templateToDelete;
+
     if (!template?.id || template.source === "starter" || saving) return;
 
-    const confirmed = window.confirm(`Delete "${template.title}" routine?`);
-    if (!confirmed) return;
-
     setSaving(true);
+    setError("");
 
     try {
       await updateDoc(doc(db, TASK_COLLECTIONS.templates, template.id), {
@@ -293,6 +300,8 @@ export default function ManageTaskTemplatesDialog({
       if (draft.id === template.id) {
         setDraft(getEmptyDraft());
       }
+
+      setTemplateToDelete(null);
     } catch (error) {
       console.error("Error deleting routine:", error);
       setError(error?.message || "There was an error deleting the routine.");
@@ -358,7 +367,7 @@ export default function ManageTaskTemplatesDialog({
                     active={draft.id === template.id}
                     onEdit={editTemplate}
                     onClone={cloneTemplate}
-                    onDelete={deleteTemplate}
+                    onDelete={requestDeleteTemplate}
                   />
                 ))
               ) : (
@@ -387,7 +396,7 @@ export default function ManageTaskTemplatesDialog({
                     active={false}
                     onEdit={editTemplate}
                     onClone={cloneTemplate}
-                    onDelete={deleteTemplate}
+                    onDelete={requestDeleteTemplate}
                   />
                 ))}
               </div>
@@ -519,6 +528,60 @@ export default function ManageTaskTemplatesDialog({
             {saving ? "Saving..." : draft.id ? "Save changes" : "Save routine"}
           </Button>
         </DialogFooter>
+
+        {templateToDelete && (
+          <div className="absolute inset-0 z-[10020] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-3xl bg-red-50 text-red-600">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-red-500">
+                    Delete routine
+                  </p>
+
+                  <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                    Delete “{templateToDelete.title}”?
+                  </h3>
+
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                    This will remove the routine from your custom family templates. Existing tasks already created from this routine will stay on the board.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-3xl border border-red-100 bg-red-50/70 p-4">
+                <p className="text-sm font-bold text-red-700">
+                  This action hides the routine from your list, but it does not delete completed or pending tasks that were already created.
+                </p>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setTemplateToDelete(null)}
+                  disabled={saving}
+                  className="rounded-2xl font-black"
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={confirmDeleteTemplate}
+                  disabled={saving}
+                  className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {saving ? "Deleting..." : "Delete routine"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
