@@ -2,12 +2,11 @@ import React, { useMemo, useState } from "react";
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { Copy, Edit3, Layers, Plus, Save, Trash2, X } from "lucide-react";
+import { AlertCircle, Copy, Edit3, Layers, Plus, Save, Trash2, X } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -189,6 +188,7 @@ export default function ManageTaskTemplatesDialog({
 
   const [draft, setDraft] = useState(getEmptyDraft());
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const parsedTasks = parseTaskLines(
     draft.taskLines,
@@ -198,18 +198,22 @@ export default function ManageTaskTemplatesDialog({
   );
 
   function patch(updates) {
+    setError("");
     setDraft((current) => ({ ...current, ...updates }));
   }
 
   function startNew() {
+    setError("");
     setDraft(getEmptyDraft());
   }
 
   function editTemplate(template) {
+    setError("");
     setDraft(buildDraftFromTemplate(template));
   }
 
   function cloneTemplate(template) {
+    setError("");
     setDraft(buildDraftFromTemplate(template, { clone: true }));
   }
 
@@ -220,14 +224,16 @@ export default function ManageTaskTemplatesDialog({
     const tasks = parsedTasks;
 
     if (!title) {
-      alert("Please enter a routine title.");
+      setError("Please enter a routine title.");
       return;
     }
 
     if (!tasks.length) {
-      alert("Please add at least one task.");
+      setError("Please add at least one task.");
       return;
     }
+
+    setError("");
 
     setSaving(true);
 
@@ -260,7 +266,7 @@ export default function ManageTaskTemplatesDialog({
       setDraft(getEmptyDraft());
     } catch (error) {
       console.error("Error saving routine:", error);
-      alert(`There was an error saving the routine: ${error.message}`);
+      setError(error?.message || "There was an error saving the routine.");
     } finally {
       setSaving(false);
     }
@@ -275,7 +281,13 @@ export default function ManageTaskTemplatesDialog({
     setSaving(true);
 
     try {
-      await deleteDoc(doc(db, TASK_COLLECTIONS.templates, template.id));
+      await updateDoc(doc(db, TASK_COLLECTIONS.templates, template.id), {
+        active: false,
+        deletedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
       await onSaved?.();
 
       if (draft.id === template.id) {
@@ -283,7 +295,7 @@ export default function ManageTaskTemplatesDialog({
       }
     } catch (error) {
       console.error("Error deleting routine:", error);
-      alert(`There was an error deleting the routine: ${error.message}`);
+      setError(error?.message || "There was an error deleting the routine.");
     } finally {
       setSaving(false);
     }
@@ -313,6 +325,13 @@ export default function ManageTaskTemplatesDialog({
             </div>
           </div>
         </DialogHeader>
+
+        {error && (
+          <div className="mx-5 mt-5 flex items-start gap-3 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="grid max-h-[calc(92vh-155px)] gap-5 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1fr)_420px]">
           <section>

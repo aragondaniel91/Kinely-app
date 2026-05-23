@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   collection,
   getDocs,
-  orderBy,
   query,
   where,
 } from "firebase/firestore";
@@ -10,6 +9,14 @@ import {
 import { db } from "@/lib/firebase";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import { starterTaskTemplates } from "@/features/tasks/data/starterTaskTemplates";
+
+function getMillis(value) {
+  if (!value) return 0;
+  if (value?.toMillis) return value.toMillis();
+  if (value?.toDate) return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  return 0;
+}
 
 function normalizeTemplate(docSnap) {
   const data = docSnap.data();
@@ -40,12 +47,17 @@ export function useTaskTemplates({ familyId, canRead = true } = {}) {
     try {
       const templatesQuery = query(
         collection(db, TASK_COLLECTIONS.templates),
-        where("familyId", "==", familyId),
-        orderBy("updatedAt", "desc")
+        where("familyId", "==", familyId)
       );
 
       const snap = await getDocs(templatesQuery);
-      setFamilyTemplates(snap.docs.map(normalizeTemplate));
+
+      const nextTemplates = snap.docs
+        .map(normalizeTemplate)
+        .filter((template) => template.active !== false)
+        .sort((a, b) => getMillis(b.updatedAt) - getMillis(a.updatedAt));
+
+      setFamilyTemplates(nextTemplates);
     } catch (error) {
       console.error("Error loading task templates:", error);
       setTemplateError(error?.message || "Error loading task templates.");
@@ -60,12 +72,8 @@ export function useTaskTemplates({ familyId, canRead = true } = {}) {
   }, [loadTemplates]);
 
   const templates = useMemo(() => {
-    const activeFamilyTemplates = familyTemplates.filter(
-      (template) => template.active !== false
-    );
-
     return [
-      ...activeFamilyTemplates,
+      ...familyTemplates,
       ...starterTaskTemplates,
     ];
   }, [familyTemplates]);
