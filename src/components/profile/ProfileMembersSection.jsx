@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ProfileMemberEditorDialog, { normalizeMemberRole } from "@/components/profile/ProfileMemberEditorDialog";
+import { getMemberModuleAccess } from "@/features/tasks/utils/memberModuleVisibility";
 
 const defaultPermissions = {
   calendar: { read: true, write: true },
@@ -77,6 +78,7 @@ function getMembers(profile, user, myEmail) {
 
 function MemberCard({ member, onEdit, onDelete }) {
   const color = getColorMeta(member.color);
+  const tasksAccess = getMemberModuleAccess(member, "tasks");
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -91,6 +93,24 @@ function MemberCard({ member, onEdit, onDelete }) {
           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${color.bg} ${color.text} ${color.border}`}>
             Family color: {color.label}
           </span>
+
+          {tasksAccess.visible && (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+              Shows in Tasks
+            </span>
+          )}
+
+          {tasksAccess.assignable && (
+            <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">
+              Assignable
+            </span>
+          )}
+
+          {tasksAccess.write && (
+            <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-black text-violet-700">
+              Can edit tasks
+            </span>
+          )}
         </div>
       </div>
 
@@ -146,6 +166,14 @@ export default function ProfileMembersSection() {
       role: "caregiver",
       color: "teal",
       admin: false,
+      modules: {
+        tasks: {
+          visible: false,
+          read: false,
+          write: false,
+          assignable: false,
+        },
+      },
     });
   }
 
@@ -161,6 +189,7 @@ export default function ProfileMembersSection() {
       role: normalizeMemberRole(member.role, member.source === "owner" ? "parent" : "caregiver"),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.admin === true || member.isAdmin === true || member.is_admin === true,
+      modules: member.modules || {},
       locked: member.locked === true,
     });
   }
@@ -172,6 +201,7 @@ export default function ProfileMembersSection() {
     const name = String(nextEditor.name || "").trim();
     const role = normalizeMemberRole(nextEditor.role, nextEditor.source === "owner" ? "parent" : "caregiver");
     const color = nextEditor.color || "teal";
+    const modules = nextEditor.modules || {};
 
     if (!name && !email) {
       setError("Please enter a name or email for this member.");
@@ -214,6 +244,7 @@ export default function ProfileMembersSection() {
           color,
           familyColor: color,
           isAdmin: nextEditor.admin === true,
+          modules,
           permissions: defaultPermissions,
         });
         updates = { members: updatedMembers };
@@ -222,7 +253,7 @@ export default function ProfileMembersSection() {
           const matchesByEmail = normalizeEmail(member.email) && normalizeEmail(member.email) === normalizeEmail(nextEditor.originalEmail);
           const matchesByIndex = Number.isInteger(nextEditor.index) && index === nextEditor.index;
           return matchesByEmail || matchesByIndex
-            ? { ...member, name, email, role, color, familyColor: color, isAdmin: nextEditor.admin === true }
+            ? { ...member, name, email, role, color, familyColor: color, isAdmin: nextEditor.admin === true, modules }
             : member;
         });
         updates = { members: updatedMembers };

@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PERSON_COLOR_OPTIONS } from "@/lib/personColorUtils";
+import {
+  buildDefaultTasksModuleAccess,
+  getMemberModuleAccess,
+} from "@/features/tasks/utils/memberModuleVisibility";
 
 export const roleOptions = [
   { value: "parent", label: "Parent" },
@@ -34,6 +38,7 @@ function ColorPicker({ value, onChange }) {
       <div className="mt-2 flex flex-wrap gap-2">
         {PERSON_COLOR_OPTIONS.map((color) => {
           const active = selected === color.id;
+
           return (
             <button
               key={color.id}
@@ -55,11 +60,127 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-export default function ProfileMemberEditorDialog({ editor, onChange, onClose, onSave, saving = false }) {
+function TasksModuleAccessEditor({ value, onChange, disabled }) {
+  const access = {
+    ...buildDefaultTasksModuleAccess(),
+    ...value,
+  };
+
+  function patch(field, nextValue) {
+    const nextAccess = {
+      ...access,
+      [field]: nextValue,
+    };
+
+    if (field === "visible" && nextValue === false) {
+      nextAccess.assignable = false;
+    }
+
+    if (field === "assignable" && nextValue === true) {
+      nextAccess.visible = true;
+      nextAccess.read = true;
+    }
+
+    if (field === "write" && nextValue === true) {
+      nextAccess.visible = true;
+      nextAccess.read = true;
+    }
+
+    onChange?.(nextAccess);
+  }
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
+      <div className="mb-3">
+        <p className="text-sm font-black text-slate-950">Tasks module</p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+          Control whether this member appears in Family Tasks, can be assigned tasks, or can edit tasks.
+        </p>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+          <input
+            type="checkbox"
+            checked={access.visible === true}
+            disabled={disabled}
+            onChange={(event) => patch("visible", event.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-black text-slate-950">Show in Tasks</span>
+            <span className="block text-xs font-semibold text-slate-500">
+              Display this member on the Family Tasks board.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+          <input
+            type="checkbox"
+            checked={access.assignable === true}
+            disabled={disabled}
+            onChange={(event) => patch("assignable", event.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-black text-slate-950">Can be assigned tasks</span>
+            <span className="block text-xs font-semibold text-slate-500">
+              Allow tasks to be assigned to this member.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+          <input
+            type="checkbox"
+            checked={access.read === true}
+            disabled={disabled}
+            onChange={(event) => patch("read", event.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-black text-slate-950">Can view tasks</span>
+            <span className="block text-xs font-semibold text-slate-500">
+              Give this member read access to tasks.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+          <input
+            type="checkbox"
+            checked={access.write === true}
+            disabled={disabled}
+            onChange={(event) => patch("write", event.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-black text-slate-950">Can edit tasks</span>
+            <span className="block text-xs font-semibold text-slate-500">
+              Allow creating, editing, and completing tasks.
+            </span>
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+export default function ProfileMemberEditorDialog({
+  editor,
+  onChange,
+  onClose,
+  onSave,
+  saving = false,
+}) {
   if (!editor) return null;
 
   const isAdd = editor.mode === "add";
   const isOwner = editor.source === "owner";
+
+  const existingTasksAccess = getMemberModuleAccess(editor, "tasks");
+
   const safeEditor = {
     ...editor,
     name: editor.name || "",
@@ -67,10 +188,26 @@ export default function ProfileMemberEditorDialog({ editor, onChange, onClose, o
     role: normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver"),
     color: editor.color || "teal",
     admin: editor.admin === true,
+    modules: {
+      ...(editor.modules || {}),
+      tasks: {
+        ...existingTasksAccess,
+        ...(editor.modules?.tasks || {}),
+      },
+    },
   };
 
   function patch(updates) {
     onChange?.({ ...safeEditor, ...updates });
+  }
+
+  function patchTasksAccess(nextTasksAccess) {
+    patch({
+      modules: {
+        ...(safeEditor.modules || {}),
+        tasks: nextTasksAccess,
+      },
+    });
   }
 
   return (
@@ -85,6 +222,7 @@ export default function ProfileMemberEditorDialog({ editor, onChange, onClose, o
               Manage grandparents, babysitters, caregivers, or family members for this private family space.
             </p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
@@ -100,7 +238,7 @@ export default function ProfileMemberEditorDialog({ editor, onChange, onClose, o
             <Input
               value={safeEditor.name}
               onChange={(event) => patch({ name: event.target.value })}
-              placeholder="Sra Petra"
+              placeholder="Grandma Petra"
               className="mt-1"
             />
           </div>
@@ -144,15 +282,31 @@ export default function ProfileMemberEditorDialog({ editor, onChange, onClose, o
           </div>
 
           <div className="md:col-span-2">
-            <ColorPicker value={safeEditor.color} onChange={(color) => patch({ color })} />
+            <ColorPicker
+              value={safeEditor.color}
+              onChange={(color) => patch({ color })}
+            />
           </div>
+
+          {!isOwner && (
+            <TasksModuleAccessEditor
+              value={safeEditor.modules?.tasks}
+              onChange={patchTasksAccess}
+              disabled={saving}
+            />
+          )}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-100 p-5">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => onSave?.(safeEditor)} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+          <Button
+            type="button"
+            onClick={() => onSave?.(safeEditor)}
+            disabled={saving}
+            className="bg-indigo-600 hover:bg-indigo-700"
+          >
             {saving ? "Saving..." : "Save member"}
           </Button>
         </div>
