@@ -200,7 +200,7 @@ export default function Tasks() {
         open={showManageTemplates}
         onOpenChange={setShowManageTemplates}
         templates={templates}
-                onSaved={loadTemplates}
+        onSaved={loadTemplates}
       />
 
       <ApplyTaskTemplateDialog
@@ -212,17 +212,18 @@ export default function Tasks() {
         onApplied={loadTasks}
       />
 
-      {(showAdd || editTask) && (
-        <AddTaskDialog
-          editTask={editTask}
-          initialAssigneePersonId={quickAddPerson?.id || selectedPerson?.id || ""}
-          onClose={handleCloseAddTask}
-          onSuccess={async () => {
-            await loadTasks();
-            handleCloseAddTask();
-          }}
-        />
-      )}
+      <AddTaskDialog
+        open={showAdd || Boolean(editTask)}
+        onOpenChange={(open) => {
+          if (!open) handleCloseAddTask();
+        }}
+        editTask={editTask}
+        initialAssigneePersonId={quickAddPerson?.id || selectedPerson?.id || ""}
+        onTaskSaved={async () => {
+          await loadTasks();
+          handleCloseAddTask();
+        }}
+      />
     </TasksPageLayout>
   );
 }
