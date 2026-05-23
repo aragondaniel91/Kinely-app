@@ -86,6 +86,30 @@ const dueDateOptions = [
   { value: "custom", label: "Pick date" },
 ];
 
+const fallbackCategoryOptions = [
+  { value: "house", label: "House" },
+  { value: "school", label: "School" },
+  { value: "personal", label: "Personal" },
+  { value: "work", label: "Work" },
+  { value: "family", label: "Family" },
+  { value: "other", label: "Other" },
+];
+
+const fallbackPriorityOptions = [
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+
+const safeCategoryCopy = {
+  house: "Family and home responsibilities.",
+  school: "School and learning.",
+  personal: "Personal routine or care.",
+  work: "Personal or work focus.",
+  family: "Shared family moment or responsibility.",
+  other: "General task.",
+};
+
 const priorityStyles = {
   high: "border-red-100 bg-red-50 text-red-700",
   medium: "border-amber-100 bg-amber-50 text-amber-700",
@@ -225,7 +249,7 @@ export default function AddTaskDialog({
     user,
   } = useFamily();
 
-  const people = useTaskBoardPeople({
+  const rawPeople = useTaskBoardPeople({
     children,
     dadName,
     momName,
@@ -235,7 +259,19 @@ export default function AddTaskDialog({
     profile,
   });
 
-  const assigneeOptions = useMemo(() => buildAssigneeOptions(people), [people]);
+  const people = Array.isArray(rawPeople) ? rawPeople : [];
+
+  const assigneeOptions = useMemo(() => {
+    return buildAssigneeOptions(people);
+  }, [people]);
+
+  const categoryOptions = Array.isArray(TASK_CREATE_CATEGORY_OPTIONS) && TASK_CREATE_CATEGORY_OPTIONS.length
+    ? TASK_CREATE_CATEGORY_OPTIONS
+    : fallbackCategoryOptions;
+
+  const priorityOptions = Array.isArray(TASK_PRIORITY_OPTIONS) && TASK_PRIORITY_OPTIONS.length
+    ? TASK_PRIORITY_OPTIONS
+    : fallbackPriorityOptions;
 
   const initialAssignee = getTaskAssigneeValue(editTask || {});
   const defaultAssigneeId =
@@ -265,7 +301,7 @@ export default function AddTaskDialog({
   const [error, setError] = useState("");
 
   const selectedAssignee = findAssigneeOption(assigneeOptions, assignedToPersonId);
-  const selectedCategory = TASK_CREATE_CATEGORY_OPTIONS.find(
+  const selectedCategory = categoryOptions.find(
     (option) => option.value === category
   );
   const selectedIcon = getDefaultTaskIcon(category);
@@ -446,7 +482,7 @@ export default function AddTaskDialog({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {TASK_CREATE_CATEGORY_OPTIONS.map((option) => (
+                {categoryOptions.map((option) => (
                   <PillButton
                     key={option.value}
                     active={category === option.value}
@@ -463,7 +499,7 @@ export default function AddTaskDialog({
               </div>
 
               <p className="mt-2 text-xs font-semibold text-slate-400">
-                {TASK_CATEGORY_COPY[category] || "General task."}
+                {(TASK_CATEGORY_COPY || safeCategoryCopy)[category] || safeCategoryCopy[category] || "General task."}
               </p>
             </section>
 
@@ -502,7 +538,7 @@ export default function AddTaskDialog({
               <Label>Priority</Label>
 
               <div className="mt-2 flex flex-wrap gap-2">
-                {TASK_PRIORITY_OPTIONS.map((option) => (
+                {priorityOptions.map((option) => (
                   <PillButton
                     key={option.value}
                     active={priority === option.value}
