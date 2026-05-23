@@ -80,6 +80,9 @@ export function useRecurringTaskGenerator({
       if (template.active === false) return false;
       if (!Array.isArray(template.tasks) || template.tasks.length === 0) return false;
 
+      const autoGenerate = Boolean(template.autoGenerate || template.auto_generate);
+      if (!autoGenerate) return false;
+
       return shouldRunToday(template);
     });
 

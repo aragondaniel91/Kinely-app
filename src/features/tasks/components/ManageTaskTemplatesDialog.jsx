@@ -108,6 +108,7 @@ function getEmptyDraft() {
     category: "house",
     defaultPriority: "medium",
     recurrence: "manual",
+    autoGenerate: false,
     assignedToPersonId: "family",
     taskLines: "",
     mode: "new",
@@ -148,6 +149,7 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
     category: template.category || "house",
     defaultPriority: template.tasks?.[0]?.priority || "medium",
     recurrence: template.recurrence || template.repeat || "manual",
+    autoGenerate: Boolean(template.autoGenerate || template.auto_generate),
     assignedToPersonId:
       template.assignedToPersonId ||
       template.assigned_to_person_id ||
@@ -169,6 +171,7 @@ function RoutineCard({ template, hasRunToday = false, onEdit, onCopy, onDelete }
   const taskCount = (template.tasks || []).length;
   const recurrence = template.recurrence || template.repeat || "manual";
   const isRecurring = recurrence !== "manual";
+  const autoGenerate = Boolean(template.autoGenerate || template.auto_generate);
   const assignedName =
     template.assignedToName ||
     template.assigned_to_name ||
@@ -229,9 +232,27 @@ function RoutineCard({ template, hasRunToday = false, onEdit, onCopy, onDelete }
               <span
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1",
-                  hasRunToday
+                  autoGenerate
                     ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
                     : "bg-slate-50 text-slate-600 ring-slate-100"
+                )}
+              >
+                {autoGenerate ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <Clock className="h-3 w-3" />
+                )}
+                {autoGenerate ? "Auto on" : "Auto off"}
+              </span>
+            )}
+
+            {isRecurring && autoGenerate && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1",
+                  hasRunToday
+                    ? "bg-blue-50 text-blue-700 ring-blue-100"
+                    : "bg-amber-50 text-amber-700 ring-amber-100"
                 )}
               >
                 {hasRunToday ? (
@@ -469,6 +490,8 @@ export default function ManageTaskTemplatesDialog({
         category: draft.category,
         recurrence: draft.recurrence || "manual",
         repeat: draft.recurrence || "manual",
+        autoGenerate: draft.recurrence !== "manual" && Boolean(draft.autoGenerate),
+        auto_generate: draft.recurrence !== "manual" && Boolean(draft.autoGenerate),
 
         assignedToPersonId: selectedAssignee?.id || "family",
         assigned_to_person_id: selectedAssignee?.id || "family",
@@ -746,7 +769,13 @@ export default function ManageTaskTemplatesDialog({
                     <Label>Repeats</Label>
                     <select
                       value={draft.recurrence}
-                      onChange={(event) => patchDraft({ recurrence: event.target.value })}
+                      onChange={(event) => {
+                        const recurrence = event.target.value;
+                        patchDraft({
+                          recurrence,
+                          autoGenerate: recurrence === "manual" ? false : draft.autoGenerate,
+                        });
+                      }}
                       className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
                     >
                       {RECURRENCE_OPTIONS.map((option) => (
@@ -776,6 +805,46 @@ export default function ManageTaskTemplatesDialog({
                 <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-500 ring-1 ring-slate-100">
                   Repeats controls future auto-generation. Default assignee decides who receives generated tasks. Manual routines only run when you apply them.
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    patchDraft({
+                      autoGenerate:
+                        draft.recurrence !== "manual" ? !draft.autoGenerate : false,
+                    })
+                  }
+                  disabled={draft.recurrence === "manual"}
+                  className={cn(
+                    "mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition",
+                    draft.recurrence !== "manual" && draft.autoGenerate
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-slate-200 bg-white text-slate-600",
+                    draft.recurrence === "manual" && "cursor-not-allowed opacity-60"
+                  )}
+                >
+                  <div>
+                    <p className="text-sm font-black">
+                      Auto-generate this routine
+                    </p>
+                    <p className="mt-1 text-xs font-semibold">
+                      {draft.recurrence === "manual"
+                        ? "Manual routines do not auto-generate."
+                        : "When enabled, this routine creates tasks automatically on matching days."}
+                    </p>
+                  </div>
+
+                  <span
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
+                      draft.recurrence !== "manual" && draft.autoGenerate
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-100 text-slate-500"
+                    )}
+                  >
+                    {draft.recurrence !== "manual" && draft.autoGenerate ? "On" : "Off"}
+                  </span>
+                </button>
 
                 <div className="mt-4">
                   <Label>Tasks</Label>
