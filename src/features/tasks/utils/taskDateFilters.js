@@ -47,7 +47,8 @@ export function filterTasksByDateScope(tasks = [], scope = "all") {
     const dueDate = getTaskDueDateKey(task);
 
     if (scope === "today") {
-      return dueDate === today;
+      // Existing tasks without due date should remain visible in the default focus.
+      return !dueDate || dueDate === today;
     }
 
     if (scope === "upcoming") {

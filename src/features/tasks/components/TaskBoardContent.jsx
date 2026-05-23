@@ -1,7 +1,22 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 import PersonCard from "@/features/tasks/components/PersonCard";
 import TasksFocusPanel from "@/features/tasks/components/TasksFocusPanel";
+import { filterTasksByDateScope } from "@/features/tasks/utils/taskDateFilters";
+
+function getAggregatedFamilyTasks(tasksByPerson = {}) {
+  const tasksById = new Map();
+
+  Object.values(tasksByPerson).forEach((personTasks) => {
+    if (!Array.isArray(personTasks)) return;
+
+    personTasks.forEach((task) => {
+      if (task?.id) tasksById.set(task.id, task);
+    });
+  });
+
+  return Array.from(tasksById.values());
+}
 
 export default function TaskBoardContent({
   people,
@@ -23,25 +38,36 @@ export default function TaskBoardContent({
   onDeleteTask,
   tasksByPerson,
 }) {
+  const familyTasks = useMemo(
+    () => getAggregatedFamilyTasks(tasksByPerson),
+    [tasksByPerson]
+  );
+
+  function getPersonTasks(person) {
+    const rawTasks =
+      person.id === "family"
+        ? familyTasks
+        : tasksByPerson?.[person.id] || [];
+
+    return filterTasksByDateScope(rawTasks, activeTaskScope);
+  }
+
   const peopleCount = people.length || 1;
 
   return (
     <div className="space-y-5">
       <section className="w-full overflow-x-auto pb-2">
         <div
-          className="grid min-w-max gap-3"
+          className="grid min-w-full gap-3"
           style={{
-            gridTemplateColumns: `repeat(${peopleCount}, clamp(150px, ${Math.max(
-              11,
-              Math.min(18, 78 / peopleCount)
-            )}vw, 230px))`,
+            gridTemplateColumns: `repeat(${peopleCount}, minmax(165px, 1fr))`,
           }}
         >
           {people.map((person) => (
             <PersonCard
               key={person.id}
               person={person}
-              tasks={tasksByPerson?.[person.id] || []}
+              tasks={getPersonTasks(person)}
               selected={selectedPerson?.id === person.id}
               canWrite={canWrite}
               onSelect={onSelectPerson}

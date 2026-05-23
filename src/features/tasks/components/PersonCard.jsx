@@ -15,7 +15,7 @@ function PersonAvatar({ person }) {
     person.avatarUrl || person.avatar_url || person.photoURL || person.photoUrl || "";
 
   return (
-    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/85 text-2xl shadow-inner ring-1 ring-white/70">
+    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/75 text-2xl shadow-inner ring-1 ring-white/60">
       <div
         className={cn(
           "absolute inset-1 rounded-2xl opacity-15",
@@ -66,13 +66,13 @@ export default function PersonCard({
       className={cn(
         "group relative flex h-[172px] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border p-3.5 text-left shadow-[0_14px_36px_rgba(38,50,56,0.055)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(38,50,56,0.08)]",
         selected
-          ? "border-primary/18 bg-white ring-4 ring-primary/8"
-          : "border-white/80 bg-white/72"
+          ? "border-primary/12 bg-white/88 ring-4 ring-primary/5"
+          : "border-white/70 bg-white/62"
       )}
     >
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-4 top-0 h-1.5 rounded-b-full opacity-50",
+          "pointer-events-none absolute inset-x-4 top-0 h-1.5 rounded-b-full opacity-35",
           colorClasses.stripe || person.accent || "bg-primary"
         )}
       />
@@ -130,7 +130,7 @@ export default function PersonCard({
         <div className="h-2 overflow-hidden rounded-full bg-slate-100/80">
           <div
             className={cn(
-              "h-full rounded-full opacity-70 transition-all",
+              "h-full rounded-full opacity-55 transition-all",
               colorClasses.stripe || person.accent || "bg-primary"
             )}
             style={{ width: `${percent}%` }}
