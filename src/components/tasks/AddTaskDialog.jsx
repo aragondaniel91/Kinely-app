@@ -28,51 +28,40 @@ import { Label } from "@/components/ui/label";
 
 import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
+import {
+  TASK_CATEGORY_COPY,
+  TASK_CATEGORY_OPTIONS,
+  TASK_PRIORITY_OPTIONS,
+  buildAssigneeOptions,
+  buildTaskPayload,
+  findAssigneeOption,
+  getAvailableTaskIcons,
+  getDefaultTaskIcon,
+  getTaskAssigneeValue,
+} from "@/features/tasks/utils/taskDialogOptions";
 
-const categoryCopy = {
-  house: "Family and home responsibilities.",
-  work: "Personal or work focus.",
-  school: "School and learning.",
-  personal: "Personal routine or care.",
-  family: "Shared family moment or responsibility.",
-  other: "General task.",
-};
-
-const iconOptions = [
-  { value: "bed", label: "Bed" },
-  { value: "read", label: "Read" },
-  { value: "backpack", label: "Backpack" },
-  { value: "plant", label: "Plants" },
-  { value: "trash", label: "Trash" },
-  { value: "medicine", label: "Medicine" },
-  { value: "grocery", label: "Groceries" },
-  { value: "dinner", label: "Dinner" },
-  { value: "family", label: "Family" },
-  { value: "home", label: "Home" },
-  { value: "sparkles", label: "Routine" },
-];
-
-function getDefaultIcon(category) {
-  if (category === "school") return "read";
-  if (category === "personal") return "sparkles";
-  if (category === "family") return "family";
-  if (category === "house") return "home";
-  return "sparkles";
-}
-
-function getAssigneeFromTask(task) {
-  const safeTask = task || {};
-
+function SelectField({ label, value, onChange, options, helper }) {
   return (
-    safeTask.assignedToPersonId ||
-    safeTask.assigned_to_person_id ||
-    safeTask.personId ||
-    safeTask.person_id ||
-    safeTask.childId ||
-    safeTask.child_id ||
-    safeTask.assignedTo ||
-    safeTask.assigned_to ||
-    "family"
+    <div>
+      <Label>{label}</Label>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-11 w-full rounded-2xl border border-input bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+
+      {helper && (
+        <p className="mt-1 text-xs font-semibold text-slate-400">
+          {helper}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -100,55 +89,57 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
     profile,
   });
 
-  const assigneeOptions = useMemo(() => {
-    const options = people
-      .filter((person) => person?.id && person?.name)
-      .map((person) => ({
-        value: person.id,
-        label: person.name,
-        role: person.role,
-        roleType: person.roleType,
-        childId: person.childId || person.child_id || "",
-      }));
+  const assigneeOptions = useMemo(
+    () => buildAssigneeOptions(people),
+    [people]
+  );
 
-    return options.length
-      ? options
-      : [{ value: "family", label: "Family", role: "Together", roleType: "family", childId: "" }];
-  }, [people]);
-
-  const fallbackAssignee = assigneeOptions[0]?.value || "family";
-
+  const initialAssigneeValue = getTaskAssigneeValue(editTask);
   const initialAssignee = assigneeOptions.some(
-    (option) => option.value === getAssigneeFromTask(editTask)
+    (option) => option.value === initialAssigneeValue
   )
-    ? getAssigneeFromTask(editTask)
-    : fallbackAssignee;
+    ? initialAssigneeValue
+    : assigneeOptions[0]?.value || "family";
+
+  const initialCategory = editTask?.category || "house";
 
   const [title, setTitle] = useState(editTask?.title || "");
-  const [category, setCategory] = useState(editTask?.category || "house");
+  const [category, setCategory] = useState(initialCategory);
   const [priority, setPriority] = useState(editTask?.priority || "medium");
   const [dueDate, setDueDate] = useState(editTask?.due_date || editTask?.dueDate || "");
   const [assignedToPersonId, setAssignedToPersonId] = useState(initialAssignee);
-  const [icon, setIcon] = useState(editTask?.icon || getDefaultIcon(editTask?.category || "house"));
+  const [icon, setIcon] = useState(
+    editTask?.icon || getDefaultTaskIcon(initialCategory)
+  );
   const [rewardEligible, setRewardEligible] = useState(
     editTask?.rewardEligible ?? editTask?.reward_eligible ?? true
   );
   const [saving, setSaving] = useState(false);
 
-  const selectedAssignee =
-    assigneeOptions.find((option) => option.value === assignedToPersonId) ||
-    assigneeOptions[0];
+  const selectedAssignee = findAssigneeOption(
+    assigneeOptions,
+    assignedToPersonId
+  );
+
+  const availableIcons = getAvailableTaskIcons(category);
 
   const handleCategoryChange = (nextCategory) => {
     setCategory(nextCategory);
 
-    if (!icon) {
-      setIcon(getDefaultIcon(nextCategory));
+    const nextIcons = getAvailableTaskIcons(nextCategory);
+    const currentIconStillValid = nextIcons.some((option) => option.value === icon);
+
+    if (!currentIconStillValid) {
+      setIcon(getDefaultTaskIcon(nextCategory));
     }
   };
 
+  const handleClose = () => {
+    if (!saving) onClose?.();
+  };
+
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || saving) return;
 
     if (!familyId) {
       alert("No active family found.");
@@ -158,39 +149,21 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
     setSaving(true);
 
     try {
-      const childId =
-        selectedAssignee?.roleType === "child"
-          ? selectedAssignee.childId || selectedAssignee.value
-          : "";
-
       const payload = {
-        title: title.trim(),
-        category,
-        priority,
-        icon,
-        rewardEligible,
-        reward_eligible: rewardEligible,
-
-        assignedTo: selectedAssignee?.label || "Family",
-        assigned_to: selectedAssignee?.label || "Family",
-        assignedToName: selectedAssignee?.label || "Family",
-        assigned_to_name: selectedAssignee?.label || "Family",
-        assignedToPersonId: selectedAssignee?.value || "family",
-        assigned_to_person_id: selectedAssignee?.value || "family",
-
-        childId,
-        child_id: childId,
-        assignedChildId: childId,
-        assigned_child_id: childId,
-
-        due_date: dueDate || "",
-        dueDate: dueDate || "",
-        familyId,
-        family_id: familyId,
+        ...buildTaskPayload({
+          title,
+          category,
+          priority,
+          icon,
+          rewardEligible,
+          selectedAssignee,
+          dueDate,
+          familyId,
+        }),
         updatedAt: serverTimestamp(),
       };
 
-      if (editTask) {
+      if (editTask?.id) {
         await updateDoc(doc(db, TASK_COLLECTIONS.tasks, editTask.id), payload);
       } else {
         await addDoc(collection(db, TASK_COLLECTIONS.tasks), {
@@ -214,7 +187,7 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose?.()}>
+    <Dialog open onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-lg overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl">
         <DialogHeader className="border-b bg-gradient-to-br from-blue-50 via-white to-emerald-50 px-5 py-5">
           <div className="flex items-start gap-3">
@@ -252,82 +225,39 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
             />
           </div>
 
-          <div>
-            <Label>Assigned to</Label>
-            <select
-              value={assignedToPersonId}
-              onChange={(event) => setAssignedToPersonId(event.target.value)}
-              className="mt-1 h-11 w-full rounded-2xl border border-input bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              {assigneeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              Tasks follow the person-first Family Tasks board.
-            </p>
-          </div>
+          <SelectField
+            label="Assigned to"
+            value={assignedToPersonId}
+            onChange={setAssignedToPersonId}
+            options={assigneeOptions}
+            helper="Tasks follow the person-first Family Tasks board."
+          />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Category</Label>
-              <select
-                value={category}
-                onChange={(event) => handleCategoryChange(event.target.value)}
-                className="mt-1 h-11 w-full rounded-2xl border border-input bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="house">House</option>
-                <option value="school">School</option>
-                <option value="personal">Personal</option>
-                <option value="work">Work</option>
-                <option value="family">Family</option>
-                <option value="other">Other</option>
-              </select>
+            <SelectField
+              label="Category"
+              value={category}
+              onChange={handleCategoryChange}
+              options={TASK_CATEGORY_OPTIONS}
+              helper={TASK_CATEGORY_COPY[category]}
+            />
 
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                {categoryCopy[category]}
-              </p>
-            </div>
-
-            <div>
-              <Label>Priority</Label>
-              <select
-                value={priority}
-                onChange={(event) => setPriority(event.target.value)}
-                className="mt-1 h-11 w-full rounded-2xl border border-input bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                Helps the family know what needs attention first.
-              </p>
-            </div>
+            <SelectField
+              label="Priority"
+              value={priority}
+              onChange={setPriority}
+              options={TASK_PRIORITY_OPTIONS}
+              helper="Helps the family know what needs attention first."
+            />
           </div>
 
-          <div>
-            <Label>Visual icon</Label>
-            <select
-              value={icon}
-              onChange={(event) => setIcon(event.target.value)}
-              className="mt-1 h-11 w-full rounded-2xl border border-input bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              {iconOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              Large icons help kids and grandparents recognize tasks quickly.
-            </p>
-          </div>
+          <SelectField
+            label="Visual icon"
+            value={icon}
+            onChange={setIcon}
+            options={availableIcons}
+            helper="Large icons help kids and grandparents recognize tasks quickly."
+          />
 
           <div>
             <Label>Due date</Label>
@@ -382,7 +312,12 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
         </div>
 
         <DialogFooter className="border-t bg-slate-50/70 px-5 py-4">
-          <Button variant="outline" onClick={onClose} className="rounded-2xl font-black">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={saving}
+            className="rounded-2xl font-black"
+          >
             Cancel
           </Button>
 
