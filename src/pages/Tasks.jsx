@@ -9,6 +9,7 @@ import TaskBoardContent from "@/features/tasks/components/TaskBoardContent";
 import DeleteTaskDialog from "@/features/tasks/components/DeleteTaskDialog";
 import ApplyTaskTemplateDialog from "@/features/tasks/components/ApplyTaskTemplateDialog";
 import ManageTaskTemplatesDialog from "@/features/tasks/components/ManageTaskTemplatesDialog";
+import ManageTaskRewardsDialog from "@/features/tasks/components/ManageTaskRewardsDialog";
 
 import { demoTasks } from "@/features/tasks/data/demoTasks";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
@@ -52,6 +53,7 @@ export default function Tasks() {
   const [showAdd, setShowAdd] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showManageTemplates, setShowManageTemplates] = useState(false);
+  const [showManageRewards, setShowManageRewards] = useState(false);
   const [quickAddPerson, setQuickAddPerson] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -84,6 +86,7 @@ export default function Tasks() {
     childReward,
     familyReward,
     firstChildPerson,
+    loadRewards,
   } = useTaskRewards({
     familyId,
     canRead,
@@ -199,6 +202,7 @@ export default function Tasks() {
         onAddTask={handleOpenAddTask}
         onApplyTemplate={handleOpenTemplates}
         onManageTemplates={() => setShowManageTemplates(true)}
+        onManageRewards={() => setShowManageRewards(true)}
         onToggleTask={toggleTask}
         onEditTask={setEditTask}
         onDeleteTask={setTaskToDelete}
@@ -220,6 +224,15 @@ export default function Tasks() {
         onOpenChange={setShowManageTemplates}
         templates={templates}
         onSaved={loadTemplates}
+      />
+
+      <ManageTaskRewardsDialog
+        open={showManageRewards}
+        onOpenChange={setShowManageRewards}
+        people={people}
+        childReward={childReward}
+        familyReward={familyReward}
+        onSaved={loadRewards}
       />
 
       <ApplyTaskTemplateDialog

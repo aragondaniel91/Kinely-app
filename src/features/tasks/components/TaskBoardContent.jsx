@@ -33,6 +33,7 @@ export default function TaskBoardContent({
   onAddTask,
   onApplyTemplate,
   onManageTemplates,
+  onManageRewards,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -89,6 +90,7 @@ export default function TaskBoardContent({
         onAddTask={onAddTask}
         onApplyTemplate={onApplyTemplate}
         onManageTemplates={onManageTemplates}
+        onManageRewards={onManageRewards}
         onToggleTask={onToggleTask}
         onEditTask={onEditTask}
         onDeleteTask={onDeleteTask}

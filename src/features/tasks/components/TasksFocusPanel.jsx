@@ -9,6 +9,7 @@ import {
   Sparkles,
   Trash2,
   Layers,
+  Gift,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -150,6 +151,7 @@ export default function TasksFocusPanel({
   onAddTask,
   onApplyTemplate,
   onManageTemplates,
+  onManageRewards,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -206,6 +208,16 @@ export default function TasksFocusPanel({
                 >
                   <Sparkles className="mr-2 h-5 w-5" />
                   Apply routine
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onManageRewards?.()}
+                  className="h-12 rounded-2xl bg-white/90 font-black"
+                >
+                  <Gift className="mr-2 h-5 w-5" />
+                  Manage rewards
                 </Button>
 
                 <Button
