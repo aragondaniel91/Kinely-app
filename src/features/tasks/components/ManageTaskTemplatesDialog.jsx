@@ -9,12 +9,22 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
+  Briefcase,
   Copy,
   Edit3,
+  Flag,
+  Heart,
+  Home,
   Layers,
+  Moon,
+  MoreHorizontal,
   Plus,
+  Repeat,
   Save,
+  School,
+  Sun,
   Trash2,
+  UserRound,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -46,6 +56,38 @@ const TEMPLATE_TYPE_OPTIONS = [
   { value: "chore", label: "Chore" },
   { value: "custom", label: "Custom" },
 ];
+
+const routineVisuals = {
+  daily: { icon: Repeat, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
+  weekday: { icon: School, tone: "bg-violet-50 text-violet-700 ring-violet-100" },
+  weekend: { icon: Sun, tone: "bg-amber-50 text-amber-700 ring-amber-100" },
+  bedtime: { icon: Moon, tone: "bg-indigo-50 text-indigo-700 ring-indigo-100" },
+  chore: { icon: Home, tone: "bg-blue-50 text-blue-700 ring-blue-100" },
+  custom: { icon: Layers, tone: "bg-slate-50 text-slate-700 ring-slate-100" },
+};
+
+const categoryVisuals = {
+  house: { icon: Home, tone: "bg-blue-50 text-blue-700 ring-blue-100" },
+  school: { icon: School, tone: "bg-violet-50 text-violet-700 ring-violet-100" },
+  personal: { icon: UserRound, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
+  work: { icon: Briefcase, tone: "bg-slate-100 text-slate-700 ring-slate-200" },
+  family: { icon: Heart, tone: "bg-rose-50 text-rose-700 ring-rose-100" },
+  other: { icon: MoreHorizontal, tone: "bg-amber-50 text-amber-700 ring-amber-100" },
+};
+
+function getRoutineVisual(type = "custom") {
+  return routineVisuals[type] || routineVisuals.custom;
+}
+
+function getCategoryVisual(category = "other") {
+  return categoryVisuals[category] || categoryVisuals.other;
+}
+
+function getPriorityTone(priority = "medium") {
+  if (priority === "high") return "bg-red-50 text-red-700 ring-red-100";
+  if (priority === "low") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  return "bg-amber-50 text-amber-700 ring-amber-100";
+}
 
 function getEmptyDraft() {
   return {
@@ -100,48 +142,72 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
 
 function RoutineCard({ template, onEdit, onCopy, onDelete }) {
   const isStarter = template.source === "starter";
+  const routineVisual = getRoutineVisual(template.type);
+  const RoutineIcon = routineVisual.icon;
+  const categoryVisual = getCategoryVisual(template.category);
+  const CategoryIcon = categoryVisual.icon;
+  const priority = template.tasks?.[0]?.priority || "medium";
+  const taskCount = (template.tasks || []).length;
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-secondary text-slate-700">
-          <Layers className="h-5 w-5" />
+        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1", routineVisual.tone)}>
+          <RoutineIcon className="h-5 w-5" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-black text-slate-950">
-            {template.title}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="truncate text-sm font-black text-slate-950">
+              {template.title}
+            </p>
+
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ring-1",
+                isStarter
+                  ? "bg-blue-50 text-blue-700 ring-blue-100"
+                  : "bg-emerald-50 text-emerald-700 ring-emerald-100"
+              )}
+            >
+              {isStarter ? "Starter" : "Mine"}
+            </span>
+          </div>
 
           <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
             {template.description || "Reusable family routine."}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1", routineVisual.tone)}>
+              <RoutineIcon className="h-3 w-3" />
               {template.type || "custom"}
             </span>
 
-            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
-              {(template.tasks || []).length} tasks
+            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1", categoryVisual.tone)}>
+              <CategoryIcon className="h-3 w-3" />
+              {template.category || "other"}
             </span>
 
-            {isStarter && (
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
-                starter
-              </span>
-            )}
+            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1", getPriorityTone(priority))}>
+              <Flag className="h-3 w-3" />
+              {priority}
+            </span>
+
+            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-accent">
+              {taskCount} tasks
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
         {isStarter ? (
           <Button
             type="button"
             variant="outline"
             onClick={() => onCopy(template)}
-            className="h-10 rounded-2xl font-black"
+            className="h-9 rounded-2xl bg-white font-black"
           >
             <Copy className="mr-2 h-4 w-4" />
             Copy
@@ -152,7 +218,7 @@ function RoutineCard({ template, onEdit, onCopy, onDelete }) {
               type="button"
               variant="outline"
               onClick={() => onEdit(template)}
-              className="h-10 rounded-2xl font-black"
+              className="h-9 rounded-2xl bg-white font-black"
             >
               <Edit3 className="mr-2 h-4 w-4" />
               Edit
@@ -162,7 +228,7 @@ function RoutineCard({ template, onEdit, onCopy, onDelete }) {
               type="button"
               variant="outline"
               onClick={() => onDelete(template)}
-              className="h-10 rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
+              className="h-9 rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -379,9 +445,9 @@ export default function ManageTaskTemplatesDialog({
       }}
     >
       <DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-4xl flex-col overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
-        <DialogHeader className="shrink-0 border-b bg-gradient-to-br from-white via-secondary/35 to-accent/10 px-4 py-4 sm:px-5">
+        <DialogHeader className="shrink-0 bg-gradient-to-br from-white via-secondary/20 to-accent/5 px-4 pb-3 pt-4 sm:px-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
               <Layers className="h-5 w-5" />
             </div>
 
@@ -449,7 +515,7 @@ export default function ManageTaskTemplatesDialog({
                   ))}
                 </div>
               ) : (
-                <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/80 p-8 text-center">
+                <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/75 p-8 text-center">
                   <p className="text-lg font-black text-slate-950">
                     No custom routines yet
                   </p>
@@ -495,7 +561,7 @@ export default function ManageTaskTemplatesDialog({
                 Back to routines
               </Button>
 
-              <div className="rounded-[2rem] border border-slate-100 bg-slate-50/80 p-4 sm:p-5">
+              <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/75 p-4 sm:p-5">
                 <div>
                   <Label>Routine title</Label>
                   <Input
