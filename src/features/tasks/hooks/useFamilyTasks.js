@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
   isDemoTask,
   isDone,
@@ -34,12 +35,12 @@ export function useFamilyTasks({ familyId, canRead, canWrite }) {
       let snap;
 
       try {
-        const q = query(collection(db, "tasks"), where("familyId", "==", familyId));
+        const q = query(collection(db, TASK_COLLECTIONS.tasks), where("familyId", "==", familyId));
         snap = await getDocs(q);
       } catch (error) {
         console.warn("Fallback to family_id query:", error);
 
-        const q = query(collection(db, "tasks"), where("family_id", "==", familyId));
+        const q = query(collection(db, TASK_COLLECTIONS.tasks), where("family_id", "==", familyId));
         snap = await getDocs(q);
       }
 
@@ -61,7 +62,7 @@ export function useFamilyTasks({ familyId, canRead, canWrite }) {
     if (!canWrite || isDemoTask(task)) return;
 
     try {
-      await updateDoc(doc(db, "tasks", task.id), {
+      await updateDoc(doc(db, TASK_COLLECTIONS.tasks, task.id), {
         status: isDone(task) ? "pending" : "done",
         updatedAt: serverTimestamp(),
       });
@@ -80,7 +81,7 @@ export function useFamilyTasks({ familyId, canRead, canWrite }) {
     if (!id || String(id).startsWith("demo-")) return;
 
     try {
-      await deleteDoc(doc(db, "tasks", id));
+      await deleteDoc(doc(db, TASK_COLLECTIONS.tasks, id));
       await loadTasks();
     } catch (error) {
       console.error("Error deleting task:", error);
