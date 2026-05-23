@@ -98,6 +98,12 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
             {category}
           </span>
 
+          {(task.chore || task.isChore || task.is_chore) && (
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
+              chore
+            </span>
+          )}
+
           {dueDate && (
             <span className="rounded-full border border-slate-100 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
               {dueDate}

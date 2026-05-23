@@ -29,6 +29,16 @@ import { Label } from "@/components/ui/label";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import { buildAssigneeOptions, findAssigneeOption } from "@/features/tasks/utils/taskDialogOptions";
 
+
+const TEMPLATE_TYPE_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "chore", label: "Chores" },
+  { value: "weekday", label: "Weekday" },
+  { value: "weekend", label: "Weekend" },
+  { value: "bedtime", label: "Bedtime" },
+  { value: "daily", label: "Daily" },
+];
+
 function getTodayKey() {
   const date = new Date();
   const year = date.getFullYear();
@@ -114,6 +124,7 @@ export default function ApplyTaskTemplateDialog({
   const { familyId, user, profile } = useFamily();
 
   const assigneeOptions = useMemo(() => buildAssigneeOptions(people), [people]);
+  const [templateTypeFilter, setTemplateTypeFilter] = useState("all");
   const [selectedTemplateId, setSelectedTemplateId] = useState(
     templates[0]?.id || ""
   );
@@ -123,8 +134,14 @@ export default function ApplyTaskTemplateDialog({
   const [dueDate, setDueDate] = useState(getTodayKey());
   const [saving, setSaving] = useState(false);
 
+  const filteredTemplates = useMemo(() => {
+    if (templateTypeFilter === "all") return templates;
+    return templates.filter((template) => template.type === templateTypeFilter);
+  }, [templates, templateTypeFilter]);
+
   const selectedTemplate =
-    templates.find((template) => template.id === selectedTemplateId) ||
+    filteredTemplates.find((template) => template.id === selectedTemplateId) ||
+    filteredTemplates[0] ||
     templates[0];
 
   const selectedAssignee = findAssigneeOption(assigneeOptions, selectedPersonId);
@@ -157,6 +174,9 @@ export default function ApplyTaskTemplateDialog({
           icon: task.icon || selectedTemplate.icon || "sparkles",
           rewardEligible: task.rewardEligible !== false,
           reward_eligible: task.rewardEligible !== false,
+          chore: task.chore === true || selectedTemplate.type === "chore",
+          isChore: task.chore === true || selectedTemplate.type === "chore",
+          is_chore: task.chore === true || selectedTemplate.type === "chore",
 
           assignedTo: selectedAssignee?.label || "Family",
           assigned_to: selectedAssignee?.label || "Family",
@@ -233,12 +253,41 @@ export default function ApplyTaskTemplateDialog({
               <div className="mb-3 flex items-center justify-between gap-3">
                 <Label>Choose routine</Label>
                 <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                  {templates.length} available
+                  {filteredTemplates.length} shown · {templates.length} total
                 </span>
               </div>
 
+              <div className="mb-4 flex flex-wrap gap-2">
+                {TEMPLATE_TYPE_FILTERS.map((filter) => {
+                  const active = templateTypeFilter === filter.value;
+
+                  return (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => {
+                        setTemplateTypeFilter(filter.value);
+                        const nextTemplate = filter.value === "all"
+                          ? templates[0]
+                          : templates.find((template) => template.type === filter.value);
+
+                        if (nextTemplate) setSelectedTemplateId(nextTemplate.id);
+                      }}
+                      className={cn(
+                        "rounded-full px-4 py-2 text-sm font-black transition",
+                        active
+                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/15"
+                          : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="grid gap-3 md:grid-cols-2">
-                {templates.map((template) => (
+                {filteredTemplates.map((template) => (
                   <TemplateCard
                     key={template.id}
                     template={template}

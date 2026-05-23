@@ -205,5 +205,6 @@ export const TASK_TEMPLATE_TYPES = {
   weekday: "weekday",
   weekend: "weekend",
   bedtime: "bedtime",
+  chore: "chore",
   custom: "custom",
 };
