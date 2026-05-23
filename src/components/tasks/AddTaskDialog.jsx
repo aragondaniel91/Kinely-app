@@ -7,13 +7,22 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import {
+  AlertTriangle,
+  ArrowDownCircle,
   CalendarDays,
   Check,
   ClipboardCheck,
+  Flag,
+  Heart,
+  Home,
+  MoreHorizontal,
   Save,
+  School,
   Sparkles,
   Star,
+  UserRound,
   Users,
+  Briefcase,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -202,18 +211,74 @@ const dueOptions = [
   { value: "custom", label: "Pick date" },
 ];
 
-function SegmentedButton({ active, children, onClick }) {
+const categoryVisuals = {
+  house: {
+    icon: Home,
+    inactive: "bg-blue-50/70 text-blue-700 ring-blue-100",
+    active: "bg-blue-600 text-white shadow-blue-100",
+  },
+  school: {
+    icon: School,
+    inactive: "bg-violet-50/70 text-violet-700 ring-violet-100",
+    active: "bg-violet-600 text-white shadow-violet-100",
+  },
+  personal: {
+    icon: UserRound,
+    inactive: "bg-emerald-50/70 text-emerald-700 ring-emerald-100",
+    active: "bg-emerald-600 text-white shadow-emerald-100",
+  },
+  work: {
+    icon: Briefcase,
+    inactive: "bg-slate-100/80 text-slate-700 ring-slate-200",
+    active: "bg-slate-800 text-white shadow-slate-200",
+  },
+  family: {
+    icon: Heart,
+    inactive: "bg-rose-50/70 text-rose-700 ring-rose-100",
+    active: "bg-rose-500 text-white shadow-rose-100",
+  },
+  other: {
+    icon: MoreHorizontal,
+    inactive: "bg-amber-50/70 text-amber-700 ring-amber-100",
+    active: "bg-amber-500 text-white shadow-amber-100",
+  },
+};
+
+const priorityVisuals = {
+  high: {
+    icon: AlertTriangle,
+    inactive: "bg-red-50/80 text-red-700 ring-red-100",
+    active: "bg-red-600 text-white shadow-red-100",
+  },
+  medium: {
+    icon: Flag,
+    inactive: "bg-amber-50/80 text-amber-700 ring-amber-100",
+    active: "bg-amber-500 text-white shadow-amber-100",
+  },
+  low: {
+    icon: ArrowDownCircle,
+    inactive: "bg-emerald-50/80 text-emerald-700 ring-emerald-100",
+    active: "bg-emerald-600 text-white shadow-emerald-100",
+  },
+};
+
+function SegmentedButton({ active, children, icon: Icon, tone, onClick }) {
+  const activeTone = tone?.active || "bg-primary text-primary-foreground shadow-primary/15";
+  const inactiveTone =
+    tone?.inactive || "bg-white text-slate-500 ring-slate-200 hover:bg-slate-50 hover:text-slate-900";
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl px-3.5 py-2 text-sm font-black transition",
+        "inline-flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-black ring-1 transition hover:-translate-y-0.5 hover:shadow-sm",
         active
-          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/15"
-          : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900"
+          ? cn(activeTone, "ring-transparent shadow-lg")
+          : cn(inactiveTone, "hover:ring-slate-200")
       )}
     >
+      {Icon && <Icon className="h-4 w-4" />}
       {children}
     </button>
   );
@@ -576,29 +641,41 @@ export default function AddTaskDialog({
 
                 <DetailBlock label="Category">
                   <div className="flex flex-wrap gap-2">
-                    {categoryOptions.map((option) => (
-                      <SegmentedButton
-                        key={option.value}
-                        active={category === option.value}
-                        onClick={() => setCategory(option.value)}
-                      >
-                        {option.label}
-                      </SegmentedButton>
-                    ))}
+                    {categoryOptions.map((option) => {
+                      const visual = categoryVisuals[option.value] || categoryVisuals.other;
+
+                      return (
+                        <SegmentedButton
+                          key={option.value}
+                          active={category === option.value}
+                          icon={visual.icon}
+                          tone={visual}
+                          onClick={() => setCategory(option.value)}
+                        >
+                          {option.label}
+                        </SegmentedButton>
+                      );
+                    })}
                   </div>
                 </DetailBlock>
 
                 <DetailBlock label="Importance">
                   <div className="flex flex-wrap gap-2">
-                    {priorityOptions.map((option) => (
-                      <SegmentedButton
-                        key={option.value}
-                        active={priority === option.value}
-                        onClick={() => setPriority(option.value)}
-                      >
-                        {option.label}
-                      </SegmentedButton>
-                    ))}
+                    {priorityOptions.map((option) => {
+                      const visual = priorityVisuals[option.value] || priorityVisuals.medium;
+
+                      return (
+                        <SegmentedButton
+                          key={option.value}
+                          active={priority === option.value}
+                          icon={visual.icon}
+                          tone={visual}
+                          onClick={() => setPriority(option.value)}
+                        >
+                          {option.label}
+                        </SegmentedButton>
+                      );
+                    })}
                   </div>
                 </DetailBlock>
               </div>
