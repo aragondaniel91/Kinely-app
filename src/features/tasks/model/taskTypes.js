@@ -13,6 +13,39 @@
  * rewards/{rewardId}
  */
 
+
+/**
+ * @typedef {"calendar" | "custody" | "tasks" | "meals" | "groceries"} FamilyModuleName
+ */
+
+/**
+ * Module-specific access for a family member.
+ *
+ * visible:
+ * - Whether the person should appear in that module UI.
+ *
+ * read/write:
+ * - Whether the member can access or modify that module.
+ *
+ * assignable:
+ * - Whether the member can be assigned items in that module, even if they cannot write.
+ *
+ * @typedef {Object} FamilyMemberModuleAccess
+ * @property {boolean} visible
+ * @property {boolean} read
+ * @property {boolean} write
+ * @property {boolean} assignable
+ */
+
+/**
+ * @typedef {Object} FamilyMemberModules
+ * @property {FamilyMemberModuleAccess=} calendar
+ * @property {FamilyMemberModuleAccess=} custody
+ * @property {FamilyMemberModuleAccess=} tasks
+ * @property {FamilyMemberModuleAccess=} meals
+ * @property {FamilyMemberModuleAccess=} groceries
+ */
+
 /**
  * @typedef {"child" | "parent" | "grandparent" | "caregiver" | "family"} TaskPersonRole
  */
@@ -138,4 +171,26 @@ export const TASK_PERSON_ROLES = {
   grandparent: "grandparent",
   caregiver: "caregiver",
   family: "family",
+};
+
+
+/**
+ * Supported family modules.
+ */
+export const TASK_MODULES = {
+  calendar: "calendar",
+  custody: "custody",
+  tasks: "tasks",
+  meals: "meals",
+  groceries: "groceries",
+};
+
+/**
+ * Default module visibility/access for optional family members.
+ */
+export const DEFAULT_MEMBER_MODULE_ACCESS = {
+  visible: false,
+  read: false,
+  write: false,
+  assignable: false,
 };

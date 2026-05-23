@@ -173,7 +173,9 @@ function buildCaregiverPeople(profile = {}) {
         relationship.includes("mom") ||
         relationship.includes("owner");
 
-      return !isParent;
+      if (isParent) return false;
+
+      return shouldShowMemberInTasks(member);
     })
     .map((member, index) => {
       const name = getDisplayName(member, `Caregiver ${index + 1}`);
@@ -184,7 +186,7 @@ function buildCaregiverPeople(profile = {}) {
         member.id ||
         `caregiver-${slugify(name)}`;
 
-      return buildAdultPerson({
+      const person = buildAdultPerson({
         id,
         name,
         role: member.relationship || member.role || "Caregiver",
@@ -198,6 +200,12 @@ function buildCaregiverPeople(profile = {}) {
           member.role,
         ].filter(Boolean),
       });
+
+      return {
+        ...person,
+        taskAssignable: canAssignTasksToMember(member),
+        avatarUrl: member.avatarUrl || member.avatar_url || member.photoURL || member.photoUrl || member.photo_url || "",
+      };
     });
 }
 
