@@ -160,8 +160,8 @@ export default function TasksFocusPanel({
   const scopeTitle = getTaskDateScopeTitle(activeTaskScope);
 
   return (
-    <Card className="overflow-hidden rounded-[2.25rem] border-border bg-white/88 shadow-[0_24px_70px_rgba(38,50,56,0.08)] backdrop-blur-xl">
-      <div className="border-b border-slate-100 bg-gradient-to-br from-white via-secondary/35 to-accent/5 p-5">
+    <Card className="overflow-hidden rounded-[2.25rem] border-white/65 bg-white/68 shadow-[0_18px_48px_rgba(38,50,56,0.06)] backdrop-blur-xl">
+      <div className="bg-gradient-to-br from-white/60 via-secondary/20 to-accent/5 p-5">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
           <div>
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-accent">

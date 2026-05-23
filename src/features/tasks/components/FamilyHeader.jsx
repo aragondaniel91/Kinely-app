@@ -34,7 +34,7 @@ export default function FamilyHeader({ canWrite, onAddTask }) {
   const subtitle = useMemo(() => "Today’s family rhythm", []);
 
   return (
-    <Card className="rounded-[2.25rem] border-white/80 bg-white/78 p-5 shadow-[0_24px_70px_rgba(38,50,56,0.08)] backdrop-blur-xl">
+    <Card className="rounded-[2.25rem] border-white/65 bg-white/58 p-5 shadow-[0_18px_44px_rgba(38,50,56,0.055)] backdrop-blur-xl">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-[1.3rem] bg-primary text-primary-foreground shadow-lg shadow-primary/15">
@@ -57,7 +57,7 @@ export default function FamilyHeader({ canWrite, onAddTask }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-          <div className="flex items-center gap-3 rounded-2xl bg-white/80 px-4 py-3 shadow-inner">
+          <div className="flex items-center gap-3 rounded-2xl bg-white/55 px-4 py-3 shadow-inner">
             <Clock className="h-6 w-6 text-slate-400" />
 
             <div className="text-right">
