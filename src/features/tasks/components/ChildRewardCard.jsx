@@ -17,13 +17,13 @@ export default function ChildRewardCard({ reward, childTasks }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">
-            Recompensa de {reward.childName}
+            {reward.childName} reward
           </p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
             {reward.title} 🍦
           </h3>
           <p className="mt-1 text-sm font-extrabold text-slate-500">
-            {left > 0 ? `Faltan ${left} tareas` : "¡Lista para celebrar!"}
+            {left > 0 ? `${left} tasks to go` : "Ready to celebrate!"}
           </p>
         </div>
 
@@ -42,7 +42,7 @@ export default function ChildRewardCard({ reward, childTasks }) {
 
         <div className="mt-2 flex items-center justify-between text-sm font-black text-slate-600">
           <span>
-            {completed}/{total} completadas
+            {completed}/{total} completed
           </span>
           <span>{percent}%</span>
         </div>

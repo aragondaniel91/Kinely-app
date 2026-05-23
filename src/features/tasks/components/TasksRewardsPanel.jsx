@@ -25,7 +25,7 @@ export default function TasksRewardsPanel({
 
       <Card className="rounded-[2rem] border-white/80 bg-white/80 p-5 shadow-[0_18px_45px_rgba(38,50,56,0.07)]">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent">
             <Gift className="h-7 w-7" />
           </div>
 
@@ -35,11 +35,11 @@ export default function TasksRewardsPanel({
             </p>
 
             <h3 className="mt-1 text-xl font-black text-slate-950">
-              La familia avanza junta.
+              The family moves together.
             </h3>
 
             <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
-              Rewards individuales para cada hijo y una recompensa familiar para crear conexión.
+              Individual rewards motivate each child, while family rewards create shared momentum.
             </p>
           </div>
         </div>

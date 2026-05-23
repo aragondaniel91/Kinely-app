@@ -21,9 +21,9 @@ export default function BottomFocusBar({ tasksByPerson }) {
       <div className="grid gap-3 md:grid-cols-[180px_1fr] md:items-center">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-            Próximas tareas
+            Up next
           </p>
-          <p className="mt-1 text-lg font-black text-slate-900">de cada uno</p>
+          <p className="mt-1 text-lg font-black text-slate-900">quick scan</p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -33,7 +33,7 @@ export default function BottomFocusBar({ tasksByPerson }) {
             return (
               <div
                 key={`${person.id}-${task.id}`}
-                className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2"
+                className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-secondary/60 px-3 py-2"
               >
                 <TaskIcon className={cn("h-6 w-6 shrink-0", person.ring)} />
                 <div className="min-w-0">
@@ -45,8 +45,8 @@ export default function BottomFocusBar({ tasksByPerson }) {
           })}
 
           {nextItems.length === 0 && (
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
-              Todo listo por ahora ✨
+            <div className="rounded-2xl border border-accent/10 bg-accent/8 px-4 py-3 text-sm font-black text-accent">
+              Everything is clear for now ✨
             </div>
           )}
         </div>

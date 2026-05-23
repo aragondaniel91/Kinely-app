@@ -18,13 +18,13 @@ export default function TaskTile({ task, canWrite, onToggle, onEdit, onDelete })
       className={cn(
         "group relative min-h-[170px] rounded-[2rem] border p-4 shadow-sm transition-all",
         done
-          ? "border-emerald-200 bg-emerald-50/85"
-          : "border-slate-200 bg-white/85 hover:-translate-y-1 hover:shadow-lg"
+          ? "border-accent/25 bg-accent/8"
+          : "border-border bg-white/85 hover:-translate-y-1 hover:shadow-lg"
       )}
     >
       <div className="flex h-full flex-col justify-between">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-700">
+          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-secondary text-slate-700">
             <TaskIcon className="h-8 w-8" />
           </div>
 
@@ -35,8 +35,8 @@ export default function TaskTile({ task, canWrite, onToggle, onEdit, onDelete })
             className={cn(
               "flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all",
               done
-                ? "border-emerald-600 bg-emerald-600 text-white"
-                : "border-slate-300 bg-white text-slate-300 hover:border-emerald-600 hover:text-emerald-600",
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-slate-300 bg-white text-slate-300 hover:border-accent hover:text-accent",
               disabled && "cursor-not-allowed opacity-60"
             )}
             aria-label="Complete task"
@@ -51,16 +51,16 @@ export default function TaskTile({ task, canWrite, onToggle, onEdit, onDelete })
             {task.title}
           </h3>
           <p className="mt-1 text-sm font-bold text-slate-500">
-            {done ? "Completada" : "Pendiente"}
+            {done ? "Completed" : "Pending"}
           </p>
         </div>
 
         {canWrite && !isDemoTask(task) && (
-          <div className="absolute right-4 top-20 flex gap-1 opacity-0 transition group-hover:opacity-100">
+          <div className="absolute right-4 top-20 flex gap-1 opacity-100 transition md:opacity-100">
             <button
               type="button"
               onClick={() => onEdit(task)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm hover:text-slate-900"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm ring-1 ring-slate-100 transition hover:text-slate-900"
               aria-label="Edit task"
             >
               <Pencil className="h-4 w-4" />
@@ -69,7 +69,7 @@ export default function TaskTile({ task, canWrite, onToggle, onEdit, onDelete })
             <button
               type="button"
               onClick={() => onDelete(task)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-500 shadow-sm hover:text-red-700"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-red-500 shadow-sm ring-1 ring-slate-100 transition hover:text-red-700"
               aria-label="Delete task"
             >
               <Trash2 className="h-4 w-4" />
