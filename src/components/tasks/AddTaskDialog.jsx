@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   addDoc,
   collection,
@@ -6,24 +6,37 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { CalendarDays, CheckCircle2, Gift, Sparkles } from "lucide-react";
+import {
+  Baby,
+  Bed,
+  BookOpen,
+  Briefcase,
+  CalendarDays,
+  CheckCircle2,
+  Gift,
+  Home,
+  Pill,
+  School,
+  ShoppingBasket,
+  Sparkles,
+  Sprout,
+  Trash2,
+  Users,
+  Utensils,
+} from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { normalizeChildren } from "@/lib/personColorUtils";
-
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
 import {
   Select,
   SelectContent,
@@ -32,39 +45,132 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useTaskBoardPeople } from "@/features/tasks/hooks/useTaskBoardPeople";
+import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
+
 const categoryCopy = {
-  house: "Family/home responsibilities",
-  work: "Personal or work focus",
-  school: "School and learning",
-  personal: "Private personal task",
-  other: "General task",
+  house: "Family and home responsibilities.",
+  work: "Personal or work focus.",
+  school: "School and learning.",
+  personal: "Personal routine or care.",
+  family: "Shared family moment or responsibility.",
+  other: "General task.",
 };
 
+const iconOptions = [
+  { value: "bed", label: "Bed", icon: Bed, categories: ["house", "personal"] },
+  { value: "read", label: "Read", icon: BookOpen, categories: ["school", "personal"] },
+  { value: "backpack", label: "Backpack", icon: School, categories: ["school"] },
+  { value: "plant", label: "Plants", icon: Sprout, categories: ["house"] },
+  { value: "trash", label: "Trash", icon: Trash2, categories: ["house"] },
+  { value: "medicine", label: "Medicine", icon: Pill, categories: ["personal"] },
+  { value: "grocery", label: "Groceries", icon: ShoppingBasket, categories: ["house", "family"] },
+  { value: "dinner", label: "Dinner", icon: Utensils, categories: ["house", "family"] },
+  { value: "family", label: "Family", icon: Users, categories: ["family"] },
+  { value: "home", label: "Home", icon: Home, categories: ["house", "other"] },
+  { value: "sparkles", label: "Routine", icon: Sparkles, categories: ["personal", "other"] },
+];
+
+function getDefaultIcon(category) {
+  if (category === "school") return "read";
+  if (category === "personal") return "sparkles";
+  if (category === "family") return "family";
+  if (category === "house") return "home";
+  return "sparkles";
+}
+
+function getAssigneeFromTask(task = {}) {
+  return (
+    task.assignedToPersonId ||
+    task.assigned_to_person_id ||
+    task.personId ||
+    task.person_id ||
+    task.childId ||
+    task.child_id ||
+    task.assignedTo ||
+    task.assigned_to ||
+    "family"
+  );
+}
+
 export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
+  const {
+    children,
+    dadName,
+    momName,
+    familyChildrenCore,
+    familyAdults,
+    familyPeople,
+    profile,
+    familyId,
+    user,
+  } = useFamily();
+
+  const boardChildren = children?.length ? children : familyChildrenCore;
+
+  const { people } = useTaskBoardPeople({
+    children: boardChildren,
+    dadName,
+    momName,
+    familyAdults,
+    familyPeople,
+    profile,
+  });
+
+  const assigneeOptions = useMemo(() => {
+    return people.map((person) => ({
+      value: person.id,
+      label: person.name,
+      role: person.role,
+      roleType: person.roleType,
+      childId: person.childId || person.child_id || "",
+      icon: person.roleType === "child" ? Baby : person.roleType === "family" ? Users : Briefcase,
+    }));
+  }, [people]);
+
+  const fallbackAssignee = assigneeOptions[0]?.value || "family";
+
   const [title, setTitle] = useState(editTask?.title || "");
   const [category, setCategory] = useState(editTask?.category || "house");
   const [priority, setPriority] = useState(editTask?.priority || "medium");
   const [dueDate, setDueDate] = useState(
     editTask?.due_date || editTask?.dueDate || ""
   );
-  const [assignedTo, setAssignedTo] = useState(editTask?.assignedTo || editTask?.assigned_to || "family");
+  const [assignedToPersonId, setAssignedToPersonId] = useState(
+    getAssigneeFromTask(editTask) || fallbackAssignee
+  );
+  const [icon, setIcon] = useState(editTask?.icon || getDefaultIcon(editTask?.category || "house"));
+  const [rewardEligible, setRewardEligible] = useState(
+    editTask?.rewardEligible ?? editTask?.reward_eligible ?? true
+  );
   const [saving, setSaving] = useState(false);
 
-  const { profile, familyId, user } = useFamily();
+  const selectedAssignee =
+    assigneeOptions.find((option) => option.value === assignedToPersonId) ||
+    assigneeOptions.find((option) => option.value === fallbackAssignee) ||
+    {
+      value: "family",
+      label: "Family",
+      roleType: "family",
+      childId: "",
+      icon: Users,
+    };
 
-  const children = normalizeChildren(profile?.children || []);
-  const parent1Name = profile?.parent1_name || profile?.parent1Name || user?.displayName || "Me";
-  const parent2Name = profile?.parent2_name || profile?.parent2Name || "Co-parent";
-  const hasParent2 = Boolean(profile?.parent2_name || profile?.parent2Name || profile?.parent2_email || profile?.parent2Email);
+  const availableIcons = iconOptions.filter((option) => {
+    return option.categories.includes(category) || option.categories.includes("other");
+  });
 
-  const assigneeOptions = [
-    { value: "family", label: "Family" },
-    { value: "parent1", label: parent1Name },
-    ...(hasParent2 ? [{ value: "parent2", label: parent2Name }] : []),
-    ...children.map((child) => ({ value: `child:${child.id || child.childId || child.name}`, label: child.name || "Child" })),
-  ];
+  const handleCategoryChange = (nextCategory) => {
+    setCategory(nextCategory);
 
-  const selectedAssignee = assigneeOptions.find((option) => option.value === assignedTo) || assigneeOptions[0];
+    const currentIconIsValid = iconOptions
+      .find((option) => option.value === icon)
+      ?.categories.includes(nextCategory);
+
+    if (!currentIconIsValid) {
+      setIcon(getDefaultIcon(nextCategory));
+    }
+  };
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -77,16 +183,31 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
     setSaving(true);
 
     try {
+      const childId =
+        selectedAssignee.roleType === "child"
+          ? selectedAssignee.childId || selectedAssignee.value
+          : "";
+
       const payload = {
         title: title.trim(),
         category,
         priority,
-        assignedTo,
-        assigned_to: assignedTo,
-        assignedToName: selectedAssignee?.label || "Family",
-        assigned_to_name: selectedAssignee?.label || "Family",
-        assignedChildId: assignedTo.startsWith("child:") ? assignedTo.replace("child:", "") : "",
-        assigned_child_id: assignedTo.startsWith("child:") ? assignedTo.replace("child:", "") : "",
+        icon,
+        rewardEligible,
+        reward_eligible: rewardEligible,
+
+        assignedTo: selectedAssignee.label || "Family",
+        assigned_to: selectedAssignee.label || "Family",
+        assignedToName: selectedAssignee.label || "Family",
+        assigned_to_name: selectedAssignee.label || "Family",
+        assignedToPersonId: selectedAssignee.value,
+        assigned_to_person_id: selectedAssignee.value,
+
+        childId,
+        child_id: childId,
+        assignedChildId: childId,
+        assigned_child_id: childId,
+
         due_date: dueDate || "",
         dueDate: dueDate || "",
         familyId,
@@ -95,9 +216,9 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
       };
 
       if (editTask) {
-        await updateDoc(doc(db, "tasks", editTask.id), payload);
+        await updateDoc(doc(db, TASK_COLLECTIONS.tasks, editTask.id), payload);
       } else {
-        await addDoc(collection(db, "tasks"), {
+        await addDoc(collection(db, TASK_COLLECTIONS.tasks), {
           ...payload,
           status: "pending",
           createdBy: user?.uid || null,
@@ -120,20 +241,23 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-lg overflow-hidden rounded-[2rem] border-slate-200 bg-white p-0 shadow-2xl">
-        <DialogHeader className="border-b bg-gradient-to-br from-indigo-50 via-white to-blue-50 px-5 py-5">
+        <DialogHeader className="border-b bg-gradient-to-br from-blue-50 via-white to-emerald-50 px-5 py-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
               <CheckCircle2 className="h-6 w-6" />
             </div>
+
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-indigo-500">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-accent">
                 Family task
               </p>
+
               <DialogTitle className="mt-1 text-2xl font-black tracking-tight text-slate-950">
                 {editTask ? "Edit task" : "New task"}
               </DialogTitle>
+
               <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
-                Add something the family can track, finish, or turn into a future routine.
+                Create a visual task for the right person on the family board.
               </p>
             </div>
           </div>
@@ -144,30 +268,61 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
             <Label>Task</Label>
             <Input
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(event) => setTitle(event.target.value)}
               placeholder="What needs to be done?"
               className="mt-1 h-11 rounded-2xl"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && title.trim()) handleSave();
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && title.trim()) handleSave();
               }}
             />
+          </div>
+
+          <div>
+            <Label>Assigned to</Label>
+            <Select value={assignedToPersonId} onValueChange={setAssignedToPersonId}>
+              <SelectTrigger className="mt-1 h-11 rounded-2xl">
+                <SelectValue />
+              </SelectTrigger>
+
+              <SelectContent>
+                {assigneeOptions.map((option) => {
+                  const PersonIcon = option.icon;
+
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
+                      <span className="inline-flex items-center gap-2">
+                        <PersonIcon className="h-4 w-4" />
+                        {option.label}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+
+            <p className="mt-1 text-xs font-semibold text-slate-400">
+              Tasks now follow the person-first Family Tasks board.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={handleCategoryChange}>
                 <SelectTrigger className="mt-1 h-11 rounded-2xl">
                   <SelectValue />
                 </SelectTrigger>
+
                 <SelectContent>
-                  <SelectItem value="house">🏠 House</SelectItem>
-                  <SelectItem value="work">💼 Work</SelectItem>
-                  <SelectItem value="school">📚 School</SelectItem>
-                  <SelectItem value="personal">👤 Personal</SelectItem>
-                  <SelectItem value="other">📌 Other</SelectItem>
+                  <SelectItem value="house">House</SelectItem>
+                  <SelectItem value="school">School</SelectItem>
+                  <SelectItem value="personal">Personal</SelectItem>
+                  <SelectItem value="work">Work</SelectItem>
+                  <SelectItem value="family">Family</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
+
               <p className="mt-1 text-xs font-semibold text-slate-400">
                 {categoryCopy[category]}
               </p>
@@ -179,12 +334,14 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
                 <SelectTrigger className="mt-1 h-11 rounded-2xl">
                   <SelectValue />
                 </SelectTrigger>
+
                 <SelectContent>
-                  <SelectItem value="high">🔴 High</SelectItem>
-                  <SelectItem value="medium">🟡 Medium</SelectItem>
-                  <SelectItem value="low">🟢 Low</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
+
               <p className="mt-1 text-xs font-semibold text-slate-400">
                 Helps the family know what needs attention first.
               </p>
@@ -192,21 +349,30 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
           </div>
 
           <div>
-            <Label>Assigned to</Label>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
+            <Label>Visual icon</Label>
+            <Select value={icon} onValueChange={setIcon}>
               <SelectTrigger className="mt-1 h-11 rounded-2xl">
                 <SelectValue />
               </SelectTrigger>
+
               <SelectContent>
-                {assigneeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.value === "family" ? "👨‍👩‍👧‍👦" : option.value.startsWith("child:") ? "⭐" : "👤"} {option.label}
-                  </SelectItem>
-                ))}
+                {availableIcons.map((option) => {
+                  const Icon = option.icon;
+
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
+                      <span className="inline-flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        {option.label}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
+
             <p className="mt-1 text-xs font-semibold text-slate-400">
-              Choose who this task is for. Kids chores will become more powerful in the next phase.
+              Large icons help kids and grandparents recognize tasks quickly.
             </p>
           </div>
 
@@ -216,36 +382,47 @@ export default function AddTaskDialog({ onClose, onSuccess, editTask = null }) {
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
                 <CalendarDays className="h-5 w-5" />
               </div>
+
               <Input
                 type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={(event) => setDueDate(event.target.value)}
                 className="h-11 rounded-2xl"
               />
             </div>
           </div>
 
-          <div className="rounded-3xl border border-amber-100 bg-amber-50/80 p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
-                <Gift className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-slate-950">
-                  Rewards are coming next
-                </p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                  Soon you will be able to turn kids chores into routines with points, rewards, and parent approval.
-                </p>
-              </div>
-            </div>
-          </div>
+          {selectedAssignee.roleType === "child" && (
+            <button
+              type="button"
+              onClick={() => setRewardEligible((value) => !value)}
+              className="w-full rounded-3xl border border-amber-100 bg-amber-50/80 p-4 text-left transition hover:bg-amber-50"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-sm">
+                  <Gift className="h-5 w-5" />
+                </div>
 
-          <div className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
+                <div>
+                  <p className="text-sm font-black text-slate-950">
+                    Count toward child reward
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                    {rewardEligible
+                      ? "This task will count toward the child reward."
+                      : "This task will not count toward the child reward."}
+                  </p>
+                </div>
+              </div>
+            </button>
+          )}
+
+          <div className="rounded-3xl border border-accent/15 bg-accent/5 p-4">
             <div className="flex items-start gap-3">
-              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
+
               <p className="text-xs font-semibold leading-5 text-slate-500">
-                Tip: use House or School for kid-friendly chores today. A dedicated Kids Chores flow will be added later.
+                Tip: keep the title short. The wall screen works best with clear labels and big icons.
               </p>
             </div>
           </div>
