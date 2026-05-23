@@ -37,6 +37,7 @@ import {
   findAssigneeOption,
   getAvailableTaskIcons,
   getDefaultTaskIcon,
+  getTaskIconOption,
   inferTaskIconFromTitle,
   getTaskAssigneeValue,
 } from "@/features/tasks/utils/taskDialogOptions";
@@ -131,6 +132,7 @@ export default function AddTaskDialog({
   );
 
   const availableIcons = getAvailableTaskIcons(category);
+  const suggestedIcon = getTaskIconOption(icon);
 
   const handleTitleChange = (nextTitle) => {
     setTitle(nextTitle);
@@ -278,13 +280,37 @@ export default function AddTaskDialog({
             />
           </div>
 
-          <SelectField
-            label="Visual icon"
-            value={icon}
-            onChange={handleIconChange}
-            options={availableIcons}
-            helper="Large icons help kids and grandparents recognize tasks quickly."
-          />
+          <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <Label>Visual icon</Label>
+                <p className="mt-1 text-xs font-semibold text-slate-400">
+                  Smart suggestion based on the task title.
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white px-3 py-2 text-right shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-accent">
+                  Suggested
+                </p>
+                <p className="text-sm font-black text-slate-900">
+                  {suggestedIcon?.label || "Routine"}
+                </p>
+              </div>
+            </div>
+
+            <select
+              value={icon}
+              onChange={(event) => handleIconChange(event.target.value)}
+              className="h-11 w-full rounded-2xl border border-input bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
+            >
+              {availableIcons.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <Label>Due date</Label>

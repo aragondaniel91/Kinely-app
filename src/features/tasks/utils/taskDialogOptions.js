@@ -28,17 +28,126 @@ export const TASK_PRIORITY_OPTIONS = [
 ];
 
 export const TASK_ICON_OPTIONS = [
-  { value: "bed", label: "Bed", categories: ["house", "personal"], keywords: ["bed", "make bed", "cama", "hacer cama"] },
-  { value: "read", label: "Read", categories: ["school", "personal"], keywords: ["read", "reading", "book", "leer", "lectura", "libro"] },
-  { value: "backpack", label: "Backpack", categories: ["school"], keywords: ["backpack", "bag", "school bag", "mochila"] },
-  { value: "plant", label: "Plants", categories: ["house"], keywords: ["plant", "plants", "water plants", "regar", "plantas"] },
-  { value: "trash", label: "Trash", categories: ["house"], keywords: ["trash", "garbage", "basura", "sacar basura"] },
-  { value: "medicine", label: "Medicine", categories: ["personal"], keywords: ["medicine", "medication", "pill", "medicina", "medicación", "pastilla"] },
-  { value: "grocery", label: "Groceries", categories: ["house", "family"], keywords: ["grocery", "groceries", "milk", "leche", "compras", "supermarket"] },
-  { value: "dinner", label: "Dinner", categories: ["house", "family"], keywords: ["dinner", "lunch", "meal", "food", "cena", "almuerzo", "comida"] },
-  { value: "family", label: "Family", categories: ["family"], keywords: ["family", "together", "movie", "pizza", "familia", "juntos", "película"] },
-  { value: "home", label: "Home", categories: ["house", "other"], keywords: ["home", "house", "clean", "casa", "limpiar"] },
-  { value: "sparkles", label: "Routine", categories: ["personal", "other"], keywords: ["routine", "brush", "teeth", "shower", "rutina", "cepillar", "dientes"] },
+  {
+    value: "bed",
+    label: "Bed",
+    categories: ["house", "personal"],
+    keywords: ["bed", "make bed", "bedroom", "cama", "hacer cama", "tender cama", "cuarto"],
+  },
+  {
+    value: "toothbrush",
+    label: "Brush teeth",
+    categories: ["personal"],
+    keywords: ["brush teeth", "teeth", "tooth", "toothbrush", "dientes", "cepillar", "cepillarse", "lavar dientes"],
+  },
+  {
+    value: "bath",
+    label: "Bath",
+    categories: ["personal"],
+    keywords: ["bath", "bathe", "shower", "ducha", "baño", "banar", "bañar"],
+  },
+  {
+    value: "read",
+    label: "Read",
+    categories: ["school", "personal"],
+    keywords: ["read", "reading", "book", "story", "leer", "lectura", "libro", "cuento"],
+  },
+  {
+    value: "homework",
+    label: "Homework",
+    categories: ["school"],
+    keywords: ["homework", "assignment", "study", "tarea", "tareas", "estudiar", "deberes"],
+  },
+  {
+    value: "backpack",
+    label: "Backpack",
+    categories: ["school"],
+    keywords: ["backpack", "bag", "school bag", "lunchbox", "mochila", "lonchera"],
+  },
+  {
+    value: "laundry",
+    label: "Laundry",
+    categories: ["house", "personal"],
+    keywords: ["laundry", "clothes", "wash clothes", "fold clothes", "ropa", "lavar ropa", "doblar ropa", "lavanderia", "lavandería"],
+  },
+  {
+    value: "clean",
+    label: "Clean",
+    categories: ["house"],
+    keywords: ["clean", "broom", "sweep", "mop", "tidy", "limpiar", "barrer", "trapear", "ordenar"],
+  },
+  {
+    value: "plant",
+    label: "Plants",
+    categories: ["house"],
+    keywords: ["plant", "plants", "water plants", "regar", "plantas", "jardin", "jardín"],
+  },
+  {
+    value: "trash",
+    label: "Trash",
+    categories: ["house"],
+    keywords: ["trash", "garbage", "recycle", "basura", "sacar basura", "reciclaje"],
+  },
+  {
+    value: "medicine",
+    label: "Medicine",
+    categories: ["personal"],
+    keywords: ["medicine", "medication", "pill", "vitamin", "medicina", "medicación", "pastilla", "vitamina"],
+  },
+  {
+    value: "walk",
+    label: "Walk",
+    categories: ["personal", "family"],
+    keywords: ["walk", "walking", "caminar", "paseo", "pasear"],
+  },
+  {
+    value: "exercise",
+    label: "Exercise",
+    categories: ["personal"],
+    keywords: ["exercise", "workout", "sport", "soccer", "basketball", "ejercicio", "deporte", "futbol", "fútbol"],
+  },
+  {
+    value: "pet",
+    label: "Pet care",
+    categories: ["house", "family"],
+    keywords: ["pet", "dog", "cat", "feed dog", "feed cat", "mascota", "perro", "gato", "dar comida"],
+  },
+  {
+    value: "grocery",
+    label: "Groceries",
+    categories: ["house", "family"],
+    keywords: ["grocery", "groceries", "shopping", "milk", "store", "leche", "compras", "supermarket", "supermercado"],
+  },
+  {
+    value: "dinner",
+    label: "Meal",
+    categories: ["house", "family"],
+    keywords: ["dinner", "lunch", "breakfast", "meal", "food", "cook", "cena", "almuerzo", "desayuno", "comida", "cocinar"],
+  },
+  {
+    value: "calendar",
+    label: "Schedule",
+    categories: ["family", "work", "other"],
+    keywords: ["appointment", "calendar", "schedule", "event", "cita", "calendario", "evento", "agenda"],
+  },
+  {
+    value: "family",
+    label: "Family",
+    categories: ["family"],
+    keywords: ["family", "together", "movie", "pizza", "game", "familia", "juntos", "película", "pelicula", "juego"],
+  },
+  {
+    value: "home",
+    label: "Home",
+    categories: ["house", "other"],
+    keywords: ["home", "house", "casa", "hogar"],
+  },
+  {
+    value: "sparkles",
+    label: "Routine",
+    categories: ["personal", "other"],
+    keywords: ["routine", "habit", "prepare", "ready", "rutina", "habito", "hábito", "preparar", "listo"],
+  },
 ];
 
 export function normalizeTaskText(value = "") {
@@ -46,7 +155,18 @@ export function normalizeTaskText(value = "") {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9ñáéíóúü\s-]/gi, " ")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+export function getDefaultTaskIcon(category) {
+  if (category === "school") return "homework";
+  if (category === "personal") return "sparkles";
+  if (category === "family") return "family";
+  if (category === "house") return "home";
+  if (category === "work") return "calendar";
+  return "sparkles";
 }
 
 export function inferTaskIconFromTitle(title = "", category = "other") {
@@ -54,21 +174,24 @@ export function inferTaskIconFromTitle(title = "", category = "other") {
 
   if (!text) return getDefaultTaskIcon(category);
 
-  const directMatch = TASK_ICON_OPTIONS.find((option) =>
+  const exactPhraseMatch = TASK_ICON_OPTIONS.find((option) =>
     option.keywords.some((keyword) => text.includes(normalizeTaskText(keyword)))
   );
 
-  if (directMatch) return directMatch.value;
+  if (exactPhraseMatch) return exactPhraseMatch.value;
 
-  return getDefaultTaskIcon(category);
+  const categoryMatch = TASK_ICON_OPTIONS.find((option) =>
+    option.categories.includes(category)
+  );
+
+  return categoryMatch?.value || getDefaultTaskIcon(category);
 }
 
-export function getDefaultTaskIcon(category) {
-  if (category === "school") return "read";
-  if (category === "personal") return "sparkles";
-  if (category === "family") return "family";
-  if (category === "house") return "home";
-  return "sparkles";
+export function getTaskIconOption(value) {
+  return (
+    TASK_ICON_OPTIONS.find((option) => option.value === value) ||
+    TASK_ICON_OPTIONS.find((option) => option.value === "sparkles")
+  );
 }
 
 export function getTaskAssigneeValue(task) {
@@ -88,9 +211,15 @@ export function getTaskAssigneeValue(task) {
 }
 
 export function getAvailableTaskIcons(category) {
-  return TASK_ICON_OPTIONS.filter((option) => {
-    return option.categories.includes(category) || option.categories.includes("other");
+  const icons = TASK_ICON_OPTIONS.filter((option) => {
+    return (
+      option.categories.includes(category) ||
+      option.categories.includes("other") ||
+      option.value === "sparkles"
+    );
   });
+
+  return icons.length ? icons : TASK_ICON_OPTIONS;
 }
 
 export function buildAssigneeOptions(people = []) {

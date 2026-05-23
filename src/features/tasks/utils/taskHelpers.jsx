@@ -1,12 +1,17 @@
 import {
+  Bath,
   Bed,
   BookOpen,
+  Briefcase,
   CalendarDays,
   Circle,
   Dumbbell,
   Footprints,
+  Home,
+  PawPrint,
   Pill,
   School,
+  Shirt,
   ShoppingBasket,
   Sparkles,
   Sprout,
@@ -15,34 +20,79 @@ import {
   Utensils,
 } from "lucide-react";
 
+import { inferTaskIconFromTitle } from "@/features/tasks/utils/taskDialogOptions";
+
 export const iconMap = {
+  bath: Bath,
+  shower: Bath,
+  baño: Bath,
+  bano: Bath,
+
   bed: Bed,
   cama: Bed,
-  teeth: Sparkles,
-  toothbrush: Sparkles,
-  mochila: School,
-  backpack: School,
+
   read: BookOpen,
   leer: BookOpen,
   book: BookOpen,
+
+  homework: School,
+  school: School,
+  backpack: School,
+  mochila: School,
+
+  laundry: Shirt,
+  clothes: Shirt,
+  ropa: Shirt,
+
+  clean: Sparkles,
+  broom: Sparkles,
+  sweep: Sparkles,
+  limpiar: Sparkles,
+
   plant: Sprout,
   plants: Sprout,
   regar: Sprout,
+
   exercise: Dumbbell,
   workout: Dumbbell,
+  sport: Dumbbell,
+
   trash: Trash2,
   basura: Trash2,
+
   medicine: Pill,
   medication: Pill,
-  caminar: Footprints,
+  pill: Pill,
+
   walk: Footprints,
+  caminar: Footprints,
+
+  pet: PawPrint,
+  dog: PawPrint,
+  cat: PawPrint,
+  mascota: PawPrint,
+
   grocery: ShoppingBasket,
   groceries: ShoppingBasket,
+  shopping: ShoppingBasket,
+
   lunch: Utensils,
   dinner: Utensils,
+  breakfast: Utensils,
+  meal: Utensils,
   comida: Utensils,
+
   family: Users,
   calendar: CalendarDays,
+  schedule: CalendarDays,
+  work: Briefcase,
+  home: Home,
+
+  teeth: Sparkles,
+  toothbrush: Sparkles,
+  routine: Sparkles,
+  sparkles: Sparkles,
+
   default: Circle,
 };
 
@@ -64,7 +114,7 @@ export function getTaskAssignee(task = {}) {
     task.assignee_name ||
     task.ownerName ||
     task.owner ||
-    "Familia"
+    "Family"
   );
 }
 
@@ -81,7 +131,19 @@ export function normalizeAssignee(value = "") {
 }
 
 export function getTaskIcon(task = {}) {
-  const raw = `${task.icon || ""} ${task.title || ""} ${task.category || ""}`.toLowerCase();
+  const explicitIcon = String(task.icon || "").trim().toLowerCase();
+
+  if (explicitIcon && iconMap[explicitIcon]) {
+    return iconMap[explicitIcon];
+  }
+
+  const inferredIcon = inferTaskIconFromTitle(task.title || "", task.category || "other");
+
+  if (inferredIcon && iconMap[inferredIcon]) {
+    return iconMap[inferredIcon];
+  }
+
+  const raw = `${task.title || ""} ${task.category || ""}`.toLowerCase();
   const key = Object.keys(iconMap).find((item) => raw.includes(item));
 
   return iconMap[key] || iconMap.default;
@@ -96,6 +158,6 @@ export function normalizeTask(docSnap) {
     status: data.status || "pending",
     category: data.category || "other",
     assignedTo: getTaskAssignee(data),
-    icon: data.icon || "",
+    icon: data.icon || inferTaskIconFromTitle(data.title || "", data.category || "other"),
   };
 }
