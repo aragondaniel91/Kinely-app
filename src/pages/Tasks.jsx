@@ -61,8 +61,7 @@ export default function Tasks() {
   const [rewardCelebration, setRewardCelebration] = useState(null);
   const previousRewardProgressRef = useRef({
     initialized: false,
-    childCompleted: 0,
-    childRequired: 0,
+    childProgressByRewardId: {},
     familyCompleted: 0,
     familyRequired: 0,
   });
@@ -212,9 +211,19 @@ export default function Tasks() {
     [childRewards, childPeople, rewardTasksByPerson]
   );
 
-  const childRewardProgress = getRewardProgress(childTasks, childReward);
-  const childRewardCompleted = childRewardProgress.completed;
-  const childRewardRequired = childRewardProgress.required;
+  const childRewardProgressItems = useMemo(
+    () =>
+      childRewardItems.map((item) => {
+        const progress = getRewardProgress(item.tasks, item.reward);
+
+        return {
+          ...item,
+          progress,
+          rewardId: item.reward?.id || item.person?.id || item.reward?.childName,
+        };
+      }),
+    [childRewardItems]
+  );
 
   const familyRewardProgress = getRewardProgress(rewardEligibleTasks, familyReward);
   const familyRewardCompleted = familyRewardProgress.completed;
@@ -223,32 +232,62 @@ export default function Tasks() {
   useEffect(() => {
     const previous = previousRewardProgressRef.current;
 
+    const currentChildProgressByRewardId = childRewardProgressItems.reduce(
+      (acc, item) => {
+        if (!item.rewardId) return acc;
+
+        acc[item.rewardId] = {
+          completed: item.progress.completed,
+          required: item.progress.required,
+        };
+
+        return acc;
+      },
+      {}
+    );
+
     if (!previous.initialized) {
       previousRewardProgressRef.current = {
         initialized: true,
-        childCompleted: childRewardCompleted,
-        childRequired: childRewardRequired,
+        childProgressByRewardId: currentChildProgressByRewardId,
         familyCompleted: familyRewardCompleted,
         familyRequired: familyRewardRequired,
       };
       return;
     }
 
-    const childJustUnlocked =
-      childReward &&
-      previous.childCompleted < childRewardRequired &&
-      childRewardCompleted >= childRewardRequired;
+    const childJustUnlockedItem = childRewardProgressItems.find((item) => {
+      if (!item.reward || !item.rewardId) return false;
+
+      const previousChildProgress =
+        previous.childProgressByRewardId?.[item.rewardId] || {
+          completed: 0,
+          required: item.progress.required,
+        };
+
+      return (
+        previousChildProgress.completed < item.progress.required &&
+        item.progress.completed >= item.progress.required
+      );
+    });
 
     const familyJustUnlocked =
       familyReward &&
       previous.familyCompleted < familyRewardRequired &&
       familyRewardCompleted >= familyRewardRequired;
 
-    if (rewardCelebrationArmedRef.current && childJustUnlocked) {
+    if (rewardCelebrationArmedRef.current && childJustUnlockedItem) {
+      const reward = childJustUnlockedItem.reward;
+      const childName =
+        reward.childName ||
+        reward.child_name ||
+        childJustUnlockedItem.person?.name ||
+        "Your child";
+
       setRewardCelebration({
         type: "child",
-        title: `${childReward.childName || firstChildPerson?.name || "Your child"} earned ${childReward.title}!`,
-        message: `${childRewardCompleted}/${childRewardRequired} reward tasks completed. Time to celebrate.`,
+        title: `${childName} earned ${reward.title}!`,
+        message: `${childJustUnlockedItem.progress.completed}/${childJustUnlockedItem.progress.required} reward tasks completed. Time to celebrate.`,
       });
     } else if (rewardCelebrationArmedRef.current && familyJustUnlocked) {
       setRewardCelebration({
@@ -262,19 +301,15 @@ export default function Tasks() {
 
     previousRewardProgressRef.current = {
       initialized: true,
-      childCompleted: childRewardCompleted,
-      childRequired: childRewardRequired,
+      childProgressByRewardId: currentChildProgressByRewardId,
       familyCompleted: familyRewardCompleted,
       familyRequired: familyRewardRequired,
     };
   }, [
-    childReward,
-    childRewardCompleted,
-    childRewardRequired,
+    childRewardProgressItems,
     familyReward,
     familyRewardCompleted,
     familyRewardRequired,
-    firstChildPerson,
   ]);
 
   const { completedCount, pendingCount } = getTaskStats(selectedTasks);
