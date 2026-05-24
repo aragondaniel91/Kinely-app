@@ -37,6 +37,42 @@ const priorityStyles = {
   low: "bg-emerald-50 text-emerald-700 border-emerald-100",
 };
 
+function getTaskVisualClasses({ category, chore, routine, reward }) {
+  if (reward) {
+    return "bg-amber-50 text-amber-700 ring-amber-100";
+  }
+
+  if (routine) {
+    return "bg-purple-50 text-purple-700 ring-purple-100";
+  }
+
+  if (chore) {
+    return "bg-blue-50 text-blue-700 ring-blue-100";
+  }
+
+  if (category === "school") {
+    return "bg-sky-50 text-sky-700 ring-sky-100";
+  }
+
+  if (category === "personal") {
+    return "bg-pink-50 text-pink-700 ring-pink-100";
+  }
+
+  if (category === "work") {
+    return "bg-slate-50 text-slate-700 ring-slate-100";
+  }
+
+  if (category === "family") {
+    return "bg-rose-50 text-rose-700 ring-rose-100";
+  }
+
+  if (category === "house" || category === "home") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  }
+
+  return "bg-slate-50 text-slate-600 ring-slate-100";
+}
+
 function getArchivedLabel(task = {}) {
   if (
     task.status === "cancelled" ||
@@ -78,7 +114,14 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
 
   const routineTitle = task.templateTitle || task.template_title || "Routine";
   const rewardEligible = task.rewardEligible === true || task.reward_eligible === true;
+  const isChore = task.chore || task.isChore || task.is_chore;
   const archivedLabel = getArchivedLabel(task);
+  const iconToneClasses = getTaskVisualClasses({
+    category,
+    chore: isChore,
+    routine: isGeneratedRoutine,
+    reward: rewardEligible,
+  });
 
   return (
     <div
@@ -107,7 +150,12 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
         {done ? <Check className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
       </button>
 
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-secondary text-slate-700">
+      <div
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 transition",
+          iconToneClasses
+        )}
+      >
         <TaskIcon className="h-5 w-5" />
       </div>
 
@@ -141,7 +189,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
             </span>
           )}
 
-          {(task.chore || task.isChore || task.is_chore) && (
+          {isChore && (
             <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
               chore
             </span>
