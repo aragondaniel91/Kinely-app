@@ -186,8 +186,7 @@ function RoutineCard({
   runToday = null,
   hasRunToday = false,
   canWrite = false,
-  onSkipToday,
-  onRegenerateToday,
+  onRequestAction,
   onEdit,
   onCopy,
   onDelete,
@@ -329,7 +328,7 @@ function RoutineCard({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => onSkipToday?.(template)}
+                  onClick={() => onRequestAction?.("skip", template)}
                   className="h-9 rounded-2xl border-slate-200 bg-slate-50 font-black text-slate-600 hover:bg-white hover:text-slate-900"
                 >
                   <XCircle className="mr-2 h-4 w-4" />
@@ -339,7 +338,7 @@ function RoutineCard({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => onRegenerateToday?.(template)}
+                  onClick={() => onRequestAction?.("run", template)}
                   className="h-9 rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
                 >
                   <RotateCcw className="mr-2 h-4 w-4" />
@@ -352,7 +351,7 @@ function RoutineCard({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onRegenerateToday?.(template)}
+                onClick={() => onRequestAction?.("runAnyway", template)}
                 className="h-9 rounded-2xl border-amber-200 bg-amber-50 font-black text-amber-700 hover:bg-amber-100 hover:text-amber-800"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
@@ -364,7 +363,7 @@ function RoutineCard({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onRegenerateToday?.(template)}
+                onClick={() => onRequestAction?.("regenerate", template)}
                 className="h-9 rounded-2xl border-blue-200 bg-blue-50 font-black text-blue-700 hover:bg-blue-100 hover:text-blue-800"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
@@ -393,6 +392,107 @@ function RoutineCard({
             </Button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function getRoutineActionCopy(actionType, template) {
+  const title = template?.title || "this routine";
+
+  if (actionType === "skip") {
+    return {
+      eyebrow: "Skip today",
+      title: `Skip “${title}” today?`,
+      description:
+        "This routine will not generate tasks today. It will still be available for future matching days.",
+      confirmLabel: "Skip today",
+      tone: "slate",
+    };
+  }
+
+  if (actionType === "regenerate") {
+    return {
+      eyebrow: "Regenerate today",
+      title: `Regenerate “${title}”?`,
+      description:
+        "This will create another set of tasks for today. Use this only if today's generated tasks were deleted or need to be recreated.",
+      confirmLabel: "Regenerate",
+      tone: "blue",
+    };
+  }
+
+  if (actionType === "runAnyway") {
+    return {
+      eyebrow: "Run skipped routine",
+      title: `Run “${title}” anyway?`,
+      description:
+        "This routine was skipped today. Running it anyway will create today’s tasks and mark it as generated.",
+      confirmLabel: "Run anyway",
+      tone: "amber",
+    };
+  }
+
+  return {
+    eyebrow: "Run today",
+    title: `Run “${title}” today?`,
+    description:
+      "This will create today’s tasks from this routine and mark it as generated for today.",
+    confirmLabel: "Run today",
+    tone: "emerald",
+  };
+}
+
+function RoutineActionConfirmPanel({ action, saving, onCancel, onConfirm }) {
+  if (!action) return null;
+
+  const copy = getRoutineActionCopy(action.type, action.template);
+
+  const buttonClass =
+    copy.tone === "blue"
+      ? "bg-blue-600 hover:bg-blue-700"
+      : copy.tone === "amber"
+        ? "bg-amber-600 hover:bg-amber-700"
+        : copy.tone === "slate"
+          ? "bg-slate-700 hover:bg-slate-800"
+          : "bg-emerald-600 hover:bg-emerald-700";
+
+  return (
+    <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
+      <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+          {copy.eyebrow}
+        </p>
+
+        <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">
+          {copy.title}
+        </h3>
+
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+          {copy.description}
+        </p>
+
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded-2xl font-black"
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={saving}
+            className={cn("rounded-2xl font-black text-white", buttonClass)}
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            {saving ? "Working..." : copy.confirmLabel}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -464,6 +564,7 @@ export default function ManageTaskTemplatesDialog({
   const [view, setView] = useState("list");
   const [draft, setDraft] = useState(getEmptyDraft());
   const [templateToDelete, setTemplateToDelete] = useState(null);
+  const [pendingRoutineAction, setPendingRoutineAction] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -513,6 +614,7 @@ export default function ManageTaskTemplatesDialog({
     setError("");
     setSaving(false);
     setTemplateToDelete(null);
+    setPendingRoutineAction(null);
     setDraft(getEmptyDraft());
     setView("list");
   }
@@ -520,6 +622,7 @@ export default function ManageTaskTemplatesDialog({
   function startNewRoutine() {
     setError("");
     setTemplateToDelete(null);
+    setPendingRoutineAction(null);
     setDraft(getEmptyDraft());
     setView("editor");
   }
@@ -650,6 +753,28 @@ export default function ManageTaskTemplatesDialog({
     }
   }
 
+  async function confirmRoutineAction() {
+    if (!pendingRoutineAction || saving) return;
+
+    setSaving(true);
+    setError("");
+
+    try {
+      if (pendingRoutineAction.type === "skip") {
+        await onSkipRoutineToday?.(pendingRoutineAction.template);
+      } else {
+        await onRegenerateRoutineToday?.(pendingRoutineAction.template);
+      }
+
+      setPendingRoutineAction(null);
+    } catch (err) {
+      console.error("Error running routine action:", err);
+      setError(err?.message || "There was an error running this routine action.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const isEditor = view === "editor";
   const isDelete = view === "delete";
 
@@ -733,8 +858,9 @@ export default function ManageTaskTemplatesDialog({
                       runToday={runByTemplateId.get(template.id)}
                       hasRunToday={runByTemplateId.has(template.id)}
                       canWrite={canWrite}
-                      onSkipToday={onSkipRoutineToday}
-                      onRegenerateToday={onRegenerateRoutineToday}
+                      onRequestAction={(type, template) =>
+                        setPendingRoutineAction({ type, template })
+                      }
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}
@@ -768,8 +894,9 @@ export default function ManageTaskTemplatesDialog({
                       runToday={runByTemplateId.get(template.id)}
                       hasRunToday={runByTemplateId.has(template.id)}
                       canWrite={canWrite}
-                      onSkipToday={onSkipRoutineToday}
-                      onRegenerateToday={onRegenerateRoutineToday}
+                      onRequestAction={(type, template) =>
+                        setPendingRoutineAction({ type, template })
+                      }
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}
@@ -979,6 +1106,13 @@ export default function ManageTaskTemplatesDialog({
             </div>
           )}
         </div>
+
+        <RoutineActionConfirmPanel
+          action={pendingRoutineAction}
+          saving={saving}
+          onCancel={() => setPendingRoutineAction(null)}
+          onConfirm={confirmRoutineAction}
+        />
 
         <DialogFooter className="shrink-0 bg-transparent px-4 pb-4 pt-1 sm:px-5">
           {view === "list" ? (
