@@ -28,6 +28,41 @@ function getRunId({ familyId, templateId, dateKey }) {
   return `${familyId}_${templateId}_${dateKey}`.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+function getTaskDateKey(task = {}) {
+  const raw =
+    task.dueDate ||
+    task.due_date ||
+    task.date ||
+    task.taskDate ||
+    task.task_date ||
+    "";
+
+  if (!raw) return "";
+
+  if (typeof raw === "string") return raw.slice(0, 10);
+
+  if (typeof raw?.toDate === "function") {
+    const date = raw.toDate();
+    return getDateKeyFromDate(date);
+  }
+
+  if (typeof raw?.seconds === "number") {
+    return getDateKeyFromDate(new Date(raw.seconds * 1000));
+  }
+
+  if (raw instanceof Date) return getDateKeyFromDate(raw);
+
+  return "";
+}
+
+function getDateKeyFromDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function getAssignedPersonFromTemplate(template, people = []) {
   const assignedPersonId =
     template.assignedToPersonId ||
@@ -171,6 +206,41 @@ export function useRoutineRuns({
     [familyId, canWrite, todayKey, user, loadRoutineRuns]
   );
 
+  const getExistingRoutineTasksToday = useCallback(
+    async (template) => {
+      if (!familyId || !template?.id) return [];
+
+      try {
+        const q = query(
+          collection(db, TASK_COLLECTIONS.tasks),
+          where("familyId", "==", familyId),
+          where("templateId", "==", template.id)
+        );
+
+        const snap = await getDocs(q);
+
+        return snap.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((task) => getTaskDateKey(task) === todayKey);
+      } catch (error) {
+        console.warn("Fallback checking existing routine tasks:", error);
+
+        const q = query(
+          collection(db, TASK_COLLECTIONS.tasks),
+          where("family_id", "==", familyId),
+          where("template_id", "==", template.id)
+        );
+
+        const snap = await getDocs(q);
+
+        return snap.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((task) => getTaskDateKey(task) === todayKey);
+      }
+    },
+    [familyId, todayKey]
+  );
+
   const regenerateRoutineToday = useCallback(
     async (template) => {
       if (!familyId || !template?.id) return;
@@ -189,6 +259,14 @@ export function useRoutineRuns({
       });
 
       try {
+        const existingTasksToday = await getExistingRoutineTasksToday(template);
+
+        if (existingTasksToday.length > 0) {
+          alert(
+            `This routine already has ${existingTasksToday.length} task${existingTasksToday.length === 1 ? "" : "s"} for today. Recreate is blocked to avoid duplicates.`
+          );
+          return;
+        }
         const selectedPerson = getAssignedPersonFromTemplate(template, people);
         const childId =
           selectedPerson?.roleType === "child"
@@ -298,7 +376,7 @@ export function useRoutineRuns({
         alert(`There was an error regenerating the routine: ${error.message}`);
       }
     },
-    [familyId, canWrite, todayKey, user, profile, people, loadRoutineRuns]
+    [familyId, canWrite, todayKey, user, profile, people, loadRoutineRuns, getExistingRoutineTasksToday]
   );
 
   return {
