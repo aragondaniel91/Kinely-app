@@ -37,17 +37,9 @@ const priorityStyles = {
   low: "bg-emerald-50 text-emerald-700 border-emerald-100",
 };
 
-function getTaskVisualClasses({ category, chore, routine, reward }) {
-  if (reward) {
-    return "bg-amber-50 text-amber-700 ring-amber-100";
-  }
-
-  if (routine) {
-    return "bg-purple-50 text-purple-700 ring-purple-100";
-  }
-
-  if (chore) {
-    return "bg-blue-50 text-blue-700 ring-blue-100";
+function getCategoryVisualClasses(category = "other") {
+  if (category === "house" || category === "home") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   }
 
   if (category === "school") {
@@ -66,11 +58,7 @@ function getTaskVisualClasses({ category, chore, routine, reward }) {
     return "bg-rose-50 text-rose-700 ring-rose-100";
   }
 
-  if (category === "house" || category === "home") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
-  }
-
-  return "bg-slate-50 text-slate-600 ring-slate-100";
+  return "bg-violet-50 text-violet-700 ring-violet-100";
 }
 
 function getArchivedLabel(task = {}) {
@@ -116,12 +104,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   const rewardEligible = task.rewardEligible === true || task.reward_eligible === true;
   const isChore = task.chore || task.isChore || task.is_chore;
   const archivedLabel = getArchivedLabel(task);
-  const iconToneClasses = getTaskVisualClasses({
-    category,
-    chore: isChore,
-    routine: isGeneratedRoutine,
-    reward: rewardEligible,
-  });
+  const iconToneClasses = getCategoryVisualClasses(category);
 
   return (
     <div
