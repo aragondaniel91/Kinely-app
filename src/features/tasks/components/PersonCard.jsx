@@ -41,11 +41,20 @@ function PersonAvatar({ person }) {
   );
 }
 
+function getScopeLabel(scope = "today") {
+  if (scope === "today") return "Today";
+  if (scope === "week") return "This week";
+  if (scope === "month") return "This month";
+  if (scope === "upcoming") return "Upcoming";
+  return "All";
+}
+
 export default function PersonCard({
   person,
   tasks = [],
   selected,
   canWrite,
+  activeTaskScope = "today",
   onSelect,
   onQuickAdd,
 }) {
@@ -119,7 +128,7 @@ export default function PersonCard({
       <div className="relative mt-auto">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-            Progress
+            {getScopeLabel(activeTaskScope)} progress
           </p>
 
           <p className="text-xs font-black text-slate-600">

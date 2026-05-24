@@ -78,6 +78,7 @@ export default function TaskBoardContent({
               tasks={getPersonTasks(person)}
               selected={selectedPerson?.id === person.id}
               canWrite={canWrite}
+              activeTaskScope={activeTaskScope}
               onSelect={onSelectPerson}
               onQuickAdd={onQuickAddTask}
             />
