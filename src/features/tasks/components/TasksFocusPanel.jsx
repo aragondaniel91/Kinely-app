@@ -73,6 +73,7 @@ function getPriorityTasks(tasks = []) {
 function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }) {
   const TaskIcon = getTaskIcon(task);
   const done = isDone(task);
+  const archived = isArchivedTask(task);
   const disabled = archived || !canWrite || isDemoTask(task);
   const priority = task.priority || "medium";
   const category = task.category || "other";
@@ -85,7 +86,6 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   );
   const routineTitle = task.templateTitle || task.template_title || "Routine";
   const rewardEligible = task.rewardEligible === true || task.reward_eligible === true;
-  const archived = isArchivedTask(task);
   const archivedLabel = getArchivedLabel(task);
 
   return (
