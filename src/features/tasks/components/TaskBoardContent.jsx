@@ -112,6 +112,7 @@ export default function TaskBoardContent({
         allTasks={allTasks}
         canWrite={canWrite}
         onClaimReward={onClaimReward}
+        onManageRewards={onManageRewards}
       />
     </div>
   );
