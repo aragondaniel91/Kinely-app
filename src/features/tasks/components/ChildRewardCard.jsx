@@ -1,9 +1,10 @@
 import React from "react";
-import { RotateCcw, Trophy } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getRewardProgress } from "@/features/tasks/utils/rewardProgress";
+import { getRewardIconComponent, getRewardIconKey } from "@/features/tasks/utils/rewardIcons";
 
 export default function ChildRewardCard({
   reward,
@@ -17,6 +18,9 @@ export default function ChildRewardCard({
     childTasks,
     reward
   );
+  const RewardIcon = getRewardIconComponent(
+    reward.icon || getRewardIconKey(reward.title, "trophy")
+  );
 
   return (
     <Card className="rounded-[2rem] border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-5 shadow-[0_18px_45px_rgba(120,72,20,0.08)]">
@@ -27,7 +31,7 @@ export default function ChildRewardCard({
           </p>
 
           <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-            {reward.title} 🍦
+            {reward.title}
           </h3>
 
           <p className="mt-1 text-sm font-extrabold text-slate-500">
@@ -36,7 +40,7 @@ export default function ChildRewardCard({
         </div>
 
         <div className="flex h-20 w-20 items-center justify-center rounded-[1.7rem] bg-white/80 shadow-inner">
-          <Trophy className="h-10 w-10 text-amber-600" />
+          <RewardIcon className="h-10 w-10 text-amber-600" />
         </div>
       </div>
 

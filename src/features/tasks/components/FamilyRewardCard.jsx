@@ -1,9 +1,10 @@
 import React from "react";
-import { Pizza, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getRewardProgress } from "@/features/tasks/utils/rewardProgress";
+import { getRewardIconComponent, getRewardIconKey } from "@/features/tasks/utils/rewardIcons";
 
 export default function FamilyRewardCard({
   reward,
@@ -16,6 +17,9 @@ export default function FamilyRewardCard({
   const { completed, required, left, percent, ready } = getRewardProgress(
     allTasks,
     reward
+  );
+  const RewardIcon = getRewardIconComponent(
+    reward.icon || getRewardIconKey(reward.title, "gift")
   );
 
   return (
@@ -36,7 +40,7 @@ export default function FamilyRewardCard({
         </div>
 
         <div className="flex h-20 w-20 items-center justify-center rounded-[1.7rem] bg-white/80 shadow-inner">
-          <Pizza className="h-10 w-10 text-primary" />
+          <RewardIcon className="h-10 w-10 text-primary" />
         </div>
       </div>
 

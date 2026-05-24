@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
+import { getRewardIconKey } from "@/features/tasks/utils/rewardIcons";
 
 function isRealReward(reward, familyId) {
   return Boolean(reward?.id && reward?.familyId === familyId);
@@ -209,7 +210,7 @@ export default function ManageTaskRewardsDialog({
           child_name: selectedChild.name,
 
           title: cleanChildTitle,
-          icon: "trophy",
+          icon: getRewardIconKey(cleanChildTitle, "trophy"),
           requiredTasks: getNumber(childRequiredTasks, 5),
           required_tasks: getNumber(childRequiredTasks, 5),
           active: true,
@@ -223,7 +224,7 @@ export default function ManageTaskRewardsDialog({
 
         type: "family",
         title: cleanFamilyTitle,
-        icon: "gift",
+        icon: getRewardIconKey(cleanFamilyTitle, "gift"),
         requiredTasks: getNumber(familyRequiredTasks, 8),
         required_tasks: getNumber(familyRequiredTasks, 8),
         active: true,
