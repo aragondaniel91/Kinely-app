@@ -11,6 +11,7 @@ import {
   Trash2,
   Layers,
   Gift,
+  Archive,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,33 @@ const priorityStyles = {
   low: "bg-emerald-50 text-emerald-700 border-emerald-100",
 };
 
+function isArchivedTask(task = {}) {
+  return (
+    task.status === "cancelled" ||
+    task.status === "canceled" ||
+    task.status === "skipped" ||
+    task.cancelled === true ||
+    task.canceled === true ||
+    task.skipped === true
+  );
+}
+
+function getArchivedLabel(task = {}) {
+  if (
+    task.status === "cancelled" ||
+    task.status === "canceled" ||
+    task.cancelled === true ||
+    task.canceled === true
+  ) {
+    return "cancelled";
+  }
+
+  return "skipped";
+}
+
 function getPriorityTasks(tasks = []) {
   return [...tasks]
-    .filter((task) => !isDone(task))
+    .filter((task) => !isDone(task) && !isArchivedTask(task))
     .sort((a, b) => {
       const aRank = priorityRank[a.priority || "medium"] ?? 1;
       const bRank = priorityRank[b.priority || "medium"] ?? 1;
@@ -48,7 +73,7 @@ function getPriorityTasks(tasks = []) {
 function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }) {
   const TaskIcon = getTaskIcon(task);
   const done = isDone(task);
-  const disabled = !canWrite || isDemoTask(task);
+  const disabled = archived || !canWrite || isDemoTask(task);
   const priority = task.priority || "medium";
   const category = task.category || "other";
   const dueDate = getTaskDueDateKey(task);
@@ -58,14 +83,20 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
       task.routineRunId ||
       task.routine_run_id
   );
+  const routineTitle = task.templateTitle || task.template_title || "Routine";
+  const rewardEligible = task.rewardEligible === true || task.reward_eligible === true;
+  const archived = isArchivedTask(task);
+  const archivedLabel = getArchivedLabel(task);
 
   return (
     <div
       className={cn(
         "group flex items-center gap-3 rounded-3xl border px-4 py-3 transition",
-        done
-          ? "border-accent/15 bg-accent/5"
-          : "border-slate-100 bg-white/90 hover:border-slate-200 hover:shadow-sm"
+        archived
+          ? "border-slate-200 bg-slate-50 opacity-80"
+          : done
+            ? "border-accent/15 bg-accent/5"
+            : "border-slate-100 bg-white/90 hover:border-slate-200 hover:shadow-sm"
       )}
     >
       <button
@@ -89,7 +120,14 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-base font-black", done ? "text-slate-400 line-through" : "text-slate-900")}>
+        <p className={cn(
+          "truncate text-base font-black",
+          archived
+            ? "text-slate-400 line-through"
+            : done
+              ? "text-slate-400 line-through"
+              : "text-slate-900"
+        )}>
           {task.title}
         </p>
 
@@ -107,6 +145,12 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
             {category}
           </span>
 
+          {archived && (
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              {archivedLabel}
+            </span>
+          )}
+
           {(task.chore || task.isChore || task.is_chore) && (
             <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
               chore
@@ -114,9 +158,19 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
           )}
 
           {isGeneratedRoutine && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-purple-700">
+            <span
+              title={routineTitle}
+              className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-purple-700"
+            >
               <Repeat className="h-3 w-3" />
               routine
+            </span>
+          )}
+
+          {rewardEligible && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
+              <Gift className="h-3 w-3" />
+              reward
             </span>
           )}
 
@@ -172,7 +226,13 @@ export default function TasksFocusPanel({
 }) {
   const priorityTasks = getPriorityTasks(selectedTasks);
   const visibleTasks = priorityTasks.slice(0, 6);
-  const completedTasks = selectedTasks.filter(isDone).slice(0, 3);
+  const completedTasks = selectedTasks
+    .filter((task) => isDone(task) && !isArchivedTask(task))
+    .slice(0, 3);
+  const archivedTasks =
+    activeTaskScope === "all"
+      ? selectedTasks.filter(isArchivedTask).slice(0, 4)
+      : [];
   const scopeTitle = getTaskDateScopeTitle(activeTaskScope);
 
   return (
@@ -309,6 +369,28 @@ export default function TasksFocusPanel({
                     >
                       ✓ {task.title}
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {archivedTasks.length > 0 && (
+              <div className="pt-3">
+                <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  <Archive className="h-4 w-4" />
+                  Archived / skipped
+                </p>
+
+                <div className="space-y-2">
+                  {archivedTasks.map((task) => (
+                    <FocusTaskRow
+                      key={task.id}
+                      task={task}
+                      canWrite={canWrite}
+                      onToggleTask={onToggleTask}
+                      onEditTask={onEditTask}
+                      onDeleteTask={onDeleteTask}
+                    />
                   ))}
                 </div>
               </div>
