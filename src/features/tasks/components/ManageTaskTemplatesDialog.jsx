@@ -100,6 +100,24 @@ function getPriorityTone(priority = "medium") {
   return "bg-amber-50 text-amber-700 ring-amber-100";
 }
 
+function getDefaultRecurrenceForTemplate(template, { clone = false } = {}) {
+  const explicitRecurrence = template.recurrence || template.repeat;
+
+  if (explicitRecurrence && explicitRecurrence !== "manual") {
+    return explicitRecurrence;
+  }
+
+  if (!clone) return explicitRecurrence || "manual";
+
+  const type = template.type || "custom";
+
+  if (type === "weekday") return "weekdays";
+  if (type === "weekend") return "weekends";
+  if (["daily", "bedtime", "chore"].includes(type)) return "daily";
+
+  return "manual";
+}
+
 function getEmptyDraft() {
   return {
     id: "",
@@ -149,8 +167,8 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
     type: template.type || "custom",
     category: template.category || "house",
     defaultPriority: template.tasks?.[0]?.priority || "medium",
-    recurrence: template.recurrence || template.repeat || "manual",
-    autoGenerate: Boolean(template.autoGenerate || template.auto_generate),
+    recurrence: getDefaultRecurrenceForTemplate(template, { clone }),
+    autoGenerate: clone ? false : Boolean(template.autoGenerate || template.auto_generate),
     assignedToPersonId:
       template.assignedToPersonId ||
       template.assigned_to_person_id ||
