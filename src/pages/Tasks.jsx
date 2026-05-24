@@ -392,6 +392,7 @@ export default function Tasks() {
         onOpenChange={setShowManageRewards}
         people={people}
         childReward={childReward}
+        childRewards={childRewards}
         familyReward={familyReward}
         onSaved={loadRewards}
       />

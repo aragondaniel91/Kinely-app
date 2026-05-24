@@ -41,6 +41,21 @@ function getNumber(value, fallback = 5) {
   return Math.round(parsed);
 }
 
+function rewardBelongsToChild(reward, childPerson) {
+  if (!reward || !childPerson) return false;
+
+  const childId = childPerson.childId || childPerson.child_id || childPerson.id;
+
+  return (
+    reward.childPersonId === childPerson.id ||
+    reward.child_person_id === childPerson.id ||
+    reward.childId === childId ||
+    reward.child_id === childId ||
+    reward.childName === childPerson.name ||
+    reward.child_name === childPerson.name
+  );
+}
+
 function RewardSection({
   icon: Icon,
   eyebrow,
@@ -78,6 +93,7 @@ export default function ManageTaskRewardsDialog({
   onOpenChange,
   people = [],
   childReward = null,
+  childRewards = [],
   familyReward = null,
   onSaved,
 }) {
@@ -100,26 +116,40 @@ export default function ManageTaskRewardsDialog({
     childPeople.find((person) => person.id === selectedChildPersonId) ||
     childPeople[0];
 
+  const selectedChildReward = useMemo(() => {
+    if (!selectedChild) return null;
+
+    return (
+      (Array.isArray(childRewards) ? childRewards : []).find((reward) =>
+        rewardBelongsToChild(reward, selectedChild)
+      ) ||
+      (rewardBelongsToChild(childReward, selectedChild) ? childReward : null)
+    );
+  }, [childRewards, childReward, selectedChild]);
+
   useEffect(() => {
     if (!open) return;
 
     const fallbackChild = childPeople[0];
 
-    setSelectedChildPersonId(
-      childReward?.childPersonId ||
-        childReward?.child_person_id ||
-        fallbackChild?.id ||
-        ""
-    );
-
-    setChildRewardTitle(childReward?.title || "Ice cream");
-    setChildRequiredTasks(childReward?.requiredTasks || childReward?.required_tasks || 5);
+    setSelectedChildPersonId((current) => current || fallbackChild?.id || "");
 
     setFamilyRewardTitle(familyReward?.title || "Pizza Night");
     setFamilyRequiredTasks(familyReward?.requiredTasks || familyReward?.required_tasks || 8);
 
     setError("");
-  }, [open, childPeople, childReward, familyReward]);
+  }, [open, childPeople, familyReward]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    setChildRewardTitle(selectedChildReward?.title || "Ice cream");
+    setChildRequiredTasks(
+      selectedChildReward?.requiredTasks ||
+        selectedChildReward?.required_tasks ||
+        5
+    );
+  }, [open, selectedChildReward, selectedChildPersonId]);
 
   async function upsertReward(existingReward, payload) {
     if (isRealReward(existingReward, familyId)) {
@@ -165,7 +195,7 @@ export default function ManageTaskRewardsDialog({
       if (selectedChild) {
         const childId = selectedChild.childId || selectedChild.child_id || selectedChild.id;
 
-        await upsertReward(childReward, {
+        await upsertReward(selectedChildReward, {
           familyId,
           family_id: familyId,
           familyName: profile?.family_name || profile?.familyName || "",
