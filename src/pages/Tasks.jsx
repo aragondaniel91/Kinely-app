@@ -66,6 +66,7 @@ export default function Tasks() {
     familyCompleted: 0,
     familyRequired: 0,
   });
+  const rewardCelebrationArmedRef = useRef(false);
   const [quickAddPerson, setQuickAddPerson] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -242,19 +243,21 @@ export default function Tasks() {
       previous.familyCompleted < familyRewardRequired &&
       familyRewardCompleted >= familyRewardRequired;
 
-    if (childJustUnlocked) {
+    if (rewardCelebrationArmedRef.current && childJustUnlocked) {
       setRewardCelebration({
         type: "child",
         title: `${childReward.childName || firstChildPerson?.name || "Your child"} earned ${childReward.title}!`,
         message: `${childRewardCompleted}/${childRewardRequired} reward tasks completed. Time to celebrate.`,
       });
-    } else if (familyJustUnlocked) {
+    } else if (rewardCelebrationArmedRef.current && familyJustUnlocked) {
       setRewardCelebration({
         type: "family",
         title: `${familyReward.title} unlocked!`,
         message: `${familyRewardCompleted}/${familyRewardRequired} family reward tasks completed together.`,
       });
     }
+
+    rewardCelebrationArmedRef.current = false;
 
     previousRewardProgressRef.current = {
       initialized: true,
@@ -278,6 +281,17 @@ export default function Tasks() {
   const handleDeleteTask = async (task) => {
     await deleteTask(task);
     setTaskToDelete(null);
+  };
+
+  const handleToggleTask = async (task) => {
+    rewardCelebrationArmedRef.current = true;
+    await toggleTask(task);
+  };
+
+  const handleClaimReward = async (reward) => {
+    rewardCelebrationArmedRef.current = false;
+    setRewardCelebration(null);
+    await resetReward(reward);
   };
 
   const handleOpenAddTask = (person = null) => {
@@ -338,8 +352,8 @@ export default function Tasks() {
         onApplyTemplate={handleOpenTemplates}
         onManageTemplates={() => setShowManageTemplates(true)}
         onManageRewards={() => setShowManageRewards(true)}
-        onClaimReward={resetReward}
-        onToggleTask={toggleTask}
+        onClaimReward={handleClaimReward}
+        onToggleTask={handleToggleTask}
         onEditTask={setEditTask}
         onDeleteTask={setTaskToDelete}
         activeCategory={activeCategory}
