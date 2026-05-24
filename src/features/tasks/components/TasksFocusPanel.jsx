@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Check,
   Circle,
@@ -224,15 +224,25 @@ export default function TasksFocusPanel({
   onEditTask,
   onDeleteTask,
 }) {
+  const [showAllUpNext, setShowAllUpNext] = useState(false);
+  const [showAllCompleted, setShowAllCompleted] = useState(false);
+  const [showAllArchived, setShowAllArchived] = useState(false);
+
   const priorityTasks = getPriorityTasks(selectedTasks);
-  const visibleTasks = priorityTasks.slice(0, 6);
-  const completedTasks = selectedTasks
-    .filter((task) => isDone(task) && !isArchivedTask(task))
-    .slice(0, 3);
-  const archivedTasks =
-    activeTaskScope === "all"
-      ? selectedTasks.filter(isArchivedTask).slice(0, 4)
-      : [];
+  const allCompletedTasks = selectedTasks.filter(
+    (task) => isDone(task) && !isArchivedTask(task)
+  );
+  const allArchivedTasks =
+    activeTaskScope === "all" ? selectedTasks.filter(isArchivedTask) : [];
+
+  const visibleTasks = showAllUpNext ? priorityTasks : priorityTasks.slice(0, 6);
+  const completedTasks = showAllCompleted
+    ? allCompletedTasks
+    : allCompletedTasks.slice(0, 3);
+  const archivedTasks = showAllArchived
+    ? allArchivedTasks
+    : allArchivedTasks.slice(0, 4);
+
   const scopeTitle = getTaskDateScopeTitle(activeTaskScope);
 
   return (
@@ -355,6 +365,19 @@ export default function TasksFocusPanel({
               />
             ))}
 
+            {priorityTasks.length > 6 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAllUpNext((current) => !current)}
+                className="w-full rounded-2xl bg-white/80 font-black"
+              >
+                {showAllUpNext
+                  ? "Show less"
+                  : `Show all ${priorityTasks.length} tasks`}
+              </Button>
+            )}
+
             {completedTasks.length > 0 && (
               <div className="pt-3">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
@@ -371,6 +394,19 @@ export default function TasksFocusPanel({
                     </div>
                   ))}
                 </div>
+
+                {allCompletedTasks.length > 3 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowAllCompleted((current) => !current)}
+                    className="mt-2 rounded-2xl font-black text-accent"
+                  >
+                    {showAllCompleted
+                      ? "Show less completed"
+                      : `Show all ${allCompletedTasks.length} completed`}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -393,6 +429,19 @@ export default function TasksFocusPanel({
                     />
                   ))}
                 </div>
+
+                {allArchivedTasks.length > 4 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowAllArchived((current) => !current)}
+                    className="mt-2 rounded-2xl font-black text-slate-500"
+                  >
+                    {showAllArchived
+                      ? "Show less archived"
+                      : `Show all ${allArchivedTasks.length} archived`}
+                  </Button>
+                )}
               </div>
             )}
           </div>
