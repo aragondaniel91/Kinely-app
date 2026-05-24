@@ -68,7 +68,7 @@ export default function TaskBoardContent({
         <div
           className="grid min-w-full gap-3"
           style={{
-            gridTemplateColumns: `repeat(${peopleCount}, minmax(165px, 1fr))`,
+            gridTemplateColumns: `repeat(${peopleCount}, minmax(185px, 1fr))`,
           }}
         >
           {people.map((person) => (

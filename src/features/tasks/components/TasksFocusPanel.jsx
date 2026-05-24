@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Archive,
   Check,
@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { getTaskIcon, isDemoTask, isDone } from "@/features/tasks/utils/taskHelpers";
+import { getTaskIcon, isArchivedTask, isDemoTask, isDone } from "@/features/tasks/utils/taskHelpers";
 import {
   TASK_DATE_SCOPES,
   getTaskDateScopeTitle,
@@ -35,17 +35,6 @@ const priorityStyles = {
   medium: "bg-amber-50 text-amber-700 border-amber-100",
   low: "bg-emerald-50 text-emerald-700 border-emerald-100",
 };
-
-function isArchivedTask(task = {}) {
-  return (
-    task.status === "cancelled" ||
-    task.status === "canceled" ||
-    task.status === "skipped" ||
-    task.cancelled === true ||
-    task.canceled === true ||
-    task.skipped === true
-  );
-}
 
 function getArchivedLabel(task = {}) {
   if (
@@ -227,6 +216,12 @@ export default function TasksFocusPanel({
   const [showAllUpNext, setShowAllUpNext] = useState(false);
   const [showAllCompleted, setShowAllCompleted] = useState(false);
   const [showAllArchived, setShowAllArchived] = useState(false);
+
+  useEffect(() => {
+    setShowAllUpNext(false);
+    setShowAllCompleted(false);
+    setShowAllArchived(false);
+  }, [selectedPerson?.id, activeTaskScope]);
 
   const priorityTasks = getPriorityTasks(selectedTasks);
 

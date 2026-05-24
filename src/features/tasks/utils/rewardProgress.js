@@ -1,4 +1,4 @@
-import { isDone } from "@/features/tasks/utils/taskHelpers";
+import { isArchivedTask, isDone } from "@/features/tasks/utils/taskHelpers";
 
 function toMillis(value) {
   if (!value) return 0;
@@ -40,6 +40,7 @@ export function getTaskCompletedMillis(task) {
 }
 
 export function isCompletedInRewardCycle(task, reward) {
+  if (isArchivedTask(task)) return false;
   if (!isDone(task)) return false;
 
   const cycleStartedAt = getRewardCycleStartedMillis(reward);

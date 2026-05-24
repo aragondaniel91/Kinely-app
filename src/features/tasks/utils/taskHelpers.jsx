@@ -101,6 +101,17 @@ export function isDone(task = {}) {
   return task.status === "done" || task.status === "completed";
 }
 
+export function isArchivedTask(task = {}) {
+  return (
+    task.status === "cancelled" ||
+    task.status === "canceled" ||
+    task.status === "skipped" ||
+    task.cancelled === true ||
+    task.canceled === true ||
+    task.skipped === true
+  );
+}
+
 export function isDemoTask(task = {}) {
   return String(task.id || "").startsWith("demo-");
 }

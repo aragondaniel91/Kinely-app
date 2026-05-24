@@ -2,23 +2,28 @@ import React from "react";
 import { Check, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { isDone } from "@/features/tasks/utils/taskHelpers";
+import { isArchivedTask, isDone } from "@/features/tasks/utils/taskHelpers";
 
 function getPersonColorClasses(person = {}) {
   return person.colorClasses || {};
 }
 
-function PersonAvatar({ person }) {
+function PersonAvatar({ person, selected = false }) {
   const Icon = person.icon;
   const colorClasses = getPersonColorClasses(person);
   const avatarUrl =
     person.avatarUrl || person.avatar_url || person.photoURL || person.photoUrl || "";
 
   return (
-    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/75 text-2xl shadow-inner ring-1 ring-white/60">
+    <div
+      className={cn(
+        "relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-2xl shadow-sm ring-1 transition",
+        selected ? "ring-slate-200" : "ring-white/80"
+      )}
+    >
       <div
         className={cn(
-          "absolute inset-1 rounded-2xl opacity-15",
+          "absolute inset-1 rounded-[1.05rem] opacity-10",
           colorClasses.stripe || person.accent || "bg-primary"
         )}
       />
@@ -32,7 +37,7 @@ function PersonAvatar({ person }) {
       ) : (
         <Icon
           className={cn(
-            "relative h-6 w-6 opacity-80",
+            "relative h-5.5 w-5.5 opacity-85",
             colorClasses.text || person.ring || "text-primary"
           )}
         />
@@ -49,6 +54,13 @@ function getScopeLabel(scope = "today") {
   return "All";
 }
 
+function getStatusCopy({ pending, total }) {
+  if (total === 0) return "No tasks";
+  if (pending === 0) return "All clear";
+  if (pending === 1) return "1 pending";
+  return `${pending} pending`;
+}
+
 export default function PersonCard({
   person,
   tasks = [],
@@ -59,10 +71,12 @@ export default function PersonCard({
   onQuickAdd,
 }) {
   const colorClasses = getPersonColorClasses(person);
-  const completed = tasks.filter(isDone).length;
-  const total = tasks.length;
+  const activeTasks = tasks.filter((task) => !isArchivedTask(task));
+  const completed = activeTasks.filter(isDone).length;
+  const total = activeTasks.length;
   const pending = Math.max(total - completed, 0);
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const statusCopy = getStatusCopy({ pending, total });
 
   return (
     <div
@@ -73,22 +87,23 @@ export default function PersonCard({
         if (event.key === "Enter" || event.key === " ") onSelect(person.id);
       }}
       className={cn(
-        "group relative flex h-[172px] min-w-0 flex-col overflow-hidden rounded-[1.75rem] border p-3.5 text-left shadow-[0_14px_36px_rgba(38,50,56,0.055)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_44px_rgba(38,50,56,0.08)]",
+        "group relative flex h-[158px] min-w-0 flex-col overflow-hidden rounded-[1.6rem] border p-3.5 text-left transition-all",
+        "shadow-[0_10px_26px_rgba(38,50,56,0.045)] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(38,50,56,0.06)]",
         selected
-          ? "border-primary/12 bg-white/88 ring-4 ring-primary/5"
-          : "border-white/70 bg-white/62"
+          ? "border-slate-200 bg-white ring-4 ring-slate-100/80"
+          : "border-white/80 bg-white/72 hover:bg-white/88"
       )}
     >
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-4 top-0 h-1.5 rounded-b-full opacity-35",
+          "pointer-events-none absolute inset-x-4 top-0 h-1 rounded-b-full opacity-45",
           colorClasses.stripe || person.accent || "bg-primary"
         )}
       />
 
       <div
         className={cn(
-          "pointer-events-none absolute -right-12 -top-14 h-32 w-32 rounded-full opacity-12 blur-2xl",
+          "pointer-events-none absolute inset-0 opacity-[0.035]",
           colorClasses.bgStrong || colorClasses.stripe || person.accent || "bg-primary"
         )}
       />
@@ -101,7 +116,7 @@ export default function PersonCard({
             onQuickAdd?.(person);
           }}
           className={cn(
-            "absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/85 text-slate-600 shadow-sm ring-1 ring-white transition hover:scale-105 hover:bg-white",
+            "absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm ring-1 ring-slate-100 transition hover:scale-105 hover:text-slate-900",
             colorClasses.text || person.ring || "text-primary"
           )}
           aria-label={`Add task for ${person.name}`}
@@ -112,7 +127,7 @@ export default function PersonCard({
       )}
 
       <div className="relative flex items-start gap-2.5 pr-8">
-        <PersonAvatar person={person} />
+        <PersonAvatar person={person} selected={selected} />
 
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-lg font-black tracking-tight text-slate-900">
@@ -139,25 +154,36 @@ export default function PersonCard({
         <div className="h-2 overflow-hidden rounded-full bg-slate-100/80">
           <div
             className={cn(
-              "h-full rounded-full opacity-55 transition-all",
-              colorClasses.stripe || person.accent || "bg-primary"
+              "h-full rounded-full transition-all",
+              total === 0
+                ? "bg-slate-200"
+                : colorClasses.stripe || person.accent || "bg-primary"
             )}
-            style={{ width: `${percent}%` }}
+            style={{ width: `${percent}%`, opacity: total === 0 ? 0.45 : 0.55 }}
           />
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="truncate text-xs font-extrabold text-slate-500">
-            {pending} pending
+          <span
+            className={cn(
+              "truncate text-xs font-extrabold",
+              pending === 0 && total > 0 ? "text-accent" : "text-slate-500"
+            )}
+          >
+            {statusCopy}
           </span>
 
           {pending === 0 && total > 0 ? (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-accent/8 px-2 py-1 text-[10px] font-black text-accent">
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-600 ring-1 ring-emerald-100">
               <Check className="h-3 w-3" />
               Clear
             </span>
+          ) : total === 0 ? (
+            <span className="shrink-0 rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-400 ring-1 ring-slate-100">
+              Quiet
+            </span>
           ) : (
-            <span className="shrink-0 rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-400">
+            <span className="shrink-0 rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-400 ring-1 ring-slate-100">
               View
             </span>
           )}
