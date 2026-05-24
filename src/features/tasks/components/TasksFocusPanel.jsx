@@ -330,7 +330,7 @@ export default function TasksFocusPanel({
               <div className="flex flex-wrap items-center justify-start gap-2 rounded-2xl bg-white/45 p-1.5 ring-1 ring-white/70 xl:justify-end">
                 <span className="flex items-center gap-1 px-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                   <Settings2 className="h-3.5 w-3.5" />
-                  Setup
+                  Routine setup
                 </span>
 
                 <button
@@ -339,16 +339,7 @@ export default function TasksFocusPanel({
                   className="inline-flex h-9 items-center rounded-xl px-3 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-900"
                 >
                   <Layers className="mr-1.5 h-4 w-4" />
-                  Routines
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onManageRewards?.()}
-                  className="inline-flex h-9 items-center rounded-xl px-3 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-900"
-                >
-                  <Gift className="mr-1.5 h-4 w-4" />
-                  Rewards
+                  Manage routines
                 </button>
               </div>
             )}
