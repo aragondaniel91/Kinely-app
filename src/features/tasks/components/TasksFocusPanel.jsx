@@ -1,17 +1,17 @@
 import React, { useState } from "react";
 import {
+  Archive,
   Check,
   Circle,
   Clock,
+  Gift,
+  Layers,
   MoreHorizontal,
   Pencil,
   Plus,
   Repeat,
   Sparkles,
   Trash2,
-  Layers,
-  Gift,
-  Archive,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -78,12 +78,14 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   const priority = task.priority || "medium";
   const category = task.category || "other";
   const dueDate = getTaskDueDateKey(task);
+
   const isGeneratedRoutine = Boolean(
     task.generatedFromRoutine ||
       task.generated_from_routine ||
       task.routineRunId ||
       task.routine_run_id
   );
+
   const routineTitle = task.templateTitle || task.template_title || "Routine";
   const rewardEligible = task.rewardEligible === true || task.reward_eligible === true;
   const archivedLabel = getArchivedLabel(task);
@@ -101,7 +103,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
     >
       <button
         type="button"
-        onClick={() => onToggleTask(task)}
+        onClick={() => onToggleTask?.(task)}
         disabled={disabled}
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition",
@@ -120,14 +122,12 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className={cn(
-          "truncate text-base font-black",
-          archived
-            ? "text-slate-400 line-through"
-            : done
-              ? "text-slate-400 line-through"
-              : "text-slate-900"
-        )}>
+        <p
+          className={cn(
+            "truncate text-base font-black",
+            archived || done ? "text-slate-400 line-through" : "text-slate-900"
+          )}
+        >
           {task.title}
         </p>
 
@@ -186,7 +186,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
         <div className="flex shrink-0 gap-1">
           <button
             type="button"
-            onClick={() => onEditTask(task)}
+            onClick={() => onEditTask?.(task)}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-500 transition hover:bg-white hover:text-slate-900 hover:shadow-sm"
             aria-label="Edit task"
           >
@@ -195,7 +195,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
 
           <button
             type="button"
-            onClick={() => onDeleteTask(task)}
+            onClick={() => onDeleteTask?.(task)}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-500 transition hover:bg-white hover:text-red-700 hover:shadow-sm"
             aria-label="Delete task"
           >
@@ -209,7 +209,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
 
 export default function TasksFocusPanel({
   selectedPerson,
-  selectedTasks,
+  selectedTasks = [],
   loading,
   canWrite,
   pendingCount,
@@ -229,16 +229,20 @@ export default function TasksFocusPanel({
   const [showAllArchived, setShowAllArchived] = useState(false);
 
   const priorityTasks = getPriorityTasks(selectedTasks);
+
   const allCompletedTasks = selectedTasks.filter(
     (task) => isDone(task) && !isArchivedTask(task)
   );
+
   const allArchivedTasks =
     activeTaskScope === "all" ? selectedTasks.filter(isArchivedTask) : [];
 
   const visibleTasks = showAllUpNext ? priorityTasks : priorityTasks.slice(0, 6);
+
   const completedTasks = showAllCompleted
     ? allCompletedTasks
     : allCompletedTasks.slice(0, 3);
+
   const archivedTasks = showAllArchived
     ? allArchivedTasks
     : allArchivedTasks.slice(0, 4);
@@ -260,7 +264,7 @@ export default function TasksFocusPanel({
             </h2>
 
             <p className="mt-1 max-w-2xl text-sm font-extrabold leading-6 text-slate-500">
-              Select a person, then switch between today, upcoming, or all tasks.
+              Select a person, then switch between today, week, month, upcoming, or all tasks.
             </p>
           </div>
 
@@ -345,50 +349,43 @@ export default function TasksFocusPanel({
           <div className="flex justify-center py-16">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
           </div>
-        ) : visibleTasks.length > 0 ? (
+        ) : visibleTasks.length > 0 ||
+          completedTasks.length > 0 ||
+          archivedTasks.length > 0 ? (
           <div className="space-y-3">
-            <div className="mb-2 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-accent" />
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                Up next
-              </p>
-            </div>
+            {visibleTasks.length > 0 && (
+              <>
+                <div className="mb-2 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-accent" />
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                    Up next
+                  </p>
+                </div>
 
-            {visibleTasks.map((task) => (
-              <FocusTaskRow
-                key={task.id}
-                task={task}
-                canWrite={canWrite}
-                onToggleTask={onToggleTask}
-                onEditTask={onEditTask}
-                onDeleteTask={onDeleteTask}
-              />
-            ))}
+                {visibleTasks.map((task) => (
+                  <FocusTaskRow
+                    key={task.id}
+                    task={task}
+                    canWrite={canWrite}
+                    onToggleTask={onToggleTask}
+                    onEditTask={onEditTask}
+                    onDeleteTask={onDeleteTask}
+                  />
+                ))}
 
-            {priorityTasks.length > 6 && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowAllUpNext((current) => !current)}
-                className="w-full rounded-2xl bg-white/80 font-black"
-              >
-                {showAllUpNext
-                  ? "Show less"
-                  : `Show all ${priorityTasks.length} tasks`}
-              </Button>
-            )}
-
-            {priorityTasks.length > 6 && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowAllUpNext((current) => !current)}
-                className="w-full rounded-2xl bg-white/80 font-black"
-              >
-                {showAllUpNext
-                  ? "Show less"
-                  : `Show all ${priorityTasks.length} tasks`}
-              </Button>
+                {priorityTasks.length > 6 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAllUpNext((current) => !current)}
+                    className="w-full rounded-2xl bg-white/80 font-black"
+                  >
+                    {showAllUpNext
+                      ? "Show less"
+                      : `Show all ${priorityTasks.length} tasks`}
+                  </Button>
+                )}
+              </>
             )}
 
             {completedTasks.length > 0 && (
@@ -407,19 +404,6 @@ export default function TasksFocusPanel({
                     </div>
                   ))}
                 </div>
-
-                {allCompletedTasks.length > 3 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowAllCompleted((current) => !current)}
-                    className="mt-2 rounded-2xl font-black text-accent"
-                  >
-                    {showAllCompleted
-                      ? "Show less completed"
-                      : `Show all ${allCompletedTasks.length} completed`}
-                  </Button>
-                )}
 
                 {allCompletedTasks.length > 3 && (
                   <Button
@@ -455,19 +439,6 @@ export default function TasksFocusPanel({
                     />
                   ))}
                 </div>
-
-                {allArchivedTasks.length > 4 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowAllArchived((current) => !current)}
-                    className="mt-2 rounded-2xl font-black text-slate-500"
-                  >
-                    {showAllArchived
-                      ? "Show less archived"
-                      : `Show all ${allArchivedTasks.length} archived`}
-                  </Button>
-                )}
 
                 {allArchivedTasks.length > 4 && (
                   <Button
