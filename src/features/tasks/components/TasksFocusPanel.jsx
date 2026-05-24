@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Repeat,
+  Settings2,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -233,11 +234,9 @@ export default function TasksFocusPanel({
     activeTaskScope === "all" ? selectedTasks.filter(isArchivedTask) : [];
 
   const visibleTasks = showAllUpNext ? priorityTasks : priorityTasks.slice(0, 6);
-
   const completedTasks = showAllCompleted
     ? allCompletedTasks
     : allCompletedTasks.slice(0, 3);
-
   const archivedTasks = showAllArchived
     ? allArchivedTasks
     : allArchivedTasks.slice(0, 4);
@@ -247,7 +246,7 @@ export default function TasksFocusPanel({
   return (
     <Card className="overflow-hidden rounded-[2.25rem] border-white/65 bg-white/68 shadow-[0_18px_48px_rgba(38,50,56,0.06)] backdrop-blur-xl">
       <div className="bg-gradient-to-br from-white/60 via-secondary/20 to-accent/5 p-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
           <div>
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-accent">
               <Sparkles className="h-4 w-4" />
@@ -263,55 +262,64 @@ export default function TasksFocusPanel({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white">
-              <Clock className="h-5 w-5 text-slate-400" />
-              <span className="text-sm font-black text-slate-600">
-                {pendingCount} pending · {completedCount} done
-              </span>
+          <div className="flex flex-col items-stretch gap-2 xl:items-end">
+            <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
+              <div className="flex h-12 items-center gap-2 rounded-2xl bg-white/85 px-4 shadow-sm ring-1 ring-white">
+                <Clock className="h-5 w-5 text-slate-400" />
+                <span className="text-sm font-black text-slate-600">
+                  {pendingCount} pending · {completedCount} done
+                </span>
+              </div>
+
+              {canWrite && (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => onAddTask?.(selectedPerson)}
+                    className="h-12 rounded-2xl font-black shadow-lg shadow-primary/15"
+                  >
+                    <Plus className="mr-2 h-5 w-5" />
+                    Add task
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onApplyTemplate?.(selectedPerson)}
+                    className="h-12 rounded-2xl bg-white/90 font-black"
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Apply routine
+                  </Button>
+                </>
+              )}
             </div>
 
             {canWrite && (
-              <>
-                <Button
+              <div className="flex flex-wrap items-center justify-start gap-2 rounded-2xl bg-white/45 p-1.5 ring-1 ring-white/70 xl:justify-end">
+                <span className="flex items-center gap-1 px-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Setup
+                </span>
+
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => onManageTemplates?.()}
-                  className="h-12 rounded-2xl bg-white/90 font-black"
+                  className="inline-flex h-9 items-center rounded-xl px-3 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-900"
                 >
-                  <Layers className="mr-2 h-5 w-5" />
-                  Manage routines
-                </Button>
+                  <Layers className="mr-1.5 h-4 w-4" />
+                  Routines
+                </button>
 
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => onApplyTemplate?.(selectedPerson)}
-                  className="h-12 rounded-2xl bg-white/90 font-black"
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Apply routine
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
                   onClick={() => onManageRewards?.()}
-                  className="h-12 rounded-2xl bg-white/90 font-black"
+                  className="inline-flex h-9 items-center rounded-xl px-3 text-xs font-black text-slate-500 transition hover:bg-white hover:text-slate-900"
                 >
-                  <Gift className="mr-2 h-5 w-5" />
-                  Manage rewards
-                </Button>
-
-                <Button
-                  type="button"
-                  onClick={() => onAddTask?.(selectedPerson)}
-                  className="h-12 rounded-2xl font-black shadow-lg shadow-primary/15"
-                >
-                  <Plus className="mr-2 h-5 w-5" />
-                  Add task
-                </Button>
-              </>
+                  <Gift className="mr-1.5 h-4 w-4" />
+                  Rewards
+                </button>
+              </div>
             )}
           </div>
         </div>
