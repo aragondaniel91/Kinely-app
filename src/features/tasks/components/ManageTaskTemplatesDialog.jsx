@@ -28,6 +28,7 @@ import {
   Trash2,
   UserRound,
   Users,
+  XCircle,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -161,7 +162,16 @@ function buildDraftFromTemplate(template, { clone = false } = {}) {
   };
 }
 
-function RoutineCard({ template, hasRunToday = false, onEdit, onCopy, onDelete }) {
+function RoutineCard({
+  template,
+  runToday = null,
+  hasRunToday = false,
+  canWrite = false,
+  onSkipToday,
+  onEdit,
+  onCopy,
+  onDelete,
+}) {
   const isStarter = template.source === "starter";
   const routineVisual = getRoutineVisual(template.type);
   const RoutineIcon = routineVisual.icon;
@@ -172,6 +182,7 @@ function RoutineCard({ template, hasRunToday = false, onEdit, onCopy, onDelete }
   const recurrence = template.recurrence || template.repeat || "manual";
   const isRecurring = recurrence !== "manual";
   const autoGenerate = Boolean(template.autoGenerate || template.auto_generate);
+  const skippedToday = runToday?.skipped === true || runToday?.status === "skipped";
   const assignedName =
     template.assignedToName ||
     template.assigned_to_name ||
@@ -250,17 +261,21 @@ function RoutineCard({ template, hasRunToday = false, onEdit, onCopy, onDelete }
               <span
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1",
-                  hasRunToday
-                    ? "bg-blue-50 text-blue-700 ring-blue-100"
-                    : "bg-amber-50 text-amber-700 ring-amber-100"
+                  skippedToday
+                    ? "bg-slate-50 text-slate-600 ring-slate-100"
+                    : hasRunToday
+                      ? "bg-blue-50 text-blue-700 ring-blue-100"
+                      : "bg-amber-50 text-amber-700 ring-amber-100"
                 )}
               >
-                {hasRunToday ? (
+                {skippedToday ? (
+                  <XCircle className="h-3 w-3" />
+                ) : hasRunToday ? (
                   <CheckCircle className="h-3 w-3" />
                 ) : (
                   <Clock className="h-3 w-3" />
                 )}
-                {hasRunToday ? "Ran today" : "Pending today"}
+                {skippedToday ? "Skipped today" : hasRunToday ? "Ran today" : "Pending today"}
               </span>
             )}
 
@@ -289,6 +304,18 @@ function RoutineCard({ template, hasRunToday = false, onEdit, onCopy, onDelete }
           </Button>
         ) : (
           <>
+            {isRecurring && autoGenerate && !hasRunToday && canWrite && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onSkipToday?.(template)}
+                className="h-9 rounded-2xl border-slate-200 bg-slate-50 font-black text-slate-600 hover:bg-white hover:text-slate-900"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Skip today
+              </Button>
+            )}
+
             <Button
               type="button"
               variant="outline"
@@ -361,6 +388,8 @@ export default function ManageTaskTemplatesDialog({
   templates = [],
   people = [],
   routineRuns = [],
+  canWrite = false,
+  onSkipRoutineToday,
   onSaved,
 }) {
   const { familyId, user } = useFamily();
@@ -412,15 +441,16 @@ export default function ManageTaskTemplatesDialog({
     assigneeOptions.find((person) => person.id === "family") ||
     assigneeOptions[0];
 
-  const runTemplateIds = useMemo(
-    () =>
-      new Set(
-        (Array.isArray(routineRuns) ? routineRuns : [])
-          .map((run) => run.templateId || run.template_id)
-          .filter(Boolean)
-      ),
-    [routineRuns]
-  );
+  const runByTemplateId = useMemo(() => {
+    const map = new Map();
+
+    (Array.isArray(routineRuns) ? routineRuns : []).forEach((run) => {
+      const templateId = run.templateId || run.template_id;
+      if (templateId) map.set(templateId, run);
+    });
+
+    return map;
+  }, [routineRuns]);
 
   function resetToList() {
     setError("");
@@ -643,7 +673,10 @@ export default function ManageTaskTemplatesDialog({
                     <RoutineCard
                       key={template.id}
                       template={template}
-                      hasRunToday={runTemplateIds.has(template.id)}
+                      runToday={runByTemplateId.get(template.id)}
+                      hasRunToday={runByTemplateId.has(template.id)}
+                      canWrite={canWrite}
+                      onSkipToday={onSkipRoutineToday}
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}
@@ -674,7 +707,10 @@ export default function ManageTaskTemplatesDialog({
                     <RoutineCard
                       key={template.id}
                       template={template}
-                      hasRunToday={runTemplateIds.has(template.id)}
+                      runToday={runByTemplateId.get(template.id)}
+                      hasRunToday={runByTemplateId.has(template.id)}
+                      canWrite={canWrite}
+                      onSkipToday={onSkipRoutineToday}
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}

@@ -94,9 +94,11 @@ export default function Tasks() {
     canRead,
   });
 
-  const { routineRuns, loadRoutineRuns } = useRoutineRuns({
+  const { routineRuns, loadRoutineRuns, skipRoutineToday } = useRoutineRuns({
     familyId,
     canRead,
+    canWrite,
+    user,
   });
 
   const {
@@ -352,6 +354,8 @@ export default function Tasks() {
         templates={templates}
         people={people}
         routineRuns={routineRuns}
+        canWrite={canWrite}
+        onSkipRoutineToday={skipRoutineToday}
         onSaved={async () => {
           await loadTemplates();
           await loadRoutineRuns();

@@ -187,6 +187,8 @@ export function useRecurringTaskGenerator({
           runDate: dateKey,
           run_date: dateKey,
           recurrence: template.recurrence || template.repeat || "manual",
+          status: "generated",
+          skipped: false,
           createdTaskIds,
           created_task_ids: createdTaskIds,
           createdAt: serverTimestamp(),
