@@ -325,51 +325,27 @@ function RoutineCard({
         ) : (
           <>
             {isRecurring && autoGenerate && !hasRunToday && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onSkipToday?.(template)}
-                className="h-9 rounded-2xl border-slate-200 bg-slate-50 font-black text-slate-600 hover:bg-white hover:text-slate-900"
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                Skip today
-              </Button>
-            )}
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onSkipToday?.(template)}
+                  className="h-9 rounded-2xl border-slate-200 bg-slate-50 font-black text-slate-600 hover:bg-white hover:text-slate-900"
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Skip today
+                </Button>
 
-            {isRecurring && autoGenerate && !hasRunToday && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onRegenerateToday?.(template)}
-                className="h-9 rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Run today
-              </Button>
-            )}
-
-            {isRecurring && autoGenerate && hasRunToday && skippedToday && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onRegenerateToday?.(template)}
-                className="h-9 rounded-2xl border-amber-200 bg-amber-50 font-black text-amber-700 hover:bg-amber-100 hover:text-amber-800"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Run anyway
-              </Button>
-            )}
-
-            {isRecurring && autoGenerate && !hasRunToday && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onRegenerateToday?.(template)}
-                className="h-9 rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Run today
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onRegenerateToday?.(template)}
+                  className="h-9 rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Run today
+                </Button>
+              </>
             )}
 
             {isRecurring && autoGenerate && hasRunToday && skippedToday && (
