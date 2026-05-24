@@ -378,6 +378,19 @@ export default function TasksFocusPanel({
               </Button>
             )}
 
+            {priorityTasks.length > 6 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAllUpNext((current) => !current)}
+                className="w-full rounded-2xl bg-white/80 font-black"
+              >
+                {showAllUpNext
+                  ? "Show less"
+                  : `Show all ${priorityTasks.length} tasks`}
+              </Button>
+            )}
+
             {completedTasks.length > 0 && (
               <div className="pt-3">
                 <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
@@ -394,6 +407,19 @@ export default function TasksFocusPanel({
                     </div>
                   ))}
                 </div>
+
+                {allCompletedTasks.length > 3 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowAllCompleted((current) => !current)}
+                    className="mt-2 rounded-2xl font-black text-accent"
+                  >
+                    {showAllCompleted
+                      ? "Show less completed"
+                      : `Show all ${allCompletedTasks.length} completed`}
+                  </Button>
+                )}
 
                 {allCompletedTasks.length > 3 && (
                   <Button
@@ -429,6 +455,19 @@ export default function TasksFocusPanel({
                     />
                   ))}
                 </div>
+
+                {allArchivedTasks.length > 4 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowAllArchived((current) => !current)}
+                    className="mt-2 rounded-2xl font-black text-slate-500"
+                  >
+                    {showAllArchived
+                      ? "Show less archived"
+                      : `Show all ${allArchivedTasks.length} archived`}
+                  </Button>
+                )}
 
                 {allArchivedTasks.length > 4 && (
                   <Button
