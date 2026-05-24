@@ -37,6 +37,12 @@ const priorityStyles = {
   low: "bg-emerald-50 text-emerald-700 border-emerald-100",
 };
 
+const priorityLabels = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
 function getCategoryVisualClasses(category = "other") {
   if (category === "house" || category === "home") {
     return "bg-emerald-50 text-emerald-700 ring-emerald-100";
@@ -61,6 +67,15 @@ function getCategoryVisualClasses(category = "other") {
   return "bg-violet-50 text-violet-700 ring-violet-100";
 }
 
+function getCategoryLabel(category = "other") {
+  if (category === "house" || category === "home") return "House";
+  if (category === "school") return "School";
+  if (category === "personal") return "Personal";
+  if (category === "work") return "Work";
+  if (category === "family") return "Family";
+  return "Other";
+}
+
 function getArchivedLabel(task = {}) {
   if (
     task.status === "cancelled" ||
@@ -68,10 +83,10 @@ function getArchivedLabel(task = {}) {
     task.cancelled === true ||
     task.canceled === true
   ) {
-    return "cancelled";
+    return "Cancelled";
   }
 
-  return "skipped";
+  return "Skipped";
 }
 
 function getPriorityTasks(tasks = []) {
@@ -92,6 +107,8 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   const priority = task.priority || "medium";
   const category = task.category || "other";
   const dueDate = getTaskDueDateKey(task);
+  const iconToneClasses = getCategoryVisualClasses(category);
+  const categoryLabel = getCategoryLabel(category);
 
   const isGeneratedRoutine = Boolean(
     task.generatedFromRoutine ||
@@ -104,17 +121,16 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   const rewardEligible = task.rewardEligible === true || task.reward_eligible === true;
   const isChore = task.chore || task.isChore || task.is_chore;
   const archivedLabel = getArchivedLabel(task);
-  const iconToneClasses = getCategoryVisualClasses(category);
 
   return (
     <div
       className={cn(
-        "group flex items-center gap-3 rounded-3xl border px-4 py-3 transition",
+        "group relative flex items-center gap-3 rounded-3xl border px-4 py-3.5 transition",
         archived
           ? "border-slate-200 bg-slate-50 opacity-80"
           : done
             ? "border-accent/15 bg-accent/5"
-            : "border-slate-100 bg-white/90 hover:border-slate-200 hover:shadow-sm"
+            : "border-slate-100 bg-white/92 hover:border-slate-200 hover:shadow-sm"
       )}
     >
       <button
@@ -125,7 +141,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition",
           done
             ? "border-accent bg-accent text-accent-foreground"
-            : "border-slate-200 bg-slate-50 text-slate-400 hover:border-accent hover:text-accent",
+            : "border-slate-200 bg-white text-slate-400 hover:border-accent hover:text-accent",
           disabled && "cursor-not-allowed opacity-60"
         )}
         aria-label="Toggle task"
@@ -135,35 +151,49 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
 
       <div
         className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 transition",
+          "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1 transition",
           iconToneClasses
         )}
+        title={categoryLabel}
       >
-        <TaskIcon className="h-5 w-5" />
+        <TaskIcon className="h-5.5 w-5.5" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "truncate text-base font-black",
-            archived || done ? "text-slate-400 line-through" : "text-slate-900"
-          )}
-        >
-          {task.title}
-        </p>
+        <div className="flex min-w-0 items-center gap-2">
+          <p
+            className={cn(
+              "truncate text-base font-black",
+              archived || done ? "text-slate-400 line-through" : "text-slate-950"
+            )}
+          >
+            {task.title}
+          </p>
 
-        <div className="mt-1 flex flex-wrap gap-1.5">
+          {rewardEligible && !archived && !done && (
+            <span className="hidden shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 sm:inline-flex">
+              Reward
+            </span>
+          )}
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           <span
             className={cn(
               "rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
               priorityStyles[priority] || priorityStyles.medium
             )}
           >
-            {priority}
+            {priorityLabels[priority] || "Medium"}
           </span>
 
-          <span className="rounded-full border border-slate-100 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-            {category}
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1",
+              iconToneClasses
+            )}
+          >
+            {categoryLabel}
           </span>
 
           {archived && (
@@ -174,7 +204,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
 
           {isChore && (
             <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700">
-              chore
+              Chore
             </span>
           )}
 
@@ -184,14 +214,14 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
               className="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-purple-700"
             >
               <Repeat className="h-3 w-3" />
-              routine
+              Routine
             </span>
           )}
 
           {rewardEligible && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 sm:hidden">
               <Gift className="h-3 w-3" />
-              reward
+              Reward
             </span>
           )}
 
@@ -204,7 +234,7 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
       </div>
 
       {canWrite && !isDemoTask(task) && (
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 gap-1 opacity-70 transition group-hover:opacity-100">
           <button
             type="button"
             onClick={() => onEditTask?.(task)}
@@ -240,7 +270,6 @@ export default function TasksFocusPanel({
   onAddTask,
   onApplyTemplate,
   onManageTemplates,
-  onManageRewards,
   onToggleTask,
   onEditTask,
   onDeleteTask,
@@ -383,7 +412,7 @@ export default function TasksFocusPanel({
                 <div className="mb-2 flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-accent" />
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                    Up next
+                    Up next for today
                   </p>
                 </div>
 
