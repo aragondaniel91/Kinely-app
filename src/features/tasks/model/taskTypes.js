@@ -140,6 +140,7 @@ export const TASK_COLLECTIONS = {
   tasks: "tasks",
   rewards: "rewards",
   templates: "taskTemplates",
+  routineRuns: "routineRuns",
   children: "children",
   familyMembers: "familyMembers",
 };
