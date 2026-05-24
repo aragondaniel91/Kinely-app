@@ -715,6 +715,7 @@ export default function ManageTaskTemplatesDialog({
         await addDoc(collection(db, TASK_COLLECTIONS.templates), {
           ...payload,
           createdAt: serverTimestamp(),
+          created_date: new Date().toISOString(),
           createdBy: user?.uid || null,
         });
       }

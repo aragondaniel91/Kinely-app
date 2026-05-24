@@ -21,6 +21,48 @@ function getDateKey(offsetDays = 0) {
   return `${year}-${month}-${day}`;
 }
 
+function getDateKeyFromValue(value) {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+
+  if (typeof value?.toDate === "function") {
+    const date = value.toDate();
+    return getDateKeyFromDate(date);
+  }
+
+  if (typeof value?.seconds === "number") {
+    return getDateKeyFromDate(new Date(value.seconds * 1000));
+  }
+
+  if (value instanceof Date) {
+    return getDateKeyFromDate(value);
+  }
+
+  return "";
+}
+
+function getDateKeyFromDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function wasTemplateCreatedToday(template, todayKey) {
+  const createdKey = getDateKeyFromValue(
+    template.createdAt ||
+      template.created_at ||
+      template.createdDate ||
+      template.created_date
+  );
+
+  return createdKey === todayKey;
+}
+
 function getTodayRecurrenceType() {
   const day = new Date().getDay();
 
@@ -82,6 +124,9 @@ export function useRecurringTaskGenerator({
 
       const autoGenerate = Boolean(template.autoGenerate || template.auto_generate);
       if (!autoGenerate) return false;
+
+      const todayKey = getDateKey(0);
+      if (wasTemplateCreatedToday(template, todayKey)) return false;
 
       return shouldRunToday(template);
     });
