@@ -294,7 +294,7 @@ function RoutineCard({
                 ) : (
                   <Clock className="h-3 w-3" />
                 )}
-                {skippedToday ? "Skipped today" : hasRunToday ? "Ran today" : "Pending today"}
+                {skippedToday ? "Skipped today" : hasRunToday ? "Tasks created today" : "Ready for today"}
               </span>
             )}
 
@@ -342,7 +342,7 @@ function RoutineCard({
                   className="h-9 rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
                 >
                   <RotateCcw className="mr-2 h-4 w-4" />
-                  Run today
+                  Generate today
                 </Button>
               </>
             )}
@@ -355,7 +355,7 @@ function RoutineCard({
                 className="h-9 rounded-2xl border-amber-200 bg-amber-50 font-black text-amber-700 hover:bg-amber-100 hover:text-amber-800"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
-                Run anyway
+                Create anyway
               </Button>
             )}
 
@@ -367,7 +367,7 @@ function RoutineCard({
                 className="h-9 rounded-2xl border-blue-200 bg-blue-50 font-black text-blue-700 hover:bg-blue-100 hover:text-blue-800"
               >
                 <RotateCcw className="mr-2 h-4 w-4" />
-                Regenerate
+                Recreate tasks
               </Button>
             )}
 
@@ -413,32 +413,32 @@ function getRoutineActionCopy(actionType, template) {
 
   if (actionType === "regenerate") {
     return {
-      eyebrow: "Regenerate today",
-      title: `Regenerate “${title}”?`,
+      eyebrow: "Recreate tasks today",
+      title: `Recreate tasks “${title}”?`,
       description:
-        "This will create another set of tasks for today. Use this only if today's generated tasks were deleted or need to be recreated.",
-      confirmLabel: "Regenerate",
+        "This will create another set of today's tasks. Use this only if the original tasks were deleted or need to be recreated.",
+      confirmLabel: "Recreate tasks",
       tone: "blue",
     };
   }
 
   if (actionType === "runAnyway") {
     return {
-      eyebrow: "Run skipped routine",
-      title: `Run “${title}” anyway?`,
+      eyebrow: "Create skipped routine",
+      title: `Create “${title}” anyway?`,
       description:
-        "This routine was skipped today. Running it anyway will create today’s tasks and mark it as generated.",
-      confirmLabel: "Run anyway",
+        "This routine was skipped today. Creating anyway will add today's tasks.",
+      confirmLabel: "Create anyway",
       tone: "amber",
     };
   }
 
   return {
-    eyebrow: "Run today",
-    title: `Run “${title}” today?`,
+    eyebrow: "Generate today",
+    title: `Create “${title}” today?`,
     description:
-      "This will create today’s tasks from this routine and mark it as generated for today.",
-    confirmLabel: "Run today",
+      "This will create today's tasks from this routine.",
+    confirmLabel: "Generate today",
     tone: "emerald",
   };
 }
