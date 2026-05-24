@@ -100,6 +100,7 @@ export default function Tasks() {
     loadRoutineRuns,
     skipRoutineToday,
     regenerateRoutineToday,
+    cancelRoutineToday,
   } = useRoutineRuns({
     familyId,
     canRead,
@@ -379,6 +380,10 @@ export default function Tasks() {
         onSkipRoutineToday={skipRoutineToday}
         onRegenerateRoutineToday={async (template) => {
           await regenerateRoutineToday(template);
+          await loadTasks();
+        }}
+        onCancelRoutineToday={async (template) => {
+          await cancelRoutineToday(template);
           await loadTasks();
         }}
         onSaved={async () => {

@@ -1,5 +1,14 @@
 import { isDone } from "@/features/tasks/utils/taskHelpers";
 
+function isCancelled(task = {}) {
+  return (
+    task.status === "cancelled" ||
+    task.status === "canceled" ||
+    task.cancelled === true ||
+    task.canceled === true
+  );
+}
+
 export const TASK_DATE_SCOPES = [
   { value: "today", label: "Today" },
   { value: "week", label: "This week" },
@@ -118,6 +127,8 @@ export function filterTasksByDateScope(tasks = [], scope = "all") {
   const today = getLocalDateKey(now);
 
   return tasks.filter((task) => {
+    if (isCancelled(task)) return false;
+
     const dueDate = getTaskDueDateKey(task);
 
     if (scope === "today") {

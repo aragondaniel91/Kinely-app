@@ -202,6 +202,10 @@ function RoutineCard({
   const isRecurring = recurrence !== "manual";
   const autoGenerate = Boolean(template.autoGenerate || template.auto_generate);
   const skippedToday = runToday?.skipped === true || runToday?.status === "skipped";
+  const cancelledToday =
+    runToday?.cancelled === true ||
+    runToday?.canceled === true ||
+    runToday?.status === "cancelled";
   const assignedName =
     template.assignedToName ||
     template.assigned_to_name ||
@@ -280,21 +284,31 @@ function RoutineCard({
               <span
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1",
-                  skippedToday
-                    ? "bg-slate-50 text-slate-600 ring-slate-100"
-                    : hasRunToday
-                      ? "bg-blue-50 text-blue-700 ring-blue-100"
-                      : "bg-amber-50 text-amber-700 ring-amber-100"
+                  cancelledToday
+                    ? "bg-red-50 text-red-700 ring-red-100"
+                    : skippedToday
+                      ? "bg-slate-50 text-slate-600 ring-slate-100"
+                      : hasRunToday
+                        ? "bg-blue-50 text-blue-700 ring-blue-100"
+                        : "bg-amber-50 text-amber-700 ring-amber-100"
                 )}
               >
-                {skippedToday ? (
+                {cancelledToday ? (
+                  <XCircle className="h-3 w-3" />
+                ) : skippedToday ? (
                   <XCircle className="h-3 w-3" />
                 ) : hasRunToday ? (
                   <CheckCircle className="h-3 w-3" />
                 ) : (
                   <Clock className="h-3 w-3" />
                 )}
-                {skippedToday ? "Skipped today" : hasRunToday ? "Tasks created today" : "Ready for today"}
+                {cancelledToday
+                  ? "Cancelled today"
+                  : skippedToday
+                    ? "Skipped today"
+                    : hasRunToday
+                      ? "Tasks created today"
+                      : "Ready for today"}
               </span>
             )}
 
@@ -347,7 +361,7 @@ function RoutineCard({
               </>
             )}
 
-            {isRecurring && autoGenerate && hasRunToday && skippedToday && (
+            {isRecurring && autoGenerate && hasRunToday && (skippedToday || cancelledToday) && (
               <Button
                 type="button"
                 variant="outline"
@@ -359,7 +373,19 @@ function RoutineCard({
               </Button>
             )}
 
-            {isRecurring && autoGenerate && hasRunToday && !skippedToday && (
+            {isRecurring && autoGenerate && hasRunToday && !skippedToday && !cancelledToday && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onRequestAction?.("cancel", template)}
+                className="h-9 rounded-2xl border-red-200 bg-red-50 font-black text-red-700 hover:bg-red-100 hover:text-red-800"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel today
+              </Button>
+            )}
+
+            {isRecurring && autoGenerate && hasRunToday && !skippedToday && !cancelledToday && (
               <Button
                 type="button"
                 variant="outline"
@@ -411,6 +437,17 @@ function getRoutineActionCopy(actionType, template) {
     };
   }
 
+  if (actionType === "cancel") {
+    return {
+      eyebrow: "Cancel today",
+      title: `Cancel “${title}” for today?`,
+      description:
+        "This will hide today’s tasks created by this routine and mark this routine as cancelled for today.",
+      confirmLabel: "Cancel today",
+      tone: "red",
+    };
+  }
+
   if (actionType === "regenerate") {
     return {
       eyebrow: "Recreate tasks today",
@@ -449,8 +486,10 @@ function RoutineActionConfirmPanel({ action, saving, onCancel, onConfirm }) {
   const copy = getRoutineActionCopy(action.type, action.template);
 
   const buttonClass =
-    copy.tone === "blue"
-      ? "bg-blue-600 hover:bg-blue-700"
+    copy.tone === "red"
+      ? "bg-red-600 hover:bg-red-700"
+      : copy.tone === "blue"
+        ? "bg-blue-600 hover:bg-blue-700"
       : copy.tone === "amber"
         ? "bg-amber-600 hover:bg-amber-700"
         : copy.tone === "slate"
@@ -547,6 +586,7 @@ export default function ManageTaskTemplatesDialog({
   canWrite = false,
   onSkipRoutineToday,
   onRegenerateRoutineToday,
+  onCancelRoutineToday,
   onSaved,
 }) {
   const { familyId, user } = useFamily();
@@ -763,6 +803,8 @@ export default function ManageTaskTemplatesDialog({
     try {
       if (pendingRoutineAction.type === "skip") {
         await onSkipRoutineToday?.(pendingRoutineAction.template);
+      } else if (pendingRoutineAction.type === "cancel") {
+        await onCancelRoutineToday?.(pendingRoutineAction.template);
       } else {
         await onRegenerateRoutineToday?.(pendingRoutineAction.template);
       }

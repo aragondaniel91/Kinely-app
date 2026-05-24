@@ -63,6 +63,15 @@ function getDateKeyFromDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+function isCancelledTask(task = {}) {
+  return (
+    task.status === "cancelled" ||
+    task.status === "canceled" ||
+    task.cancelled === true ||
+    task.canceled === true
+  );
+}
+
 function getAssignedPersonFromTemplate(template, people = []) {
   const assignedPersonId =
     template.assignedToPersonId ||
@@ -96,6 +105,7 @@ function normalizeRoutineRun(docSnap) {
     recurrence: data.recurrence || "manual",
     status: data.status || "generated",
     skipped: data.skipped === true || data.status === "skipped",
+    cancelled: data.cancelled === true || data.canceled === true || data.status === "cancelled",
     createdTaskIds: data.createdTaskIds || data.created_task_ids || [],
   };
 }
@@ -221,7 +231,7 @@ export function useRoutineRuns({
 
         return snap.docs
           .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-          .filter((task) => getTaskDateKey(task) === todayKey);
+          .filter((task) => getTaskDateKey(task) === todayKey && !isCancelledTask(task));
       } catch (error) {
         console.warn("Fallback checking existing routine tasks:", error);
 
@@ -235,7 +245,7 @@ export function useRoutineRuns({
 
         return snap.docs
           .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-          .filter((task) => getTaskDateKey(task) === todayKey);
+          .filter((task) => getTaskDateKey(task) === todayKey && !isCancelledTask(task));
       }
     },
     [familyId, todayKey]
@@ -379,12 +389,81 @@ export function useRoutineRuns({
     [familyId, canWrite, todayKey, user, profile, people, loadRoutineRuns, getExistingRoutineTasksToday]
   );
 
+  const cancelRoutineToday = useCallback(
+    async (template) => {
+      if (!familyId || !template?.id) return;
+
+      const runId = getRunId({
+        familyId,
+        templateId: template.id,
+        dateKey: todayKey,
+      });
+
+      try {
+        const existingTasksToday = await getExistingRoutineTasksToday(template);
+        const batch = writeBatch(db);
+
+        existingTasksToday.forEach((task) => {
+          batch.update(doc(db, TASK_COLLECTIONS.tasks, task.id), {
+            status: "cancelled",
+            cancelled: true,
+            canceled: true,
+            cancelledAt: serverTimestamp(),
+            cancelled_at: serverTimestamp(),
+            cancelledBy: user?.uid || null,
+            cancelled_by: user?.uid || null,
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || null,
+          });
+        });
+
+        batch.set(
+          doc(db, TASK_COLLECTIONS.routineRuns, runId),
+          {
+            id: runId,
+            familyId,
+            family_id: familyId,
+            templateId: template.id,
+            template_id: template.id,
+            templateTitle: template.title || "Routine",
+            template_title: template.title || "Routine",
+            date: todayKey,
+            runDate: todayKey,
+            run_date: todayKey,
+            recurrence: template.recurrence || template.repeat || "manual",
+            status: "cancelled",
+            cancelled: true,
+            canceled: true,
+            skipped: false,
+            cancelledTaskIds: existingTasksToday.map((task) => task.id),
+            cancelled_task_ids: existingTasksToday.map((task) => task.id),
+            cancelledAt: serverTimestamp(),
+            cancelled_at: serverTimestamp(),
+            cancelledBy: user?.uid || null,
+            cancelled_by: user?.uid || null,
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || null,
+          },
+          { merge: true }
+        );
+
+        await batch.commit();
+        await loadRoutineRuns();
+      } catch (error) {
+        console.error("Error cancelling routine today:", error);
+        alert(`There was an error cancelling this routine: ${error.message}`);
+      }
+    },
+    [familyId, todayKey, user, loadRoutineRuns, getExistingRoutineTasksToday]
+  );
+
   return {
     routineRuns,
     loadingRoutineRuns,
     loadRoutineRuns,
     skipRoutineToday,
     regenerateRoutineToday,
+    cancelRoutineToday,
     todayKey,
   };
 }
