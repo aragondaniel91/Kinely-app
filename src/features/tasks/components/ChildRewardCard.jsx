@@ -33,12 +33,11 @@ function toMillis(value) {
 function formatRewardDate(value) {
   const millis = toMillis(value);
 
-  if (!millis) return "Not claimed yet";
+  if (!millis) return "Not yet";
 
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
-    year: "numeric",
   }).format(new Date(millis));
 }
 
@@ -78,35 +77,35 @@ export default function ChildRewardCard({
   const redeemedCount = getRedeemedCount(reward);
 
   return (
-    <Card className="relative overflow-hidden rounded-[2rem] border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-5 shadow-[0_18px_45px_rgba(120,72,20,0.08)]">
+    <Card className="relative overflow-hidden rounded-[1.65rem] border-amber-200/80 bg-amber-50/55 p-4 shadow-[0_12px_28px_rgba(120,72,20,0.055)]">
       {ready && (
-        <div className="absolute right-4 top-4 rounded-full bg-amber-500 px-3 py-1 text-xs font-black uppercase tracking-wide text-white shadow-lg">
+        <div className="absolute right-4 top-3 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-sm">
           Ready
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">
+      <div className="flex items-start gap-4 pr-16">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/85 text-amber-700 shadow-sm ring-1 ring-amber-100">
+          <RewardIcon className="h-7 w-7" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-700">
             {reward.childName} reward
           </p>
 
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+          <h3 className="mt-1 truncate text-xl font-black tracking-tight text-slate-950">
             {reward.title}
           </h3>
 
-          <p className="mt-1 text-sm font-extrabold text-slate-500">
+          <p className="mt-0.5 text-sm font-extrabold text-slate-500">
             {ready ? "Ready to celebrate!" : `${left} tasks to go`}
           </p>
         </div>
-
-        <div className="flex h-20 w-20 items-center justify-center rounded-[1.7rem] bg-white/80 shadow-inner">
-          <RewardIcon className="h-10 w-10 text-amber-600" />
-        </div>
       </div>
 
-      <div className="mt-6">
-        <div className="h-4 overflow-hidden rounded-full bg-white shadow-inner">
+      <div className="mt-4">
+        <div className="h-3 overflow-hidden rounded-full bg-white shadow-inner">
           <div
             className="h-full rounded-full bg-amber-500 transition-all"
             style={{ width: `${percent}%` }}
@@ -121,43 +120,28 @@ export default function ChildRewardCard({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <div className="rounded-2xl bg-white/70 p-3 ring-1 ring-white">
-          <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Claimed
-          </p>
-          <p className="mt-1 text-sm font-black text-slate-800">
-            {redeemedCount}x
-          </p>
-        </div>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-slate-500">
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-1 ring-1 ring-white">
+          <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
+          {redeemedCount}x claimed
+        </span>
 
-        <div className="rounded-2xl bg-white/70 p-3 ring-1 ring-white">
-          <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
-            <CalendarClock className="h-3.5 w-3.5" />
-            Last claim
-          </p>
-          <p className="mt-1 truncate text-sm font-black text-slate-800">
-            {formatRewardDate(lastClaimedAt)}
-          </p>
-        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-1 ring-1 ring-white">
+          <CalendarClock className="h-3.5 w-3.5 text-slate-400" />
+          Last {formatRewardDate(lastClaimedAt)}
+        </span>
 
-        <div className="rounded-2xl bg-white/70 p-3 ring-1 ring-white">
-          <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
-            <Sparkles className="h-3.5 w-3.5" />
-            Cycle
-          </p>
-          <p className="mt-1 truncate text-sm font-black text-slate-800">
-            {cycleStartedAt ? formatRewardDate(cycleStartedAt) : "All time"}
-          </p>
-        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-1 ring-1 ring-white">
+          <Sparkles className="h-3.5 w-3.5 text-slate-400" />
+          Cycle {cycleStartedAt ? formatRewardDate(cycleStartedAt) : "All time"}
+        </span>
       </div>
 
       {ready && canWrite && (
         <Button
           type="button"
           onClick={() => onClaimReward?.(reward)}
-          className="mt-5 w-full rounded-2xl bg-amber-600 font-black text-white hover:bg-amber-700"
+          className="mt-4 h-10 w-full rounded-2xl bg-amber-600 font-black text-white hover:bg-amber-700"
         >
           <RotateCcw className="mr-2 h-4 w-4" />
           Claim & reset
