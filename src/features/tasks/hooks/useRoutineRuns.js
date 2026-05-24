@@ -125,7 +125,7 @@ export function useRoutineRuns({
 
   const skipRoutineToday = useCallback(
     async (template) => {
-      if (!familyId || !canWrite || !template?.id) return;
+      if (!familyId || !template?.id) return;
 
       const runId = getRunId({
         familyId,
@@ -173,7 +173,7 @@ export function useRoutineRuns({
 
   const regenerateRoutineToday = useCallback(
     async (template) => {
-      if (!familyId || !canWrite || !template?.id) return;
+      if (!familyId || !template?.id) return;
 
       const templateTasks = Array.isArray(template.tasks) ? template.tasks : [];
 

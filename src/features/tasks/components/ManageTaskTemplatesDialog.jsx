@@ -324,7 +324,7 @@ function RoutineCard({
           </Button>
         ) : (
           <>
-            {isRecurring && autoGenerate && !hasRunToday && canWrite && (
+            {isRecurring && autoGenerate && !hasRunToday && (
               <Button
                 type="button"
                 variant="outline"
@@ -336,7 +336,7 @@ function RoutineCard({
               </Button>
             )}
 
-            {isRecurring && autoGenerate && hasRunToday && !skippedToday && canWrite && (
+            {isRecurring && autoGenerate && hasRunToday && !skippedToday && (
               <Button
                 type="button"
                 variant="outline"
