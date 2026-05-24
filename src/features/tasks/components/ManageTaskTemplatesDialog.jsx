@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   Plus,
   Repeat,
+  RotateCcw,
   Save,
   School,
   Sun,
@@ -186,6 +187,7 @@ function RoutineCard({
   hasRunToday = false,
   canWrite = false,
   onSkipToday,
+  onRegenerateToday,
   onEdit,
   onCopy,
   onDelete,
@@ -334,11 +336,23 @@ function RoutineCard({
               </Button>
             )}
 
+            {isRecurring && autoGenerate && hasRunToday && !skippedToday && canWrite && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onRegenerateToday?.(template)}
+                className="h-9 rounded-2xl border-blue-200 bg-blue-50 font-black text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Regenerate
+              </Button>
+            )}
+
             <Button
               type="button"
               variant="outline"
               onClick={() => onEdit(template)}
-              className="h-9 rounded-2xl bg-white font-black"
+              className="h-9 rounded-2xl bg-white"
             >
               <Edit3 className="mr-2 h-4 w-4" />
               Edit
@@ -408,6 +422,7 @@ export default function ManageTaskTemplatesDialog({
   routineRuns = [],
   canWrite = false,
   onSkipRoutineToday,
+  onRegenerateRoutineToday,
   onSaved,
 }) {
   const { familyId, user } = useFamily();
@@ -695,6 +710,7 @@ export default function ManageTaskTemplatesDialog({
                       hasRunToday={runByTemplateId.has(template.id)}
                       canWrite={canWrite}
                       onSkipToday={onSkipRoutineToday}
+                      onRegenerateToday={onRegenerateRoutineToday}
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}
@@ -729,6 +745,7 @@ export default function ManageTaskTemplatesDialog({
                       hasRunToday={runByTemplateId.has(template.id)}
                       canWrite={canWrite}
                       onSkipToday={onSkipRoutineToday}
+                      onRegenerateToday={onRegenerateRoutineToday}
                       onEdit={startEditRoutine}
                       onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}

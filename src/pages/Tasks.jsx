@@ -94,11 +94,18 @@ export default function Tasks() {
     canRead,
   });
 
-  const { routineRuns, loadRoutineRuns, skipRoutineToday } = useRoutineRuns({
+  const {
+    routineRuns,
+    loadRoutineRuns,
+    skipRoutineToday,
+    regenerateRoutineToday,
+  } = useRoutineRuns({
     familyId,
     canRead,
     canWrite,
     user,
+    profile,
+    people,
   });
 
   const {
@@ -356,6 +363,10 @@ export default function Tasks() {
         routineRuns={routineRuns}
         canWrite={canWrite}
         onSkipRoutineToday={skipRoutineToday}
+        onRegenerateRoutineToday={async (template) => {
+          await regenerateRoutineToday(template);
+          await loadTasks();
+        }}
         onSaved={async () => {
           await loadTemplates();
           await loadRoutineRuns();

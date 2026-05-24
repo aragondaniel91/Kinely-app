@@ -7,6 +7,7 @@ import {
   serverTimestamp,
   setDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -27,6 +28,26 @@ function getRunId({ familyId, templateId, dateKey }) {
   return `${familyId}_${templateId}_${dateKey}`.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+function getAssignedPersonFromTemplate(template, people = []) {
+  const assignedPersonId =
+    template.assignedToPersonId ||
+    template.assigned_to_person_id ||
+    template.defaultPersonId ||
+    template.default_person_id ||
+    "";
+
+  if (assignedPersonId) {
+    return people.find((person) => person.id === assignedPersonId) || null;
+  }
+
+  return (
+    people.find((person) => person.roleType === "child") ||
+    people.find((person) => person.id === "family") ||
+    people[0] ||
+    null
+  );
+}
+
 function normalizeRoutineRun(docSnap) {
   const data = docSnap.data() || {};
 
@@ -44,7 +65,14 @@ function normalizeRoutineRun(docSnap) {
   };
 }
 
-export function useRoutineRuns({ familyId, canRead, canWrite = false, user = null }) {
+export function useRoutineRuns({
+  familyId,
+  canRead,
+  canWrite = false,
+  user = null,
+  profile = null,
+  people = [],
+}) {
   const [routineRuns, setRoutineRuns] = useState([]);
   const [loadingRoutineRuns, setLoadingRoutineRuns] = useState(true);
 
@@ -143,11 +171,142 @@ export function useRoutineRuns({ familyId, canRead, canWrite = false, user = nul
     [familyId, canWrite, todayKey, user, loadRoutineRuns]
   );
 
+  const regenerateRoutineToday = useCallback(
+    async (template) => {
+      if (!familyId || !canWrite || !template?.id) return;
+
+      const templateTasks = Array.isArray(template.tasks) ? template.tasks : [];
+
+      if (!templateTasks.length) {
+        alert("This routine does not have tasks to regenerate.");
+        return;
+      }
+
+      const runId = getRunId({
+        familyId,
+        templateId: template.id,
+        dateKey: todayKey,
+      });
+
+      try {
+        const selectedPerson = getAssignedPersonFromTemplate(template, people);
+        const childId =
+          selectedPerson?.roleType === "child"
+            ? selectedPerson.childId || selectedPerson.id
+            : "";
+
+        const batch = writeBatch(db);
+        const createdTaskIds = [];
+
+        templateTasks.forEach((task) => {
+          const taskRef = doc(collection(db, TASK_COLLECTIONS.tasks));
+          createdTaskIds.push(taskRef.id);
+
+          const isChore = task.chore === true || template.type === "chore";
+          const rewardEligible = task.rewardEligible !== false;
+
+          batch.set(taskRef, {
+            title: task.title,
+            category: task.category || template.category || "other",
+            priority: task.priority || "medium",
+            icon: task.icon || template.icon || "sparkles",
+
+            rewardEligible,
+            reward_eligible: rewardEligible,
+
+            chore: isChore,
+            isChore,
+            is_chore: isChore,
+            taskKind: isChore ? "chore" : "task",
+            task_kind: isChore ? "chore" : "task",
+
+            assignedTo: selectedPerson?.name || "Family",
+            assigned_to: selectedPerson?.name || "Family",
+            assignedToName: selectedPerson?.name || "Family",
+            assigned_to_name: selectedPerson?.name || "Family",
+            assignedToPersonId: selectedPerson?.id || "family",
+            assigned_to_person_id: selectedPerson?.id || "family",
+
+            childId,
+            child_id: childId,
+            assignedChildId: childId,
+            assigned_child_id: childId,
+
+            dueDate: todayKey,
+            due_date: todayKey,
+            status: "pending",
+
+            familyId,
+            family_id: familyId,
+            familyName: profile?.family_name || profile?.familyName || "",
+
+            templateId: template.id,
+            template_id: template.id,
+            templateTitle: template.title,
+            template_title: template.title,
+
+            generatedFromRoutine: true,
+            generated_from_routine: true,
+            routineRunId: runId,
+            routine_run_id: runId,
+
+            regenerated: true,
+            regenerated_from_routine: true,
+
+            createdBy: user?.uid || null,
+            createdByEmail: user?.email || null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            created_date: new Date().toISOString(),
+          });
+        });
+
+        const runRef = doc(db, TASK_COLLECTIONS.routineRuns, runId);
+
+        batch.set(
+          runRef,
+          {
+            id: runId,
+            familyId,
+            family_id: familyId,
+            templateId: template.id,
+            template_id: template.id,
+            templateTitle: template.title || "Routine",
+            template_title: template.title || "Routine",
+            date: todayKey,
+            runDate: todayKey,
+            run_date: todayKey,
+            recurrence: template.recurrence || template.repeat || "manual",
+            status: "generated",
+            skipped: false,
+            createdTaskIds,
+            created_task_ids: createdTaskIds,
+            regeneratedAt: serverTimestamp(),
+            regenerated_at: serverTimestamp(),
+            regeneratedBy: user?.uid || null,
+            regenerated_by: user?.uid || null,
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || null,
+          },
+          { merge: true }
+        );
+
+        await batch.commit();
+        await loadRoutineRuns();
+      } catch (error) {
+        console.error("Error regenerating routine today:", error);
+        alert(`There was an error regenerating the routine: ${error.message}`);
+      }
+    },
+    [familyId, canWrite, todayKey, user, profile, people, loadRoutineRuns]
+  );
+
   return {
     routineRuns,
     loadingRoutineRuns,
     loadRoutineRuns,
     skipRoutineToday,
+    regenerateRoutineToday,
     todayKey,
   };
 }
