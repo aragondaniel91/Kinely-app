@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 import {
   CalendarDays,
   Clock,
@@ -26,7 +33,7 @@ import {
 } from "@/features/family-calendar/utils/familyCalendarUi";
 
 const PANEL_WIDTH = 400;
-const PANEL_HEIGHT = 470;
+const PANEL_HEIGHT = 500;
 
 function dateFromKey(value) {
   return new Date(`${value}T00:00:00`);
@@ -54,6 +61,7 @@ function safePanelPosition(rect) {
   }
 
   if (left < margin) left = viewportWidth - PANEL_WIDTH - margin;
+
   if (top + PANEL_HEIGHT > viewportHeight - margin) {
     top = viewportHeight - PANEL_HEIGHT - margin;
   }
@@ -138,41 +146,23 @@ export default function FamilyEventDetailsPopover({
   const { familyId, user } = useFamily();
   const navigate = useNavigate();
   const { toast } = useToast();
+
   const [creatingLinkedList, setCreatingLinkedList] = useState(false);
-  const [linkedList, setLinkedList] = useState(null);
   const [checkingLinkedList, setCheckingLinkedList] = useState(false);
+  const [linkedList, setLinkedList] = useState(null);
 
-  if (!selected?.event) return null;
+  const event = selected?.event || null;
+  const panel = selected?.panel || null;
 
-  const { event, panel } = selected;
-  const colorId =
-    event.colorId ||
-    event.color_id ||
-    event.eventColor ||
-    event.event_color ||
-    "family";
-
-  const colors = colorClasses(colorId, "slate");
-  const personLabel = getFamilyEventAssignmentLabel(event, people, "Family");
-  const timeText = displayTimeRange(event);
-  const eventDate = event.date
-    ? format(dateFromKey(event.date), "EEEE, MMM d")
-    : "No date";
-
-  const categoryText = `${categoryEmoji(event.category)} ${categoryLabel(
-    event.category
-  )}`;
-
-  const notes = event.description || event.notes || "";
   const eventId =
-    event.id ||
-    event.documentId ||
-    event.firestoreId ||
-    event.eventId ||
-    event.googleCalendarEventId ||
+    event?.id ||
+    event?.documentId ||
+    event?.firestoreId ||
+    event?.eventId ||
+    event?.googleCalendarEventId ||
     "";
 
-  const eventTitle = event.title || "Family event";
+  const eventTitle = event?.title || "Family event";
 
   useEffect(() => {
     async function loadLinkedList() {
@@ -208,18 +198,46 @@ export default function FamilyEventDetailsPopover({
     loadLinkedList();
   }, [familyId, eventId]);
 
+  if (!event || !panel) return null;
+
+  const colorId =
+    event.colorId ||
+    event.color_id ||
+    event.eventColor ||
+    event.event_color ||
+    "family";
+
+  const colors = colorClasses(colorId, "slate");
+  const personLabel = getFamilyEventAssignmentLabel(event, people, "Family");
+  const timeText = displayTimeRange(event);
+  const eventDate = event.date
+    ? format(dateFromKey(event.date), "EEEE, MMM d")
+    : "No date";
+
+  const categoryText = `${categoryEmoji(event.category)} ${categoryLabel(
+    event.category
+  )}`;
+
+  const notes = event.description || event.notes || "";
+
+  function handleViewLinkedList() {
+    if (!linkedList?.id) return;
+
+    onClose?.();
+    navigate(`/lists?listId=${linkedList.id}`);
+  }
+
   async function handleCreateLinkedList() {
     if (!familyId || creatingLinkedList) return;
+
+    if (linkedList?.id) {
+      handleViewLinkedList();
+      return;
+    }
 
     setCreatingLinkedList(true);
 
     try {
-      if (linkedList?.id) {
-        onClose?.();
-        navigate(`/lists?listId=${linkedList.id}`);
-        return;
-      }
-
       const docRef = await addDoc(collection(db, "familyLists"), {
         title: eventTitle,
         type: getLinkedListTypeFromEvent(event),
@@ -241,12 +259,6 @@ export default function FamilyEventDetailsPopover({
         updatedAt: serverTimestamp(),
       });
 
-      setLinkedList({
-        id: docRef.id,
-        title: eventTitle,
-        type: getLinkedListTypeFromEvent(event),
-      });
-
       toast({
         title: "Linked list created",
         description: `"${eventTitle}" is ready in Family Lists.`,
@@ -256,6 +268,7 @@ export default function FamilyEventDetailsPopover({
       navigate(`/lists?listId=${docRef.id}`);
     } catch (error) {
       console.error("Error creating linked list:", error);
+
       toast({
         title: "Could not create linked list",
         description: error?.message || "Please try again.",
@@ -264,13 +277,6 @@ export default function FamilyEventDetailsPopover({
     } finally {
       setCreatingLinkedList(false);
     }
-  }
-
-  function handleViewLinkedList() {
-    if (!linkedList?.id) return;
-
-    onClose?.();
-    navigate(`/lists?listId=${linkedList.id}`);
   }
 
   return (
@@ -332,7 +338,11 @@ export default function FamilyEventDetailsPopover({
           <div className="mt-5 space-y-2">
             <DetailRow icon={CalendarDays}>{eventDate}</DetailRow>
             <DetailRow icon={Clock}>{timeText || "All-day"}</DetailRow>
-            {event.location && <DetailRow icon={MapPin}>{event.location}</DetailRow>}
+
+            {event.location && (
+              <DetailRow icon={MapPin}>{event.location}</DetailRow>
+            )}
+
             <DetailRow icon={StickyNote}>
               {notes || <span className="text-slate-400">No notes added.</span>}
             </DetailRow>
