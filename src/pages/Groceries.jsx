@@ -16,6 +16,7 @@ import {
   ArchiveRestore,
   CalendarDays,
   Check,
+  CheckSquare,
   CircleDot,
   Cookie,
   Croissant,
@@ -462,6 +463,20 @@ export default function Groceries() {
     navigate(`/calendar?eventId=${linkedEventId}`);
   }
 
+  function createLinkedTaskFromList(list) {
+    if (!list?.id) return;
+
+    const params = new URLSearchParams({
+      linkedListId: list.id,
+      listTitle: list.title || "Family list",
+    });
+
+    const linkedEventId = getLinkedEventId(list);
+    if (linkedEventId) params.set("linkedEventId", linkedEventId);
+
+    navigate(`/tasks?${params.toString()}`);
+  }
+
   const archiveList = async (list) => {
     if (!canWrite || !list?.id) return;
 
@@ -745,6 +760,18 @@ export default function Groceries() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    {canWrite && activeList.status !== "archived" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => createLinkedTaskFromList(activeList)}
+                        className="rounded-2xl border-blue-200 bg-blue-50 font-black text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                      >
+                        <CheckSquare className="mr-2 h-4 w-4" />
+                        Create linked task
+                      </Button>
+                    )}
+
                     {isCalendarLinkedList(activeList) && (
                       <Button
                         type="button"
