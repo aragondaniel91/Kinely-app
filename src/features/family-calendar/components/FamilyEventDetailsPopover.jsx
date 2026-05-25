@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import {
   CalendarDays,
@@ -14,6 +15,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { colorClasses } from "@/lib/personColorUtils";
 import { getFamilyEventAssignmentLabel } from "@/core/events/familyEventAdapter";
@@ -134,6 +136,8 @@ export default function FamilyEventDetailsPopover({
   onDelete,
 }) {
   const { familyId, user } = useFamily();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [creatingLinkedList, setCreatingLinkedList] = useState(false);
 
   if (!selected?.event) return null;
@@ -195,12 +199,20 @@ export default function FamilyEventDetailsPopover({
         updatedAt: serverTimestamp(),
       });
 
-      window.alert("Linked list created. Open Lists to add items.");
+      toast({
+        title: "Linked list created",
+        description: `"${eventTitle}" is ready in Family Lists.`,
+      });
+
+      onClose?.();
+      navigate("/lists");
     } catch (error) {
       console.error("Error creating linked list:", error);
-      window.alert(
-        `There was an error creating the linked list: ${error.message}`
-      );
+      toast({
+        title: "Could not create linked list",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setCreatingLinkedList(false);
     }
