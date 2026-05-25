@@ -26,6 +26,7 @@ import {
   Package,
   Plus,
   Trash2,
+  Users,
   UtensilsCrossed,
   Warehouse,
 } from "lucide-react";
@@ -142,6 +143,9 @@ function normalizeList(docSnap) {
     type: data.type || "other",
     status: data.status || "active",
     description: data.description || "",
+    assignedToPersonId: data.assignedToPersonId || data.assigned_to_person_id || "family",
+    assignedToPersonName: data.assignedToPersonName || data.assigned_to_person_name || "Family",
+    createdByEmail: data.createdByEmail || data.created_by_email || "",
     created_date: data.created_date || "",
   };
 }
@@ -182,8 +186,79 @@ function getLinkedEventId(list = {}) {
   return list.linkedEventId || list.linked_event_id || "";
 }
 
+function normalizePersonName(value, fallback = "Family") {
+  return String(value || fallback || "").trim() || fallback;
+}
+
+function buildListPeopleOptions({ familyPeople = [], familyAdults = [], children = [], familyChildrenCore = [], user = null } = {}) {
+  const peopleById = new Map();
+
+  peopleById.set("family", {
+    id: "family",
+    name: "Family",
+    role: "Together",
+  });
+
+  [...children, ...familyChildrenCore].forEach((child) => {
+    const id = child.id || child.childId || child.child_id || child.name;
+    const name = child.name || child.displayName || child.fullName || "Child";
+
+    if (!id || !name) return;
+
+    peopleById.set(id, {
+      id,
+      name,
+      role: "Child",
+    });
+  });
+
+  [...familyAdults, ...familyPeople].forEach((person) => {
+    const id =
+      person.id ||
+      person.uid ||
+      person.personId ||
+      person.person_id ||
+      person.email ||
+      "";
+
+    const name =
+      person.name ||
+      person.displayName ||
+      person.fullName ||
+      person.label ||
+      person.email ||
+      "";
+
+    if (!id || !name) return;
+
+    peopleById.set(id, {
+      id,
+      name,
+      role: person.role || person.relationship || "Family",
+    });
+  });
+
+  if (user?.uid && !peopleById.has(user.uid)) {
+    peopleById.set(user.uid, {
+      id: user.uid,
+      name: user.displayName || user.email || "Me",
+      role: "Me",
+    });
+  }
+
+  return Array.from(peopleById.values());
+}
+
 export default function Groceries() {
-  const { familyId, user, perms } = useFamily();
+  const {
+    familyId,
+    user,
+    perms,
+    familyPeople,
+    familyAdults,
+    children,
+    familyChildrenCore,
+  } = useFamily();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -197,6 +272,18 @@ export default function Groceries() {
     perms?.groceries?.write !== false &&
     perms?.meals?.write !== false;
 
+  const peopleOptions = useMemo(
+    () =>
+      buildListPeopleOptions({
+        familyPeople,
+        familyAdults,
+        children,
+        familyChildrenCore,
+        user,
+      }),
+    [familyPeople, familyAdults, children, familyChildrenCore, user]
+  );
+
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
   const [linkedTasks, setLinkedTasks] = useState([]);
@@ -208,6 +295,7 @@ export default function Groceries() {
 
   const [newListTitle, setNewListTitle] = useState("");
   const [newListType, setNewListType] = useState("groceries");
+  const [newListAssigneePersonId, setNewListAssigneePersonId] = useState("family");
   const [newListDescription, setNewListDescription] = useState("");
 
   const [newItemTitle, setNewItemTitle] = useState("");
@@ -348,12 +436,18 @@ export default function Groceries() {
     setNewListTitle(template.title);
     setNewListType(template.type);
     setNewListDescription(template.description || "");
+    setNewListAssigneePersonId("family");
   }
 
   const createList = async () => {
     const cleanTitle = newListTitle.trim();
 
     if (!cleanTitle || !familyId || !canWrite) return;
+
+    const selectedAssignee =
+      peopleOptions.find((person) => person.id === newListAssigneePersonId) ||
+      peopleOptions.find((person) => person.id === "family") ||
+      { id: "family", name: "Family" };
 
     setSavingList(true);
 
@@ -363,6 +457,11 @@ export default function Groceries() {
         type: newListType || "other",
         description: newListDescription.trim(),
         status: "active",
+
+        assignedToPersonId: selectedAssignee.id || "family",
+        assigned_to_person_id: selectedAssignee.id || "family",
+        assignedToPersonName: normalizePersonName(selectedAssignee.name, "Family"),
+        assigned_to_person_name: normalizePersonName(selectedAssignee.name, "Family"),
 
         familyId,
         family_id: familyId,
@@ -384,6 +483,7 @@ export default function Groceries() {
       setNewListTitle("");
       setNewListDescription("");
       setNewListType("groceries");
+      setNewListAssigneePersonId("family");
 
       await loadData();
     } catch (error) {
@@ -648,7 +748,7 @@ export default function Groceries() {
             })}
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)_auto]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_170px_180px_minmax(0,1fr)_auto]">
             <Input
               value={newListTitle}
               onChange={(event) => setNewListTitle(event.target.value)}
@@ -666,6 +766,21 @@ export default function Groceries() {
                 {Object.entries(listTypeConfig).map(([key, value]) => (
                   <SelectItem key={key} value={key}>
                     {value.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={newListAssigneePersonId} onValueChange={setNewListAssigneePersonId}>
+              <SelectTrigger className="h-11 rounded-2xl bg-white">
+                <Users className="mr-2 h-4 w-4 text-slate-400" />
+                <SelectValue placeholder="Responsible" />
+              </SelectTrigger>
+
+              <SelectContent>
+                {peopleOptions.map((person) => (
+                  <SelectItem key={person.id} value={person.id}>
+                    {person.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -732,7 +847,7 @@ export default function Groceries() {
                         </p>
 
                         <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                          {config.label} · {openCount} open · {doneCount} done
+                          {config.label} · {openCount} open · {doneCount} done · {list.assignedToPersonName || "Family"}
                           {(tasksByListId[list.id]?.length || 0) > 0
                             ? ` · ${tasksByListId[list.id].length} task${tasksByListId[list.id].length === 1 ? "" : "s"}`
                             : ""}
@@ -792,6 +907,11 @@ export default function Groceries() {
                         {(listTypeConfig[activeList.type] || listTypeConfig.other).label}
                         {activeList.description ? ` · ${activeList.description}` : ""}
                       </p>
+
+                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-100">
+                        <Users className="h-3.5 w-3.5" />
+                        Responsible: {activeList.assignedToPersonName || "Family"}
+                      </div>
 
                       {isCalendarLinkedList(activeList) && (
                         <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-100">
