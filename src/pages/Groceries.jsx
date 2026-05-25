@@ -30,6 +30,7 @@ import {
   Users,
   UtensilsCrossed,
   Warehouse,
+  X,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -289,6 +290,7 @@ export default function Groceries() {
   const [items, setItems] = useState([]);
   const [linkedTasks, setLinkedTasks] = useState([]);
   const [activeListId, setActiveListId] = useState("");
+  const [linkedTasksPreviewList, setLinkedTasksPreviewList] = useState(null);
   const [showArchivedLists, setShowArchivedLists] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingList, setSavingList] = useState(false);
@@ -624,12 +626,7 @@ export default function Groceries() {
   function viewLinkedTasksFromList(list) {
     if (!list?.id) return;
 
-    const params = new URLSearchParams({
-      linkedListId: list.id,
-      listTitle: list.title || "Family list",
-    });
-
-    navigate(`/tasks?${params.toString()}`);
+    setLinkedTasksPreviewList(list);
   }
 
   function startEditingList(list) {
@@ -707,6 +704,18 @@ export default function Groceries() {
       alert(`There was an error archiving the list: ${error.message}`);
     }
   };
+
+  function openLinkedTasksInTasksPage(list) {
+    if (!list?.id) return;
+
+    const params = new URLSearchParams({
+      linkedListId: list.id,
+      listTitle: list.title || "Family list",
+    });
+
+    setLinkedTasksPreviewList(null);
+    navigate(`/tasks?${params.toString()}`);
+  }
 
   const restoreList = async (list) => {
     if (!canWrite || !list?.id) return;
@@ -1296,6 +1305,145 @@ export default function Groceries() {
               </Card>
             )}
           </section>
+        </div>
+      )}
+
+      {linkedTasksPreviewList && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/20 px-3 pb-4 pt-10 backdrop-blur-sm sm:items-center sm:p-6">
+          <Card className="max-h-[82vh] w-full max-w-2xl overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-gradient-to-br from-white via-blue-50/70 to-violet-50/50 p-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-500">
+                  Linked tasks
+                </p>
+
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                  {linkedTasksPreviewList.title}
+                </h2>
+
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  These tasks are connected to this list.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setLinkedTasksPreviewList(null)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm ring-1 ring-slate-100 transition hover:text-slate-900"
+                aria-label="Close linked tasks preview"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[52vh] overflow-y-auto p-4">
+              {(tasksByListId[linkedTasksPreviewList.id] || []).length > 0 ? (
+                <div className="space-y-2">
+                  {(tasksByListId[linkedTasksPreviewList.id] || []).map((task) => {
+                    const done =
+                      task.status === "done" ||
+                      task.status === "completed" ||
+                      task.done === true ||
+                      task.completed === true;
+
+                    return (
+                      <div
+                        key={task.id}
+                        className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3"
+                      >
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2",
+                            done
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-600"
+                              : "border-slate-300 bg-white text-slate-400"
+                          )}
+                        >
+                          {done ? <Check className="h-4 w-4" /> : <CheckSquare className="h-4 w-4" />}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              "truncate text-sm font-black",
+                              done ? "text-slate-400 line-through" : "text-slate-950"
+                            )}
+                          >
+                            {task.title || "Untitled task"}
+                          </p>
+
+                          <p className="truncate text-xs font-semibold text-slate-500">
+                            {task.assignedToPersonName ||
+                              task.assigned_to_person_name ||
+                              task.assignedToName ||
+                              task.assigned_to_name ||
+                              task.assignedTo ||
+                              "Family"}
+                            {task.dueDate || task.due_date
+                              ? ` · Due ${task.dueDate || task.due_date}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide",
+                            done
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                              : "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+                          )}
+                        >
+                          {done ? "Done" : "Pending"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white p-8 text-center">
+                  <CheckSquare className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <p className="font-black text-slate-950">No linked tasks yet</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Create a linked task from this list when there is something to follow up.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 bg-white p-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLinkedTasksPreviewList(null)}
+                className="rounded-2xl font-black"
+              >
+                Close
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => openLinkedTasksInTasksPage(linkedTasksPreviewList)}
+                className="rounded-2xl border-blue-200 bg-blue-50 font-black text-blue-700 hover:bg-blue-100"
+              >
+                Open in Tasks
+              </Button>
+
+              {canWrite && linkedTasksPreviewList.status !== "archived" && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const list = linkedTasksPreviewList;
+                    setLinkedTasksPreviewList(null);
+                    createLinkedTaskFromList(list);
+                  }}
+                  className="rounded-2xl font-black"
+                >
+                  Create another task
+                </Button>
+              )}
+            </div>
+          </Card>
         </div>
       )}
     </div>
