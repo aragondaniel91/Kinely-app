@@ -24,6 +24,7 @@ import {
   Home,
   ListChecks,
   Package,
+  Pencil,
   Plus,
   Trash2,
   Users,
@@ -301,6 +302,13 @@ export default function Groceries() {
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState("");
   const [newItemNote, setNewItemNote] = useState("");
+
+  const [editingListId, setEditingListId] = useState("");
+  const [editListTitle, setEditListTitle] = useState("");
+  const [editListType, setEditListType] = useState("groceries");
+  const [editListAssigneePersonId, setEditListAssigneePersonId] = useState("family");
+  const [editListDescription, setEditListDescription] = useState("");
+  const [savingListEdit, setSavingListEdit] = useState(false);
 
   const loadData = async () => {
     if (!familyId || !canRead) {
@@ -617,6 +625,59 @@ export default function Groceries() {
     navigate(`/tasks?linkedListId=${list.id}`);
   }
 
+  function startEditingList(list) {
+    if (!list?.id) return;
+
+    setEditingListId(list.id);
+    setEditListTitle(list.title || "");
+    setEditListType(list.type || "other");
+    setEditListAssigneePersonId(list.assignedToPersonId || list.assigned_to_person_id || "family");
+    setEditListDescription(list.description || "");
+  }
+
+  function cancelEditingList() {
+    setEditingListId("");
+    setEditListTitle("");
+    setEditListType("groceries");
+    setEditListAssigneePersonId("family");
+    setEditListDescription("");
+  }
+
+  const saveListEdit = async () => {
+    if (!canWrite || !activeList?.id || !editListTitle.trim()) return;
+
+    const selectedAssignee =
+      peopleOptions.find((person) => person.id === editListAssigneePersonId) ||
+      peopleOptions.find((person) => person.id === "family") ||
+      { id: "family", name: "Family" };
+
+    setSavingListEdit(true);
+
+    try {
+      await updateDoc(doc(db, LIST_COLLECTION, activeList.id), {
+        title: editListTitle.trim(),
+        type: editListType || "other",
+        description: editListDescription.trim(),
+
+        assignedToPersonId: selectedAssignee.id || "family",
+        assigned_to_person_id: selectedAssignee.id || "family",
+        assignedToPersonName: normalizePersonName(selectedAssignee.name, "Family"),
+        assigned_to_person_name: normalizePersonName(selectedAssignee.name, "Family"),
+
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      cancelEditingList();
+      await loadData();
+    } catch (error) {
+      console.error("Error updating list:", error);
+      alert(`There was an error updating the list: ${error.message}`);
+    } finally {
+      setSavingListEdit(false);
+    }
+  };
+
   const archiveList = async (list) => {
     if (!canWrite || !list?.id) return;
 
@@ -894,35 +955,126 @@ export default function Groceries() {
                       <ListTypeIcon type={activeList.type} className="h-6 w-6" />
                     </div>
 
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
-                        Active list
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      {editingListId === activeList.id ? (
+                        <div className="space-y-3">
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
+                            Edit list
+                          </p>
 
-                      <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
-                        {activeList.title}
-                      </h2>
+                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_180px]">
+                            <Input
+                              value={editListTitle}
+                              onChange={(event) => setEditListTitle(event.target.value)}
+                              placeholder="List title"
+                              className="h-11 rounded-2xl bg-white font-black"
+                            />
 
-                      <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {(listTypeConfig[activeList.type] || listTypeConfig.other).label}
-                        {activeList.description ? ` · ${activeList.description}` : ""}
-                      </p>
+                            <Select value={editListType} onValueChange={setEditListType}>
+                              <SelectTrigger className="h-11 rounded-2xl bg-white">
+                                <SelectValue />
+                              </SelectTrigger>
 
-                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-100">
-                        <Users className="h-3.5 w-3.5" />
-                        Responsible: {activeList.assignedToPersonName || "Family"}
-                      </div>
+                              <SelectContent>
+                                {Object.entries(listTypeConfig).map(([key, value]) => (
+                                  <SelectItem key={key} value={key}>
+                                    {value.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
 
-                      {isCalendarLinkedList(activeList) && (
-                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-100">
-                          <CalendarDays className="h-3.5 w-3.5" />
-                          Linked to calendar
+                            <Select
+                              value={editListAssigneePersonId}
+                              onValueChange={setEditListAssigneePersonId}
+                            >
+                              <SelectTrigger className="h-11 rounded-2xl bg-white">
+                                <Users className="mr-2 h-4 w-4 text-slate-400" />
+                                <SelectValue />
+                              </SelectTrigger>
+
+                              <SelectContent>
+                                {peopleOptions.map((person) => (
+                                  <SelectItem key={person.id} value={person.id}>
+                                    {person.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <Input
+                            value={editListDescription}
+                            onChange={(event) => setEditListDescription(event.target.value)}
+                            placeholder="Optional note"
+                            className="h-11 rounded-2xl bg-white"
+                          />
+
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              onClick={saveListEdit}
+                              disabled={!editListTitle.trim() || savingListEdit}
+                              className="rounded-2xl font-black"
+                            >
+                              {savingListEdit ? "Saving..." : "Save changes"}
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={cancelEditingList}
+                              disabled={savingListEdit}
+                              className="rounded-2xl font-black"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
+                            Active list
+                          </p>
+
+                          <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                            {activeList.title}
+                          </h2>
+
+                          <p className="mt-1 text-sm font-semibold text-slate-500">
+                            {(listTypeConfig[activeList.type] || listTypeConfig.other).label}
+                            {activeList.description ? ` · ${activeList.description}` : ""}
+                          </p>
+
+                          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-100">
+                            <Users className="h-3.5 w-3.5" />
+                            Responsible: {activeList.assignedToPersonName || "Family"}
+                          </div>
+
+                          {isCalendarLinkedList(activeList) && (
+                            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-100">
+                              <CalendarDays className="h-3.5 w-3.5" />
+                              Linked to calendar
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    {canWrite && activeList.status !== "archived" && editingListId !== activeList.id && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => startEditingList(activeList)}
+                        className="rounded-2xl border-slate-200 bg-white font-black text-slate-700 hover:bg-slate-50"
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit list
+                      </Button>
+                    )}
+
                     {(tasksByListId[activeList.id]?.length || 0) > 0 && (
                       <Button
                         type="button"
