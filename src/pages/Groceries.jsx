@@ -166,6 +166,15 @@ function ListTypeIcon({ type, className = "" }) {
   return <Icon className={className} />;
 }
 
+function isCalendarLinkedList(list = {}) {
+  return Boolean(
+    list.linkedEventId ||
+      list.linked_event_id ||
+      list.source === "calendar" ||
+      list.source_type === "calendar"
+  );
+}
+
 export default function Groceries() {
   const { familyId, user, perms } = useFamily();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -602,6 +611,13 @@ export default function Groceries() {
                             {list.description}
                           </p>
                         )}
+
+                        {isCalendarLinkedList(list) && (
+                          <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-black text-violet-700 ring-1 ring-violet-100">
+                            <CalendarDays className="h-3 w-3" />
+                            Linked to calendar
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -640,6 +656,13 @@ export default function Groceries() {
                         {(listTypeConfig[activeList.type] || listTypeConfig.other).label}
                         {activeList.description ? ` · ${activeList.description}` : ""}
                       </p>
+
+                      {isCalendarLinkedList(activeList) && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-100">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Linked to calendar
+                        </div>
+                      )}
                     </div>
                   </div>
 
