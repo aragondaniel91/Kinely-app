@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -175,9 +175,14 @@ function isCalendarLinkedList(list = {}) {
   );
 }
 
+function getLinkedEventId(list = {}) {
+  return list.linkedEventId || list.linked_event_id || "";
+}
+
 export default function Groceries() {
   const { familyId, user, perms } = useFamily();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const canRead =
     perms?.lists?.read !== false &&
@@ -427,6 +432,14 @@ export default function Groceries() {
     }
   };
 
+  function goToLinkedEvent(list) {
+    const linkedEventId = getLinkedEventId(list);
+
+    if (!linkedEventId) return;
+
+    navigate(`/calendar?eventId=${linkedEventId}`);
+  }
+
   const archiveList = async (list) => {
     if (!canWrite || !list?.id) return;
 
@@ -666,17 +679,31 @@ export default function Groceries() {
                     </div>
                   </div>
 
-                  {canWrite && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => archiveList(activeList)}
-                      className="rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Archive
-                    </Button>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isCalendarLinkedList(activeList) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => goToLinkedEvent(activeList)}
+                        className="rounded-2xl border-violet-200 bg-violet-50 font-black text-violet-700 hover:bg-violet-100 hover:text-violet-800"
+                      >
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        View event
+                      </Button>
+                    )}
+
+                    {canWrite && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => archiveList(activeList)}
+                        className="rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Archive list
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {canWrite && (

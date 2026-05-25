@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { addDays, addMonths, subMonths } from "date-fns";
+import { useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 
 import {
@@ -31,6 +32,7 @@ const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
 
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { familyId, profile, familyPeople } = useFamily();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [addDate, setAddDate] = useState(null);
   const [editEvent, setEditEvent] = useState(null);
@@ -66,6 +68,33 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const requestedEventId = searchParams.get("eventId");
+
+    if (!requestedEventId || loading || !events.length) return;
+
+    const match = events.find((event) => {
+      return (
+        event.id === requestedEventId ||
+        event.firestoreId === requestedEventId ||
+        event.firestore_id === requestedEventId ||
+        event.documentId === requestedEventId ||
+        event.document_id === requestedEventId ||
+        event.googleCalendarEventId === requestedEventId
+      );
+    });
+
+    if (!match) return;
+
+    if (match.date) {
+      setAnchorDate(new Date(`${match.date}T00:00:00`));
+    }
+
+    setSelectedOverflow(null);
+    setSelectedEvent(buildEventPanelState(match, null));
+    setSearchParams({});
+  }, [searchParams, setSearchParams, events, loading]);
 
   function goPrevious() {
     if (viewMode === "month") setAnchorDate((date) => subMonths(date, 1));
