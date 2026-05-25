@@ -14,7 +14,7 @@ import Calendar from "@/pages/Calendar";
 import Custody from "@/pages/Custody";
 import Tasks from "@/pages/Tasks";
 import Meals from "@/pages/Meals";
-import Groceries from "@/pages/Groceries";
+import Lists from "@/pages/Groceries";
 import ChildProfiles from "@/pages/ChildProfiles";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
@@ -94,7 +94,8 @@ function AppRoutes() {
         <Route path="/children" element={<ChildProfiles />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/meals" element={<Meals />} />
-        <Route path="/groceries" element={<Groceries />} />
+        <Route path="/lists" element={<Lists />} />
+        <Route path="/groceries" element={<Navigate to="/lists" replace />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
 

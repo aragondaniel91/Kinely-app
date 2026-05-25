@@ -4,7 +4,7 @@ import {
   CheckSquare,
   HeartHandshake,
   UtensilsCrossed,
-  ShoppingCart,
+  ListChecks,
   Home,
   User,
 } from "lucide-react";
@@ -20,7 +20,7 @@ const navItems = [
   { icon: HeartHandshake, label: "Custody", path: "/custody" },
   { icon: CheckSquare, label: "Tasks", path: "/tasks" },
   { icon: UtensilsCrossed, label: "Meals", path: "/meals" },
-  { icon: ShoppingCart, label: "Lists", path: "/groceries" },
+  { icon: ListChecks, label: "Lists", path: "/groceries" },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 
