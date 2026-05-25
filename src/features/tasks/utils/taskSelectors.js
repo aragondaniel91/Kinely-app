@@ -50,20 +50,6 @@ export function getSelectedPerson(people = [], selectedPersonId = "") {
 export function getSelectedTasks(tasksByPerson = {}, selectedPersonId = "") {
   if (!selectedPersonId) return [];
 
-  if (selectedPersonId === "family") {
-    const allTasksById = new Map();
-
-    Object.values(tasksByPerson).forEach((personTasks) => {
-      if (!Array.isArray(personTasks)) return;
-
-      personTasks.forEach((task) => {
-        if (task?.id) allTasksById.set(task.id, task);
-      });
-    });
-
-    return Array.from(allTasksById.values());
-  }
-
   return tasksByPerson[selectedPersonId] || [];
 }
 
