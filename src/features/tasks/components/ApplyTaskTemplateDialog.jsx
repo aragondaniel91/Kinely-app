@@ -38,6 +38,7 @@ import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
   buildAssigneeOptions,
   findAssigneeOption,
+  getDefaultTaskIcon,
 } from "@/features/tasks/utils/taskDialogOptions";
 
 function getDateKey(offsetDays = 0) {
@@ -76,12 +77,36 @@ function getRoutineIcon(type = "") {
 }
 
 function getRoutineTone(type = "") {
-  if (type === "chore") return "bg-blue-50 text-blue-700 ring-blue-100";
-  if (type === "weekday") return "bg-violet-50 text-violet-700 ring-violet-100";
+  if (type === "chore") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (type === "weekday") return "bg-sky-50 text-sky-700 ring-sky-100";
   if (type === "weekend") return "bg-amber-50 text-amber-700 ring-amber-100";
   if (type === "bedtime") return "bg-indigo-50 text-indigo-700 ring-indigo-100";
-  if (type === "daily") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (type === "daily") return "bg-violet-50 text-violet-700 ring-violet-100";
   return "bg-slate-50 text-slate-600 ring-slate-100";
+}
+
+function getCategoryTone(category = "other") {
+  if (category === "house" || category === "home") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  }
+
+  if (category === "school") {
+    return "bg-sky-50 text-sky-700 ring-sky-100";
+  }
+
+  if (category === "personal") {
+    return "bg-pink-50 text-pink-700 ring-pink-100";
+  }
+
+  if (category === "work") {
+    return "bg-slate-50 text-slate-700 ring-slate-100";
+  }
+
+  if (category === "family") {
+    return "bg-rose-50 text-rose-700 ring-rose-100";
+  }
+
+  return "bg-violet-50 text-violet-700 ring-violet-100";
 }
 
 function SegmentedButton({ active, icon: Icon, children, onClick }) {
@@ -147,7 +172,7 @@ function RoutineCard({ template, active, onClick }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-[1.75rem] border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+        "rounded-[1.65rem] border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
         active
           ? "border-primary/25 bg-primary/5 ring-4 ring-primary/5"
           : "border-slate-200 bg-white hover:border-slate-300"
@@ -176,7 +201,7 @@ function RoutineCard({ template, active, onClick }) {
           </p>
 
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ring-1", tone)}>
               {template.type || "custom"}
             </span>
 
@@ -187,6 +212,22 @@ function RoutineCard({ template, active, onClick }) {
         </div>
       </div>
     </button>
+  );
+}
+
+function PreviewTask({ task, index }) {
+  const category = task.category || "other";
+  const tone = getCategoryTone(category);
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-white"
+    >
+      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white", tone.split(" ")[0])} />
+      <span className="truncate">
+        {task.title || `Task ${index + 1}`}
+      </span>
+    </div>
   );
 }
 
@@ -274,6 +315,7 @@ export default function ApplyTaskTemplateDialog({
           : "";
 
       templateTasks.forEach((task) => {
+        const category = task.category || selectedTemplate.category || "other";
         const isChore = task.chore === true || selectedTemplate.type === "chore";
         const rewardEligible = task.rewardEligible !== false;
 
@@ -281,9 +323,9 @@ export default function ApplyTaskTemplateDialog({
 
         batch.set(taskRef, {
           title: task.title,
-          category: task.category || selectedTemplate.category || "other",
+          category,
           priority: task.priority || "medium",
-          icon: task.icon || selectedTemplate.icon || "sparkles",
+          icon: task.icon || selectedTemplate.icon || getDefaultTaskIcon(category),
 
           rewardEligible,
           reward_eligible: rewardEligible,
@@ -318,6 +360,8 @@ export default function ApplyTaskTemplateDialog({
           template_id: selectedTemplate.id,
           templateTitle: selectedTemplate.title,
           template_title: selectedTemplate.title,
+          generatedFromRoutine: true,
+          generated_from_routine: true,
 
           createdBy: user?.uid || null,
           createdByEmail: user?.email || null,
@@ -502,12 +546,11 @@ export default function ApplyTaskTemplateDialog({
 
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {previewTasks.slice(0, 4).map((task, index) => (
-                      <div
+                      <PreviewTask
                         key={`${task.title}-${index}`}
-                        className="truncate rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-white"
-                      >
-                        {task.title}
-                      </div>
+                        task={task}
+                        index={index}
+                      />
                     ))}
                   </div>
 
