@@ -95,6 +95,39 @@ const listTypeConfig = {
   },
 };
 
+const quickListTemplates = [
+  {
+    title: "Jeep Oil Change",
+    type: "car",
+    description: "Supplies and reminders for a car maintenance day.",
+  },
+  {
+    title: "Joaquin School Project",
+    type: "school",
+    description: "Materials and prep steps for a school deadline.",
+  },
+  {
+    title: "Taco Night",
+    type: "meal",
+    description: "Ingredients and prep items for a family meal.",
+  },
+  {
+    title: "Family Trip Packing",
+    type: "trip",
+    description: "Packing list for clothes, documents, snacks, and essentials.",
+  },
+  {
+    title: "Birthday Party",
+    type: "event",
+    description: "Supplies, gifts, food, and setup items for a family event.",
+  },
+  {
+    title: "House Supplies",
+    type: "household",
+    description: "Things needed around the house.",
+  },
+];
+
 function normalizeList(docSnap) {
   const data = docSnap.data();
 
@@ -234,6 +267,12 @@ export default function Groceries() {
   const neededItems = activeItems.filter((item) => !item.checked);
   const doneItems = activeItems.filter((item) => item.checked);
   const totalOpenItems = items.filter((item) => !item.checked).length;
+
+  function applyQuickTemplate(template) {
+    setNewListTitle(template.title);
+    setNewListType(template.type);
+    setNewListDescription(template.description || "");
+  }
 
   const createList = async () => {
     const cleanTitle = newListTitle.trim();
@@ -440,6 +479,27 @@ export default function Groceries() {
                 Example: Jeep Oil Change, Joaquin Science Project, Taco Night.
               </p>
             </div>
+          </div>
+
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+            {quickListTemplates.map((template) => {
+              const config = listTypeConfig[template.type] || listTypeConfig.other;
+              const Icon = config.icon;
+
+              return (
+                <button
+                  key={`${template.type}-${template.title}`}
+                  type="button"
+                  onClick={() => applyQuickTemplate(template)}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-500 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:bg-white hover:text-slate-900 hover:shadow-sm"
+                >
+                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-xl ring-1", config.color)}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  {template.title}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)_auto]">
