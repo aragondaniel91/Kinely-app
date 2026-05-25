@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useFamily } from "@/lib/FamilyContext";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
@@ -44,6 +44,7 @@ export default function Tasks() {
   } = useFamily();
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const boardChildren = children?.length ? children : familyChildrenCore;
 
@@ -367,6 +368,23 @@ export default function Tasks() {
     familyRewardRequired,
   ]);
 
+  useEffect(() => {
+    if (!linkedListIdFilter || !displayTasks.length) return;
+
+    const firstLinkedTask = displayTasks.find((task) => {
+      return task.linkedListId === linkedListIdFilter || task.linked_list_id === linkedListIdFilter;
+    });
+
+    const linkedAssigneeId =
+      firstLinkedTask?.assignedToPersonId ||
+      firstLinkedTask?.assigned_to_person_id ||
+      "";
+
+    if (linkedAssigneeId && people.some((person) => person.id === linkedAssigneeId)) {
+      setSelectedPersonId(linkedAssigneeId);
+    }
+  }, [linkedListIdFilter, displayTasks, people]);
+
   const { completedCount, pendingCount } = getTaskStats(selectedTasks);
 
   const handleDeleteTask = async (task) => {
@@ -422,8 +440,41 @@ export default function Tasks() {
       <FamilyHeader canWrite={canWrite} onAddTask={() => handleOpenAddTask(selectedPerson)} />
 
       {linkedListIdFilter && (
-        <div className="mb-4 rounded-[1.75rem] border border-blue-100 bg-blue-50/80 p-4 text-sm font-bold text-blue-700">
-          Viewing tasks linked to {linkedListTitleFilter || "this family list"}.
+        <div className="mb-4 rounded-[1.75rem] border border-blue-100 bg-blue-50/85 p-4 shadow-[0_10px_28px_rgba(37,99,235,0.08)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-500">
+                Linked task view
+              </p>
+              <h2 className="mt-1 text-xl font-black text-blue-950">
+                Tasks for {linkedListTitleFilter || "this family list"}
+              </h2>
+              <p className="mt-1 text-sm font-bold text-blue-700/80">
+                Only tasks connected to this list are shown here.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(`/lists?listId=${linkedListIdFilter}`)}
+                className="rounded-2xl bg-white px-4 py-2 text-sm font-black text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-50"
+              >
+                Back to list
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchParams({});
+                  setActiveTaskScope("today");
+                }}
+                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700"
+              >
+                Show all tasks
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

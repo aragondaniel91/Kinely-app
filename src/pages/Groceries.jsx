@@ -624,7 +624,12 @@ export default function Groceries() {
   function viewLinkedTasksFromList(list) {
     if (!list?.id) return;
 
-    navigate(`/tasks?linkedListId=${list.id}`);
+    const params = new URLSearchParams({
+      linkedListId: list.id,
+      listTitle: list.title || "Family list",
+    });
+
+    navigate(`/tasks?${params.toString()}`);
   }
 
   function startEditingList(list) {

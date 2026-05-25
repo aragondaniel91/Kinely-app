@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import {
   Archive,
+  CalendarDays,
   Check,
   Circle,
   Clock,
   Gift,
   Layers,
+  ListChecks,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -121,6 +123,9 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
   const rewardEligible = task.rewardEligible === true || task.reward_eligible === true;
   const isChore = task.chore || task.isChore || task.is_chore;
   const archivedLabel = getArchivedLabel(task);
+  const linkedListId = task.linkedListId || task.linked_list_id || "";
+  const linkedEventId = task.linkedEventId || task.linked_event_id || "";
+  const linkedListTitle = task.linkedListTitle || task.linked_list_title || "List";
 
   return (
     <div
@@ -195,6 +200,23 @@ function FocusTaskRow({ task, canWrite, onToggleTask, onEditTask, onDeleteTask }
           >
             {categoryLabel}
           </span>
+
+          {linkedListId && (
+            <span
+              title={`Linked to ${linkedListTitle}`}
+              className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-700"
+            >
+              <ListChecks className="h-3 w-3" />
+              Linked list
+            </span>
+          )}
+
+          {linkedEventId && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">
+              <CalendarDays className="h-3 w-3" />
+              Linked event
+            </span>
+          )}
 
           {archived && (
             <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
