@@ -33,6 +33,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
+import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -198,6 +199,7 @@ export default function Groceries() {
 
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
+  const [linkedTasks, setLinkedTasks] = useState([]);
   const [activeListId, setActiveListId] = useState("");
   const [showArchivedLists, setShowArchivedLists] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -216,6 +218,8 @@ export default function Groceries() {
     if (!familyId || !canRead) {
       setLists([]);
       setItems([]);
+      setLinkedTasks([]);
+      setLinkedTasks([]);
       setLoading(false);
       return;
     }
@@ -223,9 +227,10 @@ export default function Groceries() {
     setLoading(true);
 
     try {
-      const [listSnap, itemSnap] = await Promise.all([
+      const [listSnap, itemSnap, taskSnap] = await Promise.all([
         getDocs(query(collection(db, LIST_COLLECTION), where("familyId", "==", familyId))),
         getDocs(query(collection(db, ITEM_COLLECTION), where("familyId", "==", familyId))),
+        getDocs(query(collection(db, TASK_COLLECTIONS.tasks), where("familyId", "==", familyId))),
       ]);
 
       const nextLists = listSnap.docs
@@ -245,8 +250,23 @@ export default function Groceries() {
           return bDate.localeCompare(aDate);
         });
 
+      const nextLinkedTasks = taskSnap.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter((task) => {
+          const status = String(task.status || "").toLowerCase();
+
+          return (
+            (task.linkedListId || task.linked_list_id) &&
+            status !== "archived" &&
+            status !== "cancelled" &&
+            status !== "canceled" &&
+            status !== "skipped"
+          );
+        });
+
       setLists(nextLists);
       setItems(nextItems);
+      setLinkedTasks(nextLinkedTasks);
 
       const requestedListId = searchParams.get("listId");
 
@@ -263,6 +283,7 @@ export default function Groceries() {
       console.error("Error loading family lists:", error);
       setLists([]);
       setItems([]);
+      setLinkedTasks([]);
     } finally {
       setLoading(false);
     }
@@ -272,6 +293,18 @@ export default function Groceries() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, canRead]);
+
+  const tasksByListId = useMemo(() => {
+    return linkedTasks.reduce((acc, task) => {
+      const listId = task.linkedListId || task.linked_list_id;
+      if (!listId) return acc;
+
+      if (!acc[listId]) acc[listId] = [];
+      acc[listId].push(task);
+
+      return acc;
+    }, {});
+  }, [linkedTasks]);
 
   const activeLists = useMemo(() => {
     return lists.filter((list) => list.status !== "archived");
@@ -469,12 +502,19 @@ export default function Groceries() {
     const params = new URLSearchParams({
       linkedListId: list.id,
       listTitle: list.title || "Family list",
+      action: "createTask",
     });
 
     const linkedEventId = getLinkedEventId(list);
     if (linkedEventId) params.set("linkedEventId", linkedEventId);
 
     navigate(`/tasks?${params.toString()}`);
+  }
+
+  function viewLinkedTasksFromList(list) {
+    if (!list?.id) return;
+
+    navigate(`/tasks?linkedListId=${list.id}`);
   }
 
   const archiveList = async (list) => {
@@ -693,6 +733,9 @@ export default function Groceries() {
 
                         <p className="mt-0.5 text-xs font-semibold text-slate-500">
                           {config.label} · {openCount} open · {doneCount} done
+                          {(tasksByListId[list.id]?.length || 0) > 0
+                            ? ` · ${tasksByListId[list.id].length} task${tasksByListId[list.id].length === 1 ? "" : "s"}`
+                            : ""}
                         </p>
 
                         {list.description && (
@@ -760,6 +803,18 @@ export default function Groceries() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    {(tasksByListId[activeList.id]?.length || 0) > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => viewLinkedTasksFromList(activeList)}
+                        className="rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                      >
+                        <CheckSquare className="mr-2 h-4 w-4" />
+                        View linked tasks ({tasksByListId[activeList.id].length})
+                      </Button>
+                    )}
+
                     {canWrite && activeList.status !== "archived" && (
                       <Button
                         type="button"
@@ -768,7 +823,9 @@ export default function Groceries() {
                         className="rounded-2xl border-blue-200 bg-blue-50 font-black text-blue-700 hover:bg-blue-100 hover:text-blue-800"
                       >
                         <CheckSquare className="mr-2 h-4 w-4" />
-                        Create linked task
+                        {(tasksByListId[activeList.id]?.length || 0) > 0
+                          ? "Create another task"
+                          : "Create linked task"}
                       </Button>
                     )}
 
