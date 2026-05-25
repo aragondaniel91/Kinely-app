@@ -963,166 +963,245 @@ export default function ManageTaskTemplatesDialog({
                 Back to routines
               </Button>
 
-              <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/75 p-4 sm:p-5">
-                <div>
-                  <Label>Routine title</Label>
-                  <Input
-                    value={draft.title}
-                    onChange={(event) => patchDraft({ title: event.target.value })}
-                    placeholder="Example: Saturday chores"
-                    className="mt-1 h-11 rounded-2xl bg-white"
-                  />
-                </div>
+              <div className="space-y-4">
+                <section className="rounded-[1.75rem] border border-slate-100 bg-slate-50/75 p-4 sm:p-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
+                        Routine basics
+                      </p>
+                      <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">
+                        Name and describe it
+                      </h3>
+                    </div>
 
-                <div className="mt-4">
-                  <Label>Description</Label>
-                  <Input
-                    value={draft.description}
-                    onChange={(event) => patchDraft({ description: event.target.value })}
-                    placeholder="Short description"
-                    className="mt-1 h-11 rounded-2xl bg-white"
-                  />
-                </div>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  <div>
-                    <Label>Type</Label>
-                    <select
-                      value={draft.type}
-                      onChange={(event) => patchDraft({ type: event.target.value })}
-                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                    >
-                      {TEMPLATE_TYPE_OPTIONS.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className={cn("hidden h-11 w-11 items-center justify-center rounded-2xl ring-1 sm:flex", getRoutineVisual(draft.type).tone)}>
+                      {React.createElement(getRoutineVisual(draft.type).icon, {
+                        className: "h-5 w-5",
+                      })}
+                    </div>
                   </div>
 
-                  <div>
-                    <Label>Category</Label>
-                    <select
-                      value={draft.category}
-                      onChange={(event) => patchDraft({ category: event.target.value })}
-                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                    >
-                      {TASK_CREATE_CATEGORY_OPTIONS.map((category) => (
-                        <option key={category.value} value={category.value}>
-                          {category.label}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                    <div>
+                      <Label>Routine title</Label>
+                      <Input
+                        value={draft.title}
+                        onChange={(event) => patchDraft({ title: event.target.value })}
+                        placeholder="Example: Saturday chores"
+                        className="mt-1 h-11 rounded-2xl bg-white font-black"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Description</Label>
+                      <Input
+                        value={draft.description}
+                        onChange={(event) => patchDraft({ description: event.target.value })}
+                        placeholder="Short description"
+                        className="mt-1 h-11 rounded-2xl bg-white"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <Label>Priority</Label>
-                    <select
-                      value={draft.defaultPriority}
-                      onChange={(event) => patchDraft({ defaultPriority: event.target.value })}
-                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                    >
-                      {TASK_PRIORITY_OPTIONS.map((priority) => (
-                        <option key={priority.value} value={priority.value}>
-                          {priority.label}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                      <Label>Type</Label>
+                      <select
+                        value={draft.type}
+                        onChange={(event) => patchDraft({ type: event.target.value })}
+                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                      >
+                        {TEMPLATE_TYPE_OPTIONS.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label>Category</Label>
+                      <select
+                        value={draft.category}
+                        onChange={(event) => patchDraft({ category: event.target.value })}
+                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                      >
+                        {TASK_CREATE_CATEGORY_OPTIONS.map((category) => (
+                          <option key={category.value} value={category.value}>
+                            {category.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label>Priority</Label>
+                      <select
+                        value={draft.defaultPriority}
+                        onChange={(event) => patchDraft({ defaultPriority: event.target.value })}
+                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                      >
+                        {TASK_PRIORITY_OPTIONS.map((priority) => (
+                          <option key={priority.value} value={priority.value}>
+                            {priority.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+                </section>
 
-                  <div>
-                    <Label>Repeats</Label>
-                    <select
-                      value={draft.recurrence}
-                      onChange={(event) => {
-                        const recurrence = event.target.value;
-                        patchDraft({
-                          recurrence,
-                          autoGenerate: recurrence === "manual" ? false : draft.autoGenerate,
-                        });
-                      }}
-                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                    >
-                      {RECURRENCE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label>Default assignee</Label>
-                    <select
-                      value={draft.assignedToPersonId}
-                      onChange={(event) => patchDraft({ assignedToPersonId: event.target.value })}
-                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                    >
-                      {assigneeOptions.map((person) => (
-                        <option key={person.id} value={person.id}>
-                          {person.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-500 ring-1 ring-slate-100">
-                  Repeats controls future auto-generation. Default assignee decides who receives generated tasks. Manual routines only run when you apply them.
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    patchDraft({
-                      autoGenerate:
-                        draft.recurrence !== "manual" ? !draft.autoGenerate : false,
-                    })
-                  }
-                  disabled={draft.recurrence === "manual"}
-                  className={cn(
-                    "mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition",
-                    draft.recurrence !== "manual" && draft.autoGenerate
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-slate-200 bg-white text-slate-600",
-                    draft.recurrence === "manual" && "cursor-not-allowed opacity-60"
-                  )}
-                >
-                  <div>
-                    <p className="text-sm font-black">
-                      Auto-generate this routine
+                <section className="rounded-[1.75rem] border border-slate-100 bg-slate-50/75 p-4 sm:p-5">
+                  <div className="mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
+                      Routine behavior
                     </p>
-                    <p className="mt-1 text-xs font-semibold">
-                      {draft.recurrence === "manual"
-                        ? "Manual routines do not auto-generate."
-                        : "When enabled, this routine creates tasks automatically on matching days."}
-                    </p>
+                    <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">
+                      Decide when and who
+                    </h3>
                   </div>
 
-                  <span
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label>Repeats</Label>
+                      <select
+                        value={draft.recurrence}
+                        onChange={(event) => {
+                          const recurrence = event.target.value;
+                          patchDraft({
+                            recurrence,
+                            autoGenerate: recurrence === "manual" ? false : draft.autoGenerate,
+                          });
+                        }}
+                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                      >
+                        {RECURRENCE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label>Default assignee</Label>
+                      <select
+                        value={draft.assignedToPersonId}
+                        onChange={(event) => patchDraft({ assignedToPersonId: event.target.value })}
+                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                      >
+                        {assigneeOptions.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      patchDraft({
+                        autoGenerate:
+                          draft.recurrence !== "manual" ? !draft.autoGenerate : false,
+                      })
+                    }
+                    disabled={draft.recurrence === "manual"}
                     className={cn(
-                      "rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
+                      "mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition",
                       draft.recurrence !== "manual" && draft.autoGenerate
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-100 text-slate-500"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-slate-200 bg-white text-slate-600",
+                      draft.recurrence === "manual" && "cursor-not-allowed opacity-60"
                     )}
                   >
-                    {draft.recurrence !== "manual" && draft.autoGenerate ? "On" : "Off"}
-                  </span>
-                </button>
+                    <div>
+                      <p className="text-sm font-black">
+                        Auto-generate this routine
+                      </p>
+                      <p className="mt-1 text-xs font-semibold">
+                        {draft.recurrence === "manual"
+                          ? "Manual routines only run when you apply them."
+                          : "When enabled, this routine creates tasks automatically on matching days."}
+                      </p>
+                    </div>
 
-                <div className="mt-4">
-                  <Label>Tasks</Label>
+                    <span
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
+                        draft.recurrence !== "manual" && draft.autoGenerate
+                          ? "bg-emerald-600 text-white"
+                          : "bg-slate-100 text-slate-500"
+                      )}
+                    >
+                      {draft.recurrence !== "manual" && draft.autoGenerate ? "On" : "Off"}
+                    </span>
+                  </button>
+                </section>
+
+                <section className="rounded-[1.75rem] border border-slate-100 bg-slate-50/75 p-4 sm:p-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
+                        Task list
+                      </p>
+                      <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">
+                        One task per line
+                      </h3>
+                    </div>
+
+                    <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-accent">
+                      {parsedTasks.length} task{parsedTasks.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
                   <textarea
                     value={draft.taskLines}
                     onChange={(event) => patchDraft({ taskLines: event.target.value })}
-                    placeholder={"One task per line\nMake bed\nClean room\nLaundry in basket"}
-                    className="mt-1 min-h-[170px] w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-ring"
+                    placeholder={"Make bed\nClean room\nLaundry in basket"}
+                    className="min-h-[160px] w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-ring"
                   />
-                  <p className="mt-1 text-xs font-semibold text-slate-400">
-                    {parsedTasks.length} task{parsedTasks.length === 1 ? "" : "s"} in this routine.
-                  </p>
-                </div>
+
+                  <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-500 ring-1 ring-slate-100">
+                    These tasks will use the selected category, priority, default assignee, and reward eligibility.
+                  </div>
+                </section>
+
+                {parsedTasks.length > 0 && (
+                  <section className="rounded-[1.75rem] border border-accent/10 bg-accent/5 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
+                      Preview
+                    </p>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {parsedTasks.slice(0, 6).map((task, index) => {
+                        const visual = getCategoryVisual(task.category);
+
+                        return (
+                          <div
+                            key={`${task.title}-${index}`}
+                            className="flex min-w-0 items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-black text-slate-700 ring-1 ring-white"
+                          >
+                            <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ring-1", visual.tone)}>
+                              {React.createElement(visual.icon, {
+                                className: "h-3.5 w-3.5",
+                              })}
+                            </span>
+                            <span className="truncate">{task.title}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {parsedTasks.length > 6 && (
+                      <p className="mt-2 text-xs font-black text-accent">
+                        +{parsedTasks.length - 6} more tasks
+                      </p>
+                    )}
+                  </section>
+                )}
               </div>
             </div>
           )}
