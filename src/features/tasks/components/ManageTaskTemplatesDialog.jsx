@@ -70,21 +70,21 @@ const RECURRENCE_OPTIONS = [
 ];
 
 const routineVisuals = {
-  daily: { icon: Repeat, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
-  weekday: { icon: School, tone: "bg-violet-50 text-violet-700 ring-violet-100" },
+  daily: { icon: Repeat, tone: "bg-violet-50 text-violet-700 ring-violet-100" },
+  weekday: { icon: School, tone: "bg-sky-50 text-sky-700 ring-sky-100" },
   weekend: { icon: Sun, tone: "bg-amber-50 text-amber-700 ring-amber-100" },
   bedtime: { icon: Moon, tone: "bg-indigo-50 text-indigo-700 ring-indigo-100" },
-  chore: { icon: Home, tone: "bg-blue-50 text-blue-700 ring-blue-100" },
+  chore: { icon: Home, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
   custom: { icon: Layers, tone: "bg-slate-50 text-slate-700 ring-slate-100" },
 };
 
 const categoryVisuals = {
-  house: { icon: Home, tone: "bg-blue-50 text-blue-700 ring-blue-100" },
-  school: { icon: School, tone: "bg-violet-50 text-violet-700 ring-violet-100" },
-  personal: { icon: UserRound, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
-  work: { icon: Briefcase, tone: "bg-slate-100 text-slate-700 ring-slate-200" },
+  house: { icon: Home, tone: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
+  school: { icon: School, tone: "bg-sky-50 text-sky-700 ring-sky-100" },
+  personal: { icon: UserRound, tone: "bg-pink-50 text-pink-700 ring-pink-100" },
+  work: { icon: Briefcase, tone: "bg-slate-50 text-slate-700 ring-slate-100" },
   family: { icon: Heart, tone: "bg-rose-50 text-rose-700 ring-rose-100" },
-  other: { icon: MoreHorizontal, tone: "bg-amber-50 text-amber-700 ring-amber-100" },
+  other: { icon: MoreHorizontal, tone: "bg-violet-50 text-violet-700 ring-violet-100" },
 };
 
 function getRoutineVisual(type = "custom") {
@@ -214,7 +214,7 @@ function RoutineCard({
     "Family";
 
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
+    <div className="rounded-[1.65rem] border border-white/80 bg-white/86 p-3 shadow-[0_10px_24px_rgba(38,50,56,0.045)] transition hover:-translate-y-0.5 hover:border-slate-200 hover:bg-white hover:shadow-[0_14px_30px_rgba(38,50,56,0.06)]">
       <div className="flex items-start gap-3">
         <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1", routineVisual.tone)}>
           <RoutineIcon className="h-5 w-5" />
@@ -230,7 +230,7 @@ function RoutineCard({
               className={cn(
                 "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ring-1",
                 isStarter
-                  ? "bg-blue-50 text-blue-700 ring-blue-100"
+                  ? "bg-sky-50 text-sky-700 ring-sky-100"
                   : "bg-emerald-50 text-emerald-700 ring-emerald-100"
               )}
             >
@@ -289,7 +289,7 @@ function RoutineCard({
                     : skippedToday
                       ? "bg-slate-50 text-slate-600 ring-slate-100"
                       : hasRunToday
-                        ? "bg-blue-50 text-blue-700 ring-blue-100"
+                        ? "bg-sky-50 text-sky-700 ring-sky-100"
                         : "bg-amber-50 text-amber-700 ring-amber-100"
                 )}
               >
@@ -401,7 +401,7 @@ function RoutineCard({
               type="button"
               variant="outline"
               onClick={() => onEdit(template)}
-              className="h-9 rounded-2xl bg-white"
+              className="h-9 rounded-2xl bg-white/90 font-black"
             >
               <Edit3 className="mr-2 h-4 w-4" />
               Edit
