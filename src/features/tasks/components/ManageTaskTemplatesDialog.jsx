@@ -324,15 +324,15 @@ function RoutineCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap justify-end gap-2">
+      <div className="mt-3 flex flex-wrap justify-end gap-1.5 border-t border-slate-100 pt-3">
         {isStarter ? (
           <Button
             type="button"
             variant="outline"
             onClick={() => onCopy(template)}
-            className="h-9 rounded-2xl bg-white font-black"
+            className="h-8 rounded-xl bg-white px-3 text-xs font-black"
           >
-            <Copy className="mr-2 h-4 w-4" />
+            <Copy className="mr-1.5 h-3.5 w-3.5" />
             Copy
           </Button>
         ) : (
@@ -343,9 +343,9 @@ function RoutineCard({
                   type="button"
                   variant="outline"
                   onClick={() => onRequestAction?.("skip", template)}
-                  className="h-9 rounded-2xl border-slate-200 bg-slate-50 font-black text-slate-600 hover:bg-white hover:text-slate-900"
+                  className="h-8 rounded-xl border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-600 hover:bg-white hover:text-slate-900"
                 >
-                  <XCircle className="mr-2 h-4 w-4" />
+                  <XCircle className="mr-1.5 h-3.5 w-3.5" />
                   Skip today
                 </Button>
 
@@ -353,9 +353,9 @@ function RoutineCard({
                   type="button"
                   variant="outline"
                   onClick={() => onRequestAction?.("run", template)}
-                  className="h-9 rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                  className="h-8 rounded-xl border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" />
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                   Generate today
                 </Button>
               </>
@@ -366,9 +366,9 @@ function RoutineCard({
                 type="button"
                 variant="outline"
                 onClick={() => onRequestAction?.("runAnyway", template)}
-                className="h-9 rounded-2xl border-amber-200 bg-amber-50 font-black text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                className="h-8 rounded-xl border-amber-200 bg-amber-50 px-3 text-xs font-black text-amber-700 hover:bg-amber-100 hover:text-amber-800"
               >
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                 Create anyway
               </Button>
             )}
@@ -378,9 +378,9 @@ function RoutineCard({
                 type="button"
                 variant="outline"
                 onClick={() => onRequestAction?.("cancel", template)}
-                className="h-9 rounded-2xl border-red-200 bg-red-50 font-black text-red-700 hover:bg-red-100 hover:text-red-800"
+                className="h-8 rounded-xl border-red-200 bg-red-50 px-3 text-xs font-black text-red-700 hover:bg-red-100 hover:text-red-800"
               >
-                <XCircle className="mr-2 h-4 w-4" />
+                <XCircle className="mr-1.5 h-3.5 w-3.5" />
                 Cancel today
               </Button>
             )}
@@ -390,9 +390,9 @@ function RoutineCard({
                 type="button"
                 variant="outline"
                 onClick={() => onRequestAction?.("regenerate", template)}
-                className="h-9 rounded-2xl border-blue-200 bg-blue-50 font-black text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                className="h-8 rounded-xl border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-700 hover:bg-blue-100 hover:text-blue-800"
               >
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                 Recreate tasks
               </Button>
             )}
@@ -401,9 +401,9 @@ function RoutineCard({
               type="button"
               variant="outline"
               onClick={() => onEdit(template)}
-              className="h-9 rounded-2xl bg-white/90 font-black"
+              className="h-8 rounded-xl bg-white/90 px-3 text-xs font-black"
             >
-              <Edit3 className="mr-2 h-4 w-4" />
+              <Edit3 className="mr-1.5 h-3.5 w-3.5" />
               Edit
             </Button>
 
@@ -411,9 +411,9 @@ function RoutineCard({
               type="button"
               variant="outline"
               onClick={() => onDelete(template)}
-              className="h-9 rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
+              className="h-8 rounded-xl border-red-200 bg-red-50 px-3 text-xs font-black text-red-600 hover:bg-red-100 hover:text-red-700"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete
             </Button>
           </>
@@ -528,7 +528,7 @@ function RoutineActionConfirmPanel({ action, saving, onCancel, onConfirm }) {
             disabled={saving}
             className={cn("rounded-2xl font-black text-white", buttonClass)}
           >
-            <RotateCcw className="mr-2 h-4 w-4" />
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
             {saving ? "Working..." : copy.confirmLabel}
           </Button>
         </div>
@@ -569,7 +569,7 @@ function DeleteRoutinePanel({ template, saving, onCancel, onConfirm }) {
           disabled={saving}
           className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
         >
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
           {saving ? "Deleting..." : "Delete routine"}
         </Button>
       </div>
@@ -871,25 +871,32 @@ export default function ManageTaskTemplatesDialog({
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
           {view === "list" && (
             <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black text-slate-950">
-                    Your routines
-                  </h3>
-                  <p className="text-sm font-semibold text-slate-500">
-                    Custom routines can be edited or deleted.
-                  </p>
-                </div>
+              <div className="rounded-[1.75rem] border border-white/75 bg-white/70 p-4 shadow-[0_10px_24px_rgba(38,50,56,0.04)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
+                      Your routines
+                    </p>
 
-                <Button
-                  type="button"
-                  onClick={startNewRoutine}
-                  disabled={saving}
-                  className="h-11 rounded-2xl font-black"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  New routine
-                </Button>
+                    <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">
+                      Family-built routines
+                    </h3>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Custom routines can be edited, scheduled, or used today.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={startNewRoutine}
+                    disabled={saving}
+                    className="h-11 rounded-2xl font-black"
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    New routine
+                  </Button>
+                </div>
               </div>
 
               {familyTemplates.length > 0 ? (
@@ -911,7 +918,7 @@ export default function ManageTaskTemplatesDialog({
                   ))}
                 </div>
               ) : (
-                <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/75 p-8 text-center">
+                <div className="rounded-[1.75rem] border border-dashed border-slate-200 bg-white/60 p-8 text-center shadow-[0_10px_24px_rgba(38,50,56,0.035)]">
                   <p className="text-lg font-black text-slate-950">
                     No custom routines yet
                   </p>
@@ -921,15 +928,28 @@ export default function ManageTaskTemplatesDialog({
                 </div>
               )}
 
-              <div>
-                <h3 className="text-lg font-black text-slate-950">
-                  Starter routines
-                </h3>
-                <p className="text-sm font-semibold text-slate-500">
-                  Starters are built into the app. Copy one to customize it.
-                </p>
+              <div className="rounded-[1.75rem] border border-white/75 bg-white/55 p-4 shadow-[0_10px_24px_rgba(38,50,56,0.035)]">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 ring-1 ring-sky-100">
+                    <Layers className="h-5 w-5" />
+                  </div>
 
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      Starter routines
+                    </p>
+
+                    <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">
+                      Copy and customize
+                    </h3>
+
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Starters are built into the app. Copy one to make it yours.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {starterTemplates.map((template) => (
                     <RoutineCard
                       key={template.id}
@@ -959,7 +979,7 @@ export default function ManageTaskTemplatesDialog({
                 disabled={saving}
                 className="rounded-2xl px-0 font-black text-slate-500 hover:bg-transparent hover:text-slate-950"
               >
-                <ArrowLeft className="mr-2 h-4 w-4" />
+                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
                 Back to routines
               </Button>
 
@@ -1215,7 +1235,7 @@ export default function ManageTaskTemplatesDialog({
                 disabled={saving}
                 className="mb-4 rounded-2xl px-0 font-black text-slate-500 hover:bg-transparent hover:text-slate-950"
               >
-                <ArrowLeft className="mr-2 h-4 w-4" />
+                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
                 Back to routines
               </Button>
 
@@ -1262,7 +1282,7 @@ export default function ManageTaskTemplatesDialog({
                 disabled={saving || !familyId}
                 className="rounded-2xl font-black"
               >
-                <Save className="mr-2 h-4 w-4" />
+                <Save className="mr-1.5 h-3.5 w-3.5" />
                 {saving ? "Saving..." : draft.id ? "Save changes" : "Save routine"}
               </Button>
             </>
