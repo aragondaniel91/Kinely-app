@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -15,10 +16,12 @@ import {
   Tag,
   UserRound,
   Check,
+  ListChecks,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { buildAudiencePayload, NOTIFY_TARGETS, VISIBILITY_TYPES } from "@/lib/visibilityUtils";
 import VisibilityAudienceSelector from "@/components/shared/VisibilityAudienceSelector";
@@ -290,8 +293,53 @@ function personEmoji(person) {
   return "👤";
 }
 
+function getLinkedListTypeFromCalendarCategory(category = "", title = "") {
+  const safeCategory = String(category || "").toLowerCase();
+  const safeTitle = String(title || "").toLowerCase();
+
+  if (
+    safeCategory.includes("school") ||
+    safeTitle.includes("school") ||
+    safeTitle.includes("project") ||
+    safeTitle.includes("homework")
+  ) {
+    return "school";
+  }
+
+  if (
+    safeCategory.includes("birthday") ||
+    safeCategory.includes("family") ||
+    safeTitle.includes("party") ||
+    safeTitle.includes("birthday")
+  ) {
+    return "event";
+  }
+
+  if (
+    safeTitle.includes("meal") ||
+    safeTitle.includes("dinner") ||
+    safeTitle.includes("lunch") ||
+    safeTitle.includes("taco")
+  ) {
+    return "meal";
+  }
+
+  if (
+    safeTitle.includes("car") ||
+    safeTitle.includes("jeep") ||
+    safeTitle.includes("oil") ||
+    safeTitle.includes("maintenance")
+  ) {
+    return "car";
+  }
+
+  return "event";
+}
+
 export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEvent = null }) {
   const { user, familyId, profile, familyPeople } = useFamily();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const people = familyPeople || [];
 
   const initialStartParts = useMemo(() => timeToParts(editEvent?.startTime, "09:00"), [editEvent?.startTime]);
@@ -307,6 +355,7 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
   const [assignedPersonId, setAssignedPersonId] = useState(() => initialAssignedPersonId(editEvent, people));
   const [location, setLocation] = useState(editEvent?.location || "");
   const [audiencePayload, setAudiencePayload] = useState(() => defaultAudience(editEvent, user, profile));
+  const [createLinkedListWithEvent, setCreateLinkedListWithEvent] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -419,13 +468,45 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
       if (isEditing) {
         await updateDoc(doc(db, "familyEvents", documentId), payload);
       } else {
-        await addDoc(collection(db, "familyEvents"), {
+        const eventRef = await addDoc(collection(db, "familyEvents"), {
           ...payload,
           createdBy: user?.uid || null,
           createdByEmail: user?.email || null,
           created_date: new Date().toISOString(),
           createdAt: serverTimestamp(),
         });
+
+        if (createLinkedListWithEvent) {
+          const listRef = await addDoc(collection(db, "familyLists"), {
+            title: title.trim(),
+            type: getLinkedListTypeFromCalendarCategory(category, title),
+            description: "Linked to calendar event.",
+            status: "active",
+
+            familyId,
+            family_id: familyId,
+
+            linkedEventId: eventRef.id,
+            linked_event_id: eventRef.id,
+            source: "calendar",
+            source_type: "calendar",
+
+            createdBy: user?.uid || null,
+            createdByEmail: user?.email || null,
+            created_date: new Date().toISOString(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+
+          toast({
+            title: "Event and linked list created",
+            description: `"${title.trim()}" is ready in Family Lists.`,
+          });
+
+          onSuccess?.();
+          navigate(`/lists?listId=${listRef.id}`);
+          return;
+        }
       }
 
       onSuccess?.();
@@ -556,9 +637,59 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
           </div>
         </div>
 
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={() => setCreateLinkedListWithEvent((current) => !current)}
+            className={cn(
+              "mb-2 flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
+              createLinkedListWithEvent
+                ? "border-violet-200 bg-violet-50 text-violet-700"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            )}
+          >
+            <span className="flex items-center gap-3">
+              <span className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-2xl",
+                createLinkedListWithEvent ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-400"
+              )}>
+                <ListChecks className="h-4 w-4" />
+              </span>
+
+              <span>
+                <span className="block text-sm font-black">
+                  Create linked list after saving
+                </span>
+                <span className="block text-xs font-semibold text-muted-foreground">
+                  Great for supplies, packing, school projects, meals, and event prep.
+                </span>
+              </span>
+            </span>
+
+            <span
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2",
+                createLinkedListWithEvent
+                  ? "border-violet-600 bg-violet-600 text-white"
+                  : "border-slate-300 bg-white"
+              )}
+            >
+              {createLinkedListWithEvent && <Check className="h-4 w-4" />}
+            </span>
+          </button>
+        )}
+
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim() || saving}>{saving ? "Saving..." : isEditing ? "Save Changes" : "Add Event"}</Button>
+          <Button onClick={handleSave} disabled={!title.trim() || saving}>
+            {saving
+              ? "Saving..."
+              : isEditing
+                ? "Save Changes"
+                : createLinkedListWithEvent
+                  ? "Add Event + List"
+                  : "Add Event"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
