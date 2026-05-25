@@ -134,6 +134,12 @@ function toast({ ...props }) {
     },
   });
 
+  const duration = props.duration ?? 5000;
+
+  if (duration !== Infinity && duration !== null) {
+    setTimeout(() => dismiss(), duration);
+  }
+
   return {
     id,
     dismiss,

@@ -443,7 +443,7 @@ export default function Groceries() {
   const archiveList = async (list) => {
     if (!canWrite || !list?.id) return;
 
-    const confirmArchive = window.confirm(`Archive "${list.title}"?`);
+    const confirmArchive = window.confirm(`Hide "${list.title}" from active lists? You can restore archived lists later once the archive view is available.`);
     if (!confirmArchive) return;
 
     try {
@@ -700,7 +700,7 @@ export default function Groceries() {
                         className="rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Archive list
+                        Hide list
                       </Button>
                     )}
                   </div>

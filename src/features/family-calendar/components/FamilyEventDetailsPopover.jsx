@@ -44,6 +44,15 @@ function safePanelPosition(rect) {
   const viewportWidth = window.innerWidth || 1024;
   const viewportHeight = window.innerHeight || 768;
 
+  if (!rect && viewportWidth >= 760) {
+    return {
+      mode: "anchored",
+      left: Math.max(margin, Math.round((viewportWidth - PANEL_WIDTH) / 2)),
+      top: Math.max(margin, Math.round((viewportHeight - PANEL_HEIGHT) / 2)),
+      width: PANEL_WIDTH,
+    };
+  }
+
   if (!rect || viewportWidth < 760) {
     return {
       mode: "sheet",
