@@ -444,18 +444,26 @@ export default function TasksFocusPanel({
 
             {completedTasks.length > 0 && (
               <div className="pt-3">
-                <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Completed
-                </p>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                    Completed
+                  </p>
 
-                <div className="grid gap-2 md:grid-cols-3">
+                  <p className="text-xs font-bold text-slate-400">
+                    Tap the green check to mark as not done.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   {completedTasks.map((task) => (
-                    <div
+                    <FocusTaskRow
                       key={task.id}
-                      className="truncate rounded-2xl border border-accent/10 bg-accent/5 px-3 py-2 text-sm font-black text-accent"
-                    >
-                      ✓ {task.title}
-                    </div>
+                      task={task}
+                      canWrite={canWrite}
+                      onToggleTask={onToggleTask}
+                      onEditTask={onEditTask}
+                      onDeleteTask={onDeleteTask}
+                    />
                   ))}
                 </div>
 
