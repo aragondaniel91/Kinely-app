@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -167,6 +168,7 @@ function ListTypeIcon({ type, className = "" }) {
 
 export default function Groceries() {
   const { familyId, user, perms } = useFamily();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const canRead =
     perms?.lists?.read !== false &&
@@ -230,7 +232,11 @@ export default function Groceries() {
       setLists(nextLists);
       setItems(nextItems);
 
-      if (!activeListId && nextLists[0]?.id) {
+      const requestedListId = searchParams.get("listId");
+
+      if (requestedListId && nextLists.some((list) => list.id === requestedListId)) {
+        setActiveListId(requestedListId);
+      } else if (!activeListId && nextLists[0]?.id) {
         setActiveListId(nextLists[0].id);
       }
     } catch (error) {
@@ -304,6 +310,7 @@ export default function Groceries() {
       });
 
       setActiveListId(docRef.id);
+      setSearchParams({ listId: docRef.id });
       setNewListTitle("");
       setNewListDescription("");
       setNewListType("groceries");
@@ -426,6 +433,7 @@ export default function Groceries() {
       });
 
       setActiveListId("");
+      setSearchParams({});
       await loadData();
     } catch (error) {
       console.error("Error archiving list:", error);
@@ -564,7 +572,10 @@ export default function Groceries() {
                   <button
                     key={list.id}
                     type="button"
-                    onClick={() => setActiveListId(list.id)}
+                    onClick={() => {
+                      setActiveListId(list.id);
+                      setSearchParams({ listId: list.id });
+                    }}
                     className={cn(
                       "w-full rounded-[1.45rem] border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
                       active

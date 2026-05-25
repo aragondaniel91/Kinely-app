@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import {
   CalendarDays,
   Clock,
@@ -139,6 +139,8 @@ export default function FamilyEventDetailsPopover({
   const navigate = useNavigate();
   const { toast } = useToast();
   const [creatingLinkedList, setCreatingLinkedList] = useState(false);
+  const [linkedList, setLinkedList] = useState(null);
+  const [checkingLinkedList, setCheckingLinkedList] = useState(false);
 
   if (!selected?.event) return null;
 
@@ -172,13 +174,53 @@ export default function FamilyEventDetailsPopover({
 
   const eventTitle = event.title || "Family event";
 
+  useEffect(() => {
+    async function loadLinkedList() {
+      if (!familyId || !eventId) {
+        setLinkedList(null);
+        return;
+      }
+
+      setCheckingLinkedList(true);
+
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, "familyLists"),
+            where("familyId", "==", familyId),
+            where("linkedEventId", "==", eventId)
+          )
+        );
+
+        const match = snap.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .find((list) => list.status !== "archived");
+
+        setLinkedList(match || null);
+      } catch (error) {
+        console.error("Error checking linked list:", error);
+        setLinkedList(null);
+      } finally {
+        setCheckingLinkedList(false);
+      }
+    }
+
+    loadLinkedList();
+  }, [familyId, eventId]);
+
   async function handleCreateLinkedList() {
     if (!familyId || creatingLinkedList) return;
 
     setCreatingLinkedList(true);
 
     try {
-      await addDoc(collection(db, "familyLists"), {
+      if (linkedList?.id) {
+        onClose?.();
+        navigate(`/lists?listId=${linkedList.id}`);
+        return;
+      }
+
+      const docRef = await addDoc(collection(db, "familyLists"), {
         title: eventTitle,
         type: getLinkedListTypeFromEvent(event),
         description: "Linked to calendar event.",
@@ -199,13 +241,19 @@ export default function FamilyEventDetailsPopover({
         updatedAt: serverTimestamp(),
       });
 
+      setLinkedList({
+        id: docRef.id,
+        title: eventTitle,
+        type: getLinkedListTypeFromEvent(event),
+      });
+
       toast({
         title: "Linked list created",
         description: `"${eventTitle}" is ready in Family Lists.`,
       });
 
       onClose?.();
-      navigate("/lists");
+      navigate(`/lists?listId=${docRef.id}`);
     } catch (error) {
       console.error("Error creating linked list:", error);
       toast({
@@ -216,6 +264,13 @@ export default function FamilyEventDetailsPopover({
     } finally {
       setCreatingLinkedList(false);
     }
+  }
+
+  function handleViewLinkedList() {
+    if (!linkedList?.id) return;
+
+    onClose?.();
+    navigate(`/lists?listId=${linkedList.id}`);
   }
 
   return (
@@ -290,15 +345,30 @@ export default function FamilyEventDetailsPopover({
           )}
 
           <div className="mt-5 grid grid-cols-1 gap-2 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              onClick={handleCreateLinkedList}
-              disabled={creatingLinkedList}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
-            >
-              <ListChecks className="h-4 w-4" />
-              {creatingLinkedList ? "Creating..." : "Create linked list"}
-            </button>
+            {linkedList ? (
+              <button
+                type="button"
+                onClick={handleViewLinkedList}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+              >
+                <ListChecks className="h-4 w-4" />
+                View linked list
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCreateLinkedList}
+                disabled={creatingLinkedList || checkingLinkedList}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
+              >
+                <ListChecks className="h-4 w-4" />
+                {checkingLinkedList
+                  ? "Checking list..."
+                  : creatingLinkedList
+                    ? "Creating..."
+                    : "Create linked list"}
+              </button>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <button
