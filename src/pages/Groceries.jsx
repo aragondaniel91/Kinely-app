@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   query,
@@ -13,7 +12,6 @@ import {
 
 import {
   Apple,
-  Beef,
   CalendarDays,
   Check,
   CircleDot,
@@ -46,9 +44,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const DEFAULT_LIST_TITLE = "Family List";
+const LIST_COLLECTION = "familyLists";
+const ITEM_COLLECTION = "familyListItems";
 
-const typeConfig = {
+const listTypeConfig = {
   groceries: {
     icon: Apple,
     label: "Groceries",
@@ -96,47 +95,44 @@ const typeConfig = {
   },
 };
 
-function getListKey(title = DEFAULT_LIST_TITLE, type = "other") {
-  return `${type}:${String(title || DEFAULT_LIST_TITLE).trim().toLowerCase()}`;
+function normalizeList(docSnap) {
+  const data = docSnap.data();
+
+  return {
+    id: docSnap.id,
+    ...data,
+    title: data.title || "Untitled list",
+    type: data.type || "other",
+    status: data.status || "active",
+    description: data.description || "",
+    created_date: data.created_date || "",
+  };
 }
 
 function normalizeItem(docSnap) {
   const data = docSnap.data();
 
-  const listTitle =
-    data.listTitle ||
-    data.list_title ||
-    data.projectTitle ||
-    data.project_title ||
-    DEFAULT_LIST_TITLE;
-
-  const listType = data.listType || data.list_type || data.category || "other";
-
   return {
     id: docSnap.id,
     ...data,
-    name: data.name || data.title || "",
-    category: data.category || listType || "other",
-    listTitle,
-    list_title: listTitle,
-    listType,
-    list_type: listType,
+    title: data.title || data.name || "",
     quantity: data.quantity || "",
+    note: data.note || "",
+    status: data.status || "needed",
     checked: data.checked === true || data.status === "done",
+    listId: data.listId || data.list_id || "",
     created_date: data.created_date || "",
   };
 }
 
-export default function Groceries() {
-  const [items, setItems] = useState([]);
-  const [newItem, setNewItem] = useState("");
-  const [newQuantity, setNewQuantity] = useState("");
-  const [newListTitle, setNewListTitle] = useState(DEFAULT_LIST_TITLE);
-  const [newListType, setNewListType] = useState("groceries");
-  const [activeListKey, setActiveListKey] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+function ListTypeIcon({ type, className = "" }) {
+  const config = listTypeConfig[type] || listTypeConfig.other;
+  const Icon = config.icon;
 
+  return <Icon className={className} />;
+}
+
+export default function Groceries() {
   const { familyId, user, perms } = useFamily();
 
   const canRead =
@@ -149,8 +145,24 @@ export default function Groceries() {
     perms?.groceries?.write !== false &&
     perms?.meals?.write !== false;
 
-  const loadItems = async () => {
+  const [lists, setLists] = useState([]);
+  const [items, setItems] = useState([]);
+  const [activeListId, setActiveListId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [savingList, setSavingList] = useState(false);
+  const [savingItem, setSavingItem] = useState(false);
+
+  const [newListTitle, setNewListTitle] = useState("");
+  const [newListType, setNewListType] = useState("groceries");
+  const [newListDescription, setNewListDescription] = useState("");
+
+  const [newItemTitle, setNewItemTitle] = useState("");
+  const [newItemQuantity, setNewItemQuantity] = useState("");
+  const [newItemNote, setNewItemNote] = useState("");
+
+  const loadData = async () => {
     if (!familyId || !canRead) {
+      setLists([]);
       setItems([]);
       setLoading(false);
       return;
@@ -159,37 +171,38 @@ export default function Groceries() {
     setLoading(true);
 
     try {
-      let snap;
+      const [listSnap, itemSnap] = await Promise.all([
+        getDocs(query(collection(db, LIST_COLLECTION), where("familyId", "==", familyId))),
+        getDocs(query(collection(db, ITEM_COLLECTION), where("familyId", "==", familyId))),
+      ]);
 
-      try {
-        const q = query(
-          collection(db, "groceries"),
-          where("familyId", "==", familyId)
-        );
+      const nextLists = listSnap.docs
+        .map(normalizeList)
+        .filter((list) => list.status !== "archived")
+        .sort((a, b) => {
+          const aDate = a.created_date || "";
+          const bDate = b.created_date || "";
+          return bDate.localeCompare(aDate);
+        });
 
-        snap = await getDocs(q);
-      } catch (error) {
-        console.warn("Fallback to family_id query:", error);
+      const nextItems = itemSnap.docs
+        .map(normalizeItem)
+        .filter((item) => item.status !== "archived")
+        .sort((a, b) => {
+          const aDate = a.created_date || "";
+          const bDate = b.created_date || "";
+          return bDate.localeCompare(aDate);
+        });
 
-        const q = query(
-          collection(db, "groceries"),
-          where("family_id", "==", familyId)
-        );
+      setLists(nextLists);
+      setItems(nextItems);
 
-        snap = await getDocs(q);
+      if (!activeListId && nextLists[0]?.id) {
+        setActiveListId(nextLists[0].id);
       }
-
-      const data = snap.docs.map(normalizeItem);
-
-      data.sort((a, b) => {
-        const aDate = a.created_date || "";
-        const bDate = b.created_date || "";
-        return bDate.localeCompare(aDate);
-      });
-
-      setItems(data);
     } catch (error) {
-      console.error("Error loading list items:", error);
+      console.error("Error loading family lists:", error);
+      setLists([]);
       setItems([]);
     } finally {
       setLoading(false);
@@ -197,95 +210,44 @@ export default function Groceries() {
   };
 
   useEffect(() => {
-    loadItems();
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, canRead]);
 
-  const lists = useMemo(() => {
-    const map = new Map();
+  const itemsByListId = useMemo(() => {
+    return items.reduce((acc, item) => {
+      const listId = item.listId;
+      if (!listId) return acc;
 
-    items.forEach((item) => {
-      const listTitle = item.listTitle || DEFAULT_LIST_TITLE;
-      const listType = item.listType || item.category || "other";
-      const key = getListKey(listTitle, listType);
-
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          title: listTitle,
-          type: listType,
-          items: [],
-        });
-      }
-
-      map.get(key).items.push(item);
-    });
-
-    if (!map.size) {
-      map.set(getListKey(DEFAULT_LIST_TITLE, "groceries"), {
-        key: getListKey(DEFAULT_LIST_TITLE, "groceries"),
-        title: DEFAULT_LIST_TITLE,
-        type: "groceries",
-        items: [],
-      });
-    }
-
-    return Array.from(map.values()).sort((a, b) =>
-      a.title.localeCompare(b.title)
-    );
-  }, [items]);
-
-  const activeItems = useMemo(() => {
-    if (activeListKey === "all") return items;
-
-    return lists.find((list) => list.key === activeListKey)?.items || [];
-  }, [activeListKey, items, lists]);
-
-  const unchecked = useMemo(() => {
-    return activeItems.filter((item) => !item.checked);
-  }, [activeItems]);
-
-  const checked = useMemo(() => {
-    return activeItems.filter((item) => item.checked);
-  }, [activeItems]);
-
-  const grouped = useMemo(() => {
-    return unchecked.reduce((acc, item) => {
-      const type = item.listType || item.category || "other";
-
-      if (!acc[type]) acc[type] = [];
-      acc[type].push(item);
+      if (!acc[listId]) acc[listId] = [];
+      acc[listId].push(item);
 
       return acc;
     }, {});
-  }, [unchecked]);
+  }, [items]);
 
+  const activeList = useMemo(() => {
+    return lists.find((list) => list.id === activeListId) || lists[0] || null;
+  }, [lists, activeListId]);
+
+  const activeItems = activeList ? itemsByListId[activeList.id] || [] : [];
+  const neededItems = activeItems.filter((item) => !item.checked);
+  const doneItems = activeItems.filter((item) => item.checked);
   const totalOpenItems = items.filter((item) => !item.checked).length;
 
-  const handleAdd = async () => {
-    if (!newItem.trim() || !familyId || !canWrite) return;
+  const createList = async () => {
+    const cleanTitle = newListTitle.trim();
 
-    const cleanListTitle = newListTitle.trim() || DEFAULT_LIST_TITLE;
-    const cleanType = newListType || "other";
+    if (!cleanTitle || !familyId || !canWrite) return;
 
-    setSaving(true);
+    setSavingList(true);
 
     try {
-      await addDoc(collection(db, "groceries"), {
-        name: newItem.trim(),
-        title: newItem.trim(),
-
-        listTitle: cleanListTitle,
-        list_title: cleanListTitle,
-        listType: cleanType,
-        list_type: cleanType,
-        listKey: getListKey(cleanListTitle, cleanType),
-        list_key: getListKey(cleanListTitle, cleanType),
-
-        category: cleanType,
-        quantity: newQuantity.trim(),
-        checked: false,
-        status: "needed",
+      const docRef = await addDoc(collection(db, LIST_COLLECTION), {
+        title: cleanTitle,
+        type: newListType || "other",
+        description: newListDescription.trim(),
+        status: "active",
 
         familyId,
         family_id: familyId,
@@ -297,79 +259,138 @@ export default function Groceries() {
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
-
         created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      const nextKey = getListKey(cleanListTitle, cleanType);
-      setActiveListKey(nextKey);
-      setNewItem("");
-      setNewQuantity("");
+      setActiveListId(docRef.id);
+      setNewListTitle("");
+      setNewListDescription("");
+      setNewListType("groceries");
 
-      await loadItems();
+      await loadData();
+    } catch (error) {
+      console.error("Error creating family list:", error);
+      alert(`There was an error creating the list: ${error.message}`);
+    } finally {
+      setSavingList(false);
+    }
+  };
+
+  const addItem = async () => {
+    const cleanTitle = newItemTitle.trim();
+
+    if (!cleanTitle || !activeList || !familyId || !canWrite) return;
+
+    setSavingItem(true);
+
+    try {
+      await addDoc(collection(db, ITEM_COLLECTION), {
+        title: cleanTitle,
+        name: cleanTitle,
+        quantity: newItemQuantity.trim(),
+        note: newItemNote.trim(),
+        status: "needed",
+        checked: false,
+
+        listId: activeList.id,
+        list_id: activeList.id,
+        listTitle: activeList.title,
+        list_title: activeList.title,
+        listType: activeList.type,
+        list_type: activeList.type,
+
+        familyId,
+        family_id: familyId,
+
+        assignedToPersonId: "",
+        assigned_to_person_id: "",
+        requestedByPersonId: "",
+        requested_by_person_id: "",
+
+        createdBy: user?.uid || null,
+        createdByEmail: user?.email || null,
+        created_date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      setNewItemTitle("");
+      setNewItemQuantity("");
+      setNewItemNote("");
+
+      await loadData();
     } catch (error) {
       console.error("Error adding list item:", error);
-      alert(`There was an error adding the list item: ${error.message}`);
+      alert(`There was an error adding the item: ${error.message}`);
     } finally {
-      setSaving(false);
+      setSavingItem(false);
     }
   };
 
   const toggleItem = async (item) => {
     if (!canWrite) return;
 
-    const nextChecked = !item.checked;
+    const nextDone = !item.checked;
 
     try {
-      await updateDoc(doc(db, "groceries", item.id), {
-        checked: nextChecked,
-        status: nextChecked ? "done" : "needed",
-        completedAt: nextChecked ? serverTimestamp() : null,
-        completedBy: nextChecked ? user?.uid || null : null,
+      await updateDoc(doc(db, ITEM_COLLECTION, item.id), {
+        checked: nextDone,
+        status: nextDone ? "done" : "needed",
+        completedAt: nextDone ? serverTimestamp() : null,
+        completedBy: nextDone ? user?.uid || null : null,
         updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
       });
 
-      await loadItems();
+      await loadData();
     } catch (error) {
       console.error("Error updating list item:", error);
-      alert(`There was an error updating the list item: ${error.message}`);
+      alert(`There was an error updating the item: ${error.message}`);
     }
   };
 
-  const deleteItem = async (id) => {
-    if (!canWrite) return;
+  const deleteItem = async (item) => {
+    if (!canWrite || !item?.id) return;
 
-    const confirmDelete = window.confirm("Delete this list item?");
+    const confirmDelete = window.confirm("Delete this item?");
     if (!confirmDelete) return;
 
     try {
-      await deleteDoc(doc(db, "groceries", id));
-      await loadItems();
+      await updateDoc(doc(db, ITEM_COLLECTION, item.id), {
+        status: "archived",
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      await loadData();
     } catch (error) {
       console.error("Error deleting list item:", error);
-      alert(`There was an error deleting the list item: ${error.message}`);
+      alert(`There was an error deleting the item: ${error.message}`);
     }
   };
 
-  const clearChecked = async () => {
-    if (!canWrite) return;
+  const archiveList = async (list) => {
+    if (!canWrite || !list?.id) return;
 
-    if (checked.length === 0) return;
-
-    const confirmClear = window.confirm("Clear all done items?");
-    if (!confirmClear) return;
+    const confirmArchive = window.confirm(`Archive "${list.title}"?`);
+    if (!confirmArchive) return;
 
     try {
-      await Promise.all(
-        checked.map((item) => deleteDoc(doc(db, "groceries", item.id)))
-      );
+      await updateDoc(doc(db, LIST_COLLECTION, list.id), {
+        status: "archived",
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
 
-      await loadItems();
+      setActiveListId("");
+      await loadData();
     } catch (error) {
-      console.error("Error clearing done list items:", error);
-      alert(`There was an error clearing done items: ${error.message}`);
+      console.error("Error archiving list:", error);
+      alert(`There was an error archiving the list: ${error.message}`);
     }
   };
 
@@ -391,11 +412,13 @@ export default function Groceries() {
           <p className="text-xs font-black uppercase tracking-[0.22em] text-accent">
             Family command center
           </p>
+
           <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950 font-heading">
             Family Lists
           </h1>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            Groceries, school projects, car supplies, meal prep, trips, and event checklists.
+
+          <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500">
+            Groceries, school projects, car supplies, meal prep, trips, gifts, and event checklists.
           </p>
         </div>
 
@@ -404,77 +427,28 @@ export default function Groceries() {
         </Badge>
       </div>
 
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        <button
-          type="button"
-          onClick={() => setActiveListKey("all")}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm font-black ring-1 transition",
-            activeListKey === "all"
-              ? "bg-primary text-primary-foreground ring-transparent"
-              : "bg-white text-slate-500 ring-slate-200 hover:text-slate-900"
-          )}
-        >
-          <ListChecks className="h-4 w-4" />
-          All lists
-        </button>
-
-        {lists.map((list) => {
-          const config = typeConfig[list.type] || typeConfig.other;
-          const Icon = config.icon;
-          const openCount = list.items.filter((item) => !item.checked).length;
-
-          return (
-            <button
-              key={list.key}
-              type="button"
-              onClick={() => {
-                setActiveListKey(list.key);
-                setNewListTitle(list.title);
-                setNewListType(list.type);
-              }}
-              className={cn(
-                "inline-flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm font-black ring-1 transition",
-                activeListKey === list.key
-                  ? "bg-primary text-primary-foreground ring-transparent"
-                  : "bg-white text-slate-500 ring-slate-200 hover:text-slate-900"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {list.title}
-              <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px]">
-                {openCount}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
       {canWrite && (
         <Card className="mb-5 rounded-[1.75rem] border-white/70 bg-white/76 p-4 shadow-[0_14px_34px_rgba(38,50,56,0.055)]">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_120px_minmax(160px,0.75fr)_170px_auto]">
-            <Input
-              value={newItem}
-              onChange={(event) => setNewItem(event.target.value)}
-              placeholder="Add list item... e.g. 5qt oil, poster board, tortillas"
-              className="h-11 rounded-2xl bg-white font-semibold"
-              onKeyDown={(event) => event.key === "Enter" && handleAdd()}
-            />
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Plus className="h-4 w-4" />
+            </div>
 
-            <Input
-              value={newQuantity}
-              onChange={(event) => setNewQuantity(event.target.value)}
-              placeholder="Qty"
-              className="h-11 rounded-2xl bg-white"
-              onKeyDown={(event) => event.key === "Enter" && handleAdd()}
-            />
+            <div>
+              <p className="text-sm font-black text-slate-950">Create list / project</p>
+              <p className="text-xs font-semibold text-slate-500">
+                Example: Jeep Oil Change, Joaquin Science Project, Taco Night.
+              </p>
+            </div>
+          </div>
 
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)_auto]">
             <Input
               value={newListTitle}
               onChange={(event) => setNewListTitle(event.target.value)}
-              placeholder="List / project"
+              placeholder="List / project name"
               className="h-11 rounded-2xl bg-white font-semibold"
-              onKeyDown={(event) => event.key === "Enter" && handleAdd()}
+              onKeyDown={(event) => event.key === "Enter" && createList()}
             />
 
             <Select value={newListType} onValueChange={setNewListType}>
@@ -483,7 +457,7 @@ export default function Groceries() {
               </SelectTrigger>
 
               <SelectContent>
-                {Object.entries(typeConfig).map(([key, value]) => (
+                {Object.entries(listTypeConfig).map(([key, value]) => (
                   <SelectItem key={key} value={key}>
                     {value.label}
                   </SelectItem>
@@ -491,13 +465,20 @@ export default function Groceries() {
               </SelectContent>
             </Select>
 
+            <Input
+              value={newListDescription}
+              onChange={(event) => setNewListDescription(event.target.value)}
+              placeholder="Optional note"
+              className="h-11 rounded-2xl bg-white"
+              onKeyDown={(event) => event.key === "Enter" && createList()}
+            />
+
             <Button
-              onClick={handleAdd}
-              disabled={!newItem.trim() || saving}
+              onClick={createList}
+              disabled={!newListTitle.trim() || savingList}
               className="h-11 rounded-2xl font-black"
             >
-              <Plus className="h-4 w-4 lg:mr-2" />
-              <span className="hidden lg:inline">Add</span>
+              Create
             </Button>
           </div>
         </Card>
@@ -508,150 +489,253 @@ export default function Groceries() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
         </div>
       ) : (
-        <>
-          {Object.entries(grouped).map(([type, typeItems]) => {
-            const config = typeConfig[type] || typeConfig.other;
-            const TypeIcon = config.icon;
+        <div className="grid gap-5 lg:grid-cols-[310px_minmax(0,1fr)]">
+          <aside className="space-y-3">
+            {lists.length > 0 ? (
+              lists.map((list) => {
+                const config = listTypeConfig[list.type] || listTypeConfig.other;
+                const Icon = config.icon;
+                const listItems = itemsByListId[list.id] || [];
+                const openCount = listItems.filter((item) => !item.checked).length;
+                const doneCount = listItems.filter((item) => item.checked).length;
+                const active = activeList?.id === list.id;
 
-            return (
-              <div key={type} className="mb-5">
-                <div className="mb-2 flex items-center gap-2">
-                  <div
+                return (
+                  <button
+                    key={list.id}
+                    type="button"
+                    onClick={() => setActiveListId(list.id)}
                     className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-2xl ring-1",
-                      config.color
+                      "w-full rounded-[1.45rem] border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm",
+                      active
+                        ? "border-primary/20 bg-primary/5 ring-4 ring-primary/5"
+                        : "border-white/70 bg-white/76 hover:bg-white"
                     )}
                   >
-                    <TypeIcon className="h-4 w-4" />
-                  </div>
+                    <div className="flex items-start gap-3">
+                      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1", config.color)}>
+                        <Icon className="h-5 w-5" />
+                      </div>
 
-                  <p className="text-sm font-black uppercase tracking-wider text-muted-foreground">
-                    {config.label}
-                  </p>
-                </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black text-slate-950">
+                          {list.title}
+                        </p>
 
-                <div className="grid gap-2 md:grid-cols-2">
-                  {typeItems.map((item) => {
-                    const itemConfig =
-                      typeConfig[item.listType || item.category] || typeConfig.other;
-                    const ItemIcon = itemConfig.icon;
+                        <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                          {config.label} · {openCount} open · {doneCount} done
+                        </p>
 
-                    return (
-                      <Card
-                        key={item.id}
-                        className="flex items-center gap-3 rounded-[1.35rem] border-white/70 bg-white/82 p-3 shadow-[0_10px_24px_rgba(38,50,56,0.04)]"
-                      >
-                        <button
-                          onClick={() => toggleItem(item)}
-                          disabled={!canWrite}
-                          className={cn(
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-muted-foreground/30 transition-colors",
-                            canWrite
-                              ? "hover:border-primary"
-                              : "cursor-not-allowed opacity-40"
-                          )}
-                          aria-label="Mark item done"
-                        />
-
-                        <div
-                          className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1",
-                            itemConfig.color
-                          )}
-                        >
-                          <ItemIcon className="h-4 w-4" />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-black text-slate-900">
-                            {item.name}
+                        {list.description && (
+                          <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-400">
+                            {list.description}
                           </p>
-
-                          <p className="truncate text-xs font-semibold text-slate-500">
-                            {item.listTitle || DEFAULT_LIST_TITLE}
-                            {item.quantity ? ` · ${item.quantity}` : ""}
-                          </p>
-                        </div>
-
-                        {canWrite && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteItem(item.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
                         )}
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-
-          {unchecked.length === 0 && (
-            <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white/60 py-12 text-center text-muted-foreground">
-              <ListChecks className="mx-auto mb-3 h-12 w-12 opacity-30" />
-              <p className="font-heading font-semibold">No open list items</p>
-              <p className="text-sm">
-                {canWrite
-                  ? "Add items for a grocery run, school project, meal, car task, or event."
-                  : "No list items yet"}
-              </p>
-            </div>
-          )}
-
-          {checked.length > 0 && (
-            <div className="mt-6">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-black uppercase tracking-wider text-muted-foreground">
-                  Done ({checked.length})
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <Card className="rounded-[1.75rem] border-dashed border-slate-200 bg-white/60 p-6 text-center">
+                <ListChecks className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <p className="font-black text-slate-950">No lists yet</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Create your first family list above.
                 </p>
+              </Card>
+            )}
+          </aside>
 
-                {canWrite && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs font-black text-destructive"
-                    onClick={clearChecked}
-                  >
-                    Clear done
-                  </Button>
-                )}
-              </div>
+          <section>
+            {activeList ? (
+              <Card className="rounded-[2rem] border-white/70 bg-white/76 p-4 shadow-[0_14px_34px_rgba(38,50,56,0.055)]">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1", (listTypeConfig[activeList.type] || listTypeConfig.other).color)}>
+                      <ListTypeIcon type={activeList.type} className="h-6 w-6" />
+                    </div>
 
-              <div className="grid gap-2 md:grid-cols-2">
-                {checked.map((item) => (
-                  <Card
-                    key={item.id}
-                    className="flex items-center gap-3 rounded-[1.35rem] p-3 opacity-55"
-                  >
-                    <button
-                      onClick={() => toggleItem(item)}
-                      disabled={!canWrite}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary/10"
-                    >
-                      <Check className="h-3.5 w-3.5 text-primary" />
-                    </button>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-muted-foreground line-through">
-                        {item.name}
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
+                        Active list
                       </p>
 
-                      <p className="truncate text-xs text-muted-foreground line-through">
-                        {item.listTitle || DEFAULT_LIST_TITLE}
-                        {item.quantity ? ` · ${item.quantity}` : ""}
+                      <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                        {activeList.title}
+                      </h2>
+
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {(listTypeConfig[activeList.type] || listTypeConfig.other).label}
+                        {activeList.description ? ` · ${activeList.description}` : ""}
                       </p>
                     </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+                  </div>
+
+                  {canWrite && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => archiveList(activeList)}
+                      className="rounded-2xl border-red-200 bg-red-50 font-black text-red-600 hover:bg-red-100 hover:text-red-700"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Archive
+                    </Button>
+                  )}
+                </div>
+
+                {canWrite && (
+                  <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_130px_minmax(0,0.8fr)_auto]">
+                    <Input
+                      value={newItemTitle}
+                      onChange={(event) => setNewItemTitle(event.target.value)}
+                      placeholder="Add item... e.g. 5qt oil, poster board, tortillas"
+                      className="h-11 rounded-2xl bg-white font-semibold"
+                      onKeyDown={(event) => event.key === "Enter" && addItem()}
+                    />
+
+                    <Input
+                      value={newItemQuantity}
+                      onChange={(event) => setNewItemQuantity(event.target.value)}
+                      placeholder="Qty"
+                      className="h-11 rounded-2xl bg-white"
+                      onKeyDown={(event) => event.key === "Enter" && addItem()}
+                    />
+
+                    <Input
+                      value={newItemNote}
+                      onChange={(event) => setNewItemNote(event.target.value)}
+                      placeholder="Note"
+                      className="h-11 rounded-2xl bg-white"
+                      onKeyDown={(event) => event.key === "Enter" && addItem()}
+                    />
+
+                    <Button
+                      onClick={addItem}
+                      disabled={!newItemTitle.trim() || savingItem}
+                      className="h-11 rounded-2xl font-black"
+                    >
+                      <Plus className="h-4 w-4 lg:mr-2" />
+                      <span className="hidden lg:inline">Add</span>
+                    </Button>
+                  </div>
+                )}
+
+                <div className="space-y-5">
+                  <div>
+                    <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Needed ({neededItems.length})
+                    </p>
+
+                    {neededItems.length > 0 ? (
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {neededItems.map((item) => (
+                          <Card
+                            key={item.id}
+                            className="flex items-center gap-3 rounded-[1.35rem] border-white/70 bg-white/82 p-3 shadow-[0_10px_24px_rgba(38,50,56,0.04)]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleItem(item)}
+                              disabled={!canWrite}
+                              className={cn(
+                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-muted-foreground/30 transition-colors",
+                                canWrite
+                                  ? "hover:border-primary"
+                                  : "cursor-not-allowed opacity-40"
+                              )}
+                              aria-label="Mark item done"
+                            />
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-black text-slate-900">
+                                {item.title}
+                              </p>
+
+                              {(item.quantity || item.note) && (
+                                <p className="truncate text-xs font-semibold text-slate-500">
+                                  {item.quantity}
+                                  {item.quantity && item.note ? " · " : ""}
+                                  {item.note}
+                                </p>
+                              )}
+                            </div>
+
+                            {canWrite && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteItem(item)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white/60 p-6 text-center text-sm font-semibold text-slate-500">
+                        No open items in this list.
+                      </div>
+                    )}
+                  </div>
+
+                  {doneItems.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                        Done ({doneItems.length})
+                      </p>
+
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {doneItems.map((item) => (
+                          <Card
+                            key={item.id}
+                            className="flex items-center gap-3 rounded-[1.35rem] p-3 opacity-55"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleItem(item)}
+                              disabled={!canWrite}
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary/10"
+                            >
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm text-muted-foreground line-through">
+                                {item.title}
+                              </p>
+
+                              {(item.quantity || item.note) && (
+                                <p className="truncate text-xs text-muted-foreground line-through">
+                                  {item.quantity}
+                                  {item.quantity && item.note ? " · " : ""}
+                                  {item.note}
+                                </p>
+                              )}
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ) : (
+              <Card className="rounded-[2rem] border-dashed border-slate-200 bg-white/60 p-10 text-center">
+                <ListChecks className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+                <p className="text-xl font-black text-slate-950">
+                  Select or create a list
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Lists can support groceries, school projects, car needs, meals, trips, and family events.
+                </p>
+              </Card>
+            )}
+          </section>
+        </div>
       )}
     </div>
   );
