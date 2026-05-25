@@ -343,6 +343,7 @@ export default function AddTaskDialog({
   people: boardPeople = [],
   editTask = null,
   initialAssigneePersonId = "",
+  initialTaskDraft = null,
 }) {
   const family = useFamily();
 
@@ -406,13 +407,15 @@ export default function AddTaskDialog({
     const isChore = Boolean(editTask?.chore || editTask?.isChore || editTask?.is_chore);
     const nextTaskKind = isChore ? "chore" : "task";
 
-    setTitle(editTask?.title || "");
+    setTitle(editTask?.title || initialTaskDraft?.title || "");
     setTaskKind(nextTaskKind);
     setAssignedToPersonId(
-      editTask ? getTaskAssigneeValue(editTask) : initialAssigneePersonId || "family"
+      editTask
+        ? getTaskAssigneeValue(editTask)
+        : initialTaskDraft?.assignedToPersonId || initialAssigneePersonId || "family"
     );
-    setCategory(editTask?.category || "house");
-    setPriority(editTask?.priority || "medium");
+    setCategory(editTask?.category || initialTaskDraft?.category || "house");
+    setPriority(editTask?.priority || initialTaskDraft?.priority || "medium");
     setDueMode(existingDueDate ? "custom" : "today");
     setCustomDueDate(existingDueDate || getDateKey(0));
     setRewardEligible(
@@ -421,7 +424,7 @@ export default function AddTaskDialog({
         (!editTask && nextTaskKind === "chore")
     );
     setError("");
-  }, [open, editTask, initialAssigneePersonId]);
+  }, [open, editTask, initialAssigneePersonId, initialTaskDraft]);
 
   const selectedPerson =
     people.find((person) => person.id === assignedToPersonId) ||
@@ -492,6 +495,45 @@ export default function AddTaskDialog({
         taskKind,
         task_kind: taskKind,
 
+        linkedListId:
+          editTask?.linkedListId ||
+          editTask?.linked_list_id ||
+          initialTaskDraft?.linkedListId ||
+          "",
+        linked_list_id:
+          editTask?.linked_list_id ||
+          editTask?.linkedListId ||
+          initialTaskDraft?.linkedListId ||
+          "",
+        linkedListTitle:
+          editTask?.linkedListTitle ||
+          editTask?.linked_list_title ||
+          initialTaskDraft?.linkedListTitle ||
+          "",
+        linked_list_title:
+          editTask?.linked_list_title ||
+          editTask?.linkedListTitle ||
+          initialTaskDraft?.linkedListTitle ||
+          "",
+        linkedEventId:
+          editTask?.linkedEventId ||
+          editTask?.linked_event_id ||
+          initialTaskDraft?.linkedEventId ||
+          "",
+        linked_event_id:
+          editTask?.linked_event_id ||
+          editTask?.linkedEventId ||
+          initialTaskDraft?.linkedEventId ||
+          "",
+        source:
+          editTask?.source ||
+          initialTaskDraft?.source ||
+          "manual",
+        source_type:
+          editTask?.source_type ||
+          initialTaskDraft?.source ||
+          "manual",
+
         familyId,
         family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
@@ -555,6 +597,12 @@ export default function AddTaskDialog({
           )}
 
           <div className="space-y-4">
+            {!editTask && initialTaskDraft?.linkedListTitle && (
+              <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold text-blue-700">
+                Linked to list: {initialTaskDraft.linkedListTitle}
+              </div>
+            )}
+
             <section>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <Label>Assign to</Label>

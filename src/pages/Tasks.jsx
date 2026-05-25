@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { useFamily } from "@/lib/FamilyContext";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
@@ -42,6 +43,8 @@ export default function Tasks() {
     user,
   } = useFamily();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const boardChildren = children?.length ? children : familyChildrenCore;
 
   const { people, defaultPersonId } = useTaskBoardPeople({
@@ -67,6 +70,7 @@ export default function Tasks() {
   });
   const rewardCelebrationArmedRef = useRef(false);
   const [quickAddPerson, setQuickAddPerson] = useState(null);
+  const [linkedTaskDraft, setLinkedTaskDraft] = useState(null);
   const [editTask, setEditTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -74,6 +78,11 @@ export default function Tasks() {
 
   const canRead = perms?.tasks?.read !== false;
   const canWrite = perms?.tasks?.write !== false;
+
+  const linkedListIdFilter = searchParams.get("linkedListId") || "";
+  const linkedListTitleFilter = searchParams.get("listTitle") || "";
+  const linkedEventIdFilter = searchParams.get("linkedEventId") || "";
+  const linkedTaskAction = searchParams.get("action") || "";
 
   const {
     tasks,
@@ -145,7 +154,53 @@ export default function Tasks() {
     }
   }, [defaultPersonId, people, selectedPersonId]);
 
-  const displayTasks = tasks.length > 0 ? tasks : demoTasks;
+  useEffect(() => {
+    if (linkedTaskAction !== "createTask" || !linkedListIdFilter || !canWrite) return;
+
+    const assigneePersonId = searchParams.get("assigneePersonId") || "family";
+    const assigneePerson = people.find((person) => person.id === assigneePersonId);
+
+    setLinkedTaskDraft({
+      title: linkedListTitleFilter ? `Follow up: ${linkedListTitleFilter}` : "Follow up task",
+      category: "family",
+      priority: "medium",
+      linkedListId: linkedListIdFilter,
+      linkedListTitle: linkedListTitleFilter || "Family list",
+      linkedEventId: linkedEventIdFilter,
+      source: "familyList",
+      assignedToPersonId: assigneePerson?.id || assigneePersonId || "family",
+    });
+
+    setQuickAddPerson(assigneePerson || people.find((person) => person.id === "family") || null);
+    if (assigneePerson?.id) setSelectedPersonId(assigneePerson.id);
+    setShowAdd(true);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("action");
+    setSearchParams(nextParams, { replace: true });
+  }, [
+    linkedTaskAction,
+    linkedListIdFilter,
+    linkedListTitleFilter,
+    linkedEventIdFilter,
+    canWrite,
+    people,
+    searchParams,
+    setSearchParams,
+  ]);
+
+  const displayTasksBase = tasks.length > 0 ? tasks : demoTasks;
+
+  const displayTasks = useMemo(() => {
+    if (!linkedListIdFilter) return displayTasksBase;
+
+    return displayTasksBase.filter((task) => {
+      return (
+        task.linkedListId === linkedListIdFilter ||
+        task.linked_list_id === linkedListIdFilter
+      );
+    });
+  }, [displayTasksBase, linkedListIdFilter]);
 
   const filteredTasks = useMemo(() => {
     if (activeCategory === "all") return displayTasks;
@@ -339,6 +394,7 @@ export default function Tasks() {
   const handleCloseAddTask = () => {
     setShowAdd(false);
     setQuickAddPerson(null);
+    setLinkedTaskDraft(null);
     setEditTask(null);
   };
 
@@ -364,6 +420,12 @@ export default function Tasks() {
   return (
     <TasksPageLayout>
       <FamilyHeader canWrite={canWrite} onAddTask={() => handleOpenAddTask(selectedPerson)} />
+
+      {linkedListIdFilter && (
+        <div className="mb-4 rounded-[1.75rem] border border-blue-100 bg-blue-50/80 p-4 text-sm font-bold text-blue-700">
+          Viewing tasks linked to {linkedListTitleFilter || "this family list"}.
+        </div>
+      )}
 
       <TaskBoardContent
         people={people}
@@ -454,6 +516,7 @@ export default function Tasks() {
         people={people}
         editTask={editTask}
         initialAssigneePersonId={quickAddPerson?.id || selectedPerson?.id || ""}
+        initialTaskDraft={linkedTaskDraft}
         onTaskSaved={async () => {
           await loadTasks();
           handleCloseAddTask();

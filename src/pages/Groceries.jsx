@@ -611,6 +611,8 @@ export default function Groceries() {
       linkedListId: list.id,
       listTitle: list.title || "Family list",
       action: "createTask",
+      assigneePersonId: list.assignedToPersonId || list.assigned_to_person_id || "family",
+      assigneeName: list.assignedToPersonName || list.assigned_to_person_name || "Family",
     });
 
     const linkedEventId = getLinkedEventId(list);
