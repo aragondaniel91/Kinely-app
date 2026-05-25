@@ -214,33 +214,39 @@ const dueOptions = [
 const categoryVisuals = {
   house: {
     icon: Home,
-    inactive: "bg-blue-50/70 text-blue-700 ring-blue-100",
-    active: "bg-blue-600 text-white shadow-blue-100",
+    preview: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    inactive: "bg-emerald-50/80 text-emerald-700 ring-emerald-100",
+    active: "bg-emerald-600 text-white shadow-emerald-100",
   },
   school: {
     icon: School,
-    inactive: "bg-violet-50/70 text-violet-700 ring-violet-100",
-    active: "bg-violet-600 text-white shadow-violet-100",
+    preview: "bg-sky-50 text-sky-700 ring-sky-100",
+    inactive: "bg-sky-50/80 text-sky-700 ring-sky-100",
+    active: "bg-sky-600 text-white shadow-sky-100",
   },
   personal: {
     icon: UserRound,
-    inactive: "bg-emerald-50/70 text-emerald-700 ring-emerald-100",
-    active: "bg-emerald-600 text-white shadow-emerald-100",
+    preview: "bg-pink-50 text-pink-700 ring-pink-100",
+    inactive: "bg-pink-50/80 text-pink-700 ring-pink-100",
+    active: "bg-pink-500 text-white shadow-pink-100",
   },
   work: {
     icon: Briefcase,
-    inactive: "bg-slate-100/80 text-slate-700 ring-slate-200",
+    preview: "bg-slate-50 text-slate-700 ring-slate-100",
+    inactive: "bg-slate-50/90 text-slate-700 ring-slate-100",
     active: "bg-slate-800 text-white shadow-slate-200",
   },
   family: {
     icon: Heart,
-    inactive: "bg-rose-50/70 text-rose-700 ring-rose-100",
+    preview: "bg-rose-50 text-rose-700 ring-rose-100",
+    inactive: "bg-rose-50/80 text-rose-700 ring-rose-100",
     active: "bg-rose-500 text-white shadow-rose-100",
   },
   other: {
     icon: MoreHorizontal,
-    inactive: "bg-amber-50/70 text-amber-700 ring-amber-100",
-    active: "bg-amber-500 text-white shadow-amber-100",
+    preview: "bg-violet-50 text-violet-700 ring-violet-100",
+    inactive: "bg-violet-50/80 text-violet-700 ring-violet-100",
+    active: "bg-violet-600 text-white shadow-violet-100",
   },
 };
 
@@ -429,6 +435,10 @@ export default function AddTaskDialog({
     return customDueDate || "";
   }
 
+  const selectedCategoryVisual = categoryVisuals[category] || categoryVisuals.other;
+  const SelectedCategoryIcon = selectedCategoryVisual.icon || MoreHorizontal;
+  const selectedPriorityVisual = priorityVisuals[priority] || priorityVisuals.medium;
+
   async function handleSave() {
     const cleanTitle = title.trim();
 
@@ -568,36 +578,60 @@ export default function AddTaskDialog({
             </section>
 
             <section className="rounded-[1.75rem] bg-slate-50/75 p-3 ring-1 ring-slate-100">
-              <Label>What needs to be done?</Label>
-
-              <Input
-                value={title}
-                onChange={(event) => {
-                  setError("");
-                  setTitle(event.target.value);
-                }}
-                placeholder="Example: Brush teeth"
-                className="mt-2 h-12 rounded-2xl border-slate-200 bg-white text-base font-black"
-                autoFocus
-              />
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <SegmentedButton
-                  active={taskKind === "task"}
-                  onClick={() => setTaskKind("task")}
+              <div className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    "mt-7 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1",
+                    selectedCategoryVisual.preview
+                  )}
+                  title={`${category} category`}
                 >
-                  Task
-                </SegmentedButton>
+                  <SelectedCategoryIcon className="h-5.5 w-5.5" />
+                </div>
 
-                <SegmentedButton
-                  active={taskKind === "chore"}
-                  onClick={() => {
-                    setTaskKind("chore");
-                    setRewardEligible(true);
-                  }}
-                >
-                  Chore
-                </SegmentedButton>
+                <div className="min-w-0 flex-1">
+                  <Label>What needs to be done?</Label>
+
+                  <Input
+                    value={title}
+                    onChange={(event) => {
+                      setError("");
+                      setTitle(event.target.value);
+                    }}
+                    placeholder="Example: Brush teeth"
+                    className="mt-2 h-12 rounded-2xl border-slate-200 bg-white text-base font-black"
+                    autoFocus
+                  />
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <SegmentedButton
+                      active={taskKind === "task"}
+                      onClick={() => setTaskKind("task")}
+                    >
+                      Task
+                    </SegmentedButton>
+
+                    <SegmentedButton
+                      active={taskKind === "chore"}
+                      onClick={() => {
+                        setTaskKind("chore");
+                        setRewardEligible(true);
+                      }}
+                    >
+                      Chore
+                    </SegmentedButton>
+
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-black ring-1",
+                        selectedCategoryVisual.preview
+                      )}
+                    >
+                      <SelectedCategoryIcon className="h-4 w-4" />
+                      {categoryOptions.find((option) => option.value === category)?.label || "Other"}
+                    </span>
+                  </div>
+                </div>
               </div>
             </section>
 
