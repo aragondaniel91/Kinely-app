@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import {
   CalendarDays,
+  CheckSquare,
   Clock,
   ListChecks,
   MapPin,
@@ -23,6 +24,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { useToast } from "@/components/ui/use-toast";
+import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import { cn } from "@/lib/utils";
 import { colorClasses } from "@/lib/personColorUtils";
 import { getFamilyEventAssignmentLabel } from "@/core/events/familyEventAdapter";
@@ -159,6 +161,7 @@ export default function FamilyEventDetailsPopover({
   const [creatingLinkedList, setCreatingLinkedList] = useState(false);
   const [checkingLinkedList, setCheckingLinkedList] = useState(false);
   const [linkedList, setLinkedList] = useState(null);
+  const [linkedTasks, setLinkedTasks] = useState([]);
 
   const event = selected?.event || null;
   const panel = selected?.panel || null;
@@ -177,6 +180,7 @@ export default function FamilyEventDetailsPopover({
     async function loadLinkedList() {
       if (!familyId || !eventId) {
         setLinkedList(null);
+        setLinkedTasks([]);
         return;
       }
 
@@ -196,6 +200,28 @@ export default function FamilyEventDetailsPopover({
           .find((list) => list.status !== "archived");
 
         setLinkedList(match || null);
+
+        const taskSnap = await getDocs(
+          query(
+            collection(db, TASK_COLLECTIONS.tasks),
+            where("familyId", "==", familyId),
+            where("linkedEventId", "==", eventId)
+          )
+        );
+
+        const eventTasks = taskSnap.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((task) => {
+            const status = String(task.status || "").toLowerCase();
+            return (
+              status !== "archived" &&
+              status !== "cancelled" &&
+              status !== "canceled" &&
+              status !== "skipped"
+            );
+          });
+
+        setLinkedTasks(eventTasks);
       } catch (error) {
         console.error("Error checking linked list:", error);
         setLinkedList(null);
@@ -234,6 +260,28 @@ export default function FamilyEventDetailsPopover({
 
     onClose?.();
     navigate(`/lists?listId=${linkedList.id}`);
+  }
+
+  function handleCreateLinkedTask() {
+    const params = new URLSearchParams({
+      action: "createTask",
+      linkedEventId: eventId,
+      eventTitle,
+      assigneePersonId: "family",
+    });
+
+    onClose?.();
+    navigate(`/tasks?${params.toString()}`);
+  }
+
+  function handleViewLinkedTasks() {
+    const params = new URLSearchParams({
+      linkedEventId: eventId,
+      eventTitle,
+    });
+
+    onClose?.();
+    navigate(`/tasks?${params.toString()}`);
   }
 
   async function handleCreateLinkedList() {
@@ -364,6 +412,26 @@ export default function FamilyEventDetailsPopover({
           )}
 
           <div className="mt-5 grid grid-cols-1 gap-2 border-t border-slate-100 pt-4">
+            {linkedTasks.length > 0 && (
+              <button
+                type="button"
+                onClick={handleViewLinkedTasks}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+              >
+                <CheckSquare className="h-4 w-4" />
+                View linked tasks ({linkedTasks.length})
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleCreateLinkedTask}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+            >
+              <CheckSquare className="h-4 w-4" />
+              {linkedTasks.length > 0 ? "Create another task" : "Create linked task"}
+            </button>
+
             {linkedList ? (
               <button
                 type="button"

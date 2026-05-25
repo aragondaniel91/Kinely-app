@@ -83,6 +83,7 @@ export default function Tasks() {
   const linkedListIdFilter = searchParams.get("linkedListId") || "";
   const linkedListTitleFilter = searchParams.get("listTitle") || "";
   const linkedEventIdFilter = searchParams.get("linkedEventId") || "";
+  const linkedEventTitleFilter = searchParams.get("eventTitle") || "";
   const linkedTaskAction = searchParams.get("action") || "";
 
   const {
@@ -156,19 +157,31 @@ export default function Tasks() {
   }, [defaultPersonId, people, selectedPersonId]);
 
   useEffect(() => {
-    if (linkedTaskAction !== "createTask" || !linkedListIdFilter || !canWrite) return;
+    if (
+      linkedTaskAction !== "createTask" ||
+      (!linkedListIdFilter && !linkedEventIdFilter) ||
+      !canWrite
+    ) {
+      return;
+    }
 
     const assigneePersonId = searchParams.get("assigneePersonId") || "family";
     const assigneePerson = people.find((person) => person.id === assigneePersonId);
 
     setLinkedTaskDraft({
-      title: linkedListTitleFilter ? `Follow up: ${linkedListTitleFilter}` : "Follow up task",
+      title:
+        linkedListTitleFilter
+          ? `Follow up: ${linkedListTitleFilter}`
+          : linkedEventTitleFilter
+            ? `Prep: ${linkedEventTitleFilter}`
+            : "Follow up task",
       category: "family",
       priority: "medium",
       linkedListId: linkedListIdFilter,
-      linkedListTitle: linkedListTitleFilter || "Family list",
+      linkedListTitle: linkedListTitleFilter || "",
       linkedEventId: linkedEventIdFilter,
-      source: "familyList",
+      linkedEventTitle: linkedEventTitleFilter || "",
+      source: linkedListIdFilter ? "familyList" : "calendar",
       assignedToPersonId: assigneePerson?.id || assigneePersonId || "family",
     });
 
@@ -184,6 +197,7 @@ export default function Tasks() {
     linkedListIdFilter,
     linkedListTitleFilter,
     linkedEventIdFilter,
+    linkedEventTitleFilter,
     canWrite,
     people,
     searchParams,
@@ -193,15 +207,22 @@ export default function Tasks() {
   const displayTasksBase = tasks.length > 0 ? tasks : demoTasks;
 
   const displayTasks = useMemo(() => {
-    if (!linkedListIdFilter) return displayTasksBase;
+    if (!linkedListIdFilter && !linkedEventIdFilter) return displayTasksBase;
 
     return displayTasksBase.filter((task) => {
-      return (
-        task.linkedListId === linkedListIdFilter ||
-        task.linked_list_id === linkedListIdFilter
-      );
+      const matchesList =
+        linkedListIdFilter &&
+        (task.linkedListId === linkedListIdFilter ||
+          task.linked_list_id === linkedListIdFilter);
+
+      const matchesEvent =
+        linkedEventIdFilter &&
+        (task.linkedEventId === linkedEventIdFilter ||
+          task.linked_event_id === linkedEventIdFilter);
+
+      return matchesList || matchesEvent;
     });
-  }, [displayTasksBase, linkedListIdFilter]);
+  }, [displayTasksBase, linkedListIdFilter, linkedEventIdFilter]);
 
   const filteredTasks = useMemo(() => {
     if (activeCategory === "all") return displayTasks;
@@ -439,7 +460,7 @@ export default function Tasks() {
     <TasksPageLayout>
       <FamilyHeader canWrite={canWrite} onAddTask={() => handleOpenAddTask(selectedPerson)} />
 
-      {linkedListIdFilter && (
+      {(linkedListIdFilter || linkedEventIdFilter) && (
         <div className="mb-4 rounded-[1.75rem] border border-blue-100 bg-blue-50/85 p-4 shadow-[0_10px_28px_rgba(37,99,235,0.08)]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -447,20 +468,24 @@ export default function Tasks() {
                 Linked task view
               </p>
               <h2 className="mt-1 text-xl font-black text-blue-950">
-                Tasks for {linkedListTitleFilter || "this family list"}
+                Tasks for {linkedListTitleFilter || linkedEventTitleFilter || "this linked item"}
               </h2>
               <p className="mt-1 text-sm font-bold text-blue-700/80">
-                Only tasks connected to this list are shown here.
+                Only tasks connected to this {linkedListIdFilter ? "list" : "event"} are shown here.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => navigate(`/lists?listId=${linkedListIdFilter}`)}
+                onClick={() =>
+                  linkedListIdFilter
+                    ? navigate(`/lists?listId=${linkedListIdFilter}`)
+                    : navigate(`/calendar?eventId=${linkedEventIdFilter}`)
+                }
                 className="rounded-2xl bg-white px-4 py-2 text-sm font-black text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-50"
               >
-                Back to list
+                {linkedListIdFilter ? "Back to list" : "Back to event"}
               </button>
 
               <button

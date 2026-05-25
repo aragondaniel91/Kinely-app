@@ -525,6 +525,16 @@ export default function AddTaskDialog({
           editTask?.linkedEventId ||
           initialTaskDraft?.linkedEventId ||
           "",
+        linkedEventTitle:
+          editTask?.linkedEventTitle ||
+          editTask?.linked_event_title ||
+          initialTaskDraft?.linkedEventTitle ||
+          "",
+        linked_event_title:
+          editTask?.linked_event_title ||
+          editTask?.linkedEventTitle ||
+          initialTaskDraft?.linkedEventTitle ||
+          "",
         source:
           editTask?.source ||
           initialTaskDraft?.source ||
@@ -597,9 +607,11 @@ export default function AddTaskDialog({
           )}
 
           <div className="space-y-4">
-            {!editTask && initialTaskDraft?.linkedListTitle && (
+            {!editTask && (initialTaskDraft?.linkedListTitle || initialTaskDraft?.linkedEventTitle) && (
               <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-sm font-bold text-blue-700">
-                Linked to list: {initialTaskDraft.linkedListTitle}
+                {initialTaskDraft?.linkedListTitle
+                  ? `Linked to list: ${initialTaskDraft.linkedListTitle}`
+                  : `Linked to event: ${initialTaskDraft.linkedEventTitle}`}
               </div>
             )}
 
