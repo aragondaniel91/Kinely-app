@@ -13,6 +13,7 @@ import {
 
 import {
   Apple,
+  ArchiveRestore,
   CalendarDays,
   Check,
   CircleDot,
@@ -197,6 +198,7 @@ export default function Groceries() {
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
   const [activeListId, setActiveListId] = useState("");
+  const [showArchivedLists, setShowArchivedLists] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingList, setSavingList] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
@@ -227,7 +229,6 @@ export default function Groceries() {
 
       const nextLists = listSnap.docs
         .map(normalizeList)
-        .filter((list) => list.status !== "archived")
         .sort((a, b) => {
           const aDate = a.created_date || "";
           const bDate = b.created_date || "";
@@ -248,10 +249,14 @@ export default function Groceries() {
 
       const requestedListId = searchParams.get("listId");
 
-      if (requestedListId && nextLists.some((list) => list.id === requestedListId)) {
-        setActiveListId(requestedListId);
-      } else if (!activeListId && nextLists[0]?.id) {
-        setActiveListId(nextLists[0].id);
+      const requestedList = nextLists.find((list) => list.id === requestedListId);
+      const firstActiveList = nextLists.find((list) => list.status !== "archived");
+
+      if (requestedList) {
+        setShowArchivedLists(requestedList.status === "archived");
+        setActiveListId(requestedList.id);
+      } else if (!activeListId && firstActiveList?.id) {
+        setActiveListId(firstActiveList.id);
       }
     } catch (error) {
       console.error("Error loading family lists:", error);
@@ -267,6 +272,16 @@ export default function Groceries() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, canRead]);
 
+  const activeLists = useMemo(() => {
+    return lists.filter((list) => list.status !== "archived");
+  }, [lists]);
+
+  const archivedLists = useMemo(() => {
+    return lists.filter((list) => list.status === "archived");
+  }, [lists]);
+
+  const visibleLists = showArchivedLists ? archivedLists : activeLists;
+
   const itemsByListId = useMemo(() => {
     return items.reduce((acc, item) => {
       const listId = item.listId;
@@ -280,13 +295,20 @@ export default function Groceries() {
   }, [items]);
 
   const activeList = useMemo(() => {
-    return lists.find((list) => list.id === activeListId) || lists[0] || null;
-  }, [lists, activeListId]);
+    return (
+      visibleLists.find((list) => list.id === activeListId) ||
+      visibleLists[0] ||
+      null
+    );
+  }, [visibleLists, activeListId]);
 
   const activeItems = activeList ? itemsByListId[activeList.id] || [] : [];
   const neededItems = activeItems.filter((item) => !item.checked);
   const doneItems = activeItems.filter((item) => item.checked);
-  const totalOpenItems = items.filter((item) => !item.checked).length;
+  const activeListIds = new Set(activeLists.map((list) => list.id));
+  const totalOpenItems = items.filter(
+    (item) => !item.checked && activeListIds.has(item.listId)
+  ).length;
 
   function applyQuickTemplate(template) {
     setNewListTitle(template.title);
@@ -463,6 +485,27 @@ export default function Groceries() {
     }
   };
 
+  const restoreList = async (list) => {
+    if (!canWrite || !list?.id) return;
+
+    try {
+      await updateDoc(doc(db, LIST_COLLECTION, list.id), {
+        status: "active",
+        restoredAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      setShowArchivedLists(false);
+      setActiveListId(list.id);
+      setSearchParams({ listId: list.id });
+      await loadData();
+    } catch (error) {
+      console.error("Error restoring list:", error);
+      alert(`There was an error restoring the list: ${error.message}`);
+    }
+  };
+
   if (!canRead) {
     return (
       <div className="mx-auto max-w-xl p-6 text-center">
@@ -491,9 +534,27 @@ export default function Groceries() {
           </p>
         </div>
 
-        <Badge variant="secondary" className="rounded-full px-3 py-1 text-sm font-black">
-          {loading ? "Loading..." : `${totalOpenItems} open items`}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="rounded-full px-3 py-1 text-sm font-black">
+            {loading ? "Loading..." : `${totalOpenItems} open items`}
+          </Badge>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setShowArchivedLists((current) => !current);
+              setActiveListId("");
+              setSearchParams({});
+            }}
+            className="rounded-full bg-white/80 px-3 py-1 text-xs font-black"
+          >
+            <ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />
+            {showArchivedLists
+              ? "Active lists"
+              : `Hidden lists (${archivedLists.length})`}
+          </Button>
+        </div>
       </div>
 
       {canWrite && (
@@ -581,8 +642,8 @@ export default function Groceries() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-[310px_minmax(0,1fr)]">
           <aside className="space-y-3">
-            {lists.length > 0 ? (
-              lists.map((list) => {
+            {visibleLists.length > 0 ? (
+              visibleLists.map((list) => {
                 const config = listTypeConfig[list.type] || listTypeConfig.other;
                 const Icon = config.icon;
                 const listItems = itemsByListId[list.id] || [];
@@ -639,9 +700,13 @@ export default function Groceries() {
             ) : (
               <Card className="rounded-[1.75rem] border-dashed border-slate-200 bg-white/60 p-6 text-center">
                 <ListChecks className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                <p className="font-black text-slate-950">No lists yet</p>
+                <p className="font-black text-slate-950">
+                  {showArchivedLists ? "No hidden lists" : "No lists yet"}
+                </p>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Create your first family list above.
+                  {showArchivedLists
+                    ? "Hidden lists will appear here so you can restore them later."
+                    : "Create your first family list above."}
                 </p>
               </Card>
             )}
@@ -692,7 +757,17 @@ export default function Groceries() {
                       </Button>
                     )}
 
-                    {canWrite && (
+                    {canWrite && activeList.status === "archived" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => restoreList(activeList)}
+                        className="rounded-2xl border-emerald-200 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                      >
+                        <ArchiveRestore className="mr-2 h-4 w-4" />
+                        Restore list
+                      </Button>
+                    ) : canWrite ? (
                       <Button
                         type="button"
                         variant="outline"
@@ -702,7 +777,7 @@ export default function Groceries() {
                         <Trash2 className="mr-2 h-4 w-4" />
                         Hide list
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -848,10 +923,12 @@ export default function Groceries() {
               <Card className="rounded-[2rem] border-dashed border-slate-200 bg-white/60 p-10 text-center">
                 <ListChecks className="mx-auto mb-3 h-12 w-12 text-slate-300" />
                 <p className="text-xl font-black text-slate-950">
-                  Select or create a list
+                  {showArchivedLists ? "Select a hidden list" : "Select or create a list"}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  Lists can support groceries, school projects, car needs, meals, trips, and family events.
+                  {showArchivedLists
+                    ? "Hidden lists can be restored back to your active lists."
+                    : "Lists can support groceries, school projects, car needs, meals, trips, and family events."}
                 </p>
               </Card>
             )}
