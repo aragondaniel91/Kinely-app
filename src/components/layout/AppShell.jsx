@@ -20,7 +20,7 @@ const navItems = [
   { icon: HeartHandshake, label: "Custody", path: "/custody" },
   { icon: CheckSquare, label: "Tasks", path: "/tasks" },
   { icon: UtensilsCrossed, label: "Meals", path: "/meals" },
-  { icon: ShoppingCart, label: "Groceries", path: "/groceries" },
+  { icon: ShoppingCart, label: "Lists", path: "/groceries" },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 

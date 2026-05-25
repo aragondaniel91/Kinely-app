@@ -50,7 +50,7 @@ import { cn } from "@/lib/utils";
 const categoryConfig = {
   groceries: {
     icon: Apple,
-    label: "Groceries",
+    label: "Lists",
     color: "bg-emerald-100 text-emerald-700",
   },
   household: {

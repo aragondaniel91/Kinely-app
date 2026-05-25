@@ -284,7 +284,7 @@ function HeroPanel({ smartBrief, tasks, meals, groceries, hasCustody }) {
       <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         <StatPill icon={CheckSquare} value={tasks.length} label="Tasks" tone="blue" />
         <StatPill icon={CalendarDays} value={hasCustody ? 1 : meals.length} label="Events" tone="blue" />
-        <StatPill icon={ShoppingCart} value={groceries.length} label="Groceries" tone="emerald" />
+        <StatPill icon={ShoppingCart} value={groceries.length} label="Lists" tone="emerald" />
         <StatPill icon={Heart} value="✓" label="No alerts" tone="rose" />
       </div>
     </div>
@@ -459,7 +459,7 @@ function ShoppingPreviewCard({ groceries, canReadGroceries }) {
   if (!canReadGroceries || groceries.length === 0) return null;
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <SectionHeader kicker="Groceries" title={`${groceries.length} pending`} action="View list" to="/groceries" />
+      <SectionHeader kicker="Lists" title={`${groceries.length} pending`} action="View list" to="/groceries" />
       <div className="mt-4 flex flex-wrap gap-2">
         {groceries.slice(0, 7).map((item, index) => (
           <Link key={item.id || `${getItemTitle(item)}-${index}`} to="/groceries" className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm">
