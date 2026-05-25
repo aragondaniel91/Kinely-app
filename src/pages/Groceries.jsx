@@ -15,7 +15,7 @@ import {
   Plus,
   Trash2,
   Check,
-  ShoppingCart,
+  ListChecks,
   Apple,
   Milk,
   Beef,
@@ -26,6 +26,7 @@ import {
   Cookie,
   Warehouse,
   CircleDot,
+  CalendarDays,
 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -47,53 +48,52 @@ import {
 import { cn } from "@/lib/utils";
 
 const categoryConfig = {
-  produce: {
+  groceries: {
     icon: Apple,
-    label: "Produce",
-    color: "bg-green-100 text-green-700",
-  },
-  dairy: {
-    icon: Milk,
-    label: "Dairy",
-    color: "bg-blue-100 text-blue-700",
-  },
-  meat: {
-    icon: Beef,
-    label: "Meat",
-    color: "bg-red-100 text-red-700",
-  },
-  bakery: {
-    icon: Croissant,
-    label: "Bakery",
-    color: "bg-amber-100 text-amber-700",
-  },
-  frozen: {
-    icon: Snowflake,
-    label: "Frozen",
-    color: "bg-cyan-100 text-cyan-700",
-  },
-  pantry: {
-    icon: Package,
-    label: "Pantry",
-    color: "bg-orange-100 text-orange-700",
-  },
-  beverages: {
-    icon: GlassWater,
-    label: "Beverages",
-    color: "bg-sky-100 text-sky-700",
-  },
-  snacks: {
-    icon: Cookie,
-    label: "Snacks",
-    color: "bg-pink-100 text-pink-700",
+    label: "Groceries",
+    color: "bg-emerald-100 text-emerald-700",
   },
   household: {
     icon: Warehouse,
     label: "Household",
-    color: "bg-gray-100 text-gray-700",
+    color: "bg-slate-100 text-slate-700",
+  },
+  school: {
+    icon: CircleDot,
+  CalendarDays,
+  ListChecks,
+    label: "School",
+    color: "bg-sky-100 text-sky-700",
+  },
+  car: {
+    icon: Package,
+    label: "Car",
+    color: "bg-zinc-100 text-zinc-700",
+  },
+  meal: {
+    icon: Beef,
+    label: "Meal",
+    color: "bg-amber-100 text-amber-700",
+  },
+  event: {
+    icon: CalendarDays,
+    label: "Event",
+    color: "bg-violet-100 text-violet-700",
+  },
+  trip: {
+    icon: Croissant,
+    label: "Trip",
+    color: "bg-cyan-100 text-cyan-700",
+  },
+  gifts: {
+    icon: Cookie,
+    label: "Gifts",
+    color: "bg-pink-100 text-pink-700",
   },
   other: {
     icon: CircleDot,
+  CalendarDays,
+  ListChecks,
     label: "Other",
     color: "bg-slate-100 text-slate-700",
   },
@@ -116,7 +116,7 @@ function normalizeItem(docSnap) {
 export default function Groceries() {
   const [items, setItems] = useState([]);
   const [newItem, setNewItem] = useState("");
-  const [newCategory, setNewCategory] = useState("other");
+  const [newCategory, setNewCategory] = useState("groceries");
   const [newQuantity, setNewQuantity] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -169,7 +169,7 @@ export default function Groceries() {
 
       setItems(data);
     } catch (error) {
-      console.error("Error loading groceries:", error);
+      console.error("Error loading list items:", error);
       setItems([]);
     } finally {
       setLoading(false);
@@ -206,12 +206,12 @@ export default function Groceries() {
 
       setNewItem("");
       setNewQuantity("");
-      setNewCategory("other");
+      setNewCategory("groceries");
 
       await loadItems();
     } catch (error) {
-      console.error("Error adding grocery item:", error);
-      alert(`There was an error adding the grocery item: ${error.message}`);
+      console.error("Error adding list item:", error);
+      alert(`There was an error adding the list item: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -228,15 +228,15 @@ export default function Groceries() {
 
       await loadItems();
     } catch (error) {
-      console.error("Error updating grocery item:", error);
-      alert(`There was an error updating the grocery item: ${error.message}`);
+      console.error("Error updating list item:", error);
+      alert(`There was an error updating the list item: ${error.message}`);
     }
   };
 
   const deleteItem = async (id) => {
     if (!canWrite) return;
 
-    const confirmDelete = window.confirm("Delete this item?");
+    const confirmDelete = window.confirm("Delete this list item?");
     if (!confirmDelete) return;
 
     try {
@@ -255,7 +255,7 @@ export default function Groceries() {
 
     if (checkedItems.length === 0) return;
 
-    const confirmClear = window.confirm("Clear all checked items?");
+    const confirmClear = window.confirm("Clear all done items?");
     if (!confirmClear) return;
 
     try {
@@ -265,8 +265,8 @@ export default function Groceries() {
 
       await loadItems();
     } catch (error) {
-      console.error("Error clearing checked grocery items:", error);
-      alert(`There was an error clearing checked items: ${error.message}`);
+      console.error("Error clearing done list items:", error);
+      alert(`There was an error clearing done items: ${error.message}`);
     }
   };
 
@@ -293,9 +293,9 @@ export default function Groceries() {
   if (!canRead) {
     return (
       <div className="p-6 max-w-xl mx-auto text-center">
-        <h1 className="text-2xl font-bold font-heading mb-2">Grocery List</h1>
+        <h1 className="text-2xl font-bold font-heading mb-2">Family Lists</h1>
         <p className="text-muted-foreground">
-          You do not have access to groceries for this family.
+          You do not have access to lists for this family.
         </p>
       </div>
     );
@@ -304,10 +304,10 @@ export default function Groceries() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold font-heading">Grocery List</h1>
+        <h1 className="text-2xl font-bold font-heading">Family Lists</h1>
 
         <Badge variant="secondary" className="text-sm">
-          {loading ? "Loading..." : `${unchecked.length} items left`}
+          {loading ? "Loading..." : `${unchecked.length} open items`}
         </Badge>
       </div>
 
@@ -317,7 +317,7 @@ export default function Groceries() {
             <Input
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
-              placeholder="Add item..."
+              placeholder="Add list item..."
               className="flex-1"
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
@@ -425,10 +425,10 @@ export default function Groceries() {
 
           {unchecked.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
-              <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="font-heading font-semibold">List is empty!</p>
+              <ListChecks className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-heading font-semibold">No open list items</p>
               <p className="text-sm">
-                {canWrite ? "Add items above" : "No grocery items yet"}
+                {canWrite ? "Add items above" : "No list items yet"}
               </p>
             </div>
           )}
@@ -437,7 +437,7 @@ export default function Groceries() {
             <div className="mt-6">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  In Cart ({checked.length})
+                  Done ({checked.length})
                 </p>
 
                 {canWrite && (
@@ -447,7 +447,7 @@ export default function Groceries() {
                     className="text-xs text-destructive"
                     onClick={clearChecked}
                   >
-                    Clear All
+                    Clear done
                   </Button>
                 )}
               </div>
