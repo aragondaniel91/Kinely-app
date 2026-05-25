@@ -17,21 +17,35 @@ export function getTaskPersonId(task = {}) {
 export function getTasksByPerson(tasks = []) {
   return tasks.reduce((acc, task) => {
     const personId = getTaskPersonId(task);
+    const targetPersonId = personId || "family";
 
-    if (!acc[personId]) acc[personId] = [];
-    acc[personId].push(task);
+    if (!acc[targetPersonId]) acc[targetPersonId] = [];
 
-    if (!acc.family) acc.family = [];
+    const alreadyInTarget = acc[targetPersonId].some(
+      (existingTask) => existingTask?.id && existingTask.id === task?.id
+    );
+
+    if (!alreadyInTarget) {
+      acc[targetPersonId].push(task);
+    }
 
     const isFamilyTask =
-      personId === "family" ||
+      targetPersonId === "family" ||
       task.assignedTo === "Family" ||
       task.assigned_to === "Family" ||
       task.assignedToName === "Family" ||
       task.assigned_to_name === "Family";
 
-    if (isFamilyTask) {
-      acc.family.push(task);
+    if (isFamilyTask && targetPersonId !== "family") {
+      if (!acc.family) acc.family = [];
+
+      const alreadyInFamily = acc.family.some(
+        (existingTask) => existingTask?.id && existingTask.id === task?.id
+      );
+
+      if (!alreadyInFamily) {
+        acc.family.push(task);
+      }
     }
 
     return acc;
