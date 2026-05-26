@@ -31,6 +31,7 @@ import {
   ShoppingCart,
   Pencil,
   Plus,
+  Search,
   Trash2,
   Users,
   UtensilsCrossed,
@@ -528,6 +529,7 @@ function PantryPanel({
   pantryItems,
   loading,
   canWrite,
+  searchQuery,
   creatingStarterPantry,
   newPantryTitle,
   setNewPantryTitle,
@@ -543,10 +545,34 @@ function PantryPanel({
   onStatusChange,
   onArchivePantryItem,
 }) {
-  const needToBuy = pantryItems.filter((item) => item.status === "low" || item.status === "out");
+  const normalizedSearch = String(searchQuery || "").trim().toLowerCase();
+
+  const filteredPantryItems = pantryItems.filter((item) => {
+    if (!normalizedSearch) return true;
+
+    const categoryLabel =
+      pantryCategoryConfig[item.category]?.label || item.category || "";
+
+    const haystack = [
+      item.title,
+      item.name,
+      item.note,
+      item.status,
+      categoryLabel,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(normalizedSearch);
+  });
+
+  const needToBuy = filteredPantryItems.filter(
+    (item) => item.status === "low" || item.status === "out"
+  );
 
   const itemsByCategory = Object.keys(pantryCategoryConfig).reduce((acc, category) => {
-    acc[category] = pantryItems.filter((item) => item.category === category);
+    acc[category] = filteredPantryItems.filter((item) => item.category === category);
     return acc;
   }, {});
 
@@ -661,7 +687,7 @@ function PantryPanel({
           <div className="flex justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-accent" />
           </div>
-        ) : pantryItems.length > 0 ? (
+        ) : filteredPantryItems.length > 0 ? (
           Object.entries(pantryCategoryConfig).map(([category, config]) => {
             const CategoryIcon = config.icon;
             const categoryItems = itemsByCategory[category] || [];
@@ -697,9 +723,13 @@ function PantryPanel({
         ) : (
           <Card className="rounded-[2rem] border-dashed border-slate-200 bg-white/60 p-10 text-center">
             <ShoppingCart className="mx-auto mb-3 h-12 w-12 text-slate-300" />
-            <p className="text-xl font-black text-slate-950">No pantry yet</p>
+            <p className="text-xl font-black text-slate-950">
+              {normalizedSearch ? "No pantry matches" : "No pantry yet"}
+            </p>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Add your own items or start with a home essentials template.
+              {normalizedSearch
+                ? "Try another search or clear the search box."
+                : "Add your own items or start with a home essentials template."}
             </p>
           </Card>
         )}
@@ -829,6 +859,8 @@ export default function Groceries() {
   const [loading, setLoading] = useState(true);
   const [savingList, setSavingList] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
+
+  const [listsSearch, setListsSearch] = useState("");
 
   const [newListTitle, setNewListTitle] = useState("");
   const [newListType, setNewListType] = useState("groceries");
@@ -982,6 +1014,34 @@ export default function Groceries() {
 
   const visibleLists = showArchivedLists ? archivedLists : activeLists;
 
+  const normalizedListsSearch = listsSearch.trim().toLowerCase();
+
+  const filteredVisibleLists = useMemo(() => {
+    if (!normalizedListsSearch) return visibleLists;
+
+    return visibleLists.filter((list) => {
+      const listItems = items.filter((item) => item.listId === list.id);
+
+      const haystack = [
+        list.title,
+        list.description,
+        list.type,
+        list.assignedToPersonName,
+        ...listItems.flatMap((item) => [
+          item.title,
+          item.quantity,
+          item.note,
+          item.status,
+        ]),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedListsSearch);
+    });
+  }, [visibleLists, items, normalizedListsSearch]);
+
   const itemsByListId = useMemo(() => {
     return items.reduce((acc, item) => {
       const listId = item.listId;
@@ -996,11 +1056,11 @@ export default function Groceries() {
 
   const activeList = useMemo(() => {
     return (
-      visibleLists.find((list) => list.id === activeListId) ||
-      visibleLists[0] ||
+      filteredVisibleLists.find((list) => list.id === activeListId) ||
+      filteredVisibleLists[0] ||
       null
     );
-  }, [visibleLists, activeListId]);
+  }, [filteredVisibleLists, activeListId]);
 
   const activeItems = activeList ? itemsByListId[activeList.id] || [] : [];
   const neededItems = activeItems.filter((item) => !item.checked);
@@ -1543,11 +1603,40 @@ export default function Groceries() {
         </div>
       </section>
 
+      <section className="mb-5 rounded-[1.75rem] border border-white/80 bg-white/72 p-3 shadow-[0_12px_30px_rgba(15,23,42,0.045)] backdrop-blur-xl">
+        <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-100">
+          <Search className="h-4 w-4 text-slate-400" />
+
+          <Input
+            value={listsSearch}
+            onChange={(event) => setListsSearch(event.target.value)}
+            placeholder={
+              activeListsTab === "pantry"
+                ? "Search pantry items, categories, notes..."
+                : "Search lists, projects, items, notes..."
+            }
+            className="h-10 border-0 bg-transparent px-0 text-base font-semibold shadow-none focus-visible:ring-0"
+          />
+
+          {listsSearch && (
+            <button
+              type="button"
+              onClick={() => setListsSearch("")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-100 transition hover:text-slate-900"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </section>
+
       {activeListsTab === "pantry" ? (
         <PantryPanel
           pantryItems={pantryItems}
           loading={loading}
           canWrite={canWrite}
+          searchQuery={listsSearch}
           creatingStarterPantry={creatingStarterPantry}
           newPantryTitle={newPantryTitle}
           setNewPantryTitle={setNewPantryTitle}
@@ -1665,8 +1754,8 @@ export default function Groceries() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-[310px_minmax(0,1fr)]">
           <aside className="space-y-3">
-            {visibleLists.length > 0 ? (
-              visibleLists.map((list) => {
+            {filteredVisibleLists.length > 0 ? (
+              filteredVisibleLists.map((list) => {
                 const config = listTypeConfig[list.type] || listTypeConfig.other;
                 const Icon = config.icon;
                 const listItems = itemsByListId[list.id] || [];
@@ -1738,12 +1827,18 @@ export default function Groceries() {
               <Card className="rounded-[1.75rem] border-dashed border-slate-200 bg-white/60 p-6 text-center">
                 <ListChecks className="mx-auto mb-3 h-10 w-10 text-slate-300" />
                 <p className="font-black text-slate-950">
-                  {showArchivedLists ? "No hidden lists" : "No lists yet"}
+                  {listsSearch
+                    ? "No matching lists"
+                    : showArchivedLists
+                      ? "No hidden lists"
+                      : "No lists yet"}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
-                  {showArchivedLists
-                    ? "Hidden lists will appear here so you can restore them later."
-                    : "Create your first family list above."}
+                  {listsSearch
+                    ? "Try another search or clear the search box."
+                    : showArchivedLists
+                      ? "Hidden lists will appear here so you can restore them later."
+                      : "Create your first family list above."}
                 </p>
               </Card>
             )}
