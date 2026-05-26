@@ -121,6 +121,15 @@ function getMealConfig(type = "lunch") {
   return mealTypeConfig[type] || mealTypeConfig.lunch;
 }
 
+function normalizeIngredientKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/gi, "")
+    .replace(/\s+/g, " ");
+}
+
+
 function MealSummaryPill({ type, count }) {
   const config = getMealConfig(type);
   const Icon = config.icon;
@@ -505,12 +514,130 @@ function BentoSidePanel({
   );
 }
 
+function PantryIngredientHelper({
+  ingredientsText,
+  setIngredientsText,
+  pantryItems,
+  addMissingToPantry,
+  setAddMissingToPantry,
+}) {
+  const selectedIngredients = useMemo(() => {
+    return String(ingredientsText || "")
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }, [ingredientsText]);
+
+  const selectedKeys = useMemo(() => {
+    return new Set(selectedIngredients.map(normalizeIngredientKey));
+  }, [selectedIngredients]);
+
+  const pantryOptions = useMemo(() => {
+    return pantryItems
+      .filter((item) => item.status !== "archived")
+      .filter((item) => item.title || item.name)
+      .filter((item) => !selectedKeys.has(normalizeIngredientKey(item.title || item.name)))
+      .slice(0, 18);
+  }, [pantryItems, selectedKeys]);
+
+  const pantryKeys = useMemo(() => {
+    return new Set(
+      pantryItems
+        .filter((item) => item.status !== "archived")
+        .map((item) => normalizeIngredientKey(item.title || item.name))
+        .filter(Boolean)
+    );
+  }, [pantryItems]);
+
+  const missingIngredients = selectedIngredients.filter(
+    (ingredient) => !pantryKeys.has(normalizeIngredientKey(ingredient))
+  );
+
+  const addIngredient = (ingredient) => {
+    const clean = String(ingredient || "").trim();
+    if (!clean) return;
+
+    const current = String(ingredientsText || "")
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (current.some((item) => normalizeIngredientKey(item) === normalizeIngredientKey(clean))) {
+      return;
+    }
+
+    setIngredientsText([...current, clean].join("\n"));
+  };
+
+  return (
+    <div className="mt-3 space-y-3 rounded-[1.5rem] border border-white/80 bg-white/70 p-3 ring-1 ring-slate-100">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+          Pick from Pantry
+        </p>
+
+        {pantryOptions.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {pantryOptions.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => addIngredient(item.title || item.name)}
+                className="rounded-full bg-white px-2.5 py-1.5 text-[11px] font-black text-slate-600 ring-1 ring-slate-100 transition hover:bg-accent/10 hover:text-accent hover:ring-accent/15"
+              >
+                + {item.title || item.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-xs font-bold text-slate-400">
+            No pantry suggestions available. You can still type ingredients manually.
+          </p>
+        )}
+      </div>
+
+      {missingIngredients.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+            Not in Pantry yet
+          </p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {missingIngredients.map((ingredient) => (
+              <span
+                key={ingredient}
+                className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-100"
+              >
+                {ingredient}
+              </span>
+            ))}
+          </div>
+
+          <label className="mt-3 flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              checked={addMissingToPantry}
+              onChange={(event) => setAddMissingToPantry(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-amber-300"
+            />
+
+            <span className="text-xs font-bold leading-5 text-amber-800">
+              Add missing ingredients to Pantry as Out, so future smart lists can match them.
+            </span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FamilyMenuPanel({
   templates,
   selectedDay,
   canWrite,
   savingTemplate,
   addingTemplateId,
+  pantryItems,
   onCreateTemplate,
   onUpdateTemplate,
   onArchiveTemplate,
@@ -520,6 +647,7 @@ function FamilyMenuPanel({
   const [newType, setNewType] = useState("dinner");
   const [newNotes, setNewNotes] = useState("");
   const [newIngredients, setNewIngredients] = useState("");
+  const [addMissingNewToPantry, setAddMissingNewToPantry] = useState(true);
   const [filter, setFilter] = useState("all");
 
   const [editingTemplateId, setEditingTemplateId] = useState("");
@@ -527,6 +655,7 @@ function FamilyMenuPanel({
   const [editType, setEditType] = useState("dinner");
   const [editNotes, setEditNotes] = useState("");
   const [editIngredients, setEditIngredients] = useState("");
+  const [addMissingEditToPantry, setAddMissingEditToPantry] = useState(true);
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [templateToRemove, setTemplateToRemove] = useState(null);
@@ -558,6 +687,7 @@ function FamilyMenuPanel({
       mealType: newType,
       notes: newNotes.trim(),
       ingredients: parseIngredients(newIngredients),
+      addMissingIngredientsToPantry: addMissingNewToPantry,
     });
 
     if (created) {
@@ -565,6 +695,7 @@ function FamilyMenuPanel({
       setNewType("dinner");
       setNewNotes("");
       setNewIngredients("");
+      setAddMissingNewToPantry(true);
     }
   };
 
@@ -574,6 +705,7 @@ function FamilyMenuPanel({
     setEditType(template.mealType || template.meal_type || "dinner");
     setEditNotes(template.notes || "");
     setEditIngredients((template.ingredients || []).join("\n"));
+    setAddMissingEditToPantry(true);
   };
 
   const cancelEditingTemplate = () => {
@@ -595,6 +727,7 @@ function FamilyMenuPanel({
       mealType: editType,
       notes: editNotes.trim(),
       ingredients: parseIngredients(editIngredients),
+      addMissingIngredientsToPantry: addMissingEditToPantry,
     });
 
     setSavingEdit(false);
@@ -691,6 +824,14 @@ function FamilyMenuPanel({
               onChange={(event) => setNewIngredients(event.target.value)}
               placeholder={"One per line:\ntortillas\nground beef\ncheese"}
               className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
+            />
+
+            <PantryIngredientHelper
+              ingredientsText={newIngredients}
+              setIngredientsText={setNewIngredients}
+              pantryItems={pantryItems}
+              addMissingToPantry={addMissingNewToPantry}
+              setAddMissingToPantry={setAddMissingNewToPantry}
             />
           </div>
 
@@ -838,6 +979,14 @@ function FamilyMenuPanel({
                                 onChange={(event) => setEditIngredients(event.target.value)}
                                 placeholder={"One per line:\ntortillas\nground beef\ncheese"}
                                 className="min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
+                              />
+
+                              <PantryIngredientHelper
+                                ingredientsText={editIngredients}
+                                setIngredientsText={setEditIngredients}
+                                pantryItems={pantryItems}
+                                addMissingToPantry={addMissingEditToPantry}
+                                setAddMissingToPantry={setAddMissingEditToPantry}
                               />
 
                               <div className="grid gap-2 sm:grid-cols-2">
@@ -1025,6 +1174,7 @@ export default function Meals() {
   const [meals, setMeals] = useState([]);
   const [mealLists, setMealLists] = useState([]);
   const [mealTemplates, setMealTemplates] = useState([]);
+  const [pantryItems, setPantryItems] = useState([]);
   const [activeMealTab, setActiveMealTab] = useState("planner");
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [addingTemplateId, setAddingTemplateId] = useState("");
@@ -1079,7 +1229,7 @@ export default function Meals() {
       setMeals([]);
       setMealLists([]);
       setMealTemplates([]);
-      setMealTemplates([]);
+      setPantryItems([]);
       setLoading(false);
       return;
     }
@@ -1174,10 +1324,37 @@ export default function Meals() {
       });
 
       setMealTemplates(templateData);
+
+      const pantrySnap = await getDocs(
+        query(
+          collection(db, "familyPantryItems"),
+          where("familyId", "==", familyId)
+        )
+      );
+
+      const pantryData = pantrySnap.docs
+        .map((docSnap) => {
+          const data = docSnap.data();
+
+          return {
+            id: docSnap.id,
+            ...data,
+            title: data.title || data.name || "",
+            name: data.name || data.title || "",
+            status: data.status || "in_stock",
+            category: data.category || "easy_dinners",
+          };
+        })
+        .filter((item) => item.status !== "archived")
+        .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+      setPantryItems(pantryData);
     } catch (error) {
       console.error("Error loading meals:", error);
       setMeals([]);
       setMealLists([]);
+      setMealTemplates([]);
+      setPantryItems([]);
     } finally {
       setLoading(false);
     }
@@ -1196,7 +1373,61 @@ export default function Meals() {
     }
   }, [weekDays, selectedDay, weekStart]);
 
-  const createMealTemplate = async ({ name, mealType, notes, ingredients }) => {
+  const addMissingIngredientsToPantry = async (ingredients = []) => {
+    if (!canWrite || !familyId || !Array.isArray(ingredients)) return 0;
+
+    const existingKeys = new Set(
+      pantryItems
+        .filter((item) => item.status !== "archived")
+        .map((item) => normalizeIngredientKey(item.title || item.name))
+        .filter(Boolean)
+    );
+
+    const missingIngredients = ingredients
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .filter((ingredient, index, arr) => {
+        const key = normalizeIngredientKey(ingredient);
+        return key && arr.findIndex((candidate) => normalizeIngredientKey(candidate) === key) === index;
+      })
+      .filter((ingredient) => !existingKeys.has(normalizeIngredientKey(ingredient)));
+
+    if (!missingIngredients.length) return 0;
+
+    await Promise.all(
+      missingIngredients.map((ingredient) =>
+        addDoc(collection(db, "familyPantryItems"), {
+          title: ingredient,
+          name: ingredient,
+          category: "easy_dinners",
+          status: "out",
+          note: "Added from Family Menu",
+
+          familyId,
+          family_id: familyId,
+
+          createdBy: user?.uid || null,
+          createdByEmail: user?.email || null,
+          createdByName: getCreatorName(),
+          created_by_name: getCreatorName(),
+
+          created_date: new Date().toISOString(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      )
+    );
+
+    return missingIngredients.length;
+  };
+
+  const createMealTemplate = async ({
+    name,
+    mealType,
+    notes,
+    ingredients,
+    addMissingIngredientsToPantry: shouldAddMissingIngredientsToPantry = true,
+  }) => {
     if (!canWrite || !familyId || !name?.trim()) return false;
 
     setSavingTemplate(true);
@@ -1228,9 +1459,16 @@ export default function Meals() {
         updatedAt: serverTimestamp(),
       });
 
+      const addedToPantryCount = shouldAddMissingIngredientsToPantry
+        ? await addMissingIngredientsToPantry(ingredients)
+        : 0;
+
       toast({
         title: "Saved to Family Menu",
-        description: `${name.trim()} is ready to reuse.`,
+        description:
+          addedToPantryCount > 0
+            ? `${name.trim()} is ready. ${addedToPantryCount} ingredient${addedToPantryCount === 1 ? "" : "s"} added to Pantry as Out.`
+            : `${name.trim()} is ready to reuse.`,
         duration: 3500,
       });
 
@@ -1267,9 +1505,16 @@ export default function Meals() {
         updatedBy: user?.uid || null,
       });
 
+      const addedToPantryCount = updates.addMissingIngredientsToPantry
+        ? await addMissingIngredientsToPantry(updates.ingredients)
+        : 0;
+
       toast({
         title: "Family Menu updated",
-        description: `${updates.name.trim()} was updated.`,
+        description:
+          addedToPantryCount > 0
+            ? `${updates.name.trim()} was updated. ${addedToPantryCount} ingredient${addedToPantryCount === 1 ? "" : "s"} added to Pantry as Out.`
+            : `${updates.name.trim()} was updated.`,
         duration: 3000,
       });
 
@@ -1754,6 +1999,7 @@ export default function Meals() {
             canWrite={canWrite}
             savingTemplate={savingTemplate}
             addingTemplateId={addingTemplateId}
+            pantryItems={pantryItems}
             onCreateTemplate={createMealTemplate}
             onUpdateTemplate={updateMealTemplate}
             onArchiveTemplate={archiveMealTemplate}
