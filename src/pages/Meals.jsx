@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Apple,
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   Coffee,
@@ -32,6 +33,7 @@ import {
   Moon,
   Pencil,
   Plus,
+  Search,
   Sparkles,
   Sun,
   Trash2,
@@ -631,6 +633,290 @@ function PantryIngredientHelper({
   );
 }
 
+function IngredientPantryModal({
+  open,
+  onClose,
+  pantryItems,
+  ingredientsText,
+  onApply,
+}) {
+  const [search, setSearch] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState(new Set());
+
+  useEffect(() => {
+    if (!open) return;
+
+    const currentKeys = new Set(
+      String(ingredientsText || "")
+        .split("\n")
+        .map((item) => normalizeIngredientKey(item))
+        .filter(Boolean)
+    );
+
+    setSelectedKeys(currentKeys);
+    setSearch("");
+  }, [open, ingredientsText]);
+
+  if (!open) return null;
+
+  const filteredItems = pantryItems
+    .filter((item) => item.status !== "archived")
+    .filter((item) => item.title || item.name)
+    .filter((item) => {
+      const queryText = search.trim().toLowerCase();
+      if (!queryText) return true;
+
+      return String(item.title || item.name || "")
+        .toLowerCase()
+        .includes(queryText);
+    });
+
+  const toggleItem = (item) => {
+    const key = normalizeIngredientKey(item.title || item.name);
+
+    setSelectedKeys((current) => {
+      const next = new Set(current);
+
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+  };
+
+  const applySelection = () => {
+    const currentManual = String(ingredientsText || "")
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const selectedFromPantry = pantryItems
+      .filter((item) => selectedKeys.has(normalizeIngredientKey(item.title || item.name)))
+      .map((item) => item.title || item.name)
+      .filter(Boolean);
+
+    const merged = [...currentManual, ...selectedFromPantry].reduce((acc, item) => {
+      const key = normalizeIngredientKey(item);
+
+      if (!key || acc.some((existing) => normalizeIngredientKey(existing) === key)) {
+        return acc;
+      }
+
+      acc.push(item);
+      return acc;
+    }, []);
+
+    onApply(merged.join("\n"));
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-slate-950/20 px-3 pb-4 pt-10 backdrop-blur-sm sm:items-center sm:p-6">
+      <div className="max-h-[84vh] w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-gradient-to-br from-white via-emerald-50/70 to-amber-50/50 p-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
+              Pantry picker
+            </p>
+
+            <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+              Add ingredients from Pantry
+            </h2>
+
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              Search and select the pantry items this meal needs.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm ring-1 ring-slate-100 transition hover:text-slate-900"
+            aria-label="Close pantry ingredient picker"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4">
+          <div className="mb-4 flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100">
+            <Search className="h-4 w-4 text-slate-400" />
+
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search pantry ingredients..."
+              className="h-10 border-0 bg-transparent px-0 font-semibold shadow-none focus-visible:ring-0"
+            />
+          </div>
+
+          <div className="max-h-[42vh] overflow-y-auto pr-1">
+            {filteredItems.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {filteredItems.map((item) => {
+                  const key = normalizeIngredientKey(item.title || item.name);
+                  const selected = selectedKeys.has(key);
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => toggleItem(item)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl border p-3 text-left transition",
+                        selected
+                          ? "border-accent/20 bg-accent/10 ring-2 ring-accent/10"
+                          : "border-slate-100 bg-white hover:bg-secondary/40"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1",
+                          selected
+                            ? "bg-accent text-accent-foreground ring-accent/20"
+                            : "bg-slate-50 text-slate-300 ring-slate-100"
+                        )}
+                      >
+                        {selected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-black text-slate-950">
+                          {item.title || item.name}
+                        </span>
+                        <span className="block text-xs font-bold text-slate-400">
+                          {item.status === "out"
+                            ? "Out"
+                            : item.status === "low"
+                              ? "Low"
+                              : "In stock"}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white/60 p-8 text-center">
+                <p className="font-black text-slate-950">No pantry matches</p>
+                <p className="mt-1 text-sm font-bold text-slate-400">
+                  Try another search, or type the ingredient manually.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 bg-white p-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="rounded-2xl font-black"
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="button"
+            onClick={applySelection}
+            className="rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+          >
+            Add selected
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IngredientField({
+  value,
+  onChange,
+  pantryItems,
+  addMissingToPantry,
+  setAddMissingToPantry,
+  onOpenPantry,
+}) {
+  const ingredients = useMemo(() => {
+    return String(value || "")
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }, [value]);
+
+  const pantryKeys = useMemo(() => {
+    return new Set(
+      pantryItems
+        .filter((item) => item.status !== "archived")
+        .map((item) => normalizeIngredientKey(item.title || item.name))
+        .filter(Boolean)
+    );
+  }, [pantryItems]);
+
+  const missingIngredients = ingredients.filter(
+    (ingredient) => !pantryKeys.has(normalizeIngredientKey(ingredient))
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-sm font-black text-slate-700">Ingredients</label>
+
+        <button
+          type="button"
+          onClick={onOpenPantry}
+          className="rounded-full bg-accent/10 px-3 py-1.5 text-xs font-black text-accent ring-1 ring-accent/15 transition hover:bg-accent/15"
+        >
+          Add from Pantry
+        </button>
+      </div>
+
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={"One per line:\ntortillas\nground beef\ncheese"}
+        className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
+      />
+
+      {missingIngredients.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+            Not in Pantry yet
+          </p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {missingIngredients.map((ingredient) => (
+              <span
+                key={ingredient}
+                className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-amber-700 ring-1 ring-amber-100"
+              >
+                {ingredient}
+              </span>
+            ))}
+          </div>
+
+          <label className="mt-3 flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              checked={addMissingToPantry}
+              onChange={(event) => setAddMissingToPantry(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-amber-300"
+            />
+
+            <span className="text-xs font-bold leading-5 text-amber-800">
+              Add missing ingredients to Pantry as Out when saving.
+            </span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FamilyMenuPanel({
   templates,
   selectedDay,
@@ -658,6 +944,7 @@ function FamilyMenuPanel({
   const [addMissingEditToPantry, setAddMissingEditToPantry] = useState(true);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const [ingredientPickerMode, setIngredientPickerMode] = useState(null);
   const [templateToRemove, setTemplateToRemove] = useState(null);
   const [removingTemplate, setRemovingTemplate] = useState(false);
 
@@ -714,6 +1001,7 @@ function FamilyMenuPanel({
     setEditType("dinner");
     setEditNotes("");
     setEditIngredients("");
+    setAddMissingEditToPantry(true);
     setSavingEdit(false);
   };
 
@@ -752,8 +1040,24 @@ function FamilyMenuPanel({
     }
   };
 
+  const pickerValue = ingredientPickerMode === "edit" ? editIngredients : newIngredients;
+
   return (
     <div className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+      <IngredientPantryModal
+        open={Boolean(ingredientPickerMode)}
+        onClose={() => setIngredientPickerMode(null)}
+        pantryItems={pantryItems}
+        ingredientsText={pickerValue}
+        onApply={(nextIngredients) => {
+          if (ingredientPickerMode === "edit") {
+            setEditIngredients(nextIngredients);
+          } else {
+            setNewIngredients(nextIngredients);
+          }
+        }}
+      />
+
       <section className="rounded-[2.25rem] border border-white/80 bg-white/78 p-4 shadow-[0_20px_58px_rgba(15,23,42,0.08)] backdrop-blur-xl">
         <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-orange-500">
           <Sparkles className="h-4 w-4" />
@@ -817,23 +1121,14 @@ function FamilyMenuPanel({
             />
           </div>
 
-          <div>
-            <label className="text-sm font-black text-slate-700">Ingredients</label>
-            <textarea
-              value={newIngredients}
-              onChange={(event) => setNewIngredients(event.target.value)}
-              placeholder={"One per line:\ntortillas\nground beef\ncheese"}
-              className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
-            />
-
-            <PantryIngredientHelper
-              ingredientsText={newIngredients}
-              setIngredientsText={setNewIngredients}
-              pantryItems={pantryItems}
-              addMissingToPantry={addMissingNewToPantry}
-              setAddMissingToPantry={setAddMissingNewToPantry}
-            />
-          </div>
+          <IngredientField
+            value={newIngredients}
+            onChange={setNewIngredients}
+            pantryItems={pantryItems}
+            addMissingToPantry={addMissingNewToPantry}
+            setAddMissingToPantry={setAddMissingNewToPantry}
+            onOpenPantry={() => setIngredientPickerMode("new")}
+          />
 
           <Button
             type="button"
@@ -974,19 +1269,13 @@ function FamilyMenuPanel({
                                 placeholder="Notes"
                               />
 
-                              <textarea
+                              <IngredientField
                                 value={editIngredients}
-                                onChange={(event) => setEditIngredients(event.target.value)}
-                                placeholder={"One per line:\ntortillas\nground beef\ncheese"}
-                                className="min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
-                              />
-
-                              <PantryIngredientHelper
-                                ingredientsText={editIngredients}
-                                setIngredientsText={setEditIngredients}
+                                onChange={setEditIngredients}
                                 pantryItems={pantryItems}
                                 addMissingToPantry={addMissingEditToPantry}
                                 setAddMissingToPantry={setAddMissingEditToPantry}
+                                onOpenPantry={() => setIngredientPickerMode("edit")}
                               />
 
                               <div className="grid gap-2 sm:grid-cols-2">
@@ -1442,6 +1731,7 @@ export default function Meals() {
         meal_type: mealType,
         notes: notes || "",
         ingredients: Array.isArray(ingredients) ? ingredients : [],
+        status: "active",
 
         favorite: true,
         kidFriendly: true,
