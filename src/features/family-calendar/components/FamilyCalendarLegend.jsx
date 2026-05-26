@@ -11,11 +11,14 @@ function LegendDot({ colorId = "family", active = false, gradientStyle = null })
     return (
       <span
         className={cn(
-          "h-4 w-4 shrink-0 rounded-full border border-slate-300 bg-white shadow-sm",
-          active && "ring-2 ring-blue-200"
+          "relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white shadow-sm",
+          active && "ring-2 ring-slate-300 ring-offset-2 ring-offset-white"
         )}
+        aria-hidden="true"
       >
-        <span className="block h-full w-full rounded-full bg-gradient-to-br from-blue-400 via-emerald-400 to-violet-400 opacity-80" />
+        <span className="absolute left-[5px] top-[5px] h-1.5 w-1.5 rounded-full bg-blue-500" />
+        <span className="absolute right-[5px] top-[5px] h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="absolute bottom-[5px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-violet-500" />
       </span>
     );
   }
@@ -27,7 +30,7 @@ function LegendDot({ colorId = "family", active = false, gradientStyle = null })
       className={cn(
         "h-4 w-4 shrink-0 rounded-full border border-white shadow-sm",
         !gradientStyle && colors.dot,
-        active && "ring-2 ring-blue-200"
+        active && "ring-2 ring-slate-300 ring-offset-2 ring-offset-white"
       )}
       style={gradientStyle || undefined}
     />
