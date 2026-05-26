@@ -1267,83 +1267,86 @@ export default function Meals() {
             {[
               { id: "planner", label: "Planner", helper: "This week" },
               { id: "menu", label: "Family Menu", helper: "Saved meals" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveMealTab(tab.id)}
-                className={cn(
-                  "rounded-[1.5rem] px-4 py-3 text-left transition",
-                  activeMealTab === tab.id
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/15"
-                    : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-slate-50"
-                )}
-              >
-                <p className="text-sm font-black">{tab.label}</p>
-                <p className={cn(
-                  "text-xs font-bold",
-                  activeMealTab === tab.id ? "text-blue-500" : "text-slate-400"
-                )}>
-                  {tab.helper}
-                </p>
-              </button>
-            ))}
+            ].map((tab) => {
+              const active = activeMealTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveMealTab(tab.id)}
+                  className={cn(
+                    "rounded-[1.5rem] px-4 py-3 text-left transition",
+                    active
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/15"
+                      : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-blue-50"
+                  )}
+                >
+                  <p className="text-sm font-black">{tab.label}</p>
+                  <p
+                    className={cn(
+                      "text-xs font-bold",
+                      active ? "text-blue-100" : "text-slate-400"
+                    )}
+                  >
+                    {tab.helper}
+                  </p>
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        {activeMealTab === "planner" && (
+        {activeMealTab === "planner" ? (
           <>
-        <section className="rounded-[2.25rem] border border-white/80 bg-white/62 p-3 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            {weekDays.map((day) => (
-              <WeekDayCard
-                key={day.toISOString()}
-                day={day}
-                meals={getMealsForDate(day)}
-                selected={isSameDay(day, selectedDay)}
-                onSelect={setSelectedDay}
-              />
-            ))}
-          </div>
-        </section>
+            <section className="rounded-[2.25rem] border border-white/80 bg-white/62 p-3 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                {weekDays.map((day) => (
+                  <WeekDayCard
+                    key={day.toISOString()}
+                    day={day}
+                    meals={getMealsForDate(day)}
+                    selected={isSameDay(day, selectedDay)}
+                    onSelect={setSelectedDay}
+                  />
+                ))}
+              </div>
+            </section>
 
-        {loading ? (
-          <div className="flex min-h-[440px] items-center justify-center rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
-            <div className="text-center">
-              <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800" />
-              <p className="text-sm font-black text-slate-400">
-                Loading family meals...
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <FocusDayPanel
-              selectedDay={selectedDay}
-              meals={selectedMeals}
-              listsByMealId={listsByMealId}
-              canWrite={canWrite}
-              onAdd={setAddMealDate}
-              onDelete={requestDeleteMeal}
-              onCreateMealList={createOrViewMealList}
-            />
+            {loading ? (
+              <div className="flex min-h-[440px] items-center justify-center rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
+                <div className="text-center">
+                  <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                  <p className="text-sm font-black text-slate-400">
+                    Loading family meals...
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+                <FocusDayPanel
+                  selectedDay={selectedDay}
+                  meals={selectedMeals}
+                  listsByMealId={listsByMealId}
+                  canWrite={canWrite}
+                  onAdd={setAddMealDate}
+                  onDelete={requestDeleteMeal}
+                  onCreateMealList={createOrViewMealList}
+                />
 
-            <BentoSidePanel
-              selectedDay={selectedDay}
-              selectedMeals={selectedMeals}
-              weekMeals={meals}
-              listsByMealId={listsByMealId}
-              canWrite={canWrite}
-              onAdd={setAddMealDate}
-              onOpenList={(list) => navigate(`/lists?listId=${list.id}`)}
-            />
-          </div>
-        )}
-
+                <BentoSidePanel
+                  selectedDay={selectedDay}
+                  selectedMeals={selectedMeals}
+                  weekMeals={meals}
+                  listsByMealId={listsByMealId}
+                  canWrite={canWrite}
+                  onAdd={setAddMealDate}
+                  onOpenList={(list) => navigate(`/lists?listId=${list.id}`)}
+                />
+              </div>
+            )}
           </>
-        )}
-
-        {activeMealTab === "menu" && (
+        ) : (
           <FamilyMenuPanel
             templates={mealTemplates}
             selectedDay={selectedDay}
