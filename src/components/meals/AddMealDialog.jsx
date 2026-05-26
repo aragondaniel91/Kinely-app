@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 
 const mealOrder = ["breakfast", "lunch", "snack", "dinner"];
+const PANTRY_COLLECTION = "familyPantryItems";
 
 const mealTypeConfig = {
   breakfast: {
@@ -110,6 +111,14 @@ function normalizeMealTemplate(docSnap) {
     ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
   };
 }
+
+function normalizeIngredientKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 
 function MealTypeButton({ type, selected, onSelect }) {
   const config = getMealConfig(type);
@@ -356,7 +365,50 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
     });
   }, [templates, templateFilter, templateSearch]);
 
-  async function createListForMeal({ mealId, mealTitle, mealNotes, ingredients = [] }) {
+  async function createListForMeal({
+    mealId,
+    mealTitle,
+    mealNotes,
+    ingredients = [],
+    allowEmptyList = false,
+  }) {
+    const cleanIngredients = Array.isArray(ingredients)
+      ? ingredients.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
+
+    const pantrySnap = await getDocs(
+      query(collection(db, PANTRY_COLLECTION), where("familyId", "==", familyId))
+    );
+
+    const pantryByName = new Map();
+
+    pantrySnap.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const key = normalizeIngredientKey(data.title || data.name || "");
+      const status = String(data.status || "in_stock").toLowerCase();
+
+      if (key && status !== "archived") {
+        pantryByName.set(key, status);
+      }
+    });
+
+    const ingredientsToBuy = cleanIngredients.filter((ingredient) => {
+      const pantryStatus = pantryByName.get(normalizeIngredientKey(ingredient));
+
+      return pantryStatus !== "in_stock";
+    });
+
+    const skippedInStockCount = cleanIngredients.length - ingredientsToBuy.length;
+    const listItems = allowEmptyList ? cleanIngredients : ingredientsToBuy;
+
+    if (!allowEmptyList && listItems.length === 0) {
+      return {
+        listRef: null,
+        addedCount: 0,
+        skippedInStockCount,
+      };
+    }
+
     const listRef = await addDoc(collection(db, "familyLists"), {
       title: `${mealTitle || "Meal"} ingredients`,
       type: "meal",
@@ -390,7 +442,7 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
     });
 
     await Promise.all(
-      ingredients.map((ingredient) => {
+      listItems.map((ingredient) => {
         const title = String(ingredient || "").trim();
         if (!title) return Promise.resolve();
 
@@ -428,7 +480,11 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       })
     );
 
-    return listRef;
+    return {
+      listRef,
+      addedCount: listItems.length,
+      skippedInStockCount,
+    };
   }
 
   const saveMealFromTemplate = async (template, options = {}) => {
@@ -475,21 +531,33 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       });
 
       let listRef = null;
+      let grocerySummary = {
+        addedCount: 0,
+        skippedInStockCount: 0,
+      };
 
       if (shouldCreateGroceryList) {
-        listRef = await createListForMeal({
+        grocerySummary = await createListForMeal({
           mealId: mealRef.id,
           mealTitle: template.name || "Meal",
           mealNotes: template.notes || "",
           ingredients,
         });
+
+        listRef = grocerySummary.listRef;
       }
 
       toast({
-        title: listRef?.id ? "Meal and grocery list added" : "Meal added",
+        title: listRef?.id
+          ? "Meal and smart list added"
+          : shouldCreateGroceryList
+            ? "Meal added, pantry already stocked"
+            : "Meal added",
         description: listRef?.id
-          ? `${template.name} was added with ${ingredients.length} ingredient${ingredients.length === 1 ? "" : "s"}.`
-          : `${template.name} was added to ${format(date, "EEEE")}.`,
+          ? `${grocerySummary.addedCount} item${grocerySummary.addedCount === 1 ? "" : "s"} added. ${grocerySummary.skippedInStockCount} already in stock.`
+          : shouldCreateGroceryList
+            ? `${template.name} was added. All ingredients were already in stock.`
+            : `${template.name} was added to ${format(date, "EEEE")}.`,
         duration: 3500,
       });
 
@@ -556,12 +624,15 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       let listRef = null;
 
       if (createGroceryList) {
-        listRef = await createListForMeal({
+        const grocerySummary = await createListForMeal({
           mealId: mealRef.id,
           mealTitle: name.trim(),
           mealNotes: notes.trim() || "",
           ingredients: [],
+          allowEmptyList: true,
         });
+
+        listRef = grocerySummary.listRef;
       }
 
       toast({
