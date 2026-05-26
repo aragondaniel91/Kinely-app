@@ -4,6 +4,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -1058,6 +1059,8 @@ export default function Groceries() {
   const [activeListId, setActiveListId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [linkedTasksPreviewList, setLinkedTasksPreviewList] = useState(null);
+  const [linkedEventPreview, setLinkedEventPreview] = useState(null);
+  const [loadingLinkedEventPreview, setLoadingLinkedEventPreview] = useState(false);
   const [showArchivedLists, setShowArchivedLists] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingList, setSavingList] = useState(false);
@@ -1684,6 +1687,10 @@ export default function Groceries() {
   };
 
   const viewLinkedEventFromList = (list) => {
+    goToLinkedEvent(list);
+  };
+
+  const goToLinkedEvent = async (list) => {
     const eventId = getLinkedEventId(list);
 
     if (!eventId) {
@@ -1695,8 +1702,54 @@ export default function Groceries() {
       return;
     }
 
-    const params = new URLSearchParams({ eventId });
-    navigate(`/calendar?${params.toString()}`);
+    setLoadingLinkedEventPreview(true);
+
+    try {
+      const eventSnap = await getDoc(doc(db, "familyEvents", eventId));
+
+      if (eventSnap.exists()) {
+        const data = eventSnap.data();
+
+        setLinkedEventPreview({
+          id: eventSnap.id,
+          title: data.title || list.linkedEventTitle || list.linked_event_title || list.title || "Family event",
+          date: data.date || data.eventDate || data.event_date || list.linkedEventDate || list.linked_event_date || "",
+          category: data.category || "",
+          location: data.location || "",
+          description: data.description || data.notes || "",
+          isAllDay: data.isAllDay || data.is_all_day || false,
+          startTime: data.startTime || data.start_time || "",
+          endTime: data.endTime || data.end_time || "",
+          listTitle: list.title || "Linked list",
+        });
+
+        return;
+      }
+
+      setLinkedEventPreview({
+        id: eventId,
+        title: list.linkedEventTitle || list.linked_event_title || list.title || "Family event",
+        date: list.linkedEventDate || list.linked_event_date || "",
+        category: "",
+        location: "",
+        description: "This event is linked to the list, but the event details could not be loaded.",
+        isAllDay: false,
+        startTime: "",
+        endTime: "",
+        listTitle: list.title || "Linked list",
+      });
+    } catch (error) {
+      console.error("Error loading linked event preview:", error);
+
+      toast({
+        title: "Could not open event preview",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+        duration: 4500,
+      });
+    } finally {
+      setLoadingLinkedEventPreview(false);
+    }
   };
 
   const restoreList = async (list) => {
@@ -2876,10 +2929,11 @@ export default function Groceries() {
                         type="button"
                         variant="outline"
                         onClick={() => goToLinkedEvent(activeList)}
-                        className="rounded-2xl border-violet-200 bg-violet-50 font-black text-violet-700 hover:bg-violet-100 hover:text-violet-800"
+                        disabled={loadingLinkedEventPreview}
+                        className="rounded-2xl border-violet-200 bg-violet-50 font-black text-violet-700 hover:bg-violet-100 hover:text-violet-800 disabled:opacity-60"
                       >
                         <CalendarDays className="mr-2 h-4 w-4" />
-                        View event
+                        {loadingLinkedEventPreview ? "Opening..." : "View event"}
                       </Button>
                     )}
 
@@ -3370,6 +3424,91 @@ export default function Groceries() {
                 className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
               >
                 {confirmAction.confirmLabel || "Confirm"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {linkedEventPreview && (
+        <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-lg rounded-[2rem] border-white/80 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
+                <CalendarDays className="h-6 w-6" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">
+                  Linked event
+                </p>
+
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                  {linkedEventPreview.title}
+                </h2>
+
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  From list: {linkedEventPreview.listTitle}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 rounded-[1.5rem] bg-slate-50/70 p-4 ring-1 ring-slate-100">
+              {linkedEventPreview.date && (
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                  <CalendarDays className="h-4 w-4 text-violet-500" />
+                  <span>{linkedEventPreview.date}</span>
+                  {linkedEventPreview.isAllDay ? (
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase text-slate-400 ring-1 ring-slate-100">
+                      All day
+                    </span>
+                  ) : linkedEventPreview.startTime || linkedEventPreview.endTime ? (
+                    <span className="text-slate-400">
+                      · {linkedEventPreview.startTime || "Start"} - {linkedEventPreview.endTime || "End"}
+                    </span>
+                  ) : null}
+                </div>
+              )}
+
+              {linkedEventPreview.category && (
+                <div className="text-sm font-bold text-slate-500">
+                  Category: <span className="text-slate-800">{linkedEventPreview.category}</span>
+                </div>
+              )}
+
+              {linkedEventPreview.location && (
+                <div className="text-sm font-bold text-slate-500">
+                  Location: <span className="text-slate-800">{linkedEventPreview.location}</span>
+                </div>
+              )}
+
+              {linkedEventPreview.description && (
+                <p className="text-sm font-semibold leading-6 text-slate-500">
+                  {linkedEventPreview.description}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLinkedEventPreview(null)}
+                className="rounded-2xl font-black"
+              >
+                Close
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => {
+                  const params = new URLSearchParams({ eventId: linkedEventPreview.id });
+                  setLinkedEventPreview(null);
+                  navigate(`/calendar?${params.toString()}`);
+                }}
+                className="rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+              >
+                Open in Calendar
               </Button>
             </div>
           </Card>
