@@ -42,6 +42,7 @@ import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import AddMealDialog from "@/components/meals/AddMealDialog";
 
