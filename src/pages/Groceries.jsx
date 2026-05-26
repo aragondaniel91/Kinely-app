@@ -149,7 +149,16 @@ function normalizeList(docSnap) {
     description: data.description || "",
     assignedToPersonId: data.assignedToPersonId || data.assigned_to_person_id || "family",
     assignedToPersonName: data.assignedToPersonName || data.assigned_to_person_name || "Family",
+    createdBy: data.createdBy || data.created_by || "",
     createdByEmail: data.createdByEmail || data.created_by_email || "",
+    createdByName:
+      data.createdByName ||
+      data.created_by_name ||
+      data.createdByDisplayName ||
+      data.created_by_display_name ||
+      data.createdByEmail ||
+      data.created_by_email ||
+      "",
     created_date: data.created_date || "",
   };
 }
@@ -251,6 +260,18 @@ function buildListPeopleOptions({ familyPeople = [], familyAdults = [], children
   }
 
   return Array.from(peopleById.values());
+}
+
+function getListCreatorLabel(list = {}) {
+  return (
+    list.createdByName ||
+    list.created_by_name ||
+    list.createdByDisplayName ||
+    list.created_by_display_name ||
+    list.createdByEmail ||
+    list.created_by_email ||
+    "Unknown"
+  );
 }
 
 export default function Groceries() {
@@ -509,6 +530,8 @@ export default function Groceries() {
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
+        createdByName: user?.displayName || user?.email || "",
+        created_by_name: user?.displayName || user?.email || "",
         created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -947,11 +970,22 @@ export default function Groceries() {
                         </p>
 
                         <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                          {config.label} · {openCount} open · {doneCount} done · {list.assignedToPersonName || "Family"}
-                          {(tasksByListId[list.id]?.length || 0) > 0
-                            ? ` · ${tasksByListId[list.id].length} task${tasksByListId[list.id].length === 1 ? "" : "s"}`
-                            : ""}
+                          {config.label} · {openCount} open · {doneCount} done
                         </p>
+
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-600 ring-1 ring-slate-100">
+                            <Users className="h-3 w-3" />
+                            {list.assignedToPersonName || "Family"}
+                          </span>
+
+                          {(tasksByListId[list.id]?.length || 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
+                              <CheckSquare className="h-3 w-3" />
+                              {tasksByListId[list.id].length} task{tasksByListId[list.id].length === 1 ? "" : "s"}
+                            </span>
+                          )}
+                        </div>
 
                         {list.description && (
                           <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-400">
@@ -1085,17 +1119,31 @@ export default function Groceries() {
                             {activeList.description ? ` · ${activeList.description}` : ""}
                           </p>
 
-                          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-100">
-                            <Users className="h-3.5 w-3.5" />
-                            Responsible: {activeList.assignedToPersonName || "Family"}
-                          </div>
-
-                          {isCalendarLinkedList(activeList) && (
-                            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-100">
-                              <CalendarDays className="h-3.5 w-3.5" />
-                              Linked to calendar
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-600 ring-1 ring-slate-100">
+                              <Users className="h-3.5 w-3.5" />
+                              Responsible: {activeList.assignedToPersonName || "Family"}
                             </div>
-                          )}
+
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-500 ring-1 ring-slate-100">
+                              <Pencil className="h-3.5 w-3.5" />
+                              Created by: {getListCreatorLabel(activeList)}
+                            </div>
+
+                            {(tasksByListId[activeList.id]?.length || 0) > 0 && (
+                              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+                                <CheckSquare className="h-3.5 w-3.5" />
+                                {tasksByListId[activeList.id].length} linked task{tasksByListId[activeList.id].length === 1 ? "" : "s"}
+                              </div>
+                            )}
+
+                            {isCalendarLinkedList(activeList) && (
+                              <div className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-100">
+                                <CalendarDays className="h-3.5 w-3.5" />
+                                Linked to calendar
+                              </div>
+                            )}
+                          </div>
                         </>
                       )}
                     </div>
