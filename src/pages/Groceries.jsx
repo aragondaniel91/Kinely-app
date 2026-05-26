@@ -467,7 +467,7 @@ function PantryStatusButton({ status, active, onClick }) {
   );
 }
 
-function PantryItemCard({ item, onStatusChange }) {
+function PantryItemCard({ item, canWrite, onStatusChange, onArchive }) {
   const categoryConfig = pantryCategoryConfig[item.category] || pantryCategoryConfig.household;
   const CategoryIcon = categoryConfig.icon;
 
@@ -479,13 +479,29 @@ function PantryItemCard({ item, onStatusChange }) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black text-slate-950">
-            {item.title}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-slate-950">
+                {item.title}
+              </p>
 
-          <p className="mt-0.5 text-xs font-semibold text-slate-400">
-            {categoryConfig.label}
-          </p>
+              <p className="mt-0.5 text-xs font-semibold text-slate-400">
+                {categoryConfig.label}
+                {item.note ? ` · ${item.note}` : ""}
+              </p>
+            </div>
+
+            {canWrite && (
+              <button
+                type="button"
+                onClick={() => onArchive(item)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-300 ring-1 ring-slate-100 transition hover:bg-red-50 hover:text-red-600 hover:ring-red-100"
+                aria-label="Remove pantry item"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
           <div className="mt-2 flex flex-wrap gap-1.5">
             {Object.keys(pantryStatusConfig).map((status) => (
@@ -508,8 +524,19 @@ function PantryPanel({
   loading,
   canWrite,
   creatingStarterPantry,
+  newPantryTitle,
+  setNewPantryTitle,
+  newPantryCategory,
+  setNewPantryCategory,
+  newPantryStatus,
+  setNewPantryStatus,
+  newPantryNote,
+  setNewPantryNote,
+  savingPantryItem,
+  onAddPantryItem,
   onCreateStarterPantry,
   onStatusChange,
+  onArchivePantryItem,
 }) {
   const needToBuy = pantryItems.filter((item) => item.status === "low" || item.status === "out");
 
@@ -533,8 +560,8 @@ function PantryPanel({
             </h2>
 
             <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
-              Keep track of what you normally need at home. Mark items as low or out,
-              and they show up in Need to buy.
+              Start with common essentials, then customize it for your family.
+              Track what is in stock, low, or out.
             </p>
 
             {canWrite && pantryItems.length === 0 && (
@@ -550,6 +577,80 @@ function PantryPanel({
             )}
           </div>
         </Card>
+
+        {canWrite && (
+          <Card className="rounded-[2rem] border-white/80 bg-white/76 p-4 shadow-[0_14px_34px_rgba(38,50,56,0.055)]">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                <Plus className="h-4 w-4" />
+              </div>
+
+              <div>
+                <p className="text-sm font-black text-slate-950">
+                  Add pantry item
+                </p>
+                <p className="text-xs font-semibold text-slate-500">
+                  Add the specific things your home actually uses.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_140px_minmax(0,0.8fr)_auto]">
+              <Input
+                value={newPantryTitle}
+                onChange={(event) => setNewPantryTitle(event.target.value)}
+                placeholder="Coffee pods, Joaquin cereal, dog food..."
+                className="h-11 rounded-2xl bg-white font-semibold"
+                onKeyDown={(event) => event.key === "Enter" && onAddPantryItem()}
+              />
+
+              <Select value={newPantryCategory} onValueChange={setNewPantryCategory}>
+                <SelectTrigger className="h-11 rounded-2xl bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {Object.entries(pantryCategoryConfig).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={newPantryStatus} onValueChange={setNewPantryStatus}>
+                <SelectTrigger className="h-11 rounded-2xl bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {Object.entries(pantryStatusConfig).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Input
+                value={newPantryNote}
+                onChange={(event) => setNewPantryNote(event.target.value)}
+                placeholder="Optional note"
+                className="h-11 rounded-2xl bg-white"
+                onKeyDown={(event) => event.key === "Enter" && onAddPantryItem()}
+              />
+
+              <Button
+                type="button"
+                onClick={onAddPantryItem}
+                disabled={!newPantryTitle.trim() || savingPantryItem}
+                className="h-11 rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+              >
+                {savingPantryItem ? "Adding..." : "Add"}
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12">
@@ -579,7 +680,9 @@ function PantryPanel({
                     <PantryItemCard
                       key={item.id}
                       item={item}
+                      canWrite={canWrite}
                       onStatusChange={onStatusChange}
+                      onArchive={onArchivePantryItem}
                     />
                   ))}
                 </div>
@@ -591,7 +694,7 @@ function PantryPanel({
             <ShoppingCart className="mx-auto mb-3 h-12 w-12 text-slate-300" />
             <p className="text-xl font-black text-slate-950">No pantry yet</p>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Start with a simple home essentials checklist.
+              Add your own items or start with a home essentials template.
             </p>
           </Card>
         )}
@@ -651,14 +754,14 @@ function PantryPanel({
 
         <Card className="rounded-[2rem] border-white/80 bg-gradient-to-br from-white via-amber-50/60 to-emerald-50/50 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)]">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
-            Dad mode
+            Home mode
           </p>
           <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950">
-            Quick home check
+            Make it yours
           </h3>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-            Before grocery shopping, open Pantry and tap what is Low or Out.
-            No need to remember everything from scratch.
+            Starter pantry is only a shortcut. Add your own brands, snacks,
+            school items, pet supplies, or anything your family normally buys.
           </p>
         </Card>
       </aside>
@@ -709,6 +812,11 @@ export default function Groceries() {
   const [pantryItems, setPantryItems] = useState([]);
   const [activeListsTab, setActiveListsTab] = useState("lists");
   const [creatingStarterPantry, setCreatingStarterPantry] = useState(false);
+  const [newPantryTitle, setNewPantryTitle] = useState("");
+  const [newPantryCategory, setNewPantryCategory] = useState("household");
+  const [newPantryStatus, setNewPantryStatus] = useState("in_stock");
+  const [newPantryNote, setNewPantryNote] = useState("");
+  const [savingPantryItem, setSavingPantryItem] = useState(false);
   const [activeListId, setActiveListId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [linkedTasksPreviewList, setLinkedTasksPreviewList] = useState(null);
@@ -809,6 +917,7 @@ export default function Groceries() {
 
       const nextPantryItems = pantrySnap.docs
         .map(normalizePantryItem)
+        .filter((item) => item.status !== "archived")
         .sort((a, b) => {
           const categoryCompare = (a.category || "").localeCompare(b.category || "");
           if (categoryCompare !== 0) return categoryCompare;
@@ -1265,6 +1374,79 @@ export default function Groceries() {
     }
   };
 
+  const addCustomPantryItem = async () => {
+    const cleanTitle = newPantryTitle.trim();
+
+    if (!canWrite || !familyId || !cleanTitle || savingPantryItem) return;
+
+    setSavingPantryItem(true);
+
+    try {
+      await addDoc(collection(db, PANTRY_COLLECTION), {
+        title: cleanTitle,
+        name: cleanTitle,
+        category: newPantryCategory || "household",
+        status: newPantryStatus || "in_stock",
+        note: newPantryNote.trim(),
+
+        familyId,
+        family_id: familyId,
+
+        createdBy: user?.uid || null,
+        createdByEmail: user?.email || null,
+        createdByName: getProfileDisplayName(profile, user) || "Unknown member",
+        created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
+
+        created_date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      setNewPantryTitle("");
+      setNewPantryNote("");
+      setNewPantryStatus("in_stock");
+
+      toast({
+        title: "Pantry item added",
+        description: `${cleanTitle} was added to your pantry.`,
+        duration: 3000,
+      });
+
+      await loadData();
+    } catch (error) {
+      console.error("Error adding pantry item:", error);
+      showErrorToast("Could not add pantry item", error);
+    } finally {
+      setSavingPantryItem(false);
+    }
+  };
+
+  const archivePantryItem = async (item) => {
+    if (!canWrite || !item?.id) return;
+
+    try {
+      await updateDoc(doc(db, PANTRY_COLLECTION, item.id), {
+        status: "archived",
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      setPantryItems((current) =>
+        current.filter((pantryItem) => pantryItem.id !== item.id)
+      );
+
+      toast({
+        title: "Pantry item removed",
+        description: `${item.title || "Item"} was removed from Pantry.`,
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error removing pantry item:", error);
+      showErrorToast("Could not remove pantry item", error);
+    }
+  };
+
   if (!canRead) {
     return (
       <div className="mx-auto max-w-xl p-6 text-center">
@@ -1289,7 +1471,7 @@ export default function Groceries() {
           </h1>
 
           <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500">
-            Groceries, school projects, car supplies, meal prep, trips, gifts, and event checklists.
+            Shopping, packing, projects, meal prep, trips, gifts, and family checklists.
           </p>
         </div>
 
@@ -1319,7 +1501,7 @@ export default function Groceries() {
       <section className="mb-5 rounded-[2rem] border border-white/80 bg-white/70 p-2 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
         <div className="grid grid-cols-2 gap-2">
           {[
-            { id: "lists", label: "Shopping Lists", helper: `${activeLists.length} active` },
+            { id: "lists", label: "Lists", helper: `${activeLists.length} family lists` },
             { id: "pantry", label: "Pantry", helper: `${pantryItems.filter((item) => item.status === "low" || item.status === "out").length} to buy` },
           ].map((tab) => {
             const active = activeListsTab === tab.id;
@@ -1352,8 +1534,19 @@ export default function Groceries() {
           loading={loading}
           canWrite={canWrite}
           creatingStarterPantry={creatingStarterPantry}
+          newPantryTitle={newPantryTitle}
+          setNewPantryTitle={setNewPantryTitle}
+          newPantryCategory={newPantryCategory}
+          setNewPantryCategory={setNewPantryCategory}
+          newPantryStatus={newPantryStatus}
+          setNewPantryStatus={setNewPantryStatus}
+          newPantryNote={newPantryNote}
+          setNewPantryNote={setNewPantryNote}
+          savingPantryItem={savingPantryItem}
+          onAddPantryItem={addCustomPantryItem}
           onCreateStarterPantry={createStarterPantry}
           onStatusChange={updatePantryStatus}
+          onArchivePantryItem={archivePantryItem}
         />
       ) : (
         <>
