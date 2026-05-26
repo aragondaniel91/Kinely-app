@@ -473,7 +473,7 @@ function PantryStatusButton({ status, active, onClick }) {
   );
 }
 
-function PantryItemCard({ item, canWrite, onStatusChange, onArchive }) {
+function PantryItemCard({ item, canWrite, onStatusChange, onEdit, onArchive }) {
   const categoryConfig = pantryCategoryConfig[item.category] || pantryCategoryConfig.household;
   const CategoryIcon = categoryConfig.icon;
 
@@ -498,14 +498,25 @@ function PantryItemCard({ item, canWrite, onStatusChange, onArchive }) {
             </div>
 
             {canWrite && (
-              <button
-                type="button"
-                onClick={() => onArchive(item)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-300 ring-1 ring-slate-100 transition hover:bg-red-50 hover:text-red-600 hover:ring-red-100"
-                aria-label="Remove pantry item"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex shrink-0 gap-1">
+                <button
+                  type="button"
+                  onClick={() => onEdit(item)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-300 ring-1 ring-slate-100 transition hover:bg-accent/10 hover:text-accent hover:ring-accent/15"
+                  aria-label="Edit pantry item"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onArchive(item)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-300 ring-1 ring-slate-100 transition hover:bg-red-50 hover:text-red-600 hover:ring-red-100"
+                  aria-label="Remove pantry item"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
           </div>
 
@@ -543,6 +554,7 @@ function PantryPanel({
   onAddPantryItem,
   onCreateStarterPantry,
   onStatusChange,
+  onEditPantryItem,
   onArchivePantryItem,
 }) {
   const normalizedSearch = String(searchQuery || "").trim().toLowerCase();
@@ -713,6 +725,7 @@ function PantryPanel({
                       item={item}
                       canWrite={canWrite}
                       onStatusChange={onStatusChange}
+                      onEdit={onEditPantryItem}
                       onArchive={onArchivePantryItem}
                     />
                   ))}
@@ -852,6 +865,14 @@ export default function Groceries() {
   const [newPantryStatus, setNewPantryStatus] = useState("in_stock");
   const [newPantryNote, setNewPantryNote] = useState("");
   const [savingPantryItem, setSavingPantryItem] = useState(false);
+
+  const [editingPantryItem, setEditingPantryItem] = useState(null);
+  const [editPantryTitle, setEditPantryTitle] = useState("");
+  const [editPantryCategory, setEditPantryCategory] = useState("household");
+  const [editPantryStatus, setEditPantryStatus] = useState("in_stock");
+  const [editPantryNote, setEditPantryNote] = useState("");
+  const [savingPantryEdit, setSavingPantryEdit] = useState(false);
+
   const [activeListId, setActiveListId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [linkedTasksPreviewList, setLinkedTasksPreviewList] = useState(null);
@@ -1486,6 +1507,76 @@ export default function Groceries() {
     }
   };
 
+  const startEditingPantryItem = (item) => {
+    if (!item?.id) return;
+
+    setEditingPantryItem(item);
+    setEditPantryTitle(item.title || item.name || "");
+    setEditPantryCategory(item.category || "household");
+    setEditPantryStatus(item.status || "in_stock");
+    setEditPantryNote(item.note || "");
+  };
+
+  const cancelEditingPantryItem = () => {
+    setEditingPantryItem(null);
+    setEditPantryTitle("");
+    setEditPantryCategory("household");
+    setEditPantryStatus("in_stock");
+    setEditPantryNote("");
+    setSavingPantryEdit(false);
+  };
+
+  const savePantryItemEdit = async () => {
+    if (!canWrite || !editingPantryItem?.id || !editPantryTitle.trim() || savingPantryEdit) {
+      return;
+    }
+
+    const cleanTitle = editPantryTitle.trim();
+
+    setSavingPantryEdit(true);
+
+    try {
+      await updateDoc(doc(db, PANTRY_COLLECTION, editingPantryItem.id), {
+        title: cleanTitle,
+        name: cleanTitle,
+        category: editPantryCategory || "household",
+        status: editPantryStatus || "in_stock",
+        note: editPantryNote.trim(),
+
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      setPantryItems((current) =>
+        current.map((item) =>
+          item.id === editingPantryItem.id
+            ? {
+                ...item,
+                title: cleanTitle,
+                name: cleanTitle,
+                category: editPantryCategory || "household",
+                status: editPantryStatus || "in_stock",
+                note: editPantryNote.trim(),
+              }
+            : item
+        )
+      );
+
+      toast({
+        title: "Pantry item updated",
+        description: `${cleanTitle} was updated.`,
+        duration: 3000,
+      });
+
+      cancelEditingPantryItem();
+    } catch (error) {
+      console.error("Error updating pantry item:", error);
+      showErrorToast("Could not update pantry item", error);
+    } finally {
+      setSavingPantryEdit(false);
+    }
+  };
+
   const archivePantryItem = async (item) => {
     if (!canWrite || !item?.id) return;
 
@@ -1650,6 +1741,7 @@ export default function Groceries() {
           onAddPantryItem={addCustomPantryItem}
           onCreateStarterPantry={createStarterPantry}
           onStatusChange={updatePantryStatus}
+          onEditPantryItem={startEditingPantryItem}
           onArchivePantryItem={archivePantryItem}
         />
       ) : (
@@ -2205,6 +2297,131 @@ export default function Groceries() {
       )}
 
         </>
+      )}
+
+      {editingPantryItem && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-lg rounded-[2rem] border-white/80 bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
+                  Edit Pantry
+                </p>
+
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                  Update item
+                </h2>
+
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  Fix the name, category, status, or notes for this pantry item.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={cancelEditingPantryItem}
+                disabled={savingPantryEdit}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-100 transition hover:text-slate-900 disabled:opacity-50"
+                aria-label="Close edit pantry item"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div>
+                <label className="text-sm font-black text-slate-700">
+                  Item name
+                </label>
+
+                <Input
+                  value={editPantryTitle}
+                  onChange={(event) => setEditPantryTitle(event.target.value)}
+                  placeholder="Milk, coffee pods, trash bags..."
+                  className="mt-1 h-11 rounded-2xl bg-white font-bold"
+                  onKeyDown={(event) => event.key === "Enter" && savePantryItemEdit()}
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-black text-slate-700">
+                    Category
+                  </label>
+
+                  <Select value={editPantryCategory} onValueChange={setEditPantryCategory}>
+                    <SelectTrigger className="mt-1 h-11 rounded-2xl bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {Object.entries(pantryCategoryConfig).map(([key, value]) => (
+                        <SelectItem key={key} value={key}>
+                          {value.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-black text-slate-700">
+                    Status
+                  </label>
+
+                  <Select value={editPantryStatus} onValueChange={setEditPantryStatus}>
+                    <SelectTrigger className="mt-1 h-11 rounded-2xl bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {Object.entries(pantryStatusConfig).map(([key, value]) => (
+                        <SelectItem key={key} value={key}>
+                          {value.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-black text-slate-700">
+                  Note
+                </label>
+
+                <Input
+                  value={editPantryNote}
+                  onChange={(event) => setEditPantryNote(event.target.value)}
+                  placeholder="Brand, size, preference, reminder..."
+                  className="mt-1 h-11 rounded-2xl bg-white"
+                  onKeyDown={(event) => event.key === "Enter" && savePantryItemEdit()}
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancelEditingPantryItem}
+                disabled={savingPantryEdit}
+                className="rounded-2xl font-black"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                onClick={savePantryItemEdit}
+                disabled={!editPantryTitle.trim() || savingPantryEdit}
+                className="rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+              >
+                {savingPantryEdit ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {confirmAction && (
