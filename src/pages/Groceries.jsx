@@ -262,51 +262,72 @@ function buildListPeopleOptions({ familyPeople = [], familyAdults = [], children
   return Array.from(peopleById.values());
 }
 
-function formatNameFromEmail(email = "") {
-  const value = String(email || "").trim();
+function getCleanDisplayName(value = "") {
+  const name = String(value || "").trim();
 
-  if (!value || !value.includes("@")) return "";
+  if (!name || name.includes("@")) return "";
 
-  const localPart = value.split("@")[0] || "";
-
-  return localPart
-    .replace(/[._-]+/g, " ")
-    .replace(/\d+/g, "")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
+  return name;
 }
 
 function getProfileDisplayName(profile = null, user = null) {
   return (
-    profile?.displayName ||
-    profile?.fullName ||
-    profile?.name ||
-    user?.displayName ||
-    formatNameFromEmail(user?.email) ||
+    getCleanDisplayName(profile?.displayName) ||
+    getCleanDisplayName(profile?.fullName) ||
+    getCleanDisplayName(profile?.name) ||
+    getCleanDisplayName(user?.displayName) ||
+    ""
+  );
+}
+
+function getPersonNameFromOptions(peopleOptions = [], identifiers = []) {
+  const validIdentifiers = identifiers.filter(Boolean);
+
+  if (!validIdentifiers.length) return "";
+
+  const match = peopleOptions.find((person) => {
+    return validIdentifiers.some((value) => {
+      return (
+        person.id === value ||
+        person.uid === value ||
+        person.personId === value ||
+        person.person_id === value ||
+        person.email === value
+      );
+    });
+  });
+
+  return (
+    getCleanDisplayName(match?.name) ||
+    getCleanDisplayName(match?.displayName) ||
+    getCleanDisplayName(match?.fullName) ||
     ""
   );
 }
 
 function getListCreatorLabel(list = {}, currentUserContext = {}) {
-  const { user = null, profile = null } = currentUserContext;
+  const { user = null, profile = null, peopleOptions = [] } = currentUserContext;
 
   const createdById = list.createdBy || list.created_by || "";
   const createdByEmail = list.createdByEmail || list.created_by_email || "";
 
+  const storedName =
+    getCleanDisplayName(list.createdByName) ||
+    getCleanDisplayName(list.created_by_name) ||
+    getCleanDisplayName(list.createdByDisplayName) ||
+    getCleanDisplayName(list.created_by_display_name);
+
+  if (storedName) return storedName;
+
+  const memberName = getPersonNameFromOptions(peopleOptions, [createdById, createdByEmail]);
+
+  if (memberName) return memberName;
+
   if (user?.uid && createdById && createdById === user.uid) {
-    return getProfileDisplayName(profile, user) || "You";
+    return getProfileDisplayName(profile, user) || "Unknown member";
   }
 
-  return (
-    list.createdByName ||
-    list.created_by_name ||
-    list.createdByDisplayName ||
-    list.created_by_display_name ||
-    formatNameFromEmail(createdByEmail) ||
-    "Unknown"
-  );
+  return "Unknown member";
 }
 
 export default function Groceries() {
@@ -566,8 +587,8 @@ export default function Groceries() {
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
-        createdByName: getProfileDisplayName(profile, user) || user?.email || "",
-        created_by_name: getProfileDisplayName(profile, user) || user?.email || "",
+        createdByName: getProfileDisplayName(profile, user) || "Unknown member",
+        created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
         created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -1163,7 +1184,7 @@ export default function Groceries() {
 
                             <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-500 ring-1 ring-slate-100">
                               <Pencil className="h-3.5 w-3.5" />
-                              Created by: {getListCreatorLabel(activeList, { user, profile })}
+                              Created by: {getListCreatorLabel(activeList, { user, profile, peopleOptions })}
                             </div>
 
                             {(tasksByListId[activeList.id]?.length || 0) > 0 && (
