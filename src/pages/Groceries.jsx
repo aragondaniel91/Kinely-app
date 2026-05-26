@@ -562,6 +562,7 @@ function PantryItemCard({
 function PantryPanel({
   pantryItems,
   refillItemKeys,
+  activeRefillList,
   loading,
   canWrite,
   searchQuery,
@@ -608,6 +609,19 @@ function PantryPanel({
   const needToBuy = filteredPantryItems.filter(
     (item) => item.status === "low" || item.status === "out"
   );
+
+  const needToBuyNotInRefill = needToBuy.filter(
+    (item) => !refillItemKeys?.has(normalizeItemKey(item.title || item.name))
+  );
+
+  const allNeedToBuyAlreadyInRefill =
+    needToBuy.length > 0 && needToBuyNotInRefill.length === 0 && activeRefillList?.id;
+
+  const refillButtonLabel = allNeedToBuyAlreadyInRefill
+    ? "Open refill list"
+    : activeRefillList?.id && needToBuyNotInRefill.length > 0
+      ? "Add missing to refill list"
+      : "Create refill list";
 
   const itemsByCategory = Object.keys(pantryCategoryConfig).reduce((acc, category) => {
     acc[category] = filteredPantryItems.filter((item) => item.category === category);
@@ -800,7 +814,7 @@ function PantryPanel({
               className="mt-4 w-full rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
             >
               <ListChecks className="mr-2 h-4 w-4" />
-              {creatingRefillList ? "Creating..." : "Create refill list"}
+              {creatingRefillList ? "Working..." : refillButtonLabel}
             </Button>
           )}
 
@@ -1168,6 +1182,22 @@ export default function Groceries() {
         .filter(Boolean)
     );
   }, [items, activePantryRefillListIds]);
+
+  const activePantryRefillList = useMemo(() => {
+    return (
+      activeLists.find((list) => {
+        const title = String(list.title || "").trim().toLowerCase();
+        const source = String(list.source || list.source_type || "").toLowerCase();
+
+        return (
+          list.status !== "archived" &&
+          title === "pantry refill" &&
+          source === "pantry"
+        );
+      }) || null
+    );
+  }, [activeLists]);
+
 
 
   function applyQuickTemplate(template) {
@@ -1608,23 +1638,127 @@ export default function Groceries() {
       return;
     }
 
-    if (!forceNew) {
-      const existing = activeLists.find((list) => {
-        const title = String(list.title || "").trim().toLowerCase();
-        const source = String(list.source || list.source_type || "").toLowerCase();
+    const existing = !forceNew
+      ? activeLists.find((list) => {
+          const title = String(list.title || "").trim().toLowerCase();
+          const source = String(list.source || list.source_type || "").toLowerCase();
 
-        return (
-          list.status !== "archived" &&
-          title === "pantry refill" &&
-          (source === "pantry" || list.type === "groceries")
-        );
-      });
+          return (
+            list.status !== "archived" &&
+            title === "pantry refill" &&
+            source === "pantry"
+          );
+        })
+      : null;
 
-      if (existing?.id) {
-        setPendingRefillItems(cleanItems);
-        setExistingRefillList(existing);
+    if (existing?.id) {
+      const existingKeys = new Set(
+        items
+          .filter((item) => {
+            const status = String(item.status || "").toLowerCase();
+
+            return (
+              item.listId === existing.id &&
+              status !== "archived" &&
+              !item.checked
+            );
+          })
+          .map((item) => normalizeItemKey(item.title || item.name))
+          .filter(Boolean)
+      );
+
+      const missingItems = cleanItems.filter(
+        (item) => !existingKeys.has(normalizeItemKey(item.title))
+      );
+
+      if (!missingItems.length) {
+        setActiveListsTab("lists");
+        setShowArchivedLists(false);
+        setActiveListId(existing.id);
+        setSearchParams({ listId: existing.id });
+
+        toast({
+          title: "Refill list already ready",
+          description: "All current Low/Out pantry items are already in the refill list.",
+          duration: 3500,
+        });
+
         return;
       }
+
+      setCreatingRefillList(true);
+
+      try {
+        await Promise.all(
+          missingItems.map((item) =>
+            addDoc(collection(db, ITEM_COLLECTION), {
+              title: item.title,
+              name: item.title,
+              quantity: "",
+              note:
+                item.status === "out"
+                  ? "Pantry: Out"
+                  : item.status === "low"
+                    ? "Pantry: Low"
+                    : item.note || "",
+              status: "needed",
+              checked: false,
+
+              listId: existing.id,
+              list_id: existing.id,
+              listTitle: existing.title || "Pantry refill",
+              list_title: existing.title || "Pantry refill",
+              listType: existing.type || "groceries",
+              list_type: existing.type || "groceries",
+
+              familyId,
+              family_id: familyId,
+
+              source: "pantry",
+              source_type: "pantry",
+              pantryCategory: item.category,
+              pantry_category: item.category,
+              pantryStatus: item.status,
+              pantry_status: item.status,
+
+              assignedToPersonId: "",
+              assigned_to_person_id: "",
+              requestedByPersonId: "",
+              requested_by_person_id: "",
+
+              createdBy: user?.uid || null,
+              createdByEmail: user?.email || null,
+              created_date: new Date().toISOString(),
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            })
+          )
+        );
+
+        await updateDoc(doc(db, LIST_COLLECTION, existing.id), {
+          updatedAt: serverTimestamp(),
+          updatedBy: user?.uid || null,
+        });
+
+        toast({
+          title: "Refill list updated",
+          description: `${missingItems.length} missing item${missingItems.length === 1 ? "" : "s"} added.`,
+          duration: 3500,
+        });
+
+        setActiveListsTab("lists");
+        setShowArchivedLists(false);
+        setActiveListId(existing.id);
+        setSearchParams({ listId: existing.id });
+        await loadData();
+      } catch (error) {
+        console.error("Error updating pantry refill list:", error);
+        showErrorToast("Could not update refill list", error);
+      } finally {
+        setCreatingRefillList(false);
+      }
+
+      return;
     }
 
     setCreatingRefillList(true);
@@ -1971,6 +2105,7 @@ export default function Groceries() {
         <PantryPanel
           pantryItems={pantryItems}
           refillItemKeys={pantryRefillItemKeys}
+          activeRefillList={activePantryRefillList}
           loading={loading}
           canWrite={canWrite}
           searchQuery={listsSearch}
