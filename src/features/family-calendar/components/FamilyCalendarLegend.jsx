@@ -1,12 +1,27 @@
 import { cn } from "@/lib/utils";
 import { colorClasses } from "@/lib/personColorUtils";
-import { familyGradientStyle } from "@/features/family-calendar/utils/familyCalendarColorStyles";
 
 const ALL_FILTER_ID = "all";
 const FAMILY_FILTER_ID = "family";
 
 function LegendDot({ colorId = "family", active = false, gradientStyle = null }) {
+  const isSharedFamilyDot = colorId === "all" || colorId === "family";
+
+  if (isSharedFamilyDot) {
+    return (
+      <span
+        className={cn(
+          "h-4 w-4 shrink-0 rounded-full border border-slate-300 bg-white shadow-sm",
+          active && "ring-2 ring-blue-200"
+        )}
+      >
+        <span className="block h-full w-full rounded-full bg-gradient-to-br from-blue-400 via-emerald-400 to-violet-400 opacity-80" />
+      </span>
+    );
+  }
+
   const colors = colorClasses(colorId, "slate");
+
   return (
     <span
       className={cn(
@@ -20,11 +35,10 @@ function LegendDot({ colorId = "family", active = false, gradientStyle = null })
 }
 
 export default function FamilyCalendarLegend({ people = [], selectedPersonId = ALL_FILTER_ID, onSelectPerson }) {
-  const sharedFamilyGradient = familyGradientStyle(people);
   const items = [
-    { id: ALL_FILTER_ID, displayName: "ALL", type: "all", gradientStyle: sharedFamilyGradient },
+    { id: ALL_FILTER_ID, displayName: "ALL", type: "all", colorId: "all" },
     ...people,
-    { id: FAMILY_FILTER_ID, displayName: "Family", type: "family", gradientStyle: sharedFamilyGradient },
+    { id: FAMILY_FILTER_ID, displayName: "Family", type: "family", colorId: "family" },
   ];
 
   return (
