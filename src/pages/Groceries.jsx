@@ -78,27 +78,27 @@ const pantryStatusConfig = {
 
 const pantryCategoryConfig = {
   breakfast: {
-    label: "Breakfast basics",
+    label: "Food basics",
     icon: Milk,
     color: "bg-amber-50 text-amber-700 ring-amber-100",
   },
   easy_dinners: {
-    label: "Easy dinners",
+    label: "Meals & cooking",
     icon: UtensilsCrossed,
     color: "bg-orange-50 text-orange-700 ring-orange-100",
   },
   kid_snacks: {
-    label: "Kid snacks",
+    label: "Snacks",
     icon: Apple,
     color: "bg-emerald-50 text-emerald-700 ring-emerald-100",
   },
   household: {
-    label: "Household",
+    label: "Home supplies",
     icon: Warehouse,
     color: "bg-slate-50 text-slate-700 ring-slate-100",
   },
   school: {
-    label: "School / daycare",
+    label: "School & kids",
     icon: GraduationCap,
     color: "bg-sky-50 text-sky-700 ring-sky-100",
   },
@@ -111,6 +111,11 @@ const pantryCategoryConfig = {
     label: "Drinks",
     icon: Cookie,
     color: "bg-violet-50 text-violet-700 ring-violet-100",
+  },
+  other: {
+    label: "Personal / Other",
+    icon: Package,
+    color: "bg-zinc-50 text-zinc-700 ring-zinc-100",
   },
 };
 
@@ -169,7 +174,7 @@ const listTypeConfig = {
   },
   household: {
     icon: Warehouse,
-    label: "Household",
+    label: "Home supplies",
     color: "bg-slate-50 text-slate-700 ring-slate-100",
   },
   school: {
@@ -1424,27 +1429,37 @@ export default function Groceries() {
   const archivePantryItem = async (item) => {
     if (!canWrite || !item?.id) return;
 
-    try {
-      await updateDoc(doc(db, PANTRY_COLLECTION, item.id), {
-        status: "archived",
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        updatedBy: user?.uid || null,
-      });
+    requestConfirmation({
+      title: `Remove "${item.title || "this item"}" from Pantry?`,
+      description:
+        "This will remove it from Pantry and Need to buy. You can add it again later if needed.",
+      confirmLabel: "Remove item",
+      tone: "danger",
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, PANTRY_COLLECTION, item.id), {
+            status: "archived",
+            archivedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || null,
+          });
 
-      setPantryItems((current) =>
-        current.filter((pantryItem) => pantryItem.id !== item.id)
-      );
+          setPantryItems((current) =>
+            current.filter((pantryItem) => pantryItem.id !== item.id)
+          );
 
-      toast({
-        title: "Pantry item removed",
-        description: `${item.title || "Item"} was removed from Pantry.`,
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error("Error removing pantry item:", error);
-      showErrorToast("Could not remove pantry item", error);
-    }
+          toast({
+            title: "Pantry item removed",
+            description: `${item.title || "Item"} was removed from Pantry.`,
+            duration: 3000,
+          });
+        } catch (error) {
+          console.error("Error removing pantry item:", error);
+          showErrorToast("Could not remove pantry item", error);
+        }
+      },
+    });
+
   };
 
   if (!canRead) {
