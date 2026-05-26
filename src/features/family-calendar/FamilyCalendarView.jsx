@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { addDays, addMonths, subMonths } from "date-fns";
 import { useSearchParams } from "react-router-dom";
-import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { Plus } from "lucide-react";
 
 import {
@@ -17,7 +17,7 @@ import {
 
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
-import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
+import { getFirestoreDocumentId, mapFirestoreDoc } from "@/core/firestore/firestoreDocUtils";
 import { deleteFamilyEventById } from "@/services/familyEventsService";
 import AddFamilyEventDialog from "@/features/family-calendar/components/AddFamilyEventDialog";
 import FamilyCalendarPlannerHeader from "@/features/family-calendar/components/FamilyCalendarPlannerHeader";
@@ -30,8 +30,43 @@ import { ALL_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/features/family-c
 import { useFamilyCalendarDateRange } from "@/features/family-calendar/hooks/useFamilyCalendarDateRange";
 import { useFamilyCalendarEvents } from "@/features/family-calendar/hooks/useFamilyCalendarEvents";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
+import { adaptFamilyEvent } from "@/core/events/familyEventAdapter";
 
 const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
+
+function eventMatchesRequestedId(event = {}, requestedEventId = "") {
+  if (!requestedEventId) return false;
+
+  return [
+    event.id,
+    event.firestoreId,
+    event.firestore_id,
+    event.documentId,
+    event.document_id,
+    event.docId,
+    event.doc_id,
+    event.eventId,
+    event.event_id,
+    event.legacyId,
+    event.legacy_id,
+    event.legacyEventId,
+    event.legacy_event_id,
+    event.googleCalendarEventId,
+    event.google_calendar_event_id,
+  ]
+    .filter(Boolean)
+    .some((value) => String(value) === String(requestedEventId));
+}
+
+function focusEventPanel(event, setAnchorDate, setSelectedOverflow, setSelectedEvent) {
+  if (event?.date) {
+    setAnchorDate(new Date(`${event.date}T00:00:00`));
+  }
+
+  setSelectedOverflow(null);
+  setSelectedEvent(buildEventPanelState(event, null));
+}
+
 
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const { familyId, profile, familyPeople } = useFamily();
@@ -75,36 +110,85 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   useEffect(() => {
     const requestedEventId = searchParams.get("eventId");
 
-    if (!requestedEventId || loading || !events.length) return;
+    if (!requestedEventId || loading) return;
 
-    const match = events.find((event) => {
-      return (
-        event.id === requestedEventId ||
-        event.firestoreId === requestedEventId ||
-        event.firestore_id === requestedEventId ||
-        event.documentId === requestedEventId ||
-        event.document_id === requestedEventId ||
-        event.docId === requestedEventId ||
-        event.doc_id === requestedEventId ||
-        event.eventId === requestedEventId ||
-        event.event_id === requestedEventId ||
-        event.legacyId === requestedEventId ||
-        event.legacy_id === requestedEventId ||
-        event.googleCalendarEventId === requestedEventId ||
-        event.google_calendar_event_id === requestedEventId
+    let cancelled = false;
+
+    async function openRequestedEvent() {
+      const loadedMatch = events.find((event) =>
+        eventMatchesRequestedId(event, requestedEventId)
       );
-    });
 
-    if (!match) return;
+      if (loadedMatch) {
+        focusEventPanel(loadedMatch, setAnchorDate, setSelectedOverflow, setSelectedEvent);
+        setSearchParams({}, { replace: true });
+        return;
+      }
 
-    if (match.date) {
-      setAnchorDate(new Date(`${match.date}T00:00:00`));
+      try {
+        const directSnap = await getDoc(doc(db, "familyEvents", requestedEventId));
+
+        if (!cancelled && directSnap.exists()) {
+          const rawEvent = mapFirestoreDoc(directSnap, { type: "familyEvent" });
+          const adaptedEvent = adaptFamilyEvent(rawEvent, people);
+
+          focusEventPanel(adaptedEvent, setAnchorDate, setSelectedOverflow, setSelectedEvent);
+          setSearchParams({}, { replace: true });
+          return;
+        }
+
+        const aliasFields = [
+          "id",
+          "eventId",
+          "event_id",
+          "legacyId",
+          "legacy_id",
+          "googleCalendarEventId",
+          "google_calendar_event_id",
+        ];
+
+        for (const field of aliasFields) {
+          const aliasSnap = await getDocs(
+            query(
+              collection(db, "familyEvents"),
+              where("familyId", "==", familyId),
+              where(field, "==", requestedEventId)
+            )
+          );
+
+          if (cancelled) return;
+
+          if (!aliasSnap.empty) {
+            const rawEvent = mapFirestoreDoc(aliasSnap.docs[0], { type: "familyEvent" });
+            const adaptedEvent = adaptFamilyEvent(rawEvent, people);
+
+            focusEventPanel(adaptedEvent, setAnchorDate, setSelectedOverflow, setSelectedEvent);
+            setSearchParams({}, { replace: true });
+            return;
+          }
+        }
+
+        if (!cancelled) {
+          console.warn("Could not find linked calendar event", requestedEventId);
+
+          setSearchParams({}, { replace: true });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error opening linked calendar event", error);
+          setSearchParams({}, { replace: true });
+        }
+      }
     }
 
-    setSelectedOverflow(null);
-    setSelectedEvent(buildEventPanelState(match, null));
-    setSearchParams({});
-  }, [searchParams, setSearchParams, events, loading]);
+    openRequestedEvent();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, setSearchParams, events, loading, familyId, people]);
+
+
 
   function goPrevious() {
     if (viewMode === "month") setAnchorDate((date) => subMonths(date, 1));
