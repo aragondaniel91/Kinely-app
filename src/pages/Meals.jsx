@@ -1911,6 +1911,10 @@ export default function Meals() {
       ? template.ingredients.map((item) => String(item || "").trim()).filter(Boolean)
       : [];
 
+    const mealName = template.name || "Meal";
+    const listTitle = `${mealName} ingredients`;
+    const normalizedListTitle = listTitle.trim().toLowerCase();
+
     setAddingTemplateId(template.id);
 
     try {
@@ -1920,7 +1924,7 @@ export default function Meals() {
         meal_type: template.mealType || template.meal_type || "dinner",
         mealType: template.mealType || template.meal_type || "dinner",
 
-        name: template.name || "Meal",
+        name: mealName,
         notes: template.notes || "",
         image_url: "",
         imageUrl: "",
@@ -1943,8 +1947,11 @@ export default function Meals() {
       });
 
       let listRef = null;
+      let targetListId = "";
       let addedCount = 0;
       let skippedInStockCount = 0;
+      let skippedAlreadyInListCount = 0;
+      let usedExistingList = false;
 
       if (shouldCreateGroceryList && ingredients.length > 0) {
         const pantrySnap = await getDocs(
@@ -1955,10 +1962,8 @@ export default function Meals() {
 
         pantrySnap.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          const key = String(data.title || data.name || "")
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, " ");
+
+          const key = normalizeIngredientKey(data.title || data.name);
           const status = String(data.status || "in_stock").toLowerCase();
 
           if (key && status !== "archived") {
@@ -1967,24 +1972,103 @@ export default function Meals() {
         });
 
         const ingredientsToBuy = ingredients.filter((ingredient) => {
-          const key = String(ingredient || "")
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, " ");
-
+          const key = normalizeIngredientKey(ingredient);
           return pantryByName.get(key) !== "in_stock";
         });
 
         skippedInStockCount = ingredients.length - ingredientsToBuy.length;
-        addedCount = ingredientsToBuy.length;
 
-        if (ingredientsToBuy.length > 0) {
+        const existingMealList =
+          mealLists.find((list) => {
+            const title = String(list.title || "").trim().toLowerCase();
+            const source = String(list.source || list.source_type || "").toLowerCase();
+
+            return (
+              list.status !== "archived" &&
+              title === normalizedListTitle &&
+              (source === "meal" || list.type === "meal")
+            );
+          }) || null;
+
+        if (existingMealList?.id) {
+          usedExistingList = true;
+          targetListId = existingMealList.id;
+
+          const itemSnap = await getDocs(
+            query(
+              collection(db, "familyListItems"),
+              where("familyId", "==", familyId),
+              where("listId", "==", existingMealList.id)
+            )
+          );
+
+          const existingItemKeys = new Set(
+            itemSnap.docs
+              .map((docSnap) => docSnap.data())
+              .filter((item) => String(item.status || "").toLowerCase() !== "archived")
+              .map((item) => normalizeIngredientKey(item.title || item.name))
+              .filter(Boolean)
+          );
+
+          const missingIngredients = ingredientsToBuy.filter((ingredient) => {
+            const key = normalizeIngredientKey(ingredient);
+            return key && !existingItemKeys.has(key);
+          });
+
+          skippedAlreadyInListCount = ingredientsToBuy.length - missingIngredients.length;
+          addedCount = missingIngredients.length;
+
+          if (missingIngredients.length > 0) {
+            await Promise.all(
+              missingIngredients.map((ingredient) =>
+                addDoc(collection(db, "familyListItems"), {
+                  title: ingredient,
+                  name: ingredient,
+                  quantity: "",
+                  note: "",
+                  status: "needed",
+                  checked: false,
+
+                  listId: existingMealList.id,
+                  list_id: existingMealList.id,
+                  listTitle: existingMealList.title || listTitle,
+                  list_title: existingMealList.title || listTitle,
+                  listType: "meal",
+                  list_type: "meal",
+
+                  familyId,
+                  family_id: familyId,
+
+                  source: "mealTemplate",
+                  source_type: "mealTemplate",
+                  linkedMealId: mealRef.id,
+                  linked_meal_id: mealRef.id,
+                  linkedMealTitle: mealName,
+                  linked_meal_title: mealName,
+
+                  createdBy: user?.uid || null,
+                  createdByEmail: user?.email || null,
+                  created_date: new Date().toISOString(),
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                })
+              )
+            );
+
+            await updateDoc(doc(db, "familyLists", existingMealList.id), {
+              updatedAt: serverTimestamp(),
+              updatedBy: user?.uid || null,
+            });
+          }
+        } else if (ingredientsToBuy.length > 0) {
+          addedCount = ingredientsToBuy.length;
+
           listRef = await addDoc(collection(db, "familyLists"), {
-            title: `${template.name || "Meal"} ingredients`,
+            title: listTitle,
             type: "meal",
             description:
               template.notes ||
-              `Shopping list for ${template.name || "this meal"}`,
+              `Shopping list for ${mealName}`,
             status: "active",
 
             familyId,
@@ -1992,8 +2076,8 @@ export default function Meals() {
 
             linkedMealId: mealRef.id,
             linked_meal_id: mealRef.id,
-            linkedMealTitle: template.name || "",
-            linked_meal_title: template.name || "",
+            linkedMealTitle: mealName,
+            linked_meal_title: mealName,
 
             source: "meal",
             source_type: "meal",
@@ -2013,6 +2097,8 @@ export default function Meals() {
             updatedAt: serverTimestamp(),
           });
 
+          targetListId = listRef.id;
+
           await Promise.all(
             ingredientsToBuy.map((ingredient) =>
               addDoc(collection(db, "familyListItems"), {
@@ -2025,8 +2111,8 @@ export default function Meals() {
 
                 listId: listRef.id,
                 list_id: listRef.id,
-                listTitle: `${template.name || "Meal"} ingredients`,
-                list_title: `${template.name || "Meal"} ingredients`,
+                listTitle,
+                list_title: listTitle,
                 listType: "meal",
                 list_type: "meal",
 
@@ -2037,8 +2123,8 @@ export default function Meals() {
                 source_type: "mealTemplate",
                 linkedMealId: mealRef.id,
                 linked_meal_id: mealRef.id,
-                linkedMealTitle: template.name || "",
-                linked_meal_title: template.name || "",
+                linkedMealTitle: mealName,
+                linked_meal_title: mealName,
 
                 createdBy: user?.uid || null,
                 createdByEmail: user?.email || null,
@@ -2053,25 +2139,31 @@ export default function Meals() {
 
       toast({
         title:
-          shouldCreateGroceryList && listRef?.id
-            ? "Meal and smart list added"
-            : shouldCreateGroceryList
-              ? "Meal added, pantry already stocked"
-              : "Meal added",
+          shouldCreateGroceryList && usedExistingList
+            ? "Meal added, existing list updated"
+            : shouldCreateGroceryList && targetListId
+              ? "Meal and smart list added"
+              : shouldCreateGroceryList
+                ? "Meal added, pantry already stocked"
+                : "Meal added",
         description:
-          shouldCreateGroceryList && listRef?.id
-            ? `${addedCount} item${addedCount === 1 ? "" : "s"} added. ${skippedInStockCount} already in stock.`
-            : shouldCreateGroceryList
-              ? `${template.name} was added. All ingredients were already in stock.`
-              : `${template.name} was added to ${format(selectedDay, "EEEE")}.`,
-        duration: 3500,
+          shouldCreateGroceryList && usedExistingList
+            ? addedCount > 0
+              ? `${addedCount} missing item${addedCount === 1 ? "" : "s"} added to the existing list. ${skippedAlreadyInListCount} already there. ${skippedInStockCount} already in stock.`
+              : `Existing list opened. ${skippedAlreadyInListCount} already there. ${skippedInStockCount} already in stock.`
+            : shouldCreateGroceryList && targetListId
+              ? `${addedCount} item${addedCount === 1 ? "" : "s"} added. ${skippedInStockCount} already in stock.`
+              : shouldCreateGroceryList
+                ? `${mealName} was added. All ingredients were already in stock.`
+                : `${mealName} was added to ${format(selectedDay, "EEEE")}.`,
+        duration: 4000,
       });
 
       setActiveMealTab("planner");
       await loadMeals();
 
-      if (listRef?.id) {
-        navigate(`/lists?listId=${listRef.id}`);
+      if (targetListId) {
+        navigate(`/lists?listId=${targetListId}`);
       }
     } catch (error) {
       console.error("Error adding template to plan:", error);

@@ -2533,7 +2533,7 @@ export default function Groceries() {
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[310px_minmax(0,1fr)]">
-          <aside className="space-y-3">
+          <aside className="max-h-[34rem] space-y-3 overflow-y-auto pr-1 lg:sticky lg:top-4">
             {filteredVisibleLists.length > 0 ? (
               filteredVisibleLists.map((list) => {
                 const config = listTypeConfig[list.type] || listTypeConfig.other;
