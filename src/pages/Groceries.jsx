@@ -325,6 +325,110 @@ function getLinkedEventId(list = {}) {
   return list.linkedEventId || list.linked_event_id || "";
 }
 
+function getListSourceConfig(list = {}) {
+  const source = String(list.source || list.source_type || "").toLowerCase();
+  const title = String(list.title || "").trim().toLowerCase();
+  const type = String(list.type || "").toLowerCase();
+
+  if (source === "pantry" || title === "pantry refill") {
+    return {
+      label: "From Pantry",
+      icon: ShoppingCart,
+      color: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+      context: "Built from Pantry items marked Low or Out.",
+    };
+  }
+
+  if (
+    source === "meal" ||
+    type === "meal" ||
+    list.linkedMealId ||
+    list.linked_meal_id
+  ) {
+    return {
+      label: "From Meal",
+      icon: UtensilsCrossed,
+      color: "bg-amber-50 text-amber-700 ring-amber-100",
+      context: "Connected to meal planning or Family Menu ingredients.",
+    };
+  }
+
+  if (isCalendarLinkedList(list) || source === "event") {
+    return {
+      label: "From Calendar",
+      icon: CalendarDays,
+      color: "bg-violet-50 text-violet-700 ring-violet-100",
+      context: "Connected to a family calendar event.",
+    };
+  }
+
+  if (source === "tasks" || source === "task") {
+    return {
+      label: "From Tasks",
+      icon: CheckSquare,
+      color: "bg-blue-50 text-blue-700 ring-blue-100",
+      context: "Connected to family tasks.",
+    };
+  }
+
+  if (type === "school") {
+    return {
+      label: "School list",
+      icon: GraduationCap,
+      color: "bg-sky-50 text-sky-700 ring-sky-100",
+      context: "School, kids, or project supplies.",
+    };
+  }
+
+  if (type === "trip") {
+    return {
+      label: "Trip list",
+      icon: Croissant,
+      color: "bg-cyan-50 text-cyan-700 ring-cyan-100",
+      context: "Packing, travel, and family trip planning.",
+    };
+  }
+
+  return {
+    label: "Manual list",
+    icon: ListChecks,
+    color: "bg-slate-50 text-slate-600 ring-slate-100",
+    context: "Created directly by the family.",
+  };
+}
+
+function ListSourceBadge({ list, compact = false }) {
+  const sourceConfig = getListSourceConfig(list);
+  const SourceIcon = sourceConfig.icon;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full font-black ring-1",
+        compact
+          ? "px-2 py-1 text-[10px]"
+          : "px-3 py-1.5 text-xs",
+        sourceConfig.color
+      )}
+    >
+      <SourceIcon className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+      {sourceConfig.label}
+    </span>
+  );
+}
+
+function ListContextNote({ list }) {
+  const sourceConfig = getListSourceConfig(list);
+
+  return (
+    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100">
+      <CircleDot className="h-3 w-3" />
+      {sourceConfig.context}
+    </span>
+  );
+}
+
+
 function normalizePersonName(value, fallback = "Family") {
   return String(value || fallback || "").trim() || fallback;
 }
@@ -2474,6 +2578,8 @@ export default function Groceries() {
                             {list.assignedToPersonName || "Family"}
                           </span>
 
+                          <ListSourceBadge list={list} compact />
+
                           {(tasksByListId[list.id]?.length || 0) > 0 && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
                               <CheckSquare className="h-3 w-3" />
@@ -2488,12 +2594,7 @@ export default function Groceries() {
                           </p>
                         )}
 
-                        {isCalendarLinkedList(list) && (
-                          <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-black text-violet-700 ring-1 ring-violet-100">
-                            <CalendarDays className="h-3 w-3" />
-                            Linked to calendar
-                          </span>
-                        )}
+                        <ListContextNote list={list} />
                       </div>
                     </div>
                   </button>
@@ -2626,6 +2727,8 @@ export default function Groceries() {
                               Responsible: {activeList.assignedToPersonName || "Family"}
                             </div>
 
+                            <ListSourceBadge list={activeList} />
+
                             <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-500 ring-1 ring-slate-100">
                               <Pencil className="h-3.5 w-3.5" />
                               Created by: {getListCreatorLabel(activeList, { user, profile, peopleOptions })}
@@ -2638,12 +2741,10 @@ export default function Groceries() {
                               </div>
                             )}
 
-                            {isCalendarLinkedList(activeList) && (
-                              <div className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-black text-violet-700 ring-1 ring-violet-100">
-                                <CalendarDays className="h-3.5 w-3.5" />
-                                Linked to calendar
-                              </div>
-                            )}
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-500 ring-1 ring-slate-100">
+                              <CircleDot className="h-3.5 w-3.5" />
+                              {getListSourceConfig(activeList).context}
+                            </div>
                           </div>
                         </>
                       )}
