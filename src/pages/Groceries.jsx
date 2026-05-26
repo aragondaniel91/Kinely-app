@@ -262,14 +262,49 @@ function buildListPeopleOptions({ familyPeople = [], familyAdults = [], children
   return Array.from(peopleById.values());
 }
 
-function getListCreatorLabel(list = {}) {
+function formatNameFromEmail(email = "") {
+  const value = String(email || "").trim();
+
+  if (!value || !value.includes("@")) return "";
+
+  const localPart = value.split("@")[0] || "";
+
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .replace(/\d+/g, "")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function getProfileDisplayName(profile = null, user = null) {
+  return (
+    profile?.displayName ||
+    profile?.fullName ||
+    profile?.name ||
+    user?.displayName ||
+    formatNameFromEmail(user?.email) ||
+    ""
+  );
+}
+
+function getListCreatorLabel(list = {}, currentUserContext = {}) {
+  const { user = null, profile = null } = currentUserContext;
+
+  const createdById = list.createdBy || list.created_by || "";
+  const createdByEmail = list.createdByEmail || list.created_by_email || "";
+
+  if (user?.uid && createdById && createdById === user.uid) {
+    return getProfileDisplayName(profile, user) || "You";
+  }
+
   return (
     list.createdByName ||
     list.created_by_name ||
     list.createdByDisplayName ||
     list.created_by_display_name ||
-    list.createdByEmail ||
-    list.created_by_email ||
+    formatNameFromEmail(createdByEmail) ||
     "Unknown"
   );
 }
@@ -278,6 +313,7 @@ export default function Groceries() {
   const {
     familyId,
     user,
+    profile,
     perms,
     familyPeople,
     familyAdults,
@@ -530,8 +566,8 @@ export default function Groceries() {
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
-        createdByName: user?.displayName || user?.email || "",
-        created_by_name: user?.displayName || user?.email || "",
+        createdByName: getProfileDisplayName(profile, user) || user?.email || "",
+        created_by_name: getProfileDisplayName(profile, user) || user?.email || "",
         created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -1127,7 +1163,7 @@ export default function Groceries() {
 
                             <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-black text-slate-500 ring-1 ring-slate-100">
                               <Pencil className="h-3.5 w-3.5" />
-                              Created by: {getListCreatorLabel(activeList)}
+                              Created by: {getListCreatorLabel(activeList, { user, profile })}
                             </div>
 
                             {(tasksByListId[activeList.id]?.length || 0) > 0 && (
