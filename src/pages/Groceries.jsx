@@ -15,16 +15,20 @@ import {
   AlertTriangle,
   Apple,
   ArchiveRestore,
+  Beef,
   CalendarDays,
+  Carrot,
   Check,
   CheckSquare,
   CircleDot,
   Cookie,
   Croissant,
   GraduationCap,
+  Milk,
   Home,
   ListChecks,
   Package,
+  ShoppingCart,
   Pencil,
   Plus,
   Trash2,
@@ -55,6 +59,107 @@ import {
 
 const LIST_COLLECTION = "familyLists";
 const ITEM_COLLECTION = "familyListItems";
+const PANTRY_COLLECTION = "familyPantryItems";
+
+const pantryStatusConfig = {
+  in_stock: {
+    label: "In stock",
+    color: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  },
+  low: {
+    label: "Low",
+    color: "bg-amber-50 text-amber-700 ring-amber-100",
+  },
+  out: {
+    label: "Out",
+    color: "bg-red-50 text-red-700 ring-red-100",
+  },
+};
+
+const pantryCategoryConfig = {
+  breakfast: {
+    label: "Breakfast basics",
+    icon: Milk,
+    color: "bg-amber-50 text-amber-700 ring-amber-100",
+  },
+  easy_dinners: {
+    label: "Easy dinners",
+    icon: UtensilsCrossed,
+    color: "bg-orange-50 text-orange-700 ring-orange-100",
+  },
+  kid_snacks: {
+    label: "Kid snacks",
+    icon: Apple,
+    color: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  },
+  household: {
+    label: "Household",
+    icon: Warehouse,
+    color: "bg-slate-50 text-slate-700 ring-slate-100",
+  },
+  school: {
+    label: "School / daycare",
+    icon: GraduationCap,
+    color: "bg-sky-50 text-sky-700 ring-sky-100",
+  },
+  freezer: {
+    label: "Freezer",
+    icon: Package,
+    color: "bg-cyan-50 text-cyan-700 ring-cyan-100",
+  },
+  drinks: {
+    label: "Drinks",
+    icon: Cookie,
+    color: "bg-violet-50 text-violet-700 ring-violet-100",
+  },
+};
+
+const starterPantryItems = [
+  { title: "Milk", category: "breakfast" },
+  { title: "Eggs", category: "breakfast" },
+  { title: "Bread", category: "breakfast" },
+  { title: "Cereal", category: "breakfast" },
+  { title: "Oatmeal", category: "breakfast" },
+  { title: "Yogurt", category: "breakfast" },
+  { title: "Bananas", category: "breakfast" },
+
+  { title: "Pasta", category: "easy_dinners" },
+  { title: "Pasta sauce", category: "easy_dinners" },
+  { title: "Rice", category: "easy_dinners" },
+  { title: "Tortillas", category: "easy_dinners" },
+  { title: "Ground beef", category: "easy_dinners" },
+  { title: "Chicken", category: "easy_dinners" },
+  { title: "Cheese", category: "easy_dinners" },
+  { title: "Frozen vegetables", category: "easy_dinners" },
+  { title: "Mac and cheese", category: "easy_dinners" },
+
+  { title: "Apples", category: "kid_snacks" },
+  { title: "Crackers", category: "kid_snacks" },
+  { title: "Granola bars", category: "kid_snacks" },
+  { title: "Fruit cups", category: "kid_snacks" },
+  { title: "Popcorn", category: "kid_snacks" },
+  { title: "Yogurt pouches", category: "kid_snacks" },
+
+  { title: "Toilet paper", category: "household" },
+  { title: "Paper towels", category: "household" },
+  { title: "Trash bags", category: "household" },
+  { title: "Dish soap", category: "household" },
+  { title: "Laundry detergent", category: "household" },
+  { title: "Hand soap", category: "household" },
+  { title: "Wipes", category: "household" },
+
+  { title: "Lunch bags", category: "school" },
+  { title: "Water bottles", category: "school" },
+  { title: "Snack bags", category: "school" },
+  { title: "Juice boxes", category: "school" },
+
+  { title: "Chicken nuggets", category: "freezer" },
+  { title: "Frozen fruit", category: "freezer" },
+  { title: "Frozen pizza", category: "freezer" },
+
+  { title: "Water", category: "drinks" },
+  { title: "Juice", category: "drinks" },
+];
 
 const listTypeConfig = {
   groceries: {
@@ -178,6 +283,21 @@ function normalizeItem(docSnap) {
     created_date: data.created_date || "",
   };
 }
+
+function normalizePantryItem(docSnap) {
+  const data = docSnap.data();
+
+  return {
+    id: docSnap.id,
+    ...data,
+    title: data.title || data.name || "",
+    category: data.category || "household",
+    status: data.status || "in_stock",
+    note: data.note || "",
+    created_date: data.created_date || "",
+  };
+}
+
 
 function ListTypeIcon({ type, className = "" }) {
   const config = listTypeConfig[type] || listTypeConfig.other;
@@ -330,6 +450,222 @@ function getListCreatorLabel(list = {}, currentUserContext = {}) {
   return "Unknown member";
 }
 
+function PantryStatusButton({ status, active, onClick }) {
+  const config = pantryStatusConfig[status] || pantryStatusConfig.in_stock;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ring-1 transition",
+        active ? config.color : "bg-white text-slate-400 ring-slate-100 hover:bg-slate-50"
+      )}
+    >
+      {config.label}
+    </button>
+  );
+}
+
+function PantryItemCard({ item, onStatusChange }) {
+  const categoryConfig = pantryCategoryConfig[item.category] || pantryCategoryConfig.household;
+  const CategoryIcon = categoryConfig.icon;
+
+  return (
+    <Card className="rounded-[1.5rem] border-white/75 bg-white/82 p-3 shadow-[0_10px_24px_rgba(38,50,56,0.045)]">
+      <div className="flex items-start gap-3">
+        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-1", categoryConfig.color)}>
+          <CategoryIcon className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-black text-slate-950">
+            {item.title}
+          </p>
+
+          <p className="mt-0.5 text-xs font-semibold text-slate-400">
+            {categoryConfig.label}
+          </p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {Object.keys(pantryStatusConfig).map((status) => (
+              <PantryStatusButton
+                key={status}
+                status={status}
+                active={item.status === status}
+                onClick={() => onStatusChange(item, status)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function PantryPanel({
+  pantryItems,
+  loading,
+  canWrite,
+  creatingStarterPantry,
+  onCreateStarterPantry,
+  onStatusChange,
+}) {
+  const needToBuy = pantryItems.filter((item) => item.status === "low" || item.status === "out");
+
+  const itemsByCategory = Object.keys(pantryCategoryConfig).reduce((acc, category) => {
+    acc[category] = pantryItems.filter((item) => item.category === category);
+    return acc;
+  }, {});
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <section className="space-y-4">
+        <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white/76 shadow-[0_18px_48px_rgba(38,50,56,0.06)]">
+          <div className="bg-gradient-to-br from-white via-emerald-50/60 to-amber-50/50 p-5">
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-accent">
+              <ShoppingCart className="h-4 w-4" />
+              Pantry
+            </p>
+
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+              Home essentials
+            </h2>
+
+            <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
+              Keep track of what you normally need at home. Mark items as low or out,
+              and they show up in Need to buy.
+            </p>
+
+            {canWrite && pantryItems.length === 0 && (
+              <Button
+                type="button"
+                onClick={onCreateStarterPantry}
+                disabled={creatingStarterPantry}
+                className="mt-4 rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {creatingStarterPantry ? "Creating..." : "Add starter pantry"}
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-accent" />
+          </div>
+        ) : pantryItems.length > 0 ? (
+          Object.entries(pantryCategoryConfig).map(([category, config]) => {
+            const CategoryIcon = config.icon;
+            const categoryItems = itemsByCategory[category] || [];
+
+            if (!categoryItems.length) return null;
+
+            return (
+              <section key={category}>
+                <div className="mb-2 flex items-center gap-2">
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl ring-1", config.color)}>
+                    <CategoryIcon className="h-4 w-4" />
+                  </div>
+
+                  <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">
+                    {config.label}
+                  </h3>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  {categoryItems.map((item) => (
+                    <PantryItemCard
+                      key={item.id}
+                      item={item}
+                      onStatusChange={onStatusChange}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })
+        ) : (
+          <Card className="rounded-[2rem] border-dashed border-slate-200 bg-white/60 p-10 text-center">
+            <ShoppingCart className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-xl font-black text-slate-950">No pantry yet</p>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Start with a simple home essentials checklist.
+            </p>
+          </Card>
+        )}
+      </section>
+
+      <aside className="space-y-4">
+        <Card className="rounded-[2rem] border-white/80 bg-white/78 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)]">
+          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-amber-600">
+            <ListChecks className="h-4 w-4" />
+            Need to buy
+          </p>
+
+          <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950">
+            Refill list
+          </h3>
+
+          <p className="mt-1 text-sm font-bold text-slate-500">
+            Anything marked Low or Out shows here.
+          </p>
+
+          <div className="mt-4 space-y-2">
+            {needToBuy.length > 0 ? (
+              needToBuy.map((item) => {
+                const statusConfig = pantryStatusConfig[item.status] || pantryStatusConfig.low;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-3 ring-1 ring-slate-100"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-950">
+                        {item.title}
+                      </p>
+                      <p className="text-xs font-bold text-slate-400">
+                        {pantryCategoryConfig[item.category]?.label || "Pantry"}
+                      </p>
+                    </div>
+
+                    <span className={cn("rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ring-1", statusConfig.color)}>
+                      {statusConfig.label}
+                    </span>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white/55 p-5 text-center">
+                <Check className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
+                <p className="font-black text-slate-950">All stocked</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">
+                  Mark items Low or Out when something runs down.
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <Card className="rounded-[2rem] border-white/80 bg-gradient-to-br from-white via-amber-50/60 to-emerald-50/50 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.06)]">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
+            Dad mode
+          </p>
+          <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950">
+            Quick home check
+          </h3>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
+            Before grocery shopping, open Pantry and tap what is Low or Out.
+            No need to remember everything from scratch.
+          </p>
+        </Card>
+      </aside>
+    </div>
+  );
+}
+
 export default function Groceries() {
   const {
     familyId,
@@ -370,6 +706,9 @@ export default function Groceries() {
   const [lists, setLists] = useState([]);
   const [items, setItems] = useState([]);
   const [linkedTasks, setLinkedTasks] = useState([]);
+  const [pantryItems, setPantryItems] = useState([]);
+  const [activeListsTab, setActiveListsTab] = useState("lists");
+  const [creatingStarterPantry, setCreatingStarterPantry] = useState(false);
   const [activeListId, setActiveListId] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [linkedTasksPreviewList, setLinkedTasksPreviewList] = useState(null);
@@ -421,7 +760,8 @@ export default function Groceries() {
       setLists([]);
       setItems([]);
       setLinkedTasks([]);
-      setLinkedTasks([]);
+      setPantryItems([]);
+      setPantryItems([]);
       setLoading(false);
       return;
     }
@@ -429,10 +769,11 @@ export default function Groceries() {
     setLoading(true);
 
     try {
-      const [listSnap, itemSnap, taskSnap] = await Promise.all([
+      const [listSnap, itemSnap, taskSnap, pantrySnap] = await Promise.all([
         getDocs(query(collection(db, LIST_COLLECTION), where("familyId", "==", familyId))),
         getDocs(query(collection(db, ITEM_COLLECTION), where("familyId", "==", familyId))),
         getDocs(query(collection(db, TASK_COLLECTIONS.tasks), where("familyId", "==", familyId))),
+        getDocs(query(collection(db, PANTRY_COLLECTION), where("familyId", "==", familyId))),
       ]);
 
       const nextLists = listSnap.docs
@@ -466,9 +807,18 @@ export default function Groceries() {
           );
         });
 
+      const nextPantryItems = pantrySnap.docs
+        .map(normalizePantryItem)
+        .sort((a, b) => {
+          const categoryCompare = (a.category || "").localeCompare(b.category || "");
+          if (categoryCompare !== 0) return categoryCompare;
+          return (a.title || "").localeCompare(b.title || "");
+        });
+
       setLists(nextLists);
       setItems(nextItems);
       setLinkedTasks(nextLinkedTasks);
+      setPantryItems(nextPantryItems);
 
       const requestedListId = searchParams.get("listId");
 
@@ -841,6 +1191,80 @@ export default function Groceries() {
     }
   };
 
+  const createStarterPantry = async () => {
+    if (!canWrite || !familyId || creatingStarterPantry) return;
+
+    setCreatingStarterPantry(true);
+
+    try {
+      const existingTitles = new Set(
+        pantryItems.map((item) => String(item.title || "").trim().toLowerCase())
+      );
+
+      const itemsToCreate = starterPantryItems.filter(
+        (item) => !existingTitles.has(item.title.toLowerCase())
+      );
+
+      await Promise.all(
+        itemsToCreate.map((item) =>
+          addDoc(collection(db, PANTRY_COLLECTION), {
+            title: item.title,
+            name: item.title,
+            category: item.category,
+            status: "in_stock",
+            note: "",
+
+            familyId,
+            family_id: familyId,
+
+            createdBy: user?.uid || null,
+            createdByEmail: user?.email || null,
+            createdByName: getProfileDisplayName(profile, user) || "Unknown member",
+            created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
+
+            created_date: new Date().toISOString(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+
+      toast({
+        title: "Starter pantry added",
+        description: `${itemsToCreate.length} home essentials were added.`,
+        duration: 3500,
+      });
+
+      await loadData();
+    } catch (error) {
+      console.error("Error creating starter pantry:", error);
+      showErrorToast("Could not create pantry", error);
+    } finally {
+      setCreatingStarterPantry(false);
+    }
+  };
+
+  const updatePantryStatus = async (item, nextStatus) => {
+    if (!canWrite || !item?.id) return;
+
+    try {
+      await updateDoc(doc(db, PANTRY_COLLECTION, item.id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      setPantryItems((current) =>
+        current.map((pantryItem) =>
+          pantryItem.id === item.id ? { ...pantryItem, status: nextStatus } : pantryItem
+        )
+      );
+    } catch (error) {
+      console.error("Error updating pantry item:", error);
+      showErrorToast("Could not update pantry item", error);
+    }
+  };
+
   if (!canRead) {
     return (
       <div className="mx-auto max-w-xl p-6 text-center">
@@ -892,6 +1316,47 @@ export default function Groceries() {
         </div>
       </div>
 
+      <section className="mb-5 rounded-[2rem] border border-white/80 bg-white/70 p-2 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { id: "lists", label: "Shopping Lists", helper: `${activeLists.length} active` },
+            { id: "pantry", label: "Pantry", helper: `${pantryItems.filter((item) => item.status === "low" || item.status === "out").length} to buy` },
+          ].map((tab) => {
+            const active = activeListsTab === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveListsTab(tab.id)}
+                className={cn(
+                  "rounded-[1.5rem] px-4 py-3 text-left transition",
+                  active
+                    ? "bg-accent text-accent-foreground shadow-lg shadow-accent/15"
+                    : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-secondary/40"
+                )}
+              >
+                <p className="text-sm font-black">{tab.label}</p>
+                <p className={cn("text-xs font-bold", active ? "text-accent-foreground/75" : "text-slate-400")}>
+                  {tab.helper}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {activeListsTab === "pantry" ? (
+        <PantryPanel
+          pantryItems={pantryItems}
+          loading={loading}
+          canWrite={canWrite}
+          creatingStarterPantry={creatingStarterPantry}
+          onCreateStarterPantry={createStarterPantry}
+          onStatusChange={updatePantryStatus}
+        />
+      ) : (
+        <>
       {canWrite && (
         <Card className="mb-5 rounded-[1.75rem] border-white/70 bg-white/76 p-4 shadow-[0_14px_34px_rgba(38,50,56,0.055)]">
           <div className="mb-3 flex items-center gap-2">
@@ -1434,6 +1899,9 @@ export default function Groceries() {
             )}
           </section>
         </div>
+      )}
+
+        </>
       )}
 
       {confirmAction && (
