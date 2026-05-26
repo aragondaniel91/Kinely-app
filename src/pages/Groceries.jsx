@@ -880,6 +880,8 @@ export default function Groceries() {
   const [newPantryNote, setNewPantryNote] = useState("");
   const [savingPantryItem, setSavingPantryItem] = useState(false);
   const [creatingRefillList, setCreatingRefillList] = useState(false);
+  const [pendingRefillItems, setPendingRefillItems] = useState([]);
+  const [existingRefillList, setExistingRefillList] = useState(null);
 
   const [editingPantryItem, setEditingPantryItem] = useState(null);
   const [editPantryTitle, setEditPantryTitle] = useState("");
@@ -1522,7 +1524,7 @@ export default function Groceries() {
     }
   };
 
-  const createPantryRefillList = async (needToBuyItems = []) => {
+  const buildPantryRefillList = async (needToBuyItems = [], { forceNew = false } = {}) => {
     if (!canWrite || !familyId || creatingRefillList) return;
 
     const cleanItems = needToBuyItems
@@ -1542,6 +1544,25 @@ export default function Groceries() {
         duration: 3000,
       });
       return;
+    }
+
+    if (!forceNew) {
+      const existing = activeLists.find((list) => {
+        const title = String(list.title || "").trim().toLowerCase();
+        const source = String(list.source || list.source_type || "").toLowerCase();
+
+        return (
+          list.status !== "archived" &&
+          title === "pantry refill" &&
+          (source === "pantry" || list.type === "groceries")
+        );
+      });
+
+      if (existing?.id) {
+        setPendingRefillItems(cleanItems);
+        setExistingRefillList(existing);
+        return;
+      }
     }
 
     setCreatingRefillList(true);
@@ -1631,6 +1652,8 @@ export default function Groceries() {
         duration: 3500,
       });
 
+      setPendingRefillItems([]);
+      setExistingRefillList(null);
       setActiveListsTab("lists");
       setShowArchivedLists(false);
       setActiveListId(listRef.id);
@@ -1642,6 +1665,29 @@ export default function Groceries() {
     } finally {
       setCreatingRefillList(false);
     }
+  };
+
+  const createPantryRefillList = async (needToBuyItems = []) => {
+    await buildPantryRefillList(needToBuyItems, { forceNew: false });
+  };
+
+  const openExistingRefillList = () => {
+    if (!existingRefillList?.id) return;
+
+    setActiveListsTab("lists");
+    setShowArchivedLists(false);
+    setActiveListId(existingRefillList.id);
+    setSearchParams({ listId: existingRefillList.id });
+    setExistingRefillList(null);
+    setPendingRefillItems([]);
+  };
+
+  const createNewRefillListAnyway = async () => {
+    const items = pendingRefillItems;
+    setExistingRefillList(null);
+    setPendingRefillItems([]);
+
+    await buildPantryRefillList(items, { forceNew: true });
   };
 
   const startEditingPantryItem = (item) => {
@@ -2436,6 +2482,63 @@ export default function Groceries() {
       )}
 
         </>
+      )}
+
+      {existingRefillList && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md rounded-[2rem] border-white/80 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-black tracking-tight text-slate-950">
+                  Pantry refill already exists
+                </h2>
+
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                  You already have an active Pantry refill list. Open the existing list,
+                  or create a new one anyway.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setExistingRefillList(null);
+                  setPendingRefillItems([]);
+                }}
+                disabled={creatingRefillList}
+                className="rounded-2xl font-black"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={createNewRefillListAnyway}
+                disabled={creatingRefillList}
+                className="rounded-2xl border-amber-200 bg-amber-50 font-black text-amber-700 hover:bg-amber-100"
+              >
+                Create new
+              </Button>
+
+              <Button
+                type="button"
+                onClick={openExistingRefillList}
+                disabled={creatingRefillList}
+                className="rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+              >
+                Open existing
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {editingPantryItem && (
