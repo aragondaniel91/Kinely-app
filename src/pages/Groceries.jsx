@@ -322,12 +322,23 @@ function isCalendarLinkedList(list = {}) {
 }
 
 function getLinkedEventId(list = {}) {
-  return list.linkedEventId || list.linked_event_id || "";
+  return (
+    list.linkedEventId ||
+    list.linked_event_id ||
+    list.eventId ||
+    list.event_id ||
+    list.calendarEventId ||
+    list.calendar_event_id ||
+    list.googleCalendarEventId ||
+    list.google_calendar_event_id ||
+    ""
+  );
 }
 
 function hasLinkedEvent(list = {}) {
   return Boolean(getLinkedEventId(list));
 }
+
 
 
 function getListSourceConfig(list = {}) {
@@ -1684,7 +1695,8 @@ export default function Groceries() {
       return;
     }
 
-    navigate(`/calendar?eventId=${encodeURIComponent(eventId)}`);
+    const params = new URLSearchParams({ eventId });
+    navigate(`/calendar?${params.toString()}`);
   };
 
   const restoreList = async (list) => {

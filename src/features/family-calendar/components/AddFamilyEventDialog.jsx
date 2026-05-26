@@ -476,6 +476,17 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
           createdAt: serverTimestamp(),
         });
 
+        await updateDoc(doc(db, "familyEvents", eventRef.id), {
+          id: eventRef.id,
+          firestoreId: eventRef.id,
+          firestore_id: eventRef.id,
+          documentId: eventRef.id,
+          document_id: eventRef.id,
+          legacyId: payload.id && payload.id !== eventRef.id ? payload.id : payload.legacyId || payload.legacy_id || "",
+          legacy_id: payload.id && payload.id !== eventRef.id ? payload.id : payload.legacy_id || payload.legacyId || "",
+          updatedAt: serverTimestamp(),
+        });
+
         if (createLinkedListWithEvent) {
           const listRef = await addDoc(collection(db, "familyLists"), {
             title: title.trim(),
@@ -488,6 +499,10 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
 
             linkedEventId: eventRef.id,
             linked_event_id: eventRef.id,
+            linkedEventTitle: title.trim(),
+            linked_event_title: title.trim(),
+            linkedEventDate: eventDate,
+            linked_event_date: eventDate,
             source: "calendar",
             source_type: "calendar",
 

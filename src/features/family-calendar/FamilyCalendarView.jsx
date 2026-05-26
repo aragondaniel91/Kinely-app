@@ -84,7 +84,14 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         event.firestore_id === requestedEventId ||
         event.documentId === requestedEventId ||
         event.document_id === requestedEventId ||
-        event.googleCalendarEventId === requestedEventId
+        event.docId === requestedEventId ||
+        event.doc_id === requestedEventId ||
+        event.eventId === requestedEventId ||
+        event.event_id === requestedEventId ||
+        event.legacyId === requestedEventId ||
+        event.legacy_id === requestedEventId ||
+        event.googleCalendarEventId === requestedEventId ||
+        event.google_calendar_event_id === requestedEventId
       );
     });
 
