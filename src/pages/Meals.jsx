@@ -96,6 +96,23 @@ function normalizeMeal(docSnap) {
   };
 }
 
+function normalizeMealTemplate(docSnap) {
+  const data = docSnap.data();
+
+  return {
+    id: docSnap.id,
+    ...data,
+    name: data.name || "",
+    mealType: data.mealType || data.meal_type || "dinner",
+    meal_type: data.meal_type || data.mealType || "dinner",
+    notes: data.notes || "",
+    ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
+    favorite: data.favorite === true,
+    kidFriendly: data.kidFriendly === true || data.kid_friendly === true,
+    quickMeal: data.quickMeal === true || data.quick_meal === true,
+  };
+}
+
 function getMealConfig(type = "lunch") {
   return mealTypeConfig[type] || mealTypeConfig.lunch;
 }
@@ -484,6 +501,269 @@ function BentoSidePanel({
   );
 }
 
+function FamilyMenuPanel({
+  templates,
+  selectedDay,
+  canWrite,
+  savingTemplate,
+  addingTemplateId,
+  onCreateTemplate,
+  onAddTemplateToPlan,
+}) {
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState("dinner");
+  const [newNotes, setNewNotes] = useState("");
+  const [newIngredients, setNewIngredients] = useState("");
+  const [filter, setFilter] = useState("all");
+
+  const visibleTemplates = templates.filter((template) => {
+    if (filter === "all") return true;
+    return template.mealType === filter || template.meal_type === filter;
+  });
+
+  const groupedTemplates = mealOrder.reduce((acc, type) => {
+    acc[type] = visibleTemplates.filter(
+      (template) => (template.mealType || template.meal_type) === type
+    );
+    return acc;
+  }, {});
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+
+    const ingredients = newIngredients
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const created = await onCreateTemplate({
+      name: newName.trim(),
+      mealType: newType,
+      notes: newNotes.trim(),
+      ingredients,
+    });
+
+    if (created) {
+      setNewName("");
+      setNewType("dinner");
+      setNewNotes("");
+      setNewIngredients("");
+    }
+  };
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+      <section className="rounded-[2.25rem] border border-white/80 bg-white/78 p-4 shadow-[0_20px_58px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-orange-500">
+          <Sparkles className="h-4 w-4" />
+          Family Menu
+        </p>
+
+        <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+          Add a go-to meal
+        </h2>
+
+        <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+          Save meals you repeat often, then add them to any day without starting from scratch.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="text-sm font-black text-slate-700">Meal name</label>
+            <Input
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder="Taco night, pancakes, chicken rice..."
+              className="mt-1 h-12 rounded-2xl bg-white font-bold"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-black text-slate-700">Meal type</label>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {mealOrder.map((type) => {
+                const config = getMealConfig(type);
+                const Icon = config.icon;
+                const selected = newType === type;
+
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setNewType(type)}
+                    className={cn(
+                      "rounded-2xl border p-3 text-left transition",
+                      selected
+                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                        : "border-slate-100 bg-white text-slate-600 hover:bg-blue-50/50"
+                    )}
+                  >
+                    <Icon className="mb-1 h-4 w-4" />
+                    <p className="text-xs font-black">{config.label}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-black text-slate-700">Notes</label>
+            <Input
+              value={newNotes}
+              onChange={(event) => setNewNotes(event.target.value)}
+              placeholder="Easy dinner, Joaquin likes it, 20 minutes..."
+              className="mt-1 h-12 rounded-2xl bg-white"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-black text-slate-700">Ingredients</label>
+            <textarea
+              value={newIngredients}
+              onChange={(event) => setNewIngredients(event.target.value)}
+              placeholder={"One per line:\ntortillas\nground beef\ncheese"}
+              className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-blue-200 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleCreate}
+            disabled={!newName.trim() || savingTemplate || !canWrite}
+            className="w-full rounded-2xl bg-slate-950 font-black text-white hover:bg-slate-800"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {savingTemplate ? "Saving..." : "Save to Family Menu"}
+          </Button>
+        </div>
+      </section>
+
+      <section className="rounded-[2.25rem] border border-white/80 bg-white/62 p-4 shadow-[0_20px_58px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-500">
+              Saved meals
+            </p>
+            <h2 className="mt-1 text-3xl font-black tracking-tight text-slate-950">
+              Your house menu
+            </h2>
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              Add one to {format(selectedDay, "EEEE, MMM d")}.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {["all", ...mealOrder].map((type) => {
+              const label = type === "all" ? "All" : getMealConfig(type).label;
+              const active = filter === type;
+
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setFilter(type)}
+                  className={cn(
+                    "rounded-full px-3 py-2 text-xs font-black ring-1 transition",
+                    active
+                      ? "bg-blue-600 text-white ring-blue-200"
+                      : "bg-white text-slate-500 ring-slate-100 hover:bg-blue-50"
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-5">
+          {mealOrder.map((type) => {
+            const config = getMealConfig(type);
+            const Icon = config.icon;
+            const items = groupedTemplates[type] || [];
+
+            if (filter !== "all" && filter !== type) return null;
+
+            return (
+              <div key={type}>
+                <div className="mb-2 flex items-center gap-2">
+                  <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl ring-1", config.tone)}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">
+                    {config.label}
+                  </h3>
+                </div>
+
+                {items.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {items.map((template) => (
+                      <div
+                        key={template.id}
+                        className={cn(
+                          "rounded-[1.75rem] border border-white/80 bg-gradient-to-br p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)]",
+                          config.panel
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1", config.tone)}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-lg font-black leading-tight text-slate-950">
+                              {template.name}
+                            </h4>
+
+                            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                              {template.notes || `${template.ingredients.length} ingredient${template.ingredients.length === 1 ? "" : "s"}`}
+                            </p>
+
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {template.ingredients.slice(0, 4).map((ingredient) => (
+                                <span
+                                  key={ingredient}
+                                  className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100"
+                                >
+                                  {ingredient}
+                                </span>
+                              ))}
+
+                              {template.ingredients.length > 4 && (
+                                <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-slate-400 ring-1 ring-slate-100">
+                                  +{template.ingredients.length - 4}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          onClick={() => onAddTemplateToPlan(template)}
+                          disabled={!canWrite || addingTemplateId === template.id}
+                          className="mt-4 w-full rounded-2xl bg-white font-black text-slate-950 ring-1 ring-slate-100 hover:bg-slate-50"
+                        >
+                          <CalendarDays className="mr-2 h-4 w-4" />
+                          {addingTemplateId === template.id ? "Adding..." : "Add to selected day"}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white/55 p-5 text-sm font-bold text-slate-400">
+                    No {config.label.toLowerCase()} meals saved yet.
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function Meals() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -495,6 +775,10 @@ export default function Meals() {
   const [deletingMeal, setDeletingMeal] = useState(false);
   const [meals, setMeals] = useState([]);
   const [mealLists, setMealLists] = useState([]);
+  const [mealTemplates, setMealTemplates] = useState([]);
+  const [activeMealTab, setActiveMealTab] = useState("planner");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [addingTemplateId, setAddingTemplateId] = useState("");
   const [loading, setLoading] = useState(true);
 
   const { familyId, user, profile, perms } = useFamily();
@@ -545,6 +829,8 @@ export default function Meals() {
     if (!familyId || !canRead) {
       setMeals([]);
       setMealLists([]);
+      setMealTemplates([]);
+      setMealTemplates([]);
       setLoading(false);
       return;
     }
@@ -609,6 +895,34 @@ export default function Meals() {
           ...docSnap.data(),
         }))
       );
+
+      const templateSnap = await getDocs(
+        query(
+          collection(db, "mealTemplates"),
+          where("familyId", "==", familyId)
+        )
+      );
+
+      const templateData = templateSnap.docs.map(normalizeMealTemplate);
+
+      templateData.sort((a, b) => {
+        const order = {
+          breakfast: 1,
+          lunch: 2,
+          snack: 3,
+          dinner: 4,
+        };
+
+        const typeCompare =
+          (order[a.mealType || a.meal_type] || 99) -
+          (order[b.mealType || b.meal_type] || 99);
+
+        if (typeCompare !== 0) return typeCompare;
+
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      setMealTemplates(templateData);
     } catch (error) {
       console.error("Error loading meals:", error);
       setMeals([]);
@@ -630,6 +944,118 @@ export default function Meals() {
       setSelectedDay(weekStart);
     }
   }, [weekDays, selectedDay, weekStart]);
+
+  const createMealTemplate = async ({ name, mealType, notes, ingredients }) => {
+    if (!canWrite || !familyId || !name?.trim()) return false;
+
+    setSavingTemplate(true);
+
+    try {
+      await addDoc(collection(db, "mealTemplates"), {
+        familyId,
+        family_id: familyId,
+
+        name: name.trim(),
+        mealType,
+        meal_type: mealType,
+        notes: notes || "",
+        ingredients: Array.isArray(ingredients) ? ingredients : [],
+
+        favorite: true,
+        kidFriendly: true,
+        kid_friendly: true,
+        quickMeal: false,
+        quick_meal: false,
+
+        createdBy: user?.uid || null,
+        createdByEmail: user?.email || null,
+        createdByName: getCreatorName(),
+        created_by_name: getCreatorName(),
+
+        created_date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      toast({
+        title: "Saved to Family Menu",
+        description: `${name.trim()} is ready to reuse.`,
+        duration: 3500,
+      });
+
+      await loadMeals();
+      return true;
+    } catch (error) {
+      console.error("Error creating meal template:", error);
+
+      toast({
+        title: "Could not save menu item",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+
+      return false;
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const addTemplateToSelectedDay = async (template) => {
+    if (!canWrite || !familyId || !template?.id) return;
+
+    setAddingTemplateId(template.id);
+
+    try {
+      await addDoc(collection(db, "meals"), {
+        date: format(selectedDay, "yyyy-MM-dd"),
+
+        meal_type: template.mealType || template.meal_type || "dinner",
+        mealType: template.mealType || template.meal_type || "dinner",
+
+        name: template.name || "Meal",
+        notes: template.notes || "",
+        image_url: "",
+        imageUrl: "",
+
+        templateId: template.id,
+        template_id: template.id,
+
+        familyId,
+        family_id: familyId,
+        familyName: profile?.family_name || profile?.familyName || "",
+
+        createdBy: user?.uid || null,
+        createdByEmail: user?.email || null,
+        createdByName: getCreatorName(),
+        created_by_name: getCreatorName(),
+
+        created_date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      toast({
+        title: "Meal added",
+        description: `${template.name} was added to ${format(selectedDay, "EEEE")}.`,
+        duration: 3500,
+      });
+
+      setActiveMealTab("planner");
+      await loadMeals();
+    } catch (error) {
+      console.error("Error adding template to plan:", error);
+
+      toast({
+        title: "Could not add meal",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setAddingTemplateId("");
+    }
+  };
 
   const createOrViewMealList = async (meal) => {
     if (!meal?.id) return;
@@ -836,6 +1262,37 @@ export default function Meals() {
           </div>
         </section>
 
+        <section className="rounded-[2rem] border border-white/80 bg-white/70 p-2 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: "planner", label: "Planner", helper: "This week" },
+              { id: "menu", label: "Family Menu", helper: "Saved meals" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveMealTab(tab.id)}
+                className={cn(
+                  "rounded-[1.5rem] px-4 py-3 text-left transition",
+                  activeMealTab === tab.id
+                    ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
+                    : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-slate-50"
+                )}
+              >
+                <p className="text-sm font-black">{tab.label}</p>
+                <p className={cn(
+                  "text-xs font-bold",
+                  activeMealTab === tab.id ? "text-white/60" : "text-slate-400"
+                )}>
+                  {tab.helper}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {activeMealTab === "planner" && (
+          <>
         <section className="rounded-[2.25rem] border border-white/80 bg-white/62 p-3 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
             {weekDays.map((day) => (
@@ -882,12 +1339,32 @@ export default function Meals() {
             />
           </div>
         )}
+
+          </>
+        )}
+
+        {activeMealTab === "menu" && (
+          <FamilyMenuPanel
+            templates={mealTemplates}
+            selectedDay={selectedDay}
+            canWrite={canWrite}
+            savingTemplate={savingTemplate}
+            addingTemplateId={addingTemplateId}
+            onCreateTemplate={createMealTemplate}
+            onAddTemplateToPlan={addTemplateToSelectedDay}
+          />
+        )}
       </div>
 
       {canWrite && (
         <button
           type="button"
-          onClick={() => setAddMealDate(selectedDay || new Date())}
+          onClick={() => {
+            if (activeMealTab === "menu") {
+              setActiveMealTab("planner");
+            }
+            setAddMealDate(selectedDay || new Date());
+          }}
           className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 text-white shadow-xl shadow-slate-950/20 transition hover:scale-105 hover:bg-slate-800 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
           aria-label="Add meal"
         >
