@@ -396,6 +396,15 @@ function getCleanDisplayName(value = "") {
   return name;
 }
 
+function normalizeItemKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/gi, "")
+    .replace(/\s+/g, " ");
+}
+
+
 function getProfileDisplayName(profile = null, user = null) {
   return (
     getCleanDisplayName(profile?.displayName) ||
@@ -473,7 +482,14 @@ function PantryStatusButton({ status, active, onClick }) {
   );
 }
 
-function PantryItemCard({ item, canWrite, onStatusChange, onEdit, onArchive }) {
+function PantryItemCard({
+  item,
+  canWrite,
+  alreadyInRefillList,
+  onStatusChange,
+  onEdit,
+  onArchive,
+}) {
   const categoryConfig = pantryCategoryConfig[item.category] || pantryCategoryConfig.household;
   const CategoryIcon = categoryConfig.icon;
 
@@ -495,6 +511,13 @@ function PantryItemCard({ item, canWrite, onStatusChange, onEdit, onArchive }) {
                 {categoryConfig.label}
                 {item.note ? ` · ${item.note}` : ""}
               </p>
+
+              {alreadyInRefillList && (
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-100">
+                  <Check className="h-3 w-3" />
+                  Already in refill list
+                </span>
+              )}
             </div>
 
             {canWrite && (
@@ -538,6 +561,7 @@ function PantryItemCard({ item, canWrite, onStatusChange, onEdit, onArchive }) {
 
 function PantryPanel({
   pantryItems,
+  refillItemKeys,
   loading,
   canWrite,
   searchQuery,
@@ -726,6 +750,9 @@ function PantryPanel({
                       key={item.id}
                       item={item}
                       canWrite={canWrite}
+                      alreadyInRefillList={refillItemKeys?.has(
+                        normalizeItemKey(item.title || item.name)
+                      )}
                       onStatusChange={onStatusChange}
                       onEdit={onEditPantryItem}
                       onArchive={onArchivePantryItem}
@@ -1107,6 +1134,41 @@ export default function Groceries() {
   const totalOpenItems = items.filter(
     (item) => !item.checked && activeListIds.has(item.listId)
   ).length;
+
+  const activePantryRefillListIds = useMemo(() => {
+    return new Set(
+      activeLists
+        .filter((list) => {
+          const title = String(list.title || "").trim().toLowerCase();
+          const source = String(list.source || list.source_type || "").toLowerCase();
+
+          return (
+            list.status !== "archived" &&
+            title === "pantry refill" &&
+            source === "pantry"
+          );
+        })
+        .map((list) => list.id)
+    );
+  }, [activeLists]);
+
+  const pantryRefillItemKeys = useMemo(() => {
+    return new Set(
+      items
+        .filter((item) => {
+          const status = String(item.status || "").toLowerCase();
+
+          return (
+            activePantryRefillListIds.has(item.listId) &&
+            status !== "archived" &&
+            !item.checked
+          );
+        })
+        .map((item) => normalizeItemKey(item.title || item.name))
+        .filter(Boolean)
+    );
+  }, [items, activePantryRefillListIds]);
+
 
   function applyQuickTemplate(template) {
     setNewListTitle(template.title);
@@ -1908,6 +1970,7 @@ export default function Groceries() {
       {activeListsTab === "pantry" ? (
         <PantryPanel
           pantryItems={pantryItems}
+          refillItemKeys={pantryRefillItemKeys}
           loading={loading}
           canWrite={canWrite}
           searchQuery={listsSearch}
