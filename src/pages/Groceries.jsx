@@ -551,7 +551,9 @@ function PantryPanel({
   newPantryNote,
   setNewPantryNote,
   savingPantryItem,
+  creatingRefillList,
   onAddPantryItem,
+  onCreateRefillList,
   onCreateStarterPantry,
   onStatusChange,
   onEditPantryItem,
@@ -763,6 +765,18 @@ function PantryPanel({
             Anything marked Low or Out shows here.
           </p>
 
+          {canWrite && needToBuy.length > 0 && (
+            <Button
+              type="button"
+              onClick={() => onCreateRefillList(needToBuy)}
+              disabled={creatingRefillList}
+              className="mt-4 w-full rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              {creatingRefillList ? "Creating..." : "Create refill list"}
+            </Button>
+          )}
+
           <div className="mt-4 space-y-2">
             {needToBuy.length > 0 ? (
               needToBuy.map((item) => {
@@ -865,6 +879,7 @@ export default function Groceries() {
   const [newPantryStatus, setNewPantryStatus] = useState("in_stock");
   const [newPantryNote, setNewPantryNote] = useState("");
   const [savingPantryItem, setSavingPantryItem] = useState(false);
+  const [creatingRefillList, setCreatingRefillList] = useState(false);
 
   const [editingPantryItem, setEditingPantryItem] = useState(null);
   const [editPantryTitle, setEditPantryTitle] = useState("");
@@ -1507,6 +1522,128 @@ export default function Groceries() {
     }
   };
 
+  const createPantryRefillList = async (needToBuyItems = []) => {
+    if (!canWrite || !familyId || creatingRefillList) return;
+
+    const cleanItems = needToBuyItems
+      .filter((item) => item?.title || item?.name)
+      .map((item) => ({
+        title: String(item.title || item.name || "").trim(),
+        category: item.category || "other",
+        status: item.status || "needed",
+        note: item.note || "",
+      }))
+      .filter((item) => item.title);
+
+    if (!cleanItems.length) {
+      toast({
+        title: "Nothing to add",
+        description: "Mark Pantry items as Low or Out first.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setCreatingRefillList(true);
+
+    try {
+      const listRef = await addDoc(collection(db, LIST_COLLECTION), {
+        title: "Pantry refill",
+        type: "groceries",
+        description: "Items marked Low or Out from Pantry.",
+        status: "active",
+
+        assignedToPersonId: "family",
+        assigned_to_person_id: "family",
+        assignedToPersonName: "Family",
+        assigned_to_person_name: "Family",
+
+        familyId,
+        family_id: familyId,
+
+        linkedEventId: "",
+        linked_event_id: "",
+        linkedMealId: "",
+        linked_meal_id: "",
+
+        source: "pantry",
+        source_type: "pantry",
+
+        createdBy: user?.uid || null,
+        createdByEmail: user?.email || null,
+        createdByName: getProfileDisplayName(profile, user) || "Unknown member",
+        created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
+
+        created_date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await Promise.all(
+        cleanItems.map((item) =>
+          addDoc(collection(db, ITEM_COLLECTION), {
+            title: item.title,
+            name: item.title,
+            quantity: "",
+            note:
+              item.status === "out"
+                ? "Pantry: Out"
+                : item.status === "low"
+                  ? "Pantry: Low"
+                  : item.note || "",
+            status: "needed",
+            checked: false,
+
+            listId: listRef.id,
+            list_id: listRef.id,
+            listTitle: "Pantry refill",
+            list_title: "Pantry refill",
+            listType: "groceries",
+            list_type: "groceries",
+
+            familyId,
+            family_id: familyId,
+
+            source: "pantry",
+            source_type: "pantry",
+            pantryCategory: item.category,
+            pantry_category: item.category,
+            pantryStatus: item.status,
+            pantry_status: item.status,
+
+            assignedToPersonId: "",
+            assigned_to_person_id: "",
+            requestedByPersonId: "",
+            requested_by_person_id: "",
+
+            createdBy: user?.uid || null,
+            createdByEmail: user?.email || null,
+            created_date: new Date().toISOString(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+
+      toast({
+        title: "Refill list created",
+        description: `${cleanItems.length} item${cleanItems.length === 1 ? "" : "s"} added from Pantry.`,
+        duration: 3500,
+      });
+
+      setActiveListsTab("lists");
+      setShowArchivedLists(false);
+      setActiveListId(listRef.id);
+      setSearchParams({ listId: listRef.id });
+      await loadData();
+    } catch (error) {
+      console.error("Error creating pantry refill list:", error);
+      showErrorToast("Could not create refill list", error);
+    } finally {
+      setCreatingRefillList(false);
+    }
+  };
+
   const startEditingPantryItem = (item) => {
     if (!item?.id) return;
 
@@ -1738,7 +1875,9 @@ export default function Groceries() {
           newPantryNote={newPantryNote}
           setNewPantryNote={setNewPantryNote}
           savingPantryItem={savingPantryItem}
+          creatingRefillList={creatingRefillList}
           onAddPantryItem={addCustomPantryItem}
+          onCreateRefillList={createPantryRefillList}
           onCreateStarterPantry={createStarterPantry}
           onStatusChange={updatePantryStatus}
           onEditPantryItem={startEditingPantryItem}
