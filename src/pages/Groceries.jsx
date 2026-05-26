@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 
 import {
+  AlertTriangle,
   Apple,
   ArchiveRestore,
   CalendarDays,
@@ -36,6 +37,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 
 import { Badge } from "@/components/ui/badge";
@@ -263,6 +265,7 @@ export default function Groceries() {
   } = useFamily();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const canRead =
     perms?.lists?.read !== false &&
@@ -290,6 +293,7 @@ export default function Groceries() {
   const [items, setItems] = useState([]);
   const [linkedTasks, setLinkedTasks] = useState([]);
   const [activeListId, setActiveListId] = useState("");
+  const [confirmAction, setConfirmAction] = useState(null);
   const [linkedTasksPreviewList, setLinkedTasksPreviewList] = useState(null);
   const [showArchivedLists, setShowArchivedLists] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -311,6 +315,28 @@ export default function Groceries() {
   const [editListAssigneePersonId, setEditListAssigneePersonId] = useState("family");
   const [editListDescription, setEditListDescription] = useState("");
   const [savingListEdit, setSavingListEdit] = useState(false);
+
+  function showErrorToast(title, error) {
+    toast({
+      title,
+      description: error?.message || "Please try again.",
+      variant: "destructive",
+      duration: 5000,
+    });
+  }
+
+  function requestConfirmation(config) {
+    setConfirmAction(config);
+  }
+
+  async function runConfirmedAction() {
+    const action = confirmAction?.onConfirm;
+    setConfirmAction(null);
+
+    if (typeof action === "function") {
+      await action();
+    }
+  }
 
   const loadData = async () => {
     if (!familyId || !canRead) {
@@ -498,7 +524,7 @@ export default function Groceries() {
       await loadData();
     } catch (error) {
       console.error("Error creating family list:", error);
-      alert(`There was an error creating the list: ${error.message}`);
+      showErrorToast("Could not create list", error);
     } finally {
       setSavingList(false);
     }
@@ -549,7 +575,7 @@ export default function Groceries() {
       await loadData();
     } catch (error) {
       console.error("Error adding list item:", error);
-      alert(`There was an error adding the item: ${error.message}`);
+      showErrorToast("Could not add item", error);
     } finally {
       setSavingItem(false);
     }
@@ -573,61 +599,41 @@ export default function Groceries() {
       await loadData();
     } catch (error) {
       console.error("Error updating list item:", error);
-      alert(`There was an error updating the item: ${error.message}`);
+      showErrorToast("Could not update item", error);
     }
   };
 
   const deleteItem = async (item) => {
     if (!canWrite || !item?.id) return;
 
-    const confirmDelete = window.confirm("Delete this item?");
-    if (!confirmDelete) return;
+    requestConfirmation({
+      title: "Remove this item?",
+      description: "This item will be hidden from the active list. The rest of the list will stay available.",
+      confirmLabel: "Remove item",
+      tone: "danger",
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, ITEM_COLLECTION, item.id), {
+            status: "archived",
+            archivedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || null,
+          });
 
-    try {
-      await updateDoc(doc(db, ITEM_COLLECTION, item.id), {
-        status: "archived",
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        updatedBy: user?.uid || null,
-      });
+          toast({
+            title: "Item removed",
+            description: "The item was removed from the active list.",
+            duration: 3500,
+          });
 
-      await loadData();
-    } catch (error) {
-      console.error("Error deleting list item:", error);
-      alert(`There was an error deleting the item: ${error.message}`);
-    }
-  };
-
-  function goToLinkedEvent(list) {
-    const linkedEventId = getLinkedEventId(list);
-
-    if (!linkedEventId) return;
-
-    navigate(`/calendar?eventId=${linkedEventId}`);
-  }
-
-  function createLinkedTaskFromList(list) {
-    if (!list?.id) return;
-
-    const params = new URLSearchParams({
-      linkedListId: list.id,
-      listTitle: list.title || "Family list",
-      action: "createTask",
-      assigneePersonId: list.assignedToPersonId || list.assigned_to_person_id || "family",
-      assigneeName: list.assignedToPersonName || list.assigned_to_person_name || "Family",
+          await loadData();
+        } catch (error) {
+          console.error("Error deleting list item:", error);
+          showErrorToast("Could not remove item", error);
+        }
+      },
     });
-
-    const linkedEventId = getLinkedEventId(list);
-    if (linkedEventId) params.set("linkedEventId", linkedEventId);
-
-    navigate(`/tasks?${params.toString()}`);
-  }
-
-  function viewLinkedTasksFromList(list) {
-    if (!list?.id) return;
-
-    setLinkedTasksPreviewList(list);
-  }
+  };
 
   function startEditingList(list) {
     if (!list?.id) return;
@@ -676,7 +682,7 @@ export default function Groceries() {
       await loadData();
     } catch (error) {
       console.error("Error updating list:", error);
-      alert(`There was an error updating the list: ${error.message}`);
+      showErrorToast("Could not update list", error);
     } finally {
       setSavingListEdit(false);
     }
@@ -685,24 +691,35 @@ export default function Groceries() {
   const archiveList = async (list) => {
     if (!canWrite || !list?.id) return;
 
-    const confirmArchive = window.confirm(`Hide "${list.title}" from active lists? You can restore archived lists later once the archive view is available.`);
-    if (!confirmArchive) return;
+    requestConfirmation({
+      title: `Hide "${list.title}"?`,
+      description: "This moves the list to Hidden lists. You can restore it later from the Hidden lists view.",
+      confirmLabel: "Hide list",
+      tone: "danger",
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, LIST_COLLECTION, list.id), {
+            status: "archived",
+            archivedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || null,
+          });
 
-    try {
-      await updateDoc(doc(db, LIST_COLLECTION, list.id), {
-        status: "archived",
-        archivedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        updatedBy: user?.uid || null,
-      });
+          toast({
+            title: "List hidden",
+            description: "You can restore it from Hidden lists.",
+            duration: 3500,
+          });
 
-      setActiveListId("");
-      setSearchParams({});
-      await loadData();
-    } catch (error) {
-      console.error("Error archiving list:", error);
-      alert(`There was an error archiving the list: ${error.message}`);
-    }
+          setActiveListId("");
+          setSearchParams({});
+          await loadData();
+        } catch (error) {
+          console.error("Error archiving list:", error);
+          showErrorToast("Could not hide list", error);
+        }
+      },
+    });
   };
 
   function openLinkedTasksInTasksPage(list) {
@@ -728,13 +745,19 @@ export default function Groceries() {
         updatedBy: user?.uid || null,
       });
 
+      toast({
+        title: "List restored",
+        description: `"${list.title}" is back in active lists.`,
+        duration: 3500,
+      });
+
       setShowArchivedLists(false);
       setActiveListId(list.id);
       setSearchParams({ listId: list.id });
       await loadData();
     } catch (error) {
       console.error("Error restoring list:", error);
-      alert(`There was an error restoring the list: ${error.message}`);
+      showErrorToast("Could not restore list", error);
     }
   };
 
@@ -1305,6 +1328,47 @@ export default function Groceries() {
               </Card>
             )}
           </section>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md rounded-[2rem] border-white/80 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-black tracking-tight text-slate-950">
+                  {confirmAction.title}
+                </h2>
+
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                  {confirmAction.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmAction(null)}
+                className="rounded-2xl font-black"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                onClick={runConfirmedAction}
+                className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
+              >
+                {confirmAction.confirmLabel || "Confirm"}
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
 
