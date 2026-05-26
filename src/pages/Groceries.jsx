@@ -325,6 +325,11 @@ function getLinkedEventId(list = {}) {
   return list.linkedEventId || list.linked_event_id || "";
 }
 
+function hasLinkedEvent(list = {}) {
+  return Boolean(getLinkedEventId(list));
+}
+
+
 function getListSourceConfig(list = {}) {
   const source = String(list.source || list.source_type || "").toLowerCase();
   const title = String(list.title || "").trim().toLowerCase();
@@ -1618,6 +1623,70 @@ export default function Groceries() {
     navigate(`/tasks?${params.toString()}`);
   }
 
+  const createLinkedTaskFromList = (list) => {
+    const listId = list?.id || list?.listId || list?.list_id || "";
+    const listTitle = list?.title || list?.listTitle || list?.list_title || "Family list";
+
+    if (!listId) {
+      toast({
+        title: "Could not create linked task",
+        description: "This list is missing a valid list id.",
+        variant: "destructive",
+        duration: 4500,
+      });
+      return;
+    }
+
+    const params = new URLSearchParams({
+      action: "createTask",
+      linkedListId: listId,
+      listTitle,
+      source: "list",
+    });
+
+    navigate(`/tasks?${params.toString()}`);
+  };
+
+  const viewLinkedTasksFromList = (list) => {
+    if (!list?.id) {
+      toast({
+        title: "Could not open linked tasks",
+        description: "This list is missing a valid list id.",
+        variant: "destructive",
+        duration: 4500,
+      });
+      return;
+    }
+
+    const listTasks = tasksByListId[list.id] || [];
+
+    if (!listTasks.length) {
+      toast({
+        title: "No linked tasks yet",
+        description: "Create a linked task first, then it will show here.",
+        duration: 3500,
+      });
+      return;
+    }
+
+    setLinkedTasksPreviewList(list);
+  };
+
+  const viewLinkedEventFromList = (list) => {
+    const eventId = getLinkedEventId(list);
+
+    if (!eventId) {
+      toast({
+        title: "No linked event",
+        description: "This list is not connected to a calendar event.",
+        duration: 3500,
+      });
+      return;
+    }
+
+    navigate(`/calendar?eventId=${encodeURIComponent(eventId)}`);
+  };
+
   const restoreList = async (list) => {
     if (!canWrite || !list?.id) return;
 
@@ -2790,7 +2859,7 @@ export default function Groceries() {
                       </Button>
                     )}
 
-                    {isCalendarLinkedList(activeList) && (
+                    {hasLinkedEvent(activeList) && (
                       <Button
                         type="button"
                         variant="outline"
