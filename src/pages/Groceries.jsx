@@ -925,6 +925,8 @@ export default function Groceries() {
   const [existingRefillList, setExistingRefillList] = useState(null);
   const [pantryStockPrompt, setPantryStockPrompt] = useState(null);
   const [updatingPantryFromList, setUpdatingPantryFromList] = useState(false);
+  const [pantryListCompletionPrompt, setPantryListCompletionPrompt] = useState(null);
+  const [completingRefillItemsFromPantry, setCompletingRefillItemsFromPantry] = useState(false);
 
   const [editingPantryItem, setEditingPantryItem] = useState(null);
   const [editPantryTitle, setEditPantryTitle] = useState("");
@@ -1593,7 +1595,10 @@ export default function Groceries() {
   };
 
   const updatePantryStatus = async (item, nextStatus) => {
-    if (!canWrite || !item?.id) return;
+    if (!canWrite || !item?.id || !nextStatus) return;
+
+    const previousStatus = item.status || "in_stock";
+    const title = item.title || item.name || "Pantry item";
 
     try {
       await updateDoc(doc(db, PANTRY_COLLECTION, item.id), {
@@ -1603,13 +1608,65 @@ export default function Groceries() {
       });
 
       setPantryItems((current) =>
-        current.map((pantryItem) =>
-          pantryItem.id === item.id ? { ...pantryItem, status: nextStatus } : pantryItem
+        current.map((currentItem) =>
+          currentItem.id === item.id
+            ? {
+                ...currentItem,
+                status: nextStatus,
+              }
+            : currentItem
         )
       );
+
+      const shouldPromptToCompleteRefill =
+        nextStatus === "in_stock" && previousStatus !== "in_stock";
+
+      if (shouldPromptToCompleteRefill) {
+        const pantryKey = normalizeItemKey(item.title || item.name);
+
+        const matchingOpenRefillItems = items.filter((listItem) => {
+          const listItemKey = normalizeItemKey(
+            listItem.pantryKey ||
+              listItem.pantry_key ||
+              listItem.title ||
+              listItem.name
+          );
+
+          const source = String(listItem.source || listItem.source_type || "").toLowerCase();
+          const listTitle = String(listItem.listTitle || listItem.list_title || "")
+            .trim()
+            .toLowerCase();
+
+          return (
+            pantryKey &&
+            listItemKey === pantryKey &&
+            !listItem.checked &&
+            String(listItem.status || "").toLowerCase() !== "archived" &&
+            (activePantryRefillListIds.has(listItem.listId) ||
+              source === "pantry" ||
+              listTitle === "pantry refill")
+          );
+        });
+
+        if (matchingOpenRefillItems.length > 0) {
+          setPantryListCompletionPrompt({
+            pantryItem: {
+              ...item,
+              status: nextStatus,
+            },
+            refillItems: matchingOpenRefillItems,
+          });
+        }
+      }
+
+      toast({
+        title: "Pantry updated",
+        description: `${title} is now ${nextStatus === "in_stock" ? "In stock" : nextStatus === "low" ? "Low" : "Out"}.`,
+        duration: 2500,
+      });
     } catch (error) {
-      console.error("Error updating pantry item:", error);
-      showErrorToast("Could not update pantry item", error);
+      console.error("Error updating pantry status:", error);
+      showErrorToast("Could not update pantry status", error);
     }
   };
 
@@ -1657,6 +1714,63 @@ export default function Groceries() {
       showErrorToast("Could not add pantry item", error);
     } finally {
       setSavingPantryItem(false);
+    }
+  };
+
+  const completePromptedRefillItemsFromPantry = async () => {
+    if (
+      !pantryListCompletionPrompt?.refillItems?.length ||
+      completingRefillItemsFromPantry
+    ) {
+      return;
+    }
+
+    const refillItems = pantryListCompletionPrompt.refillItems;
+    const title =
+      pantryListCompletionPrompt.pantryItem?.title ||
+      pantryListCompletionPrompt.pantryItem?.name ||
+      "Pantry item";
+
+    setCompletingRefillItemsFromPantry(true);
+
+    try {
+      await Promise.all(
+        refillItems.map((item) =>
+          updateDoc(doc(db, ITEM_COLLECTION, item.id), {
+            checked: true,
+            status: "done",
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || null,
+          })
+        )
+      );
+
+      const refillItemIds = new Set(refillItems.map((item) => item.id));
+
+      setItems((current) =>
+        current.map((item) =>
+          refillItemIds.has(item.id)
+            ? {
+                ...item,
+                checked: true,
+                status: "done",
+              }
+            : item
+        )
+      );
+
+      toast({
+        title: "Refill list updated",
+        description: `${title} was marked done in the refill list.`,
+        duration: 3500,
+      });
+
+      setPantryListCompletionPrompt(null);
+    } catch (error) {
+      console.error("Error completing refill list item from Pantry:", error);
+      showErrorToast("Could not update refill list", error);
+    } finally {
+      setCompletingRefillItemsFromPantry(false);
     }
   };
 
@@ -2767,6 +2881,50 @@ export default function Groceries() {
       )}
 
         </>
+      )}
+
+      {pantryListCompletionPrompt && (
+        <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md rounded-[2rem] border-white/80 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                <ListChecks className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-black tracking-tight text-slate-950">
+                  Complete refill list item?
+                </h2>
+
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                  "{pantryListCompletionPrompt.pantryItem.title || pantryListCompletionPrompt.pantryItem.name}"
+                  is now In stock. Should we mark it done in the Pantry refill list too?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPantryListCompletionPrompt(null)}
+                disabled={completingRefillItemsFromPantry}
+                className="rounded-2xl font-black"
+              >
+                Not now
+              </Button>
+
+              <Button
+                type="button"
+                onClick={completePromptedRefillItemsFromPantry}
+                disabled={completingRefillItemsFromPantry}
+                className="rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+              >
+                {completingRefillItemsFromPantry ? "Updating..." : "Mark done"}
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {pantryStockPrompt && (
