@@ -149,8 +149,8 @@ function WeekDayCard({ day, meals, selected, onSelect }) {
       className={cn(
         "min-w-[8.5rem] rounded-[1.5rem] border p-3 text-left transition sm:min-w-0",
         selected
-          ? "border-blue-200 bg-blue-50 shadow-[0_14px_32px_rgba(37,99,235,0.10)]"
-          : "border-white/80 bg-white/72 shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:border-blue-100 hover:bg-blue-50/45"
+          ? "border-accent/20 bg-accent/8 shadow-[0_14px_32px_rgba(37,99,235,0.10)]"
+          : "border-white/80 bg-white/72 shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:border-blue-100 hover:bg-accent/8/45"
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -158,7 +158,7 @@ function WeekDayCard({ day, meals, selected, onSelect }) {
           <p
             className={cn(
               "text-xs font-black uppercase tracking-[0.18em]",
-              selected || isToday ? "text-blue-600" : "text-slate-400"
+              selected || isToday ? "text-accent" : "text-slate-400"
             )}
           >
             {isToday ? "Today" : format(day, "EEE")}
@@ -223,7 +223,7 @@ function FocusMealCard({ meal, mealList, canWrite, onCreateList, onDelete }) {
             </span>
 
             {mealList && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-accent ring-1 ring-accent/15">
                 <ListChecks className="h-3 w-3" />
                 List ready
               </span>
@@ -261,7 +261,7 @@ function FocusMealCard({ meal, mealList, canWrite, onCreateList, onDelete }) {
           className={cn(
             "rounded-2xl font-black",
             mealList
-              ? "border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              ? "border-blue-100 bg-accent/8 text-accent hover:bg-blue-100"
               : "border-emerald-100 bg-white text-emerald-700 hover:bg-emerald-50"
           )}
         >
@@ -282,7 +282,7 @@ function EmptyMealMoment({ type, selectedDay, canWrite, onAdd }) {
       type="button"
       onClick={() => canWrite && onAdd?.(selectedDay)}
       disabled={!canWrite}
-      className="flex w-full items-center gap-3 rounded-[1.5rem] border border-dashed border-slate-200 bg-white/55 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50/45 disabled:cursor-default disabled:hover:border-slate-200 disabled:hover:bg-white/55"
+      className="flex w-full items-center gap-3 rounded-[1.5rem] border border-dashed border-slate-200 bg-white/55 p-4 text-left transition hover:border-blue-200 hover:bg-accent/8/45 disabled:cursor-default disabled:hover:border-slate-200 disabled:hover:bg-white/55"
     >
       <div
         className={cn(
@@ -318,7 +318,7 @@ function FocusDayPanel({
     <section className="rounded-[2.25rem] border border-white/80 bg-white/78 p-4 shadow-[0_20px_58px_rgba(15,23,42,0.08)] backdrop-blur-xl">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-500">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-accent">
             {isToday ? "Today’s meals" : "Selected day"}
           </p>
 
@@ -335,7 +335,7 @@ function FocusDayPanel({
           <Button
             type="button"
             onClick={() => onAdd(selectedDay)}
-            className="rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
+            className="rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add meal
@@ -470,7 +470,7 @@ function BentoSidePanel({
               );
             })
           ) : (
-            <span className="rounded-full bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+            <span className="rounded-full bg-accent/8 px-3 py-2 text-xs font-black text-accent ring-1 ring-accent/15">
               Full day planned
             </span>
           )}
@@ -478,8 +478,8 @@ function BentoSidePanel({
       </section>
 
       {canWrite && (
-        <section className="rounded-[2rem] border border-blue-100 bg-blue-50 p-4 text-blue-950 shadow-[0_18px_44px_rgba(37,99,235,0.10)]">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-500">
+        <section className="rounded-[2rem] border border-blue-100 bg-accent/8 p-4 text-blue-950 shadow-[0_18px_44px_rgba(37,99,235,0.10)]">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-accent">
             Quick action
           </p>
 
@@ -490,7 +490,7 @@ function BentoSidePanel({
           <Button
             type="button"
             onClick={() => onAdd(selectedDay)}
-            className="mt-4 w-full rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
+            className="mt-4 w-full rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add meal
@@ -594,8 +594,8 @@ function FamilyMenuPanel({
                     className={cn(
                       "rounded-2xl border p-3 text-left transition",
                       selected
-                        ? "border-blue-200 bg-blue-50 text-blue-700"
-                        : "border-slate-100 bg-white text-slate-600 hover:bg-blue-50/50"
+                        ? "border-accent/20 bg-accent/8 text-accent"
+                        : "border-slate-100 bg-white text-slate-600 hover:bg-accent/8/50"
                     )}
                   >
                     <Icon className="mb-1 h-4 w-4" />
@@ -622,7 +622,7 @@ function FamilyMenuPanel({
               value={newIngredients}
               onChange={(event) => setNewIngredients(event.target.value)}
               placeholder={"One per line:\ntortillas\nground beef\ncheese"}
-              className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-blue-200 focus:ring-2 focus:ring-blue-100"
+              className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-blue-200 focus:ring-2 focus:ring-accent/15"
             />
           </div>
 
@@ -630,7 +630,7 @@ function FamilyMenuPanel({
             type="button"
             onClick={handleCreate}
             disabled={!newName.trim() || savingTemplate || !canWrite}
-            className="w-full rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
+            className="w-full rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
           >
             <Plus className="mr-2 h-4 w-4" />
             {savingTemplate ? "Saving..." : "Save to Family Menu"}
@@ -641,7 +641,7 @@ function FamilyMenuPanel({
       <section className="rounded-[2.25rem] border border-white/80 bg-white/62 p-4 shadow-[0_20px_58px_rgba(15,23,42,0.08)] backdrop-blur-xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-500">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-accent">
               Saved meals
             </p>
             <h2 className="mt-1 text-3xl font-black tracking-tight text-slate-950">
@@ -666,7 +666,7 @@ function FamilyMenuPanel({
                     "rounded-full px-3 py-2 text-xs font-black ring-1 transition",
                     active
                       ? "bg-blue-600 text-white ring-blue-200"
-                      : "bg-white text-slate-500 ring-slate-100 hover:bg-blue-50"
+                      : "bg-white text-slate-500 ring-slate-100 hover:bg-accent/8"
                   )}
                 >
                   {label}
@@ -742,7 +742,7 @@ function FamilyMenuPanel({
                           type="button"
                           onClick={() => onAddTemplateToPlan(template)}
                           disabled={!canWrite || addingTemplateId === template.id}
-                          className="mt-4 w-full rounded-2xl bg-white font-black text-blue-700 ring-1 ring-blue-100 hover:bg-blue-50"
+                          className="mt-4 w-full rounded-2xl bg-white font-black text-accent ring-1 ring-accent/15 hover:bg-accent/8"
                         >
                           <CalendarDays className="mr-2 h-4 w-4" />
                           {addingTemplateId === template.id ? "Adding..." : "Add to selected day"}
@@ -1202,7 +1202,7 @@ export default function Meals() {
                   {loading ? "Loading..." : `${meals.length} meals this week`}
                 </span>
 
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700 ring-1 ring-blue-100">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/8 px-3 py-1.5 text-xs font-black text-accent ring-1 ring-accent/15">
                   <CalendarDays className="h-3.5 w-3.5" />
                   {todayMeals.length} today
                 </span>
@@ -1278,15 +1278,15 @@ export default function Meals() {
                   className={cn(
                     "rounded-[1.5rem] px-4 py-3 text-left transition",
                     active
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/15"
-                      : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-blue-50"
+                      ? "bg-accent text-accent-foreground shadow-lg shadow-accent/15"
+                      : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-secondary/40"
                   )}
                 >
                   <p className="text-sm font-black">{tab.label}</p>
                   <p
                     className={cn(
                       "text-xs font-bold",
-                      active ? "text-blue-100" : "text-slate-400"
+                      active ? "text-accent-foreground/75" : "text-slate-400"
                     )}
                   >
                     {tab.helper}
@@ -1297,7 +1297,19 @@ export default function Meals() {
           </div>
         </section>
 
-        {activeMealTab === "planner" ? (
+        {activeMealTab === "menu" ? (
+          <div className="block">
+            <FamilyMenuPanel
+              templates={mealTemplates}
+              selectedDay={selectedDay}
+              canWrite={canWrite}
+              savingTemplate={savingTemplate}
+              addingTemplateId={addingTemplateId}
+              onCreateTemplate={createMealTemplate}
+              onAddTemplateToPlan={addTemplateToSelectedDay}
+            />
+          </div>
+        ) : (
           <>
             <section className="rounded-[2.25rem] border border-white/80 bg-white/62 p-3 shadow-[0_16px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
@@ -1316,7 +1328,7 @@ export default function Meals() {
             {loading ? (
               <div className="flex min-h-[440px] items-center justify-center rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur-xl">
                 <div className="text-center">
-                  <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+                  <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-accent" />
                   <p className="text-sm font-black text-slate-400">
                     Loading family meals...
                   </p>
@@ -1346,16 +1358,6 @@ export default function Meals() {
               </div>
             )}
           </>
-        ) : (
-          <FamilyMenuPanel
-            templates={mealTemplates}
-            selectedDay={selectedDay}
-            canWrite={canWrite}
-            savingTemplate={savingTemplate}
-            addingTemplateId={addingTemplateId}
-            onCreateTemplate={createMealTemplate}
-            onAddTemplateToPlan={addTemplateToSelectedDay}
-          />
         )}
       </div>
 
@@ -1368,7 +1370,7 @@ export default function Meals() {
             }
             setAddMealDate(selectedDay || new Date());
           }}
-          className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-white shadow-xl shadow-blue-600/20 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
+          className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-accent px-4 text-accent-foreground shadow-xl shadow-accent/20 transition hover:scale-105 hover:bg-accent/90 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
           aria-label="Add meal"
         >
           <Plus className="h-6 w-6" />
