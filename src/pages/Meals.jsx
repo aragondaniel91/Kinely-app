@@ -335,7 +335,7 @@ function FocusDayPanel({
           <Button
             type="button"
             onClick={() => onAdd(selectedDay)}
-            className="rounded-2xl bg-slate-950 font-black text-white hover:bg-slate-800"
+            className="rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add meal
@@ -478,8 +478,8 @@ function BentoSidePanel({
       </section>
 
       {canWrite && (
-        <section className="rounded-[2rem] border border-slate-950/5 bg-slate-950 p-4 text-white shadow-[0_18px_44px_rgba(15,23,42,0.14)]">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-white/60">
+        <section className="rounded-[2rem] border border-blue-100 bg-blue-50 p-4 text-blue-950 shadow-[0_18px_44px_rgba(37,99,235,0.10)]">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-500">
             Quick action
           </p>
 
@@ -490,7 +490,7 @@ function BentoSidePanel({
           <Button
             type="button"
             onClick={() => onAdd(selectedDay)}
-            className="mt-4 w-full rounded-2xl bg-white font-black text-slate-950 hover:bg-slate-100"
+            className="mt-4 w-full rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add meal
@@ -630,7 +630,7 @@ function FamilyMenuPanel({
             type="button"
             onClick={handleCreate}
             disabled={!newName.trim() || savingTemplate || !canWrite}
-            className="w-full rounded-2xl bg-slate-950 font-black text-white hover:bg-slate-800"
+            className="w-full rounded-2xl bg-blue-600 font-black text-white hover:bg-blue-700"
           >
             <Plus className="mr-2 h-4 w-4" />
             {savingTemplate ? "Saving..." : "Save to Family Menu"}
@@ -742,7 +742,7 @@ function FamilyMenuPanel({
                           type="button"
                           onClick={() => onAddTemplateToPlan(template)}
                           disabled={!canWrite || addingTemplateId === template.id}
-                          className="mt-4 w-full rounded-2xl bg-white font-black text-slate-950 ring-1 ring-slate-100 hover:bg-slate-50"
+                          className="mt-4 w-full rounded-2xl bg-white font-black text-blue-700 ring-1 ring-blue-100 hover:bg-blue-50"
                         >
                           <CalendarDays className="mr-2 h-4 w-4" />
                           {addingTemplateId === template.id ? "Adding..." : "Add to selected day"}
@@ -1275,14 +1275,14 @@ export default function Meals() {
                 className={cn(
                   "rounded-[1.5rem] px-4 py-3 text-left transition",
                   activeMealTab === tab.id
-                    ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/15"
                     : "bg-white text-slate-500 ring-1 ring-slate-100 hover:bg-slate-50"
                 )}
               >
                 <p className="text-sm font-black">{tab.label}</p>
                 <p className={cn(
                   "text-xs font-bold",
-                  activeMealTab === tab.id ? "text-white/60" : "text-slate-400"
+                  activeMealTab === tab.id ? "text-blue-500" : "text-slate-400"
                 )}>
                   {tab.helper}
                 </p>
@@ -1365,7 +1365,7 @@ export default function Meals() {
             }
             setAddMealDate(selectedDay || new Date());
           }}
-          className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-slate-950 px-4 text-white shadow-xl shadow-slate-950/20 transition hover:scale-105 hover:bg-slate-800 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
+          className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-white shadow-xl shadow-blue-600/20 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
           aria-label="Add meal"
         >
           <Plus className="h-6 w-6" />
