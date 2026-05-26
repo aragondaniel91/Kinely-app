@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
   getDocs,
   query,
+  serverTimestamp,
   where,
 } from "firebase/firestore";
 
@@ -15,7 +18,7 @@ import {
   isToday as dateFnsIsToday,
 } from "date-fns";
 
-import { Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, ListChecks } from "lucide-react";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -74,7 +77,7 @@ function normalizeMeal(docSnap) {
   };
 }
 
-function MealCard({ meal, onDelete, canWrite }) {
+function MealCard({ meal, onDelete, onCreateList, mealList, canWrite }) {
   const config = mealTypeConfig[meal.meal_type] || mealTypeConfig.snack;
   const img =
     meal.image_url || FOOD_IMAGES[meal.meal_type] || FOOD_IMAGES.default;
@@ -122,12 +125,21 @@ function MealCard({ meal, onDelete, canWrite }) {
             {meal.notes}
           </p>
         )}
+
+        <button
+          type="button"
+          onClick={() => onCreateList?.(meal)}
+          className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[11px] font-black text-emerald-700 transition hover:bg-emerald-100"
+        >
+          <ListChecks className="h-3.5 w-3.5" />
+          {mealList ? "View grocery list" : "Create grocery list"}
+        </button>
       </div>
     </div>
   );
 }
 
-function DayColumn({ day, meals, onAdd, onDelete, canWrite }) {
+function DayColumn({ day, meals, onAdd, onDelete, onCreateMealList, listsByMealId, canWrite }) {
   const isToday = dateFnsIsToday(day);
 
   return (
@@ -163,6 +175,8 @@ function DayColumn({ day, meals, onAdd, onDelete, canWrite }) {
             key={meal.id}
             meal={meal}
             onDelete={onDelete}
+            onCreateList={onCreateMealList}
+            mealList={listsByMealId[meal.id]}
             canWrite={canWrite}
           />
         ))}
@@ -181,12 +195,14 @@ function DayColumn({ day, meals, onAdd, onDelete, canWrite }) {
 }
 
 export default function Meals() {
+  const navigate = useNavigate();
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date()));
   const [addMealDate, setAddMealDate] = useState(null);
   const [meals, setMeals] = useState([]);
+  const [mealLists, setMealLists] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const { familyId, perms } = useFamily();
+  const { familyId, user, profile, perms } = useFamily();
 
   const canRead = perms?.meals?.read !== false;
   const canWrite = perms?.meals?.write !== false;
@@ -197,9 +213,30 @@ export default function Meals() {
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [weekStart]);
 
+  const listsByMealId = useMemo(() => {
+    return mealLists.reduce((acc, list) => {
+      const mealId = list.linkedMealId || list.linked_meal_id || "";
+      if (mealId && list.status !== "archived") {
+        acc[mealId] = list;
+      }
+      return acc;
+    }, {});
+  }, [mealLists]);
+
+  function getCreatorName() {
+    return (
+      profile?.displayName ||
+      profile?.fullName ||
+      profile?.name ||
+      user?.displayName ||
+      "Unknown member"
+    );
+  }
+
   const loadMeals = async () => {
     if (!familyId || !canRead) {
       setMeals([]);
+      setMealLists([]);
       setLoading(false);
       return;
     }
@@ -249,6 +286,21 @@ export default function Meals() {
       });
 
       setMeals(data);
+
+      const listSnap = await getDocs(
+        query(
+          collection(db, "familyLists"),
+          where("familyId", "==", familyId),
+          where("source", "==", "meal")
+        )
+      );
+
+      setMealLists(
+        listSnap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }))
+      );
     } catch (error) {
       console.error("Error loading meals:", error);
       setMeals([]);
@@ -261,6 +313,58 @@ export default function Meals() {
     loadMeals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, canRead, weekStart]);
+
+  const createOrViewMealList = async (meal) => {
+    if (!meal?.id) return;
+
+    const existingList = listsByMealId[meal.id];
+
+    if (existingList?.id) {
+      navigate(`/lists?listId=${existingList.id}`);
+      return;
+    }
+
+    if (!canWrite || !familyId) return;
+
+    try {
+      const docRef = await addDoc(collection(db, "familyLists"), {
+        title: `${meal.name || "Meal"} ingredients`,
+        type: "meal",
+        description: meal.notes || `Shopping list for ${meal.name || "this meal"}`,
+        status: "active",
+
+        familyId,
+        family_id: familyId,
+
+        linkedMealId: meal.id,
+        linked_meal_id: meal.id,
+        linkedMealTitle: meal.name || "",
+        linked_meal_title: meal.name || "",
+
+        source: "meal",
+        source_type: "meal",
+
+        assignedToPersonId: "family",
+        assigned_to_person_id: "family",
+        assignedToPersonName: "Family",
+        assigned_to_person_name: "Family",
+
+        createdBy: user?.uid || null,
+        createdByEmail: user?.email || null,
+        createdByName: getCreatorName(),
+        created_by_name: getCreatorName(),
+        created_date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await loadMeals();
+      navigate(`/lists?listId=${docRef.id}`);
+    } catch (error) {
+      console.error("Error creating meal list:", error);
+      alert(`There was an error creating the meal list: ${error.message}`);
+    }
+  };
 
   const deleteMeal = async (id) => {
     if (!canWrite) return;
@@ -339,6 +443,8 @@ export default function Meals() {
               meals={getMealsForDate(day)}
               onAdd={(d) => setAddMealDate(d)}
               onDelete={deleteMeal}
+              onCreateMealList={createOrViewMealList}
+              listsByMealId={listsByMealId}
               canWrite={canWrite}
             />
           ))}
