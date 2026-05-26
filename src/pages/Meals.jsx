@@ -935,6 +935,7 @@ function FamilyMenuPanel({
   const [newIngredients, setNewIngredients] = useState("");
   const [addMissingNewToPantry, setAddMissingNewToPantry] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [menuSearch, setMenuSearch] = useState("");
 
   const [editingTemplateId, setEditingTemplateId] = useState("");
   const [editName, setEditName] = useState("");
@@ -949,8 +950,27 @@ function FamilyMenuPanel({
   const [removingTemplate, setRemovingTemplate] = useState(false);
 
   const visibleTemplates = templates.filter((template) => {
-    if (filter === "all") return true;
-    return template.mealType === filter || template.meal_type === filter;
+    const type = template.mealType || template.meal_type || "dinner";
+    const matchesFilter = filter === "all" || type === filter;
+    const searchText = menuSearch.trim().toLowerCase();
+
+    if (!matchesFilter) return false;
+    if (!searchText) return true;
+
+    const typeLabel = getMealConfig(type).label;
+
+    const haystack = [
+      template.name,
+      template.notes,
+      type,
+      typeLabel,
+      ...(Array.isArray(template.ingredients) ? template.ingredients : []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(searchText);
   });
 
   const groupedTemplates = mealOrder.reduce((acc, type) => {
@@ -1180,6 +1200,30 @@ function FamilyMenuPanel({
           </div>
         </div>
 
+        <div className="mt-4 rounded-[1.5rem] border border-white/80 bg-white/72 p-3 ring-1 ring-slate-100">
+          <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 ring-1 ring-slate-100">
+            <Search className="h-4 w-4 text-slate-400" />
+
+            <Input
+              value={menuSearch}
+              onChange={(event) => setMenuSearch(event.target.value)}
+              placeholder="Search meals, ingredients, notes..."
+              className="h-10 border-0 bg-transparent px-0 text-sm font-semibold shadow-none focus-visible:ring-0"
+            />
+
+            {menuSearch && (
+              <button
+                type="button"
+                onClick={() => setMenuSearch("")}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 ring-1 ring-slate-100 transition hover:text-slate-900"
+                aria-label="Clear Family Menu search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="mt-4 space-y-5">
           {mealOrder.map((type) => {
             const config = getMealConfig(type);
@@ -1395,7 +1439,9 @@ function FamilyMenuPanel({
                   </div>
                 ) : (
                   <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white/55 p-5 text-sm font-bold text-slate-400">
-                    No {config.label.toLowerCase()} meals saved yet.
+                    {menuSearch
+                      ? `No ${config.label.toLowerCase()} meals match "${menuSearch}".`
+                      : `No ${config.label.toLowerCase()} meals saved yet.`}
                   </div>
                 )}
               </div>
