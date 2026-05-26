@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { addDays, addMonths, subMonths } from "date-fns";
 import { useSearchParams } from "react-router-dom";
+import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { Plus } from "lucide-react";
 
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { useFamily } from "@/lib/FamilyContext";
+import { db } from "@/lib/firebase";
 import { getFirestoreDocumentId } from "@/core/firestore/firestoreDocUtils";
 import { deleteFamilyEventById } from "@/services/familyEventsService";
 import AddFamilyEventDialog from "@/features/family-calendar/components/AddFamilyEventDialog";
@@ -27,6 +29,7 @@ import { FAMILY_CALENDAR_CATEGORIES } from "@/features/family-calendar/utils/fam
 import { ALL_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/features/family-calendar/hooks/useFamilyCalendarFilters";
 import { useFamilyCalendarDateRange } from "@/features/family-calendar/hooks/useFamilyCalendarDateRange";
 import { useFamilyCalendarEvents } from "@/features/family-calendar/hooks/useFamilyCalendarEvents";
+import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 
 const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
 
@@ -141,6 +144,58 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     });
   }
 
+  async function unlinkDeletedEventReferences(documentId) {
+    if (!familyId || !documentId) return;
+
+    try {
+      const [listSnap, taskSnap] = await Promise.all([
+        getDocs(
+          query(
+            collection(db, "familyLists"),
+            where("familyId", "==", familyId),
+            where("linkedEventId", "==", documentId)
+          )
+        ),
+        getDocs(
+          query(
+            collection(db, TASK_COLLECTIONS.tasks),
+            where("familyId", "==", familyId),
+            where("linkedEventId", "==", documentId)
+          )
+        ),
+      ]);
+
+      await Promise.all([
+        ...listSnap.docs.map((docSnap) =>
+          updateDoc(doc(db, "familyLists", docSnap.id), {
+            linkedEventId: "",
+            linked_event_id: "",
+            source: "manual",
+            source_type: "manual",
+            formerLinkedEventId: documentId,
+            former_linked_event_id: documentId,
+            eventUnlinkedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        ),
+        ...taskSnap.docs.map((docSnap) =>
+          updateDoc(doc(db, TASK_COLLECTIONS.tasks, docSnap.id), {
+            linkedEventId: "",
+            linked_event_id: "",
+            linkedEventTitle: "",
+            linked_event_title: "",
+            formerLinkedEventId: documentId,
+            former_linked_event_id: documentId,
+            eventUnlinkedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        ),
+      ]);
+    } catch (error) {
+      console.error("Error unlinking deleted event references", error);
+    }
+  }
+
   async function confirmDeleteEvent() {
     if (!eventToDelete?.documentId) return;
 
@@ -149,6 +204,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
 
     try {
       await deleteFamilyEventById(eventToDelete.documentId);
+      await unlinkDeletedEventReferences(eventToDelete.documentId);
       setSelectedEvent(null);
       setSelectedOverflow(null);
       setEventToDelete(null);
@@ -271,7 +327,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
               Delete event?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm font-semibold leading-6 text-slate-500">
-              This will remove {eventToDelete?.title || "this event"} from the family calendar. This action cannot be undone.
+              This will remove {eventToDelete?.title || "this event"} from the family calendar only. Linked lists and tasks will stay available, but they will no longer point back to this event. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
