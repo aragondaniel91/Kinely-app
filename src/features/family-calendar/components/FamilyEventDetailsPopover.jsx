@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import {
   CalendarDays,
+  Check,
   CheckSquare,
   Clock,
   ListChecks,
@@ -162,6 +163,7 @@ export default function FamilyEventDetailsPopover({
   const [checkingLinkedList, setCheckingLinkedList] = useState(false);
   const [linkedList, setLinkedList] = useState(null);
   const [linkedTasks, setLinkedTasks] = useState([]);
+  const [showLinkedTasksPreview, setShowLinkedTasksPreview] = useState(false);
 
   const event = selected?.event || null;
   const panel = selected?.panel || null;
@@ -275,6 +277,10 @@ export default function FamilyEventDetailsPopover({
   }
 
   function handleViewLinkedTasks() {
+    setShowLinkedTasksPreview(true);
+  }
+
+  function openLinkedTasksInTasksPage() {
     const params = new URLSearchParams({
       linkedEventId: eventId,
       eventTitle,
@@ -479,6 +485,150 @@ export default function FamilyEventDetailsPopover({
           </div>
         </div>
       </div>
+
+      {showLinkedTasksPreview && (
+        <div className="fixed inset-0 z-[130] flex items-end justify-center bg-slate-950/20 px-3 pb-4 pt-10 backdrop-blur-sm sm:items-center sm:p-6">
+          <div className="max-h-[82vh] w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-gradient-to-br from-white via-blue-50/70 to-violet-50/50 p-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-500">
+                  Linked tasks
+                </p>
+
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                  {eventTitle}
+                </h2>
+
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  These tasks are connected to this calendar event.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowLinkedTasksPreview(false)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm ring-1 ring-slate-100 transition hover:text-slate-900"
+                aria-label="Close linked tasks preview"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[52vh] overflow-y-auto p-4">
+              {linkedTasks.length > 0 ? (
+                <div className="space-y-2">
+                  {linkedTasks.map((task) => {
+                    const done =
+                      task.status === "done" ||
+                      task.status === "completed" ||
+                      task.done === true ||
+                      task.completed === true;
+
+                    const assignedTo =
+                      task.assignedToPersonName ||
+                      task.assigned_to_person_name ||
+                      task.assignedToName ||
+                      task.assigned_to_name ||
+                      task.assignedTo ||
+                      "Family";
+
+                    const dueDate = task.dueDate || task.due_date || "";
+
+                    return (
+                      <div
+                        key={task.id}
+                        className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3"
+                      >
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2",
+                            done
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-600"
+                              : "border-slate-300 bg-white text-slate-400"
+                          )}
+                        >
+                          {done ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <CheckSquare className="h-4 w-4" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={cn(
+                              "truncate text-sm font-black",
+                              done ? "text-slate-400 line-through" : "text-slate-950"
+                            )}
+                          >
+                            {task.title || "Untitled task"}
+                          </p>
+
+                          <p className="truncate text-xs font-semibold text-slate-500">
+                            {assignedTo}
+                            {dueDate ? ` · Due ${dueDate}` : ""}
+                            {task.linkedListTitle || task.linked_list_title
+                              ? ` · ${task.linkedListTitle || task.linked_list_title}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide",
+                            done
+                              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                              : "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+                          )}
+                        >
+                          {done ? "Done" : "Pending"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white p-8 text-center">
+                  <CheckSquare className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <p className="font-black text-slate-950">No linked tasks yet</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Create a linked task when this event needs prep or follow-up.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 bg-white p-4">
+              <button
+                type="button"
+                onClick={() => setShowLinkedTasksPreview(false)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={openLinkedTasksInTasksPage}
+                className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+              >
+                Open in Tasks
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLinkedTasksPreview(false);
+                  handleCreateLinkedTask();
+                }}
+                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700"
+              >
+                Create another task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
