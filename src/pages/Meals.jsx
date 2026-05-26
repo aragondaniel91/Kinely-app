@@ -125,7 +125,7 @@ function MealCard({ meal, onDelete, onCreateList, mealList, canWrite }) {
 
   return (
     <div className="group overflow-hidden rounded-[1.65rem] border border-white/75 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.07)] ring-1 ring-slate-100/70 transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)]">
-      <div className="relative h-28 overflow-hidden">
+      <div className="relative h-24 overflow-hidden lg:h-28">
         <img
           src={img}
           alt={meal.name || config.label}
@@ -172,7 +172,7 @@ function MealCard({ meal, onDelete, onCreateList, mealList, canWrite }) {
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-black tracking-tight text-slate-950">
+            <p className="line-clamp-2 text-base font-black leading-tight tracking-tight text-slate-950">
               {meal.name || "Untitled meal"}
             </p>
 
@@ -235,7 +235,7 @@ function DayColumn({
   return (
     <div
       className={cn(
-        "flex min-h-[520px] w-[18rem] shrink-0 flex-col overflow-hidden rounded-[2rem] border shadow-[0_18px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl",
+        "flex min-h-[420px] flex-col overflow-hidden rounded-[2rem] border shadow-[0_18px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl",
         isToday
           ? "border-blue-200 bg-blue-50/55"
           : "border-white/80 bg-white/68"
@@ -577,7 +577,7 @@ export default function Meals() {
                 Meal Planner
               </p>
 
-              <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
                 Family meals for the week
               </h1>
 
@@ -658,21 +658,19 @@ export default function Meals() {
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-4">
-              {weekDays.map((day) => (
-                <DayColumn
-                  key={day.toISOString()}
-                  day={day}
-                  meals={getMealsForDate(day)}
-                  onAdd={(date) => setAddMealDate(date)}
-                  onDelete={requestDeleteMeal}
-                  onCreateMealList={createOrViewMealList}
-                  listsByMealId={listsByMealId}
-                  canWrite={canWrite}
-                />
-              ))}
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
+            {weekDays.map((day) => (
+              <DayColumn
+                key={day.toISOString()}
+                day={day}
+                meals={getMealsForDate(day)}
+                onAdd={(date) => setAddMealDate(date)}
+                onDelete={requestDeleteMeal}
+                onCreateMealList={createOrViewMealList}
+                listsByMealId={listsByMealId}
+                canWrite={canWrite}
+              />
+            ))}
           </div>
         )}
       </div>
