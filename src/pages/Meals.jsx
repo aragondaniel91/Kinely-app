@@ -8,6 +8,7 @@ import {
   getDocs,
   query,
   serverTimestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 
@@ -29,6 +30,7 @@ import {
   Cookie,
   ListChecks,
   Moon,
+  Pencil,
   Plus,
   Sparkles,
   Sun,
@@ -108,6 +110,7 @@ function normalizeMealTemplate(docSnap) {
     meal_type: data.meal_type || data.mealType || "dinner",
     notes: data.notes || "",
     ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
+    status: data.status || "active",
     favorite: data.favorite === true,
     kidFriendly: data.kidFriendly === true || data.kid_friendly === true,
     quickMeal: data.quickMeal === true || data.quick_meal === true,
@@ -509,6 +512,8 @@ function FamilyMenuPanel({
   savingTemplate,
   addingTemplateId,
   onCreateTemplate,
+  onUpdateTemplate,
+  onArchiveTemplate,
   onAddTemplateToPlan,
 }) {
   const [newName, setNewName] = useState("");
@@ -516,6 +521,16 @@ function FamilyMenuPanel({
   const [newNotes, setNewNotes] = useState("");
   const [newIngredients, setNewIngredients] = useState("");
   const [filter, setFilter] = useState("all");
+
+  const [editingTemplateId, setEditingTemplateId] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState("dinner");
+  const [editNotes, setEditNotes] = useState("");
+  const [editIngredients, setEditIngredients] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [templateToRemove, setTemplateToRemove] = useState(null);
+  const [removingTemplate, setRemovingTemplate] = useState(false);
 
   const visibleTemplates = templates.filter((template) => {
     if (filter === "all") return true;
@@ -529,19 +544,20 @@ function FamilyMenuPanel({
     return acc;
   }, {});
 
-  const handleCreate = async () => {
-    if (!newName.trim()) return;
-
-    const ingredients = newIngredients
+  const parseIngredients = (value) =>
+    String(value || "")
       .split("\n")
       .map((item) => item.trim())
       .filter(Boolean);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
 
     const created = await onCreateTemplate({
       name: newName.trim(),
       mealType: newType,
       notes: newNotes.trim(),
-      ingredients,
+      ingredients: parseIngredients(newIngredients),
     });
 
     if (created) {
@@ -549,6 +565,57 @@ function FamilyMenuPanel({
       setNewType("dinner");
       setNewNotes("");
       setNewIngredients("");
+    }
+  };
+
+  const startEditingTemplate = (template) => {
+    setEditingTemplateId(template.id);
+    setEditName(template.name || "");
+    setEditType(template.mealType || template.meal_type || "dinner");
+    setEditNotes(template.notes || "");
+    setEditIngredients((template.ingredients || []).join("\n"));
+  };
+
+  const cancelEditingTemplate = () => {
+    setEditingTemplateId("");
+    setEditName("");
+    setEditType("dinner");
+    setEditNotes("");
+    setEditIngredients("");
+    setSavingEdit(false);
+  };
+
+  const saveTemplateEdit = async (template) => {
+    if (!editName.trim() || !template?.id || savingEdit) return;
+
+    setSavingEdit(true);
+
+    const saved = await onUpdateTemplate(template.id, {
+      name: editName.trim(),
+      mealType: editType,
+      notes: editNotes.trim(),
+      ingredients: parseIngredients(editIngredients),
+    });
+
+    setSavingEdit(false);
+
+    if (saved) {
+      cancelEditingTemplate();
+    }
+  };
+
+  const confirmRemoveTemplate = async () => {
+    if (!templateToRemove?.id || removingTemplate) return;
+
+    setRemovingTemplate(true);
+    const removed = await onArchiveTemplate(templateToRemove);
+    setRemovingTemplate(false);
+
+    if (removed) {
+      if (editingTemplateId === templateToRemove.id) {
+        cancelEditingTemplate();
+      }
+      setTemplateToRemove(null);
     }
   };
 
@@ -595,8 +662,8 @@ function FamilyMenuPanel({
                     className={cn(
                       "rounded-2xl border p-3 text-left transition",
                       selected
-                        ? "border-accent/20 bg-accent/8 text-accent"
-                        : "border-slate-100 bg-white text-slate-600 hover:bg-accent/8/50"
+                        ? "border-accent/20 bg-accent/10 text-accent"
+                        : "border-slate-100 bg-white text-slate-600 hover:bg-secondary/40"
                     )}
                   >
                     <Icon className="mb-1 h-4 w-4" />
@@ -623,7 +690,7 @@ function FamilyMenuPanel({
               value={newIngredients}
               onChange={(event) => setNewIngredients(event.target.value)}
               placeholder={"One per line:\ntortillas\nground beef\ncheese"}
-              className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-blue-200 focus:ring-2 focus:ring-accent/15"
+              className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
             />
           </div>
 
@@ -666,8 +733,8 @@ function FamilyMenuPanel({
                   className={cn(
                     "rounded-full px-3 py-2 text-xs font-black ring-1 transition",
                     active
-                      ? "bg-blue-600 text-white ring-blue-200"
-                      : "bg-white text-slate-500 ring-slate-100 hover:bg-accent/8"
+                      ? "bg-accent text-accent-foreground ring-accent/20"
+                      : "bg-white text-slate-500 ring-slate-100 hover:bg-secondary/40"
                   )}
                 >
                   {label}
@@ -698,76 +765,195 @@ function FamilyMenuPanel({
 
                 {items.length > 0 ? (
                   <div className="grid gap-3 md:grid-cols-2">
-                    {items.map((template) => (
-                      <div
-                        key={template.id}
-                        className={cn(
-                          "rounded-[1.75rem] border border-white/80 bg-gradient-to-br p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)]",
-                          config.panel
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1", config.tone)}>
-                            <Icon className="h-5 w-5" />
-                          </div>
+                    {items.map((template) => {
+                      const isEditing = editingTemplateId === template.id;
 
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-lg font-black leading-tight text-slate-950">
-                              {template.name}
-                            </h4>
+                      return (
+                        <div
+                          key={template.id}
+                          className={cn(
+                            "rounded-[1.75rem] border border-white/80 bg-gradient-to-br p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)]",
+                            config.panel
+                          )}
+                        >
+                          {isEditing ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">
+                                  Edit meal
+                                </p>
 
-                            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                              {template.notes || `${template.ingredients.length} ingredient${template.ingredients.length === 1 ? "" : "s"}`}
-                            </p>
-
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {template.ingredients.slice(0, 4).map((ingredient) => (
-                                <span
-                                  key={ingredient}
-                                  className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100"
+                                <button
+                                  type="button"
+                                  onClick={cancelEditingTemplate}
+                                  disabled={savingEdit}
+                                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-100 transition hover:text-slate-900 disabled:opacity-50"
+                                  aria-label="Cancel edit"
                                 >
-                                  {ingredient}
-                                </span>
-                              ))}
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
 
-                              {template.ingredients.length > 4 && (
-                                <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-slate-400 ring-1 ring-slate-100">
-                                  +{template.ingredients.length - 4}
-                                </span>
-                              )}
+                              <Input
+                                value={editName}
+                                onChange={(event) => setEditName(event.target.value)}
+                                className="h-11 rounded-2xl bg-white font-bold"
+                                placeholder="Meal name"
+                              />
+
+                              <div className="grid grid-cols-4 gap-1.5">
+                                {mealOrder.map((mealType) => {
+                                  const typeConfig = getMealConfig(mealType);
+                                  const TypeIcon = typeConfig.icon;
+                                  const active = editType === mealType;
+
+                                  return (
+                                    <button
+                                      key={mealType}
+                                      type="button"
+                                      onClick={() => setEditType(mealType)}
+                                      className={cn(
+                                        "flex h-10 items-center justify-center rounded-xl ring-1 transition",
+                                        active
+                                          ? "bg-accent text-accent-foreground ring-accent/20"
+                                          : "bg-white text-slate-400 ring-slate-100 hover:bg-secondary/40"
+                                      )}
+                                      title={typeConfig.label}
+                                    >
+                                      <TypeIcon className="h-4 w-4" />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              <Input
+                                value={editNotes}
+                                onChange={(event) => setEditNotes(event.target.value)}
+                                className="h-11 rounded-2xl bg-white"
+                                placeholder="Notes"
+                              />
+
+                              <textarea
+                                value={editIngredients}
+                                onChange={(event) => setEditIngredients(event.target.value)}
+                                placeholder={"One per line:\ntortillas\nground beef\ncheese"}
+                                className="min-h-[120px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
+                              />
+
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <Button
+                                  type="button"
+                                  onClick={() => saveTemplateEdit(template)}
+                                  disabled={!editName.trim() || savingEdit || !canWrite}
+                                  className="rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+                                >
+                                  {savingEdit ? "Saving..." : "Save changes"}
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={cancelEditingTemplate}
+                                  disabled={savingEdit}
+                                  className="rounded-2xl bg-white font-black"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        </div>
+                          ) : (
+                            <>
+                              <div className="flex items-start gap-3">
+                                <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1", config.tone)}>
+                                  <Icon className="h-5 w-5" />
+                                </div>
 
-                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          <Button
-                            type="button"
-                            onClick={() => onAddTemplateToPlan(template)}
-                            disabled={!canWrite || addingTemplateId === template.id}
-                            className="rounded-2xl bg-white font-black text-accent ring-1 ring-accent/15 hover:bg-accent/8"
-                          >
-                            <CalendarDays className="mr-2 h-4 w-4" />
-                            {addingTemplateId === template.id ? "Adding..." : "Add to day"}
-                          </Button>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <h4 className="text-lg font-black leading-tight text-slate-950">
+                                        {template.name}
+                                      </h4>
 
-                          <Button
-                            type="button"
-                            onClick={() =>
-                              onAddTemplateToPlan(template, { createGroceryList: true })
-                            }
-                            disabled={
-                              !canWrite ||
-                              addingTemplateId === template.id ||
-                              !template.ingredients?.length
-                            }
-                            className="rounded-2xl bg-emerald-50 font-black text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100 disabled:opacity-50"
-                          >
-                            <ListChecks className="mr-2 h-4 w-4" />
-                            Add + list
-                          </Button>
+                                      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                                        {template.notes || `${template.ingredients.length} ingredient${template.ingredients.length === 1 ? "" : "s"}`}
+                                      </p>
+                                    </div>
+
+                                    {canWrite && (
+                                      <div className="flex shrink-0 gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => startEditingTemplate(template)}
+                                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-100 transition hover:bg-accent/10 hover:text-accent hover:ring-accent/15"
+                                          aria-label="Edit menu meal"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => setTemplateToRemove(template)}
+                                          className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-400 ring-1 ring-slate-100 transition hover:bg-red-50 hover:text-red-600 hover:ring-red-100"
+                                          aria-label="Remove menu meal"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {template.ingredients.slice(0, 4).map((ingredient) => (
+                                      <span
+                                        key={ingredient}
+                                        className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-slate-500 ring-1 ring-slate-100"
+                                      >
+                                        {ingredient}
+                                      </span>
+                                    ))}
+
+                                    {template.ingredients.length > 4 && (
+                                      <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-slate-400 ring-1 ring-slate-100">
+                                        +{template.ingredients.length - 4}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                <Button
+                                  type="button"
+                                  onClick={() => onAddTemplateToPlan(template)}
+                                  disabled={!canWrite || addingTemplateId === template.id}
+                                  className="rounded-2xl bg-white font-black text-accent ring-1 ring-accent/15 hover:bg-accent/10"
+                                >
+                                  <CalendarDays className="mr-2 h-4 w-4" />
+                                  {addingTemplateId === template.id ? "Adding..." : "Add to day"}
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  onClick={() =>
+                                    onAddTemplateToPlan(template, { createGroceryList: true })
+                                  }
+                                  disabled={
+                                    !canWrite ||
+                                    addingTemplateId === template.id ||
+                                    !template.ingredients?.length
+                                  }
+                                  className="rounded-2xl bg-emerald-50 font-black text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100 disabled:opacity-50"
+                                >
+                                  <ListChecks className="mr-2 h-4 w-4" />
+                                  Add + list
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-white/55 p-5 text-sm font-bold text-slate-400">
@@ -779,6 +965,50 @@ function FamilyMenuPanel({
           })}
         </div>
       </section>
+
+      {templateToRemove && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/20 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-black tracking-tight text-slate-950">
+                  Remove from Family Menu?
+                </h2>
+
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                  This removes "{templateToRemove.name}" from your saved menu.
+                  Existing planned meals will stay on the calendar.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setTemplateToRemove(null)}
+                disabled={removingTemplate}
+                className="rounded-2xl font-black"
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                onClick={confirmRemoveTemplate}
+                disabled={removingTemplate}
+                className="rounded-2xl bg-red-600 font-black text-white hover:bg-red-700"
+              >
+                {removingTemplate ? "Removing..." : "Remove meal"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -922,7 +1152,9 @@ export default function Meals() {
         )
       );
 
-      const templateData = templateSnap.docs.map(normalizeMealTemplate);
+      const templateData = templateSnap.docs
+        .map(normalizeMealTemplate)
+        .filter((template) => template.status !== "archived");
 
       templateData.sort((a, b) => {
         const order = {
@@ -1017,6 +1249,76 @@ export default function Meals() {
       return false;
     } finally {
       setSavingTemplate(false);
+    }
+  };
+
+  const updateMealTemplate = async (templateId, updates) => {
+    if (!canWrite || !familyId || !templateId || !updates?.name?.trim()) return false;
+
+    try {
+      await updateDoc(doc(db, "mealTemplates", templateId), {
+        name: updates.name.trim(),
+        mealType: updates.mealType || "dinner",
+        meal_type: updates.mealType || "dinner",
+        notes: updates.notes || "",
+        ingredients: Array.isArray(updates.ingredients) ? updates.ingredients : [],
+
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      toast({
+        title: "Family Menu updated",
+        description: `${updates.name.trim()} was updated.`,
+        duration: 3000,
+      });
+
+      await loadMeals();
+      return true;
+    } catch (error) {
+      console.error("Error updating meal template:", error);
+
+      toast({
+        title: "Could not update menu item",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+
+      return false;
+    }
+  };
+
+  const archiveMealTemplate = async (template) => {
+    if (!canWrite || !template?.id) return false;
+
+    try {
+      await updateDoc(doc(db, "mealTemplates", template.id), {
+        status: "archived",
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+      });
+
+      toast({
+        title: "Removed from Family Menu",
+        description: `${template.name || "Meal"} was removed from saved meals.`,
+        duration: 3000,
+      });
+
+      await loadMeals();
+      return true;
+    } catch (error) {
+      console.error("Error removing meal template:", error);
+
+      toast({
+        title: "Could not remove menu item",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+
+      return false;
     }
   };
 
@@ -1447,14 +1749,16 @@ export default function Meals() {
         {activeMealTab === "menu" ? (
           <div className="block">
             <FamilyMenuPanel
-              templates={mealTemplates}
-              selectedDay={selectedDay}
-              canWrite={canWrite}
-              savingTemplate={savingTemplate}
-              addingTemplateId={addingTemplateId}
-              onCreateTemplate={createMealTemplate}
-              onAddTemplateToPlan={addTemplateToSelectedDay}
-            />
+            templates={mealTemplates}
+            selectedDay={selectedDay}
+            canWrite={canWrite}
+            savingTemplate={savingTemplate}
+            addingTemplateId={addingTemplateId}
+            onCreateTemplate={createMealTemplate}
+            onUpdateTemplate={updateMealTemplate}
+            onArchiveTemplate={archiveMealTemplate}
+            onAddTemplateToPlan={addTemplateToSelectedDay}
+          />
           </div>
         ) : (
           <>
