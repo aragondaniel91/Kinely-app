@@ -739,15 +739,33 @@ function FamilyMenuPanel({
                           </div>
                         </div>
 
-                        <Button
-                          type="button"
-                          onClick={() => onAddTemplateToPlan(template)}
-                          disabled={!canWrite || addingTemplateId === template.id}
-                          className="mt-4 w-full rounded-2xl bg-white font-black text-accent ring-1 ring-accent/15 hover:bg-accent/8"
-                        >
-                          <CalendarDays className="mr-2 h-4 w-4" />
-                          {addingTemplateId === template.id ? "Adding..." : "Add to selected day"}
-                        </Button>
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          <Button
+                            type="button"
+                            onClick={() => onAddTemplateToPlan(template)}
+                            disabled={!canWrite || addingTemplateId === template.id}
+                            className="rounded-2xl bg-white font-black text-accent ring-1 ring-accent/15 hover:bg-accent/8"
+                          >
+                            <CalendarDays className="mr-2 h-4 w-4" />
+                            {addingTemplateId === template.id ? "Adding..." : "Add to day"}
+                          </Button>
+
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              onAddTemplateToPlan(template, { createGroceryList: true })
+                            }
+                            disabled={
+                              !canWrite ||
+                              addingTemplateId === template.id ||
+                              !template.ingredients?.length
+                            }
+                            className="rounded-2xl bg-emerald-50 font-black text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100 disabled:opacity-50"
+                          >
+                            <ListChecks className="mr-2 h-4 w-4" />
+                            Add + list
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1002,13 +1020,18 @@ export default function Meals() {
     }
   };
 
-  const addTemplateToSelectedDay = async (template) => {
+  const addTemplateToSelectedDay = async (template, options = {}) => {
     if (!canWrite || !familyId || !template?.id) return;
+
+    const shouldCreateGroceryList = options?.createGroceryList === true;
+    const ingredients = Array.isArray(template.ingredients)
+      ? template.ingredients.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
 
     setAddingTemplateId(template.id);
 
     try {
-      await addDoc(collection(db, "meals"), {
+      const mealRef = await addDoc(collection(db, "meals"), {
         date: format(selectedDay, "yyyy-MM-dd"),
 
         meal_type: template.mealType || template.meal_type || "dinner",
@@ -1036,14 +1059,98 @@ export default function Meals() {
         updatedAt: serverTimestamp(),
       });
 
+      let listRef = null;
+
+      if (shouldCreateGroceryList && ingredients.length > 0) {
+        listRef = await addDoc(collection(db, "familyLists"), {
+          title: `${template.name || "Meal"} ingredients`,
+          type: "meal",
+          description:
+            template.notes ||
+            `Shopping list for ${template.name || "this meal"}`,
+          status: "active",
+
+          familyId,
+          family_id: familyId,
+
+          linkedMealId: mealRef.id,
+          linked_meal_id: mealRef.id,
+          linkedMealTitle: template.name || "",
+          linked_meal_title: template.name || "",
+
+          source: "meal",
+          source_type: "meal",
+
+          assignedToPersonId: "family",
+          assigned_to_person_id: "family",
+          assignedToPersonName: "Family",
+          assigned_to_person_name: "Family",
+
+          createdBy: user?.uid || null,
+          createdByEmail: user?.email || null,
+          createdByName: getCreatorName(),
+          created_by_name: getCreatorName(),
+
+          created_date: new Date().toISOString(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        await Promise.all(
+          ingredients.map((ingredient) =>
+            addDoc(collection(db, "familyListItems"), {
+              title: ingredient,
+              name: ingredient,
+              quantity: "",
+              note: "",
+              status: "needed",
+              checked: false,
+
+              listId: listRef.id,
+              list_id: listRef.id,
+              listTitle: `${template.name || "Meal"} ingredients`,
+              list_title: `${template.name || "Meal"} ingredients`,
+              listType: "meal",
+              list_type: "meal",
+
+              familyId,
+              family_id: familyId,
+
+              source: "mealTemplate",
+              source_type: "mealTemplate",
+              linkedMealId: mealRef.id,
+              linked_meal_id: mealRef.id,
+              linkedMealTitle: template.name || "",
+              linked_meal_title: template.name || "",
+
+              createdBy: user?.uid || null,
+              createdByEmail: user?.email || null,
+              created_date: new Date().toISOString(),
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            })
+          )
+        );
+      }
+
       toast({
-        title: "Meal added",
-        description: `${template.name} was added to ${format(selectedDay, "EEEE")}.`,
+        title:
+          shouldCreateGroceryList && listRef?.id
+            ? "Meal and grocery list added"
+            : "Meal added",
+        description:
+          shouldCreateGroceryList && listRef?.id
+            ? `${template.name} was added with ${ingredients.length} ingredient${ingredients.length === 1 ? "" : "s"}.`
+            : `${template.name} was added to ${format(selectedDay, "EEEE")}.`,
         duration: 3500,
       });
 
       setActiveMealTab("planner");
       await loadMeals();
+
+      if (listRef?.id) {
+        navigate(`/lists?listId=${listRef.id}`);
+      }
     } catch (error) {
       console.error("Error adding template to plan:", error);
 
