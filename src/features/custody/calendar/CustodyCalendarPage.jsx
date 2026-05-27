@@ -39,7 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
+import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
 
 import CustodyDayDialog from "@/features/custody/calendar/components/CustodyDayDialog";
 import BulkCustodyDialog from "@/features/custody/calendar/components/BulkCustodyDialog";
@@ -141,6 +141,18 @@ function findNextCustodyChange(sortedDays, todayKey) {
   return null;
 }
 
+function calendarParentTheme(colorId, fallback) {
+  const color = getAppColor(normalizeColorId(colorId, fallback), fallback);
+
+  return {
+    bg: color.bgStrong,
+    border: color.borderStrong,
+    chip: color.chip,
+    dot: color.dot,
+    text: color.textStrong,
+  };
+}
+
 export default function CustodyCalendar({ viewMode = "month", setViewMode, showFilters = true, setShowFilters }) {
   const { user, profile, familyId, perms, dadName, momName, dadColor, momColor } = useFamily();
 
@@ -161,8 +173,8 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
 
-  const dadTheme = COLOR_MAP[dadColor] || COLOR_MAP.blue;
-  const momTheme = COLOR_MAP[momColor] || COLOR_MAP.amber;
+  const dadTheme = calendarParentTheme(dadColor, "blue");
+  const momTheme = calendarParentTheme(momColor, "amber");
 
   const loadCustodyDays = async () => {
     if (!user || !familyId || !canRead) {

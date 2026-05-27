@@ -37,7 +37,15 @@ function parentLabel(parent) {
 }
 
 function parentColor(parent, fallback) {
-  return parent?.color || parent?.custodyColor || parent?.custody_color || fallback;
+  return normalizeColorId(
+    parent?.colorId ||
+      parent?.color_id ||
+      parent?.color ||
+      parent?.custodyColor ||
+      parent?.custody_color ||
+      fallback,
+    fallback
+  );
 }
 
 function custodyGroupColorClasses(group, fallback = "blue") {
@@ -229,7 +237,7 @@ export default function CustodyCalendarView({
   onOpenChat,
 }) {
   const familyContext = useFamily();
-  const { myEmail, profile, familyId, dadName, momName, perms } = familyContext;
+  const { myEmail, profile, familyId, dadName, momName, dadColor, momColor, custodyDadColor, custodyMomColor, perms } = familyContext;
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -327,14 +335,24 @@ export default function CustodyCalendarView({
       children: profile?.children || [],
       childIds: Array.isArray(profile?.children) ? profile.children.map(childId).filter(Boolean) : [],
       coParents: [
-        { name: dadName || "Dad", email: myEmail || "", role: "dad" },
-        { name: momName || "Mom", email: profile?.parent2_email || profile?.parent2Email || "", role: "mom" },
+        {
+          name: dadName || "Dad",
+          email: myEmail || "",
+          role: "dad",
+          color: normalizeColorId(custodyDadColor || dadColor || "blue", "blue"),
+        },
+        {
+          name: momName || "Mom",
+          email: profile?.parent2_email || profile?.parent2Email || "",
+          role: "mom",
+          color: normalizeColorId(custodyMomColor || momColor || "amber", "amber"),
+        },
       ],
       memberEmails: [myEmail, profile?.parent2_email || profile?.parent2Email].filter(Boolean),
       viewerEmails: [],
       legacy: true,
     }),
-    [profile, dadName, momName, myEmail]
+    [profile, dadName, momName, myEmail, dadColor, momColor, custodyDadColor, custodyMomColor]
   );
 
   const availableGroups = useMemo(() => {
