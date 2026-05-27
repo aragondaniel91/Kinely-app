@@ -201,16 +201,6 @@ function PackingItem({ item, onCycle, onEdit, onDelete }) {
       </div>
 
       <AppDialog
-        open={Boolean(noticeDialog)}
-        tone={noticeDialog?.tone}
-        title={noticeDialog?.title}
-        message={noticeDialog?.message}
-        confirmLabel="Got it"
-        onConfirm={() => setNoticeDialog(null)}
-        onCancel={() => setNoticeDialog(null)}
-      />
-
-      <AppDialog
         open={Boolean(confirmDialog)}
         tone={confirmDialog?.tone}
         title={confirmDialog?.title}

@@ -139,15 +139,6 @@ function WeatherTimeBadge() {
         <p className="text-sm font-black text-slate-950">{formatTime(now)}</p>
         <p className="text-[11px] font-bold text-slate-500">68° · Sunny</p>
       </div>
-      <AppDialog
-        open={Boolean(noticeDialog)}
-        tone={noticeDialog?.tone}
-        title={noticeDialog?.title}
-        message={noticeDialog?.message}
-        confirmLabel="Got it"
-        onConfirm={() => setNoticeDialog(null)}
-        onCancel={() => setNoticeDialog(null)}
-      />
 
       <AppDialog
         open={Boolean(confirmDialog)}
