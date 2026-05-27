@@ -18,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
 
@@ -285,25 +286,60 @@ function ReadinessItem({ label, status = "Ready", owner }) {
   );
 }
 
-function WeekStrip({ weekDays }) {
-  const ownerTones = {
-    dad: "bg-blue-500",
-    mom: "bg-amber-400",
-    split: "bg-emerald-500",
-    none: "bg-slate-300",
+function WeekStrip({ weekDays, dadColor = "blue", momColor = "amber" }) {
+  const dadClasses = getColorClasses(normalizeColorId(dadColor, "blue"), "blue");
+  const momClasses = getColorClasses(normalizeColorId(momColor, "amber"), "amber");
+
+  const ownerClasses = {
+    dad: {
+      card: `${dadClasses.border} ${dadClasses.bg}`,
+      day: dadClasses.textStrong,
+      dot: dadClasses.dot,
+    },
+    mom: {
+      card: `${momClasses.border} ${momClasses.bg}`,
+      day: momClasses.textStrong,
+      dot: momClasses.dot,
+    },
+    split: {
+      card: "border-emerald-200 bg-emerald-50",
+      day: "text-emerald-900",
+      dot: "",
+      split: true,
+    },
+    none: {
+      card: "border-slate-200 bg-slate-50",
+      day: "text-slate-900",
+      dot: "bg-slate-300",
+    },
   };
 
   return (
     <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
       <SectionHeader kicker="This week" title="Custody rhythm" />
       <div className="mt-4 grid grid-cols-7 gap-2">
-        {weekDays.map((item) => (
-          <div key={item.dateKey} className="rounded-[1.05rem] border border-slate-200 bg-slate-50 px-1.5 py-3 text-center">
-            <p className="text-[11px] font-black text-slate-400 sm:text-xs">{item.day}</p>
-            <p className="mt-1 text-sm font-black text-slate-900">{item.date}</p>
-            <div className={`mx-auto mt-2 h-2 w-6 rounded-full ${ownerTones[item.owner] || ownerTones.none}`} />
-          </div>
-        ))}
+        {weekDays.map((item) => {
+          const tone = ownerClasses[item.owner] || ownerClasses.none;
+
+          return (
+            <div
+              key={item.dateKey}
+              className={`rounded-[1.05rem] border px-1.5 py-3 text-center transition ${tone.card}`}
+            >
+              <p className="text-[11px] font-black text-slate-400 sm:text-xs">{item.day}</p>
+              <p className={`mt-1 text-sm font-black ${tone.day}`}>{item.date}</p>
+
+              {tone.split ? (
+                <div className="mx-auto mt-2 flex h-2 w-8 overflow-hidden rounded-full">
+                  <div className={`h-full flex-1 ${dadClasses.dot}`} />
+                  <div className={`h-full flex-1 ${momClasses.dot}`} />
+                </div>
+              ) : (
+                <div className={`mx-auto mt-2 h-2 w-6 rounded-full ${tone.dot}`} />
+              )}
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
@@ -330,8 +366,22 @@ function getCustodyChildDisplayName(custodyChildren = []) {
 }
 
 export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, onOpenPacking, onOpenNotifications, onOpenBudget, onOpenChat }) {
-  const { user, familyId, dadName, momName, perms, custodyChildren } = useFamily();
+  const {
+    user,
+    familyId,
+    dadName,
+    momName,
+    dadColor,
+    momColor,
+    custodyDadColor,
+    custodyMomColor,
+    custodyParentOverride,
+    perms,
+    custodyChildren,
+  } = useFamily();
   const custodyChildDisplayName = getCustodyChildDisplayName(custodyChildren);
+  const dashboardDadColor = custodyParentOverride?.dadColor || custodyDadColor || dadColor || "blue";
+  const dashboardMomColor = custodyParentOverride?.momColor || custodyMomColor || momColor || "amber";
   const [custodyDays, setCustodyDays] = useState([]);
   const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
   const [expenses, setExpenses] = useState(initialCustodyExpenses);
@@ -626,7 +676,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-          <WeekStrip weekDays={dashboard.weekDays} />
+          <WeekStrip
+            weekDays={dashboard.weekDays}
+            dadColor={dashboardDadColor}
+            momColor={dashboardMomColor}
+          />
 
           <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
             <SectionHeader kicker="Custody tools" title="Quick actions" action="Schedule" onAction={onOpenSchedule} />
