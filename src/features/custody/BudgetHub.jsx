@@ -373,7 +373,17 @@ function SplitPreview({ dadName, momName, dadColor = "blue", momColor = "amber",
 }
 
 export default function BudgetHub() {
-  const { user, familyId, dadName, momName, profile } = useFamily();
+  const {
+    user,
+    familyId,
+    dadName,
+    momName,
+    dadColor,
+    momColor,
+    custodyDadColor,
+    custodyMomColor,
+    custodyParentOverride,
+  } = useFamily();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -599,10 +609,10 @@ export default function BudgetHub() {
 
           <div className="space-y-6">
             <SplitPreview
-              dadName={dadName}
-              momName={momName}
-              dadColor={profile?.parent1Color || profile?.parent1_color || "blue"}
-              momColor={profile?.parent2Color || profile?.parent2_color || "amber"}
+              dadName={custodyParentOverride?.dadName || dadName}
+              momName={custodyParentOverride?.momName || momName}
+              dadColor={custodyParentOverride?.dadColor || custodyDadColor || dadColor || "blue"}
+              momColor={custodyParentOverride?.momColor || custodyMomColor || momColor || "amber"}
               pending={summary.pending}
             />
 
