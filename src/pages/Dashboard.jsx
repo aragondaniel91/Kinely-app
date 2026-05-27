@@ -99,7 +99,7 @@ function getActivitySortValue(activity) {
 }
 
 export default function Dashboard() {
-  const { user, familyId, profile, dadName, momName, perms } = useFamily();
+  const { user, familyId, profile, dadName, momName, dadColor, momColor, perms } = useFamily();
 
   const [custodyDays, setCustodyDays] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -300,7 +300,13 @@ export default function Dashboard() {
 
   return (
     <FamilyHomeDashboard
+      familyName={profile?.familyName || profile?.family_name || profile?.name || "Family"}
       todayLabel={todayLabel}
+      todayParent={todayParent}
+      dadName={dadName}
+      momName={momName}
+      dadColor={dadColor}
+      momColor={momColor}
       nextChange={nextChange}
       nextChangeLabel={nextChangeLabel}
       todayCustody={todayCustody}
@@ -313,6 +319,7 @@ export default function Dashboard() {
       canReadTasks={canReadTasks}
       canReadMeals={canReadMeals}
       canReadGroceries={canReadGroceries}
+      canReadCalendar={canReadCalendar}
     />
   );
 }
