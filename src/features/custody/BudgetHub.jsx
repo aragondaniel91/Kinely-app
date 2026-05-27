@@ -592,7 +592,7 @@ function PaymentModal({
   const classes = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4  md:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 md:items-center md:p-6">
       <div className="w-full max-w-xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-lg md:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -655,7 +655,7 @@ function PaymentModal({
           <form onSubmit={onSubmit} className="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1.5">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Partial payment</span>
+                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Partial payment</span>
                 <input
                   type="number"
                   min="0"
@@ -663,17 +663,17 @@ function PaymentModal({
                   value={value.amount}
                   onChange={(event) => onChange({ ...value, amount: event.target.value })}
                   placeholder="0.00"
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                  className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                 />
               </label>
 
               <label className="grid gap-1.5">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Observation</span>
+                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Observation</span>
                 <input
                   value={value.note}
                   onChange={(event) => onChange({ ...value, note: event.target.value })}
                   placeholder="Optional note"
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                  className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                 />
               </label>
             </div>
@@ -705,7 +705,7 @@ function PaymentModal({
         </div>
 
         <div className="mt-5 flex justify-end">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="rounded-full">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="h-10 rounded-full px-5 font-black">
             Close
           </Button>
         </div>
@@ -747,8 +747,8 @@ function ExpenseModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4  md:items-center">
-      <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-5 shadow-lg md:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 md:items-center md:p-6">
+      <form onSubmit={onSubmit} className="max-h-[88vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-[2rem] border border-white/80 bg-white p-4 shadow-lg md:p-6">
         <div className="mb-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Budget expense</p>
           <h3 className="mt-1 text-2xl font-black text-slate-950">{isEdit ? "Edit expense" : "Add expense"}</h3>
@@ -757,21 +757,21 @@ function ExpenseModal({
           </p>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           <label className="grid gap-1.5">
-            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Title</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Title</span>
             <input
               value={value.title}
               onChange={(event) => onChange({ ...value, title: event.target.value })}
               placeholder="Example: Daycare"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+              className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
               required
             />
           </label>
 
           <div className="grid gap-3 md:grid-cols-3">
             <label className="grid gap-1.5">
-              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Total amount</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Total amount</span>
               <input
                 type="number"
                 min="0"
@@ -779,17 +779,17 @@ function ExpenseModal({
                 value={value.amount}
                 onChange={(event) => handleAmountChange(event.target.value)}
                 placeholder="0.00"
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                 required
               />
             </label>
 
             <label className="grid gap-1.5">
-              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Split rule</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Split rule</span>
               <select
                 value={value.splitType}
                 onChange={(event) => handleSplitChange(event.target.value)}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
               >
                 <option>50/50</option>
                 <option>Custom</option>
@@ -799,68 +799,68 @@ function ExpenseModal({
             </label>
 
             <label className="grid gap-1.5">
-              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Due date</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Due date</span>
               <input
                 type="date"
                 value={value.dueDate}
                 onChange={(event) => onChange({ ...value, dueDate: event.target.value })}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
               />
             </label>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-[1.4rem] border border-slate-200 p-4">
+            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/60 p-3">
               <p className="text-sm font-black text-slate-950">{parent1Name}</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1.5">
-                  <span className="text-xs font-black uppercase tracking-wide text-slate-400">Should pay</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Should pay</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={value.parent1ShareAmount}
                     onChange={(event) => onChange({ ...value, parent1ShareAmount: event.target.value, splitType: "Custom" })}
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                   />
                 </label>
                 <label className="grid gap-1.5">
-                  <span className="text-xs font-black uppercase tracking-wide text-slate-400">Already paid</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Already paid</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={value.parent1PaidAmount}
                     onChange={(event) => onChange({ ...value, parent1PaidAmount: event.target.value })}
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                   />
                 </label>
               </div>
             </div>
 
-            <div className="rounded-[1.4rem] border border-slate-200 p-4">
+            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/60 p-3">
               <p className="text-sm font-black text-slate-950">{parent2Name}</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1.5">
-                  <span className="text-xs font-black uppercase tracking-wide text-slate-400">Should pay</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Should pay</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={value.parent2ShareAmount}
                     onChange={(event) => onChange({ ...value, parent2ShareAmount: event.target.value, splitType: "Custom" })}
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                   />
                 </label>
                 <label className="grid gap-1.5">
-                  <span className="text-xs font-black uppercase tracking-wide text-slate-400">Already paid</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Already paid</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={value.parent2PaidAmount}
                     onChange={(event) => onChange({ ...value, parent2PaidAmount: event.target.value })}
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                   />
                 </label>
               </div>
@@ -869,11 +869,11 @@ function ExpenseModal({
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1.5">
-              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Category</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Category</span>
               <select
                 value={value.category}
                 onChange={(event) => onChange({ ...value, category: event.target.value })}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
               >
                 <option>School</option>
                 <option>Medical</option>
@@ -897,7 +897,7 @@ function ExpenseModal({
 
               {value.recurring && (
                 <label className="grid gap-1.5">
-                  <span className="text-xs font-black uppercase tracking-wide text-slate-400">Monthly due day</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Monthly due day</span>
                   <input
                     type="number"
                     min="1"
@@ -905,25 +905,25 @@ function ExpenseModal({
                     value={value.dueDayOfMonth}
                     onChange={(event) => onChange({ ...value, dueDayOfMonth: event.target.value })}
                     placeholder="15"
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                   />
                 </label>
               )}
 
               <label className="grid gap-1.5">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Note</span>
+                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Note</span>
                 <input
                   value={value.due}
                   onChange={(event) => onChange({ ...value, due: event.target.value })}
                   placeholder="Example: invoice #, receipt note, payment detail"
-                  className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                  className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
                 />
               </label>
             </div>
           </div>
 
-          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">Preview</p>
+          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Preview</p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <div className="rounded-2xl bg-white p-3 text-sm font-bold">
                 <p className="text-slate-950">{parent1Name}</p>
@@ -953,11 +953,11 @@ function ExpenseModal({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="rounded-full">
+        <div className="mt-5 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="h-10 rounded-full px-5 font-black">
             Cancel
           </Button>
-          <Button type="submit" disabled={saving} className="rounded-full bg-amber-600 hover:bg-amber-700">
+          <Button type="submit" disabled={saving} className="h-10 rounded-full bg-amber-600 px-5 font-black hover:bg-amber-700">
             {saving ? "Saving..." : isEdit ? "Save changes" : "Add expense"}
           </Button>
         </div>
