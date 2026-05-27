@@ -44,6 +44,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
@@ -1027,47 +1035,50 @@ export default function ManageTaskTemplatesDialog({
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <Label>Type</Label>
-                      <select
-                        value={draft.type}
-                        onChange={(event) => patchDraft({ type: event.target.value })}
-                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                      >
-                        {TEMPLATE_TYPE_OPTIONS.map((type) => (
-                          <option key={type.value} value={type.value}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={draft.type} onValueChange={(nextValue) => patchDraft({ type: nextValue })}>
+                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TEMPLATE_TYPE_OPTIONS.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div>
                       <Label>Category</Label>
-                      <select
-                        value={draft.category}
-                        onChange={(event) => patchDraft({ category: event.target.value })}
-                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                      >
-                        {TASK_CREATE_CATEGORY_OPTIONS.map((category) => (
-                          <option key={category.value} value={category.value}>
-                            {category.label}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={draft.category} onValueChange={(nextValue) => patchDraft({ category: nextValue })}>
+                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TASK_CREATE_CATEGORY_OPTIONS.map((category) => (
+                            <SelectItem key={category.value} value={category.value}>
+                              {category.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div>
                       <Label>Priority</Label>
-                      <select
-                        value={draft.defaultPriority}
-                        onChange={(event) => patchDraft({ defaultPriority: event.target.value })}
-                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                      >
-                        {TASK_PRIORITY_OPTIONS.map((priority) => (
-                          <option key={priority.value} value={priority.value}>
-                            {priority.label}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={draft.defaultPriority} onValueChange={(nextValue) => patchDraft({ defaultPriority: nextValue })}>
+                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TASK_PRIORITY_OPTIONS.map((priority) => (
+                            <SelectItem key={priority.value} value={priority.value}>
+                              {priority.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </section>
@@ -1085,38 +1096,42 @@ export default function ManageTaskTemplatesDialog({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <Label>Repeats</Label>
-                      <select
+                      <Select
                         value={draft.recurrence}
-                        onChange={(event) => {
-                          const recurrence = event.target.value;
+                        onValueChange={(recurrence) =>
                           patchDraft({
                             recurrence,
                             autoGenerate: recurrence === "manual" ? false : draft.autoGenerate,
-                          });
-                        }}
-                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+                          })
+                        }
                       >
-                        {RECURRENCE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RECURRENCE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div>
                       <Label>Default assignee</Label>
-                      <select
-                        value={draft.assignedToPersonId}
-                        onChange={(event) => patchDraft({ assignedToPersonId: event.target.value })}
-                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
-                      >
-                        {assigneeOptions.map((person) => (
-                          <option key={person.id} value={person.id}>
-                            {person.name}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={draft.assignedToPersonId} onValueChange={(nextValue) => patchDraft({ assignedToPersonId: nextValue })}>
+                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assigneeOptions.map((person) => (
+                            <SelectItem key={person.id} value={person.id}>
+                              {person.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
@@ -1177,11 +1192,11 @@ export default function ManageTaskTemplatesDialog({
                     </span>
                   </div>
 
-                  <textarea
+                  <Textarea
                     value={draft.taskLines}
                     onChange={(event) => patchDraft({ taskLines: event.target.value })}
                     placeholder={"Make bed\nClean room\nLaundry in basket"}
-                    className="min-h-[160px] w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-ring"
+                    className="min-h-[160px] rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-700 focus-visible:ring-ring"
                   />
 
                   <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-500 ring-1 ring-slate-100">
