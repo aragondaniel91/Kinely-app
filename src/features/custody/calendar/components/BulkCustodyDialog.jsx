@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 
 import { cn } from "@/lib/utils";
+import AppDialog from "@/components/app/AppDialog";
 
 const WEEK_DAYS = [
   { value: 0, label: "D" },
@@ -292,6 +293,7 @@ export default function BulkCustodyDialog({
   const [untilDate, setUntilDate] = useState(threeMonthsLater);
   const [occurrences, setOccurrences] = useState(13);
   const [notes, setNotes] = useState("");
+  const [noticeDialog, setNoticeDialog] = useState(null);
 
   const isSmartPattern = selectedTemplate !== "custom";
 
@@ -377,6 +379,14 @@ export default function BulkCustodyDialog({
   const smartPreviewLimited = smartSegments.slice(0, 10);
   const hasMoreSmartSegments = smartSegments.length > smartPreviewLimited.length;
 
+  const showValidationNotice = (message, title = "Review schedule setup") => {
+    setNoticeDialog({
+      tone: "warning",
+      title,
+      message,
+    });
+  };
+
   const toggleWeekday = (day) => {
     setRepeatWeekdays((prev) => {
       if (prev.includes(day)) {
@@ -392,33 +402,33 @@ export default function BulkCustodyDialog({
     if (!startDate || !endDate) return;
 
     if (endDate < startDate) {
-      alert("La fecha final no puede ser menor que la fecha inicial.");
+      showValidationNotice("La fecha final no puede ser menor que la fecha inicial.", "Invalid date range");
       return;
     }
 
     if (isSmartPattern && !Object.keys(smartDayMap).length) {
-      alert("No se generó ningún día para este patrón.");
+      showValidationNotice("No se generó ningún día para este patrón. Revisa las fechas o el patrón seleccionado.", "No days generated");
       return;
     }
 
     if (!isSmartPattern) {
       if (repeatEnabled && Number(repeatEvery) < 1) {
-        alert("Repeat every debe ser al menos 1.");
+        showValidationNotice("Repeat every debe ser al menos 1.");
         return;
       }
 
       if (repeatEnabled && repeatUnit === "week" && repeatWeekdays.length === 0) {
-        alert("Selecciona al menos un día de la semana.");
+        showValidationNotice("Selecciona al menos un día de la semana.");
         return;
       }
 
       if (repeatEnabled && endMode === "onDate" && !untilDate) {
-        alert("Selecciona una fecha de finalización.");
+        showValidationNotice("Selecciona una fecha de finalización.");
         return;
       }
 
       if (repeatEnabled && endMode === "after" && Number(occurrences) < 1) {
-        alert("Occurrences debe ser al menos 1.");
+        showValidationNotice("Occurrences debe ser al menos 1.");
         return;
       }
     }
@@ -446,8 +456,9 @@ export default function BulkCustodyDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose?.()}>
-      <DialogContent className="max-w-4xl max-h-[92vh] p-0 overflow-hidden">
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClose?.()}>
+        <DialogContent className="max-w-4xl max-h-[92vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-5 pb-3 border-b bg-background">
           <DialogTitle className="font-heading text-2xl flex items-center gap-2">
             <CalendarRange className="w-6 h-6 text-primary" />
@@ -733,7 +744,18 @@ export default function BulkCustodyDialog({
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
           <Button type="button" onClick={handleSave} disabled={isSaving || previewBlocks.length === 0}>{isSaving ? "Guardando..." : "Guardar todos los días"}</Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+    </>
   );
 }
