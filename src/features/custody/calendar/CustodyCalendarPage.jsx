@@ -48,6 +48,7 @@ import CustodyCalendarGrid from "@/features/custody/calendar/components/CustodyC
 import CustodyCalendarToolbar from "@/features/custody/calendar/components/CustodyCalendarToolbar";
 import CustodyBulkUndoBanner from "@/features/custody/calendar/components/CustodyBulkUndoBanner";
 import CustodyCalendarSidebar from "@/features/custody/calendar/components/CustodyCalendarSidebar";
+import AppDialog from "@/components/app/AppDialog";
 import { normalizeDate } from "@/features/custody/calendar/utils/custodyDateUtils";
 import {
   normalizeCustodyDay,
@@ -169,9 +170,14 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const [lastBulkUndo, setLastBulkUndo] = useState(null);
   const [pendingBulkConfirm, setPendingBulkConfirm] = useState(null);
   const [pendingUndoConfirm, setPendingUndoConfirm] = useState(false);
+  const [noticeDialog, setNoticeDialog] = useState(null);
 
   const canRead = perms?.calendar?.read !== false;
   const canWrite = perms?.calendar?.write !== false;
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
 
   const dadTheme = calendarParentTheme(dadColor, "blue");
   const momTheme = calendarParentTheme(momColor, "amber");
@@ -297,7 +303,11 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       setLastBulkUndo(null);
     } catch (error) {
       console.error("Error saving custody day:", error);
-      alert(`There was an error saving the custody day: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save custody day",
+        message: error.message,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -310,12 +320,20 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     const baseEnd = parseISO(`${payload.endDate}T12:00:00`);
 
     if (Number.isNaN(baseStart.getTime()) || Number.isNaN(baseEnd.getTime())) {
-      alert("Invalid date range.");
+      showNotice({
+        tone: "warning",
+        title: "Invalid date range",
+        message: "Please review the start and end dates.",
+      });
       return;
     }
 
     if (baseEnd < baseStart) {
-      alert("The end date cannot be earlier than the start date.");
+      showNotice({
+        tone: "warning",
+        title: "Invalid date range",
+        message: "The end date cannot be earlier than the start date.",
+      });
       return;
     }
 
@@ -323,7 +341,11 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     const blockStarts = generateBlockStarts(payload);
 
     if (!blockStarts.length) {
-      alert("No schedule occurrences were generated.");
+      showNotice({
+        tone: "warning",
+        title: "No schedule generated",
+        message: "No schedule occurrences were generated. Please review the selected pattern and dates.",
+      });
       return;
     }
 
@@ -382,7 +404,11 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       setShowBulkDialog(false);
     } catch (error) {
       console.error("Error saving bulk custody days:", error);
-      alert(`There was an error saving the custody range: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save custody range",
+        message: error.message,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -434,7 +460,11 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       setLastBulkUndo(null);
     } catch (error) {
       console.error("Error undoing bulk custody creation:", error);
-      alert(`Could not undo the latest bulk schedule: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not undo bulk schedule",
+        message: error.message,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -462,7 +492,11 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       setLastBulkUndo(null);
     } catch (error) {
       console.error("Error deleting custody day:", error);
-      alert(`There was an error deleting the custody day: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete custody day",
+        message: error.message,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -704,6 +738,16 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           )}
         </div>
       </div>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
 
       <AlertDialog
         open={Boolean(pendingBulkConfirm)}
