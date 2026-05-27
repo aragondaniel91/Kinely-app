@@ -1,7 +1,7 @@
 # Family Wall Audit Report
 
 Scanned files: 181
-Generated: 2026-05-27T20:54:44.674Z
+Generated: 2026-05-27T21:10:05.765Z
 
 ## Browser dialogs still in use
 
@@ -20,11 +20,6 @@ Reason: Likely custom overlay outside the app dialog system.
 - src/features/family-calendar/components/FamilyEventDetailsPopover.jsx: 2 match(es), sample lines: 350, 490
 - src/components/profile/ProfileMemberEditorDialog.jsx: 1 match(es), sample lines: 218
 - src/components/profile/ProfileMembersSection.jsx: 1 match(es), sample lines: 380
-- src/features/custody/ExchangeHub.jsx: 1 match(es), sample lines: 347
-- src/features/custody/PackingHub.jsx: 1 match(es), sample lines: 212
-- src/features/custody/components/budget/BudgetExpenseDetail.jsx: 1 match(es), sample lines: 78
-- src/features/custody/components/budget/BudgetExpenseWizard.jsx: 1 match(es), sample lines: 200
-- src/features/family-calendar/components/FamilyEventOverflowPopover.jsx: 1 match(es), sample lines: 72
 
 ## Raw inputs/selects/textareas
 

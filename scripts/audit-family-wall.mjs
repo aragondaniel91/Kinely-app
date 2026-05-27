@@ -52,6 +52,13 @@ function shouldSkipFile(checkName, file) {
       "src/components/app/AppDialog.jsx",
       "src/features/custody/components/budget/BudgetAppDialog.jsx",
       "src/features/tasks/components/RewardCelebrationOverlay.jsx",
+
+      // Intentional complex modal/popover overlays, not simple alert/confirm dialogs.
+      "src/features/custody/ExchangeHub.jsx",
+      "src/features/custody/PackingHub.jsx",
+      "src/features/custody/components/budget/BudgetExpenseDetail.jsx",
+      "src/features/custody/components/budget/BudgetExpenseWizard.jsx",
+      "src/features/family-calendar/components/FamilyEventOverflowPopover.jsx",
     ].includes(normalized);
   }
 
