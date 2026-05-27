@@ -91,32 +91,78 @@ function normalizePerson(person, fallback = {}) {
   };
 }
 
-function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
+function shouldShowOnHomeDashboard(person = {}) {
+  if (person.showOnHomeDashboard === true || person.show_on_home_dashboard === true) return true;
+  if (person.homeDashboard === true || person.home_dashboard === true) return true;
+  if (person.livesHere === true || person.lives_here === true) return true;
+  if (person.household === true || person.isHousehold === true || person.is_household === true) return true;
+
+  const role = String(person.role || person.type || person.relationship || "").toLowerCase();
+
+  if (["child", "kid", "son", "daughter", "parent", "guardian", "partner", "spouse", "adult", "owner"].includes(role)) {
+    return true;
+  }
+
+  if (["grandparent", "grandma", "grandfather", "grandmother", "babysitter", "caregiver", "guest", "viewer"].includes(role)) {
+    return false;
+  }
+
+  return false;
+}
+
+function buildPeople({ profile, user }) {
   const children = (profile?.children || profile?.childProfiles || [])
     .map((child, index) => normalizePerson(child, { type: "child", colorId: ["blue", "rose", "green", "violet"][index % 4] }))
     .filter(Boolean);
 
-  const members = (profile?.members || profile?.familyMembers || profile?.caregivers || [])
+  const rawMembers = [
+    ...(profile?.members || []),
+    ...(profile?.familyMembers || []),
+    ...(profile?.caregivers || []),
+  ];
+
+  const members = rawMembers
     .map((member) => normalizePerson(member, { type: "member", colorId: "teal" }))
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter(shouldShowOnHomeDashboard);
 
-  const parents = [
-    dadName ? { id: "dad", name: dadName, type: "parent", colorId: dadColor || "blue" } : null,
-    momName ? { id: "mom", name: momName, type: "parent", colorId: momColor || "amber" } : null,
-  ].filter(Boolean);
+  const currentUser = user
+    ? [normalizePerson(
+        {
+          id: user.uid,
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName || profile?.displayName || profile?.name || user.email || "Me",
+          type: "owner",
+          colorId: profile?.colorId || profile?.color_id || "blue",
+          showOnHomeDashboard: true,
+        },
+        { type: "owner", colorId: "blue" }
+      )]
+    : [];
 
-  const currentUser =
-    user && !parents.length && !members.some((member) => member.email === user.email)
-      ? [{ id: user.uid, uid: user.uid, email: user.email, name: user.displayName || user.email || "Me", type: "member", colorId: "blue" }]
-      : [];
-
+  const people = [...children, ...members, ...currentUser].filter(Boolean);
   const seen = new Set();
 
-  return [...children, ...parents, ...members, ...currentUser].filter((person) => {
-    const key = String(person.id || person.uid || person.email || person.name || "").toLowerCase();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  return people.filter((person) => {
+    const keys = [
+      person.id,
+      person.uid,
+      person.email,
+      person.name,
+      person.displayName,
+      person.fullName,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+
+    const key = keys[0];
+    if (!key) return false;
+
+    const duplicate = keys.some((candidate) => seen.has(candidate));
+    keys.forEach((candidate) => seen.add(candidate));
+
+    return !duplicate;
   });
 }
 
@@ -172,8 +218,8 @@ export default function Dashboard() {
   const canReadCalendar = perms?.calendar?.read !== false;
 
   const people = useMemo(() => {
-    return buildPeople({ profile, user, dadName, momName, dadColor, momColor });
-  }, [profile, user, dadName, momName, dadColor, momColor]);
+    return buildPeople({ profile, user });
+  }, [profile, user]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -206,16 +252,31 @@ export default function Dashboard() {
           const familyLists = await loadFamilyCollection("familyLists", familyId);
           const groceries = familyLists.length ? [] : await loadFamilyCollection("groceries", familyId);
 
-          listData = familyLists.length
-            ? familyLists.map(summarizeList)
-            : groceries
-                .filter((item) => item.checked !== true && item.status !== "archived")
-                .map((item) => summarizeList({
-                  id: item.id,
-                  title: item.listTitle || item.list_title || item.category || "Grocery list",
-                  pendingCount: 1,
-                  source: "groceries",
-                }));
+          if (familyLists.length) {
+            listData = familyLists.map(summarizeList);
+          } else {
+            const grouped = new Map();
+
+            groceries
+              .filter((item) => item.checked !== true && item.status !== "archived")
+              .forEach((item) => {
+                const title = item.listTitle || item.list_title || item.category || "Grocery list";
+                const key = String(title).trim().toLowerCase();
+
+                if (!grouped.has(key)) {
+                  grouped.set(key, {
+                    id: `grocery-${key}`,
+                    title,
+                    pendingCount: 0,
+                    source: "groceries",
+                  });
+                }
+
+                grouped.get(key).pendingCount += 1;
+              });
+
+            listData = Array.from(grouped.values());
+          }
         }
 
         if (canReadCalendar) {
@@ -255,7 +316,7 @@ export default function Dashboard() {
 
         const normalizedLists = listData
           .map(summarizeList)
-          .filter((list) => list.status !== "archived" && Number(list.pendingCount ?? 0) > 0);
+          .filter((list) => list.status !== "archived");
 
         normalizedTasks.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
         normalizedMeals.sort((a, b) => String(a.meal_type || a.mealType || "").localeCompare(String(b.meal_type || b.mealType || "")));

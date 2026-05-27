@@ -187,6 +187,21 @@ function matchesPerson(item, person) {
   return values.some((value) => personTokens.includes(value));
 }
 
+function findPersonForItem(item, people = []) {
+  return people.find((person) => matchesPerson(item, person)) || null;
+}
+
+function getMealTone(meal) {
+  const type = String(meal?.meal_type || meal?.mealType || meal?.type || "").toLowerCase();
+
+  if (type.includes("breakfast")) return "amber";
+  if (type.includes("lunch")) return "emerald";
+  if (type.includes("snack")) return "violet";
+  if (type.includes("dinner")) return "rose";
+
+  return "amber";
+}
+
 function getActivityIcon(type = "") {
   if (type.includes("task")) return CheckSquare;
   if (type.includes("meal")) return UtensilsCrossed;
@@ -493,7 +508,7 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
 
   return (
     <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-      <SectionHeader kicker="Family members" title="Today by person" action="View profile" to="/profile" />
+      <SectionHeader kicker="Family members" title="Today by person" action="Manage" to="/profile" />
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {people.slice(0, 8).map((person, index) => {
           const name = person.displayName || person.name || person.fullName || person.email || `Member ${index + 1}`;
@@ -501,6 +516,7 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
           const personTasks = tasksToday.filter((task) => matchesPerson(task, person));
           const personEvents = calendarEventsToday.filter((event) => matchesPerson(event, person));
           const personMeals = mealsToday.filter((meal) => matchesPerson(meal, person));
+          const total = personTasks.length + personEvents.length + personMeals.length;
 
           return (
             <Link
@@ -514,7 +530,9 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black text-slate-950">{name}</p>
                 <p className="truncate text-xs font-semibold text-slate-500">
-                  {personTasks.length} tasks · {personEvents.length} events · {personMeals.length} meals
+                  {total
+                    ? `${personTasks.length} tasks · ${personEvents.length} events`
+                    : "Nothing assigned today"}
                 </p>
               </div>
             </Link>
@@ -525,7 +543,7 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
   );
 }
 
-function TaskPreviewCard({ tasksToday }) {
+function TaskPreviewCard({ tasksToday, people }) {
   const visibleTasks = tasksToday.slice(0, 5);
 
   return (
@@ -533,16 +551,34 @@ function TaskPreviewCard({ tasksToday }) {
       <SectionHeader kicker="Today’s tasks" title={tasksToday.length ? `${tasksToday.length} due today` : "All clear"} action="View all" to="/tasks" />
       <div className="mt-4 space-y-2.5">
         {visibleTasks.length ? (
-          visibleTasks.map((task, index) => (
-            <CompactItem
-              key={task.id || `${getItemTitle(task)}-${index}`}
-              icon={CheckSquare}
-              title={getItemTitle(task, "Family task")}
-              text={getItemDate(task) ? `Due ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Today"}
-              tone="blue"
-              to="/tasks"
-            />
-          ))
+          visibleTasks.map((task, index) => {
+            const assignedPerson = findPersonForItem(task, people);
+            const personClasses = assignedPerson ? getPersonColorClasses(assignedPerson, index) : null;
+
+            return (
+              <Link
+                key={task.id || `${getItemTitle(task)}-${index}`}
+                to="/tasks"
+                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2.5 transition hover:bg-white ${
+                  personClasses ? personClasses.border : "border-slate-200 hover:border-blue-100"
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                  personClasses
+                    ? `${personClasses.bg} ${personClasses.textStrong} ${personClasses.border}`
+                    : getToneClasses("blue")
+                }`}>
+                  <CheckSquare className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-slate-950">{getItemTitle(task, "Family task")}</p>
+                  <p className="truncate text-xs font-semibold text-slate-500">
+                    {assignedPerson?.name || assignedPerson?.displayName || task.assignedTo || task.owner || "Today"} · Due {formatShortDate(getItemDate(task))}
+                  </p>
+                </div>
+              </Link>
+            );
+          })
         ) : (
           <CompactItem icon={CheckSquare} title="No tasks due today" text="The family task board looks calm." tone="emerald" />
         )}
@@ -559,16 +595,21 @@ function MealsTodayCard({ mealsToday }) {
       <SectionHeader kicker="Meals" title="Today’s meals" action="Plan meals" to="/meals" />
       <div className="mt-4 space-y-2.5">
         {visibleMeals.length ? (
-          visibleMeals.map((meal, index) => (
-            <CompactItem
-              key={meal.id || `${getItemTitle(meal)}-${index}`}
-              icon={UtensilsCrossed}
-              title={getItemTitle(meal, "Meal")}
-              text={`${meal.meal_type || meal.mealType || "Meal"} · Today`}
-              tone="amber"
-              to="/meals"
-            />
-          ))
+          visibleMeals.map((meal, index) => {
+            const tone = getMealTone(meal);
+            const type = meal.meal_type || meal.mealType || "Meal";
+
+            return (
+              <CompactItem
+                key={meal.id || `${getItemTitle(meal)}-${index}`}
+                icon={UtensilsCrossed}
+                title={getItemTitle(meal, "Meal")}
+                text={`${type} · Today`}
+                tone={tone}
+                to="/meals"
+              />
+            );
+          })
         ) : (
           <CompactItem icon={UtensilsCrossed} title="No meals planned" text="Add meals for today." tone="amber" to="/meals" />
         )}
@@ -577,7 +618,7 @@ function MealsTodayCard({ mealsToday }) {
   );
 }
 
-function NextSevenDaysCard({ calendarEvents }) {
+function NextSevenDaysCard({ calendarEvents, people }) {
   const items = calendarEvents
     .filter((event) => getItemDate(event))
     .sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)))
@@ -588,16 +629,36 @@ function NextSevenDaysCard({ calendarEvents }) {
       <SectionHeader kicker="Next 7 days" title="Calendar" action="View calendar" to="/calendar" />
       <div className="mt-4 space-y-2.5">
         {items.length ? (
-          items.map((event, index) => (
-            <CompactItem
-              key={event.id || `${getItemTitle(event)}-${index}`}
-              icon={CalendarDays}
-              title={getItemTitle(event, "Family event")}
-              text={`${formatShortDate(getItemDate(event))}${getItemTime(event) ? ` · ${getItemTime(event)}` : ""}`}
-              tone="violet"
-              to="/calendar"
-            />
-          ))
+          items.map((event, index) => {
+            const assignedPerson = findPersonForItem(event, people);
+            const personClasses = assignedPerson ? getPersonColorClasses(assignedPerson, index) : null;
+
+            return (
+              <Link
+                key={event.id || `${getItemTitle(event)}-${index}`}
+                to="/calendar"
+                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2.5 transition hover:bg-white ${
+                  personClasses ? personClasses.border : "border-slate-200 hover:border-violet-100"
+                }`}
+              >
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                  personClasses
+                    ? `${personClasses.bg} ${personClasses.textStrong} ${personClasses.border}`
+                    : getToneClasses("violet")
+                }`}>
+                  <CalendarDays className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-slate-950">{getItemTitle(event, "Family event")}</p>
+                  <p className="truncate text-xs font-semibold text-slate-500">
+                    {formatShortDate(getItemDate(event))}
+                    {getItemTime(event) ? ` · ${getItemTime(event)}` : ""}
+                    {assignedPerson ? ` · ${assignedPerson.name || assignedPerson.displayName}` : ""}
+                  </p>
+                </div>
+              </Link>
+            );
+          })
         ) : (
           <CompactItem icon={CalendarDays} title="No events coming up" text="The next week looks calm." tone="blue" to="/calendar" />
         )}
@@ -716,9 +777,9 @@ export default function FamilyHomeDashboard({
         />
 
         <div className="grid gap-4 xl:grid-cols-3">
-          <TaskPreviewCard tasksToday={tasksToday} />
+          <TaskPreviewCard tasksToday={tasksToday} people={people} />
           <MealsTodayCard mealsToday={mealsToday} />
-          <NextSevenDaysCard calendarEvents={calendarEvents} />
+          <NextSevenDaysCard calendarEvents={calendarEvents} people={people} />
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
