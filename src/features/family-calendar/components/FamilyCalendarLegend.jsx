@@ -4,22 +4,34 @@ import { colorClasses } from "@/lib/personColorUtils";
 const ALL_FILTER_ID = "all";
 const FAMILY_FILTER_ID = "family";
 
-function LegendDot({ colorId = "family", active = false, gradientStyle = null }) {
-  const isSharedFamilyDot = colorId === "all" || colorId === "family";
+const FAMILY_SIGNATURE_STYLE = {
+  background:
+    "linear-gradient(135deg, #006B9E 0%, #007A55 42%, #B7791F 72%, #C92B55 100%)",
+};
 
-  if (isSharedFamilyDot) {
+function LegendDot({ colorId = "family", active = false }) {
+  if (colorId === "all") {
     return (
       <span
         className={cn(
-          "relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white shadow-sm",
+          "h-4 w-4 shrink-0 rounded-full border border-slate-300 bg-slate-100 shadow-sm",
           active && "ring-2 ring-slate-300 ring-offset-2 ring-offset-white"
         )}
         aria-hidden="true"
-      >
-        <span className="absolute left-[5px] top-[5px] h-1.5 w-1.5 rounded-full bg-blue-500" />
-        <span className="absolute right-[5px] top-[5px] h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        <span className="absolute bottom-[5px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-violet-500" />
-      </span>
+      />
+    );
+  }
+
+  if (colorId === "family") {
+    return (
+      <span
+        className={cn(
+          "h-4 w-4 shrink-0 rounded-full border border-white shadow-sm",
+          active && "ring-2 ring-slate-300 ring-offset-2 ring-offset-white"
+        )}
+        style={FAMILY_SIGNATURE_STYLE}
+        aria-hidden="true"
+      />
     );
   }
 
@@ -29,15 +41,19 @@ function LegendDot({ colorId = "family", active = false, gradientStyle = null })
     <span
       className={cn(
         "h-4 w-4 shrink-0 rounded-full border border-white shadow-sm",
-        !gradientStyle && colors.dot,
+        colors.dot,
         active && "ring-2 ring-slate-300 ring-offset-2 ring-offset-white"
       )}
-      style={gradientStyle || undefined}
+      aria-hidden="true"
     />
   );
 }
 
-export default function FamilyCalendarLegend({ people = [], selectedPersonId = ALL_FILTER_ID, onSelectPerson }) {
+export default function FamilyCalendarLegend({
+  people = [],
+  selectedPersonId = ALL_FILTER_ID,
+  onSelectPerson,
+}) {
   const items = [
     { id: ALL_FILTER_ID, displayName: "ALL", type: "all", colorId: "all" },
     ...people,
@@ -55,11 +71,11 @@ export default function FamilyCalendarLegend({ people = [], selectedPersonId = A
             onClick={() => onSelectPerson?.(person.id)}
             className={cn(
               "flex items-center gap-2 text-[15px] font-semibold transition",
-              active ? "text-slate-950" : "text-slate-700 hover:text-blue-700"
+              active ? "text-slate-950" : "text-slate-700 hover:text-slate-950"
             )}
           >
-            <LegendDot colorId={person.colorId || "family"} active={active} gradientStyle={person.gradientStyle} />
-            <span>{person.displayName}</span>
+            <LegendDot colorId={person.colorId || "family"} active={active} />
+            <span>{person.displayName || person.name || person.label}</span>
           </button>
         );
       })}
