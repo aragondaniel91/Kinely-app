@@ -337,8 +337,15 @@ function ExpenseModal({ open, mode, value, saving, onChange, onClose, onSubmit }
   );
 }
 
-function SplitPreview({ dadName, momName, dadColor = "blue", momColor = "amber", pending }) {
-  const estimatedShare = Math.round((pending || 0) / 2);
+function SplitPreview({
+  dadName,
+  momName,
+  dadColor = "blue",
+  momColor = "amber",
+  pending,
+  dadOwesMom = 0,
+  momOwesDad = 0,
+}) {
   const dadClasses = getColorClasses(normalizeColorId(dadColor, "blue"), "blue");
   const momClasses = getColorClasses(normalizeColorId(momColor, "amber"), "amber");
 
@@ -352,20 +359,20 @@ function SplitPreview({ dadName, momName, dadColor = "blue", momColor = "amber",
           Who owes what
         </h3>
         <p className="mt-2 text-sm font-semibold text-slate-500">
-          V1 estimate based on pending expenses with a 50/50 default split.
+          Net estimate based on pending/review expenses and a 50/50 default split.
         </p>
       </div>
 
       <div className="space-y-3">
         <div className={`rounded-[1.4rem] border p-4 ${dadClasses.border} ${dadClasses.bg}`}>
           <p className={`text-sm font-black ${dadClasses.textStrong}`}>{dadName || "Dad"}</p>
-          <p className={`mt-1 text-3xl font-black ${dadClasses.text}`}>{currency(estimatedShare)}</p>
-          <p className={`mt-1 text-xs font-bold ${dadClasses.text}`}>Estimated balance</p>
+          <p className={`mt-1 text-3xl font-black ${dadClasses.text}`}>{currency(dadOwesMom)}</p>
+          <p className={`mt-1 text-xs font-bold ${dadClasses.text}`}>Owes {momName || "Mom"}</p>
         </div>
         <div className={`rounded-[1.4rem] border p-4 ${momClasses.border} ${momClasses.bg}`}>
           <p className={`text-sm font-black ${momClasses.textStrong}`}>{momName || "Mom"}</p>
-          <p className={`mt-1 text-3xl font-black ${momClasses.text}`}>{currency(estimatedShare)}</p>
-          <p className={`mt-1 text-xs font-bold ${momClasses.text}`}>Estimated balance</p>
+          <p className={`mt-1 text-3xl font-black ${momClasses.text}`}>{currency(momOwesDad)}</p>
+          <p className={`mt-1 text-xs font-bold ${momClasses.text}`}>Owes {dadName || "Dad"}</p>
         </div>
       </div>
     </Card>
@@ -614,6 +621,8 @@ export default function BudgetHub() {
               dadColor={custodyParentOverride?.dadColor || custodyDadColor || dadColor || "blue"}
               momColor={custodyParentOverride?.momColor || custodyMomColor || momColor || "amber"}
               pending={summary.pending}
+              dadOwesMom={summary.dadOwesMom}
+              momOwesDad={summary.momOwesDad}
             />
 
             <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">

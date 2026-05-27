@@ -53,12 +53,54 @@ export function currency(value) {
   }).format(value || 0);
 }
 
+function normalizePaidBy(value) {
+  const paidBy = String(value || "").trim().toLowerCase();
+
+  if (paidBy === "dad" || paidBy === "father" || paidBy === "parent 1") return "dad";
+  if (paidBy === "mom" || paidBy === "mother" || paidBy === "parent 2") return "mom";
+
+  return "shared";
+}
+
+function getSplitShares(expense) {
+  const split = String(expense?.split || "50/50").trim().toLowerCase();
+
+  if (split === "50/50" || split === "default") {
+    return { dadShare: 0.5, momShare: 0.5 };
+  }
+
+  return { dadShare: 0.5, momShare: 0.5 };
+}
+
 export function getBudgetSummary(expenses = initialCustodyExpenses) {
   const total = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-  const pending = expenses
-    .filter((expense) => expense.status !== "settled")
-    .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const pendingExpenses = expenses.filter((expense) => expense.status !== "settled");
+
+  const pending = pendingExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   const settled = total - pending;
+
+  const balances = pendingExpenses.reduce(
+    (acc, expense) => {
+      const amount = Number(expense.amount || 0);
+      const paidBy = normalizePaidBy(expense.paidBy);
+      const { dadShare, momShare } = getSplitShares(expense);
+
+      if (paidBy === "dad") {
+        acc.momOwesDad += amount * momShare;
+      }
+
+      if (paidBy === "mom") {
+        acc.dadOwesMom += amount * dadShare;
+      }
+
+      return acc;
+    },
+    { dadOwesMom: 0, momOwesDad: 0 }
+  );
+
+  const netDadOwesMom = Math.max(0, balances.dadOwesMom - balances.momOwesDad);
+  const netMomOwesDad = Math.max(0, balances.momOwesDad - balances.dadOwesMom);
+
   const reviewCount = expenses.filter((expense) => expense.status === "review").length;
   const pendingCount = expenses.filter((expense) => expense.status === "pending").length;
   const settledCount = expenses.filter((expense) => expense.status === "settled").length;
@@ -71,5 +113,9 @@ export function getBudgetSummary(expenses = initialCustodyExpenses) {
     pendingCount,
     settledCount,
     totalCount: expenses.length,
+    dadOwesMom: Math.round(netDadOwesMom),
+    momOwesDad: Math.round(netMomOwesDad),
+    grossDadOwesMom: Math.round(balances.dadOwesMom),
+    grossMomOwesDad: Math.round(balances.momOwesDad),
   };
 }
