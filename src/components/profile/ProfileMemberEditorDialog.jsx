@@ -2,6 +2,14 @@ import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { PERSON_COLOR_OPTIONS } from "@/lib/personColorUtils";
 import {
@@ -100,11 +108,10 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
 
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <input
-            type="checkbox"
+          <Switch
             checked={access.visible === true}
             disabled={disabled}
-            onChange={(event) => patch("visible", event.target.checked)}
+            onCheckedChange={(checked) => patch("visible", checked)}
             className="mt-1"
           />
           <span>
@@ -116,11 +123,10 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
         </label>
 
         <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <input
-            type="checkbox"
+          <Switch
             checked={access.assignable === true}
             disabled={disabled}
-            onChange={(event) => patch("assignable", event.target.checked)}
+            onCheckedChange={(checked) => patch("assignable", checked)}
             className="mt-1"
           />
           <span>
@@ -132,11 +138,10 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
         </label>
 
         <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <input
-            type="checkbox"
+          <Switch
             checked={access.read === true}
             disabled={disabled}
-            onChange={(event) => patch("read", event.target.checked)}
+            onCheckedChange={(checked) => patch("read", checked)}
             className="mt-1"
           />
           <span>
@@ -148,11 +153,10 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
         </label>
 
         <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <input
-            type="checkbox"
+          <Switch
             checked={access.write === true}
             disabled={disabled}
-            onChange={(event) => patch("write", event.target.checked)}
+            onCheckedChange={(checked) => patch("write", checked)}
             className="mt-1"
           />
           <span>
@@ -256,28 +260,28 @@ export default function ProfileMemberEditorDialog({
 
           <div>
             <Label>Role</Label>
-            <select
-              value={safeEditor.role}
-              onChange={(event) => patch({ role: event.target.value })}
-              className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700"
-            >
-              {roleOptions.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
+            <Select value={safeEditor.role} onValueChange={(nextRole) => patch({ role: nextRole })}>
+              <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {roleOptions.map((role) => (
+                  <SelectItem key={role.value} value={role.value}>
+                    {role.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-end">
-            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600">
-              <input
-                type="checkbox"
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600">
+              <span>Admin access</span>
+              <Switch
                 checked={safeEditor.admin}
-                onChange={(event) => patch({ admin: event.target.checked })}
+                onCheckedChange={(checked) => patch({ admin: checked })}
                 disabled={isOwner}
               />
-              Admin access
             </label>
           </div>
 
