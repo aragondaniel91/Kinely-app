@@ -5,6 +5,13 @@ import { useFamily } from "@/lib/FamilyContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 function field(value) {
@@ -379,7 +386,23 @@ export default function ChildProfiles() {
                   <div key={allergy.id} className="rounded-3xl border border-red-100 bg-red-50/50 p-4">
                     <div className="grid gap-3 md:grid-cols-4">
                       <div><Label>Allergy</Label><Input value={field(allergy.name)} onChange={(event) => updateAllergy(allergy.id, { name: event.target.value })} disabled={!isAdmin} className="mt-1 bg-white" /></div>
-                      <div><Label>Severity</Label><select value={field(allergy.severity) || "Mild"} onChange={(event) => updateAllergy(allergy.id, { severity: event.target.value })} disabled={!isAdmin} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700"><option>Mild</option><option>Moderate</option><option>Severe</option></select></div>
+                      <div>
+                        <Label>Severity</Label>
+                        <Select
+                          value={field(allergy.severity) || "Mild"}
+                          onValueChange={(nextValue) => updateAllergy(allergy.id, { severity: nextValue })}
+                          disabled={!isAdmin}
+                        >
+                          <SelectTrigger className="mt-1 rounded-xl border-slate-200 bg-white text-sm font-bold text-slate-700">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Mild">Mild</SelectItem>
+                            <SelectItem value="Moderate">Moderate</SelectItem>
+                            <SelectItem value="Severe">Severe</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div><Label>Reaction</Label><Input value={field(allergy.reaction)} onChange={(event) => updateAllergy(allergy.id, { reaction: event.target.value })} disabled={!isAdmin} className="mt-1 bg-white" /></div>
                       <div><Label>Emergency medication</Label><Input value={field(allergy.emergencyMedication)} onChange={(event) => updateAllergy(allergy.id, { emergencyMedication: event.target.value })} disabled={!isAdmin} placeholder="EpiPen, Benadryl" className="mt-1 bg-white" /></div>
                       <div className="md:col-span-4"><Label>Instructions</Label><Input value={field(allergy.instructions)} onChange={(event) => updateAllergy(allergy.id, { instructions: event.target.value })} disabled={!isAdmin} className="mt-1 bg-white" /></div>
@@ -403,7 +426,25 @@ export default function ChildProfiles() {
                       <div><Label>Medication</Label><Input value={field(medication.name)} onChange={(event) => updateMedication(medication.id, { name: event.target.value })} disabled={!isAdmin} className="mt-1 bg-white" /></div>
                       <div><Label>Dosage</Label><Input value={field(medication.dosage)} onChange={(event) => updateMedication(medication.id, { dosage: event.target.value })} disabled={!isAdmin} placeholder="As prescribed" className="mt-1 bg-white" /></div>
                       <div><Label>When to give</Label><Input value={field(medication.whenToGive)} onChange={(event) => updateMedication(medication.id, { whenToGive: event.target.value })} disabled={!isAdmin} className="mt-1 bg-white" /></div>
-                      <div><Label>Required at</Label><select value={field(medication.requiredAt) || "Both homes"} onChange={(event) => updateMedication(medication.id, { requiredAt: event.target.value })} disabled={!isAdmin} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700"><option>Both homes</option><option>Dad's house</option><option>Mom's house</option><option>School/daycare</option><option>As needed</option></select></div>
+                      <div>
+                        <Label>Required at</Label>
+                        <Select
+                          value={field(medication.requiredAt) || "Both homes"}
+                          onValueChange={(nextValue) => updateMedication(medication.id, { requiredAt: nextValue })}
+                          disabled={!isAdmin}
+                        >
+                          <SelectTrigger className="mt-1 rounded-xl border-slate-200 bg-white text-sm font-bold text-slate-700">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Both homes">Both homes</SelectItem>
+                            <SelectItem value="Dad's house">Dad's house</SelectItem>
+                            <SelectItem value="Mom's house">Mom's house</SelectItem>
+                            <SelectItem value="School/daycare">School/daycare</SelectItem>
+                            <SelectItem value="As needed">As needed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div><Label>Notes</Label><Input value={field(medication.notes)} onChange={(event) => updateMedication(medication.id, { notes: event.target.value })} disabled={!isAdmin} className="mt-1 bg-white" /></div>
                     </div>
                     {isAdmin && <Button type="button" variant="outline" onClick={() => removeMedication(medication.id)} className="mt-3 rounded-2xl border-red-200 bg-white text-red-700">Remove medication</Button>}
