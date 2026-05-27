@@ -143,7 +143,7 @@ function resolveCustodyParentNames(group, fallbackDadName, fallbackMomName) {
     custodyDadEmail: dadParent?.email || parents[0]?.email || "",
     custodyMomEmail: momParent?.email || parents[1]?.email || "",
     custodyDadColor: parentColor(dadParent || parents[0], "blue"),
-    custodyMomColor: parentColor(momParent || parents[1], "orange"),
+    custodyMomColor: parentColor(momParent || parents[1], "amber"),
   };
 }
 

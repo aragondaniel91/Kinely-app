@@ -42,7 +42,7 @@ const EMPTY_FORM = {
   dadColor: "blue",
   momName: "",
   momEmail: "",
-  momColor: "orange",
+  momColor: "amber",
   viewerEmails: "",
 };
 
@@ -178,7 +178,7 @@ function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, o
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {parents.length > 0 ? parents.map((parent, index) => {
-              const color = getColorMeta(parent.color || parent.custodyColor || (index === 0 ? "blue" : "orange"));
+              const color = getColorMeta(parent.color || parent.custodyColor || (index === 0 ? "blue" : "amber"));
               return (
                 <span
                   key={`${parent.email || parent.name}-${index}`}
@@ -328,7 +328,7 @@ export default function CustodyGroupsManager() {
       dadColor: dadParent.color || dadParent.custodyColor || "blue",
       momName: momParent.name || momParent.displayName || "",
       momEmail: momParent.email || memberEmails[1] || "",
-      momColor: momParent.color || momParent.custodyColor || "orange",
+      momColor: momParent.color || momParent.custodyColor || "amber",
       viewerEmails: getCustodyGroupViewerEmails(group).join(", "),
     });
     setShowForm(true);
@@ -441,7 +441,7 @@ export default function CustodyGroupsManager() {
         coparentName: form.momName.trim() || "Mom",
         coparentEmail: momEmail,
         coparentRole: "mom",
-        coparentColor: form.momColor || "orange",
+        coparentColor: form.momColor || "amber",
         viewerEmails,
         now,
       });

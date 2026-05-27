@@ -144,7 +144,7 @@ export function buildCustodyGroupPayload({
   coparentName,
   coparentEmail,
   coparentRole = "parent",
-  coparentColor = "orange",
+  coparentColor = "amber",
   viewerEmails = [],
   now,
 }) {
@@ -177,8 +177,8 @@ export function buildCustodyGroupPayload({
       email: otherEmail,
       name: String(coparentName || "Co-parent").trim(),
       role: coparentRole || "parent",
-      color: coparentColor || "orange",
-      custodyColor: coparentColor || "orange",
+      color: coparentColor || "amber",
+      custodyColor: coparentColor || "amber",
       permissions: { custodyCalendar: { read: true, write: true } },
     },
   ].filter((parent) => parent.email);
