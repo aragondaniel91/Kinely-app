@@ -248,42 +248,125 @@ function SummaryCard({ icon: Icon, label, value, helper, tone = "blue" }) {
   );
 }
 
-function ParentLedgerCard({
-  name,
-  color,
-  shouldPay,
-  paid,
-  remaining,
-  overpaid,
+function ParentLedgerPanel({
+  activeParent,
+  setActiveParent,
+  parent1Name,
+  parent2Name,
+  parent1Color,
+  parent2Color,
+  summary,
 }) {
-  const classes = getColorClasses(normalizeColorId(color, "blue"), "blue");
+  const selected =
+    activeParent === "parent1"
+      ? {
+          id: "parent1",
+          name: parent1Name,
+          color: parent1Color,
+          shouldPay: summary.parent1ShouldPay,
+          paid: summary.parent1Paid,
+          remaining: summary.parent1Remaining,
+          overpaid: summary.parent1Overpaid,
+        }
+      : {
+          id: "parent2",
+          name: parent2Name,
+          color: parent2Color,
+          shouldPay: summary.parent2ShouldPay,
+          paid: summary.parent2Paid,
+          remaining: summary.parent2Remaining,
+          overpaid: summary.parent2Overpaid,
+        };
+
+  const selectedClasses = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
+
+  const options = [
+    {
+      id: "parent1",
+      name: parent1Name,
+      color: parent1Color,
+      remaining: summary.parent1Remaining,
+    },
+    {
+      id: "parent2",
+      name: parent2Name,
+      color: parent2Color,
+      remaining: summary.parent2Remaining,
+    },
+  ];
 
   return (
-    <Card className={`rounded-[2rem] border p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] ${classes.border} ${classes.bg}`}>
-      <p className={`text-xs font-black uppercase tracking-[0.18em] ${classes.textStrong}`}>
-        Parent ledger
-      </p>
-      <h3 className={`mt-1 text-2xl font-black ${classes.textStrong}`}>{name}</h3>
+    <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
+      <div className="mb-4">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+          Parent ledger
+        </p>
+        <h3 className="mt-1 text-2xl font-black text-slate-950">
+          Balance by parent
+        </h3>
+        <p className="mt-2 text-sm font-semibold text-slate-500">
+          Tap a parent to focus the totals and expense breakdown.
+        </p>
+      </div>
 
-      <div className="mt-5 grid gap-3">
-        <div className="rounded-2xl bg-white/70 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Should pay</p>
-          <p className="mt-1 text-2xl font-black text-slate-950">{currency(shouldPay)}</p>
-        </div>
-        <div className="rounded-2xl bg-white/70 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Already paid</p>
-          <p className="mt-1 text-2xl font-black text-slate-950">{currency(paid)}</p>
-        </div>
-        <div className="rounded-2xl bg-white/80 p-4">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Still owes</p>
-          <p className={`mt-1 text-3xl font-black ${remaining > 0 ? classes.text : "text-emerald-700"}`}>
-            {currency(remaining)}
-          </p>
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        {options.map((option) => {
+          const active = activeParent === option.id;
+          const optionClasses = getColorClasses(normalizeColorId(option.color, "blue"), "blue");
+
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setActiveParent(option.id)}
+              className={`rounded-2xl border px-3 py-3 text-left transition active:scale-[0.98] ${
+                active
+                  ? `${optionClasses.border} ${optionClasses.bg} shadow-sm`
+                  : "border-slate-200 bg-slate-50 hover:bg-white"
+              }`}
+            >
+              <p className={`text-sm font-black ${active ? optionClasses.textStrong : "text-slate-700"}`}>
+                {option.name}
+              </p>
+              <p className={`mt-1 text-xs font-bold ${active ? optionClasses.text : "text-slate-500"}`}>
+                Owes {currency(option.remaining)}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={`rounded-[1.6rem] border p-4 ${selectedClasses.border} ${selectedClasses.bg}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className={`text-sm font-black ${selectedClasses.textStrong}`}>{selected.name}</p>
+            <p className="mt-1 text-xs font-bold text-slate-500">Current focused balance</p>
+          </div>
+          <Badge className={`rounded-full bg-white/80 ${selectedClasses.textStrong} hover:bg-white/80`}>
+            {selected.remaining > 0 ? "Owes" : "Clear"}
+          </Badge>
         </div>
 
-        {overpaid > 0 && (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-800">
-            {name} paid {currency(overpaid)} more than their current share.
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-2xl bg-white/75 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Should pay</p>
+            <p className="mt-1 text-lg font-black text-slate-950">{currency(selected.shouldPay)}</p>
+          </div>
+          <div className="rounded-2xl bg-white/75 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Paid</p>
+            <p className="mt-1 text-lg font-black text-slate-950">{currency(selected.paid)}</p>
+          </div>
+          <div className="rounded-2xl bg-white/85 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Still owes</p>
+            <p className={`mt-1 text-xl font-black ${selected.remaining > 0 ? selectedClasses.text : "text-emerald-700"}`}>
+              {currency(selected.remaining)}
+            </p>
+          </div>
+        </div>
+
+        {selected.overpaid > 0 && (
+          <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-800">
+            {selected.name} paid {currency(selected.overpaid)} more than their current share.
           </div>
         )}
       </div>
@@ -331,6 +414,7 @@ function ExpenseBreakdownLine({ label, color, share, paid, remaining, overpaid }
 
 function ExpenseRow({
   expense,
+  activeParent,
   parent1Name,
   parent2Name,
   parent1Color,
@@ -341,14 +425,45 @@ function ExpenseRow({
   const ledger = expense.ledger || getExpenseLedger(expense);
   const meta = statusMeta(ledger.status);
 
+  const selected =
+    activeParent === "parent1"
+      ? {
+          name: parent1Name,
+          color: parent1Color,
+          share: ledger.parent1ShareAmount,
+          paid: ledger.parent1PaidAmount,
+          remaining: ledger.parent1Remaining,
+          overpaid: ledger.parent1Overpaid,
+        }
+      : {
+          name: parent2Name,
+          color: parent2Color,
+          share: ledger.parent2ShareAmount,
+          paid: ledger.parent2PaidAmount,
+          remaining: ledger.parent2Remaining,
+          overpaid: ledger.parent2Overpaid,
+        };
+
+  const other =
+    activeParent === "parent1"
+      ? {
+          name: parent2Name,
+          remaining: ledger.parent2Remaining,
+        }
+      : {
+          name: parent1Name,
+          remaining: ledger.parent1Remaining,
+        };
+
   return (
     <div className="w-full rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex min-w-0 flex-1 items-start gap-4 text-left">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-              {expense.recurring ? <Repeat className="h-6 w-6" /> : <ReceiptText className="h-6 w-6" />}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+              {expense.recurring ? <Repeat className="h-5 w-5" /> : <ReceiptText className="h-5 w-5" />}
             </div>
+
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-base font-black text-slate-950">{expense.title}</p>
@@ -372,9 +487,11 @@ function ExpenseRow({
               <p className="text-xl font-black text-slate-950">{currency(ledger.remainingTotal)}</p>
               <p className="text-xs font-black uppercase tracking-wide text-slate-400">Still owed</p>
             </div>
+
             <span className={`rounded-full border px-3 py-1 text-xs font-black ${meta.className}`}>
               {meta.label}
             </span>
+
             <button
               type="button"
               onClick={() => onEdit(expense)}
@@ -383,6 +500,7 @@ function ExpenseRow({
             >
               <Pencil className="h-4 w-4" />
             </button>
+
             <button
               type="button"
               onClick={() => onDelete(expense)}
@@ -406,23 +524,23 @@ function ExpenseRow({
           </div>
         )}
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-2 md:grid-cols-[1fr_180px]">
           <ExpenseBreakdownLine
-            label={parent1Name}
-            color={parent1Color}
-            share={ledger.parent1ShareAmount}
-            paid={ledger.parent1PaidAmount}
-            remaining={ledger.parent1Remaining}
-            overpaid={ledger.parent1Overpaid}
+            label={selected.name}
+            color={selected.color}
+            share={selected.share}
+            paid={selected.paid}
+            remaining={selected.remaining}
+            overpaid={selected.overpaid}
           />
-          <ExpenseBreakdownLine
-            label={parent2Name}
-            color={parent2Color}
-            share={ledger.parent2ShareAmount}
-            paid={ledger.parent2PaidAmount}
-            remaining={ledger.parent2Remaining}
-            overpaid={ledger.parent2Overpaid}
-          />
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-500">
+            <p className="text-slate-400">Other parent</p>
+            <p className="mt-1 text-sm font-black text-slate-800">{other.name}</p>
+            <p className="mt-1">
+              Owes <span className={other.remaining > 0 ? "text-amber-700" : "text-emerald-700"}>{currency(other.remaining)}</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -678,6 +796,7 @@ export default function BudgetHub() {
   const [savingExpense, setSavingExpense] = useState(false);
   const [expenseForm, setExpenseForm] = useState(emptyNewExpense);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [activeParentLedger, setActiveParentLedger] = useState("parent1");
 
   useEffect(() => {
     let cancelled = false;
@@ -909,7 +1028,7 @@ export default function BudgetHub() {
                   Child-related costs
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Each expense shows what each parent should pay, already paid, and still owes.
+                  Use the parent toggle to focus each expense breakdown.
                 </p>
               </div>
 
@@ -924,6 +1043,7 @@ export default function BudgetHub() {
                 <ExpenseRow
                   key={expense.id}
                   expense={expense}
+                  activeParent={activeParentLedger}
                   parent1Name={parent1Name}
                   parent2Name={parent2Name}
                   parent1Color={parent1Color}
@@ -936,24 +1056,15 @@ export default function BudgetHub() {
           </Card>
 
           <div className="space-y-6">
-            <div className="grid gap-4">
-              <ParentLedgerCard
-                name={parent1Name}
-                color={parent1Color}
-                shouldPay={summary.parent1ShouldPay}
-                paid={summary.parent1Paid}
-                remaining={summary.parent1Remaining}
-                overpaid={summary.parent1Overpaid}
-              />
-              <ParentLedgerCard
-                name={parent2Name}
-                color={parent2Color}
-                shouldPay={summary.parent2ShouldPay}
-                paid={summary.parent2Paid}
-                remaining={summary.parent2Remaining}
-                overpaid={summary.parent2Overpaid}
-              />
-            </div>
+            <ParentLedgerPanel
+              activeParent={activeParentLedger}
+              setActiveParent={setActiveParentLedger}
+              parent1Name={parent1Name}
+              parent2Name={parent2Name}
+              parent1Color={parent1Color}
+              parent2Color={parent2Color}
+              summary={summary}
+            />
 
             <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
               <div className="flex items-start gap-4">
