@@ -3,7 +3,6 @@ import { format, addDays } from "date-fns";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import FamilyHomeDashboard from "@/components/home/FamilyHomeDashboard";
-import { COLOR_MAP } from "@/components/profile/ParentColorPicker";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 
@@ -27,6 +26,71 @@ function normalizeDate(value) {
   return String(value).slice(0, 10);
 }
 
+function getCustodyDayOwner(day) {
+  if (!day) return null;
+  return day.with_whom || day.withWhom || null;
+}
+
+function isCustodySplitDay(day) {
+  return Boolean(day?.is_split || day?.isSplit);
+}
+
+function getCustodyDaySegments(day) {
+  if (!day) return [];
+
+  if (isCustodySplitDay(day)) {
+    return [
+      { period: "AM", owner: day.morning || null },
+      { period: "PM", owner: day.afternoon || null },
+    ].filter((segment) => segment.owner && segment.owner !== "none");
+  }
+
+  const owner = getCustodyDayOwner(day);
+  return owner && owner !== "none" ? [{ period: "All day", owner }] : [];
+}
+
+function getEndOfDayOwner(day) {
+  const segments = getCustodyDaySegments(day);
+  return segments.at(-1)?.owner || null;
+}
+
+function getParentForDay(day) {
+  if (!day) return null;
+  if (isCustodySplitDay(day)) return "split";
+  return getCustodyDayOwner(day);
+}
+
+function findNextChangeFromDays(custodyDays, todayCustody) {
+  if (!todayCustody) return null;
+
+  let currentOwner = getEndOfDayOwner(todayCustody);
+  if (!currentOwner) return null;
+
+  const today = new Date();
+
+  for (let i = 1; i <= 45; i += 1) {
+    const nextDate = addDays(today, i);
+    const nextKey = format(nextDate, "yyyy-MM-dd");
+    const nextDay = custodyDays.find((day) => normalizeDate(day.date) === nextKey);
+    const segments = getCustodyDaySegments(nextDay);
+
+    for (const segment of segments) {
+      if (segment.owner && segment.owner !== currentOwner) {
+        return {
+          days: i,
+          with: segment.owner,
+          date: nextDate,
+          period: segment.period,
+        };
+      }
+
+      if (segment.owner) currentOwner = segment.owner;
+    }
+  }
+
+  return null;
+}
+
 function getActivitySortValue(activity) {
   const raw = activity.created_at || activity.createdAt || activity.updated_date || "";
   if (typeof raw === "string") return raw;
@@ -35,8 +99,7 @@ function getActivitySortValue(activity) {
 }
 
 export default function Dashboard() {
-  const { user, familyId, profile, dadName, momName, dadColor, momColor, perms } =
-    useFamily();
+  const { user, familyId, profile, dadName, momName, perms } = useFamily();
 
   const [custodyDays, setCustodyDays] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -50,9 +113,6 @@ export default function Dashboard() {
   const canReadGroceries =
     perms?.groceries?.read !== false && perms?.meals?.read !== false;
   const canReadCalendar = perms?.calendar?.read !== false;
-
-  const dadTheme = COLOR_MAP[dadColor] || COLOR_MAP.blue;
-  const momTheme = COLOR_MAP[momColor] || COLOR_MAP.amber;
 
   useEffect(() => {
     const loadData = async () => {
@@ -215,47 +275,19 @@ export default function Dashboard() {
     return custodyDays.find((day) => normalizeDate(day.date) === todayStr());
   }, [custodyDays]);
 
-  const isWithDad =
-    todayCustody?.with_whom === "dad" || todayCustody?.withWhom === "dad";
-  const isSplit = todayCustody?.is_split || todayCustody?.isSplit;
+  const todayParent = getParentForDay(todayCustody);
+  const isWithDad = todayParent === "dad";
+  const isSplit = todayParent === "split";
 
-  const getParentForDay = (day) => {
-    if (!day) return null;
-    if (day.is_split || day.isSplit) return "split";
-    return day.with_whom || day.withWhom;
-  };
-
-  const getNextChange = () => {
-    if (!todayCustody) return null;
-
-    const currentParent = getParentForDay(todayCustody);
-    const today = new Date();
-
-    for (let i = 1; i <= 45; i += 1) {
-      const nextDate = addDays(today, i);
-      const nextKey = format(nextDate, "yyyy-MM-dd");
-      const nextDay = custodyDays.find((day) => normalizeDate(day.date) === nextKey);
-      const nextParent = getParentForDay(nextDay);
-
-      if (!nextParent || nextParent === currentParent) continue;
-
-      return {
-        days: i,
-        with: nextParent,
-        date: nextDate,
-      };
-    }
-
-    return null;
-  };
-
-  const nextChange = getNextChange();
+  const nextChange = findNextChangeFromDays(custodyDays, todayCustody);
 
   const nextChangeLabel =
     nextChange?.with === "dad"
       ? dadName || "Papá"
       : nextChange?.with === "mom"
       ? momName || "Mamá"
+      : nextChange?.with === "split"
+      ? "día compartido"
       : "día compartido";
 
   const todayLabel = todayCustody
