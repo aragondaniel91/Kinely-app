@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { currency, getExpenseLedger, validateExpenseLedger } from "@/data/custodyBudget";
 
 const emptyExpense = {
@@ -95,19 +104,26 @@ function FieldLabel({ children }) {
 
 function TextInput(props) {
   return (
-    <input
+    <Input
       {...props}
-      className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+      className="rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800 focus-visible:ring-amber-100"
     />
   );
 }
 
-function SelectInput(props) {
+function SelectInput({ value, onChange, children, ...props }) {
   return (
-    <select
-      {...props}
-      className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-    />
+    <Select value={value} onValueChange={(nextValue) => onChange?.({ target: { value: nextValue } })}>
+      <SelectTrigger
+        {...props}
+        className="rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800 focus:ring-amber-100"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {children}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -226,12 +242,12 @@ export default function BudgetExpenseWizard({
               <label className="grid gap-1.5">
                 <FieldLabel>Category</FieldLabel>
                 <SelectInput value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
-                  <option>School</option>
-                  <option>Medical</option>
-                  <option>Activities</option>
-                  <option>Clothes</option>
-                  <option>Childcare</option>
-                  <option>General</option>
+                  <SelectItem>School</SelectItem>
+                  <SelectItem>Medical</SelectItem>
+                  <SelectItem>Activities</SelectItem>
+                  <SelectItem>Clothes</SelectItem>
+                  <SelectItem>Childcare</SelectItem>
+                  <SelectItem>General</SelectItem>
                 </SelectInput>
               </label>
             </div>
@@ -257,14 +273,12 @@ export default function BudgetExpenseWizard({
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={form.recurring}
-                  onChange={(event) => setForm({ ...form, recurring: event.target.checked })}
-                  className="h-4 w-4"
-                />
+              <label className="flex items-center justify-between gap-3">
                 <span className="text-sm font-black text-slate-700">Recurring monthly expense</span>
+                <Switch
+                  checked={form.recurring}
+                  onCheckedChange={(checked) => setForm({ ...form, recurring: checked })}
+                />
               </label>
 
               {form.recurring && (
@@ -292,10 +306,10 @@ export default function BudgetExpenseWizard({
                 value={form.splitType}
                 onChange={(event) => setForm(applySplitDefaults(form, form.amount, event.target.value))}
               >
-                <option>50/50</option>
-                <option>Custom</option>
-                <option>Parent 1 pays</option>
-                <option>Parent 2 pays</option>
+                <SelectItem>50/50</SelectItem>
+                <SelectItem>Custom</SelectItem>
+                <SelectItem>Parent 1 pays</SelectItem>
+                <SelectItem>Parent 2 pays</SelectItem>
               </SelectInput>
             </label>
 
