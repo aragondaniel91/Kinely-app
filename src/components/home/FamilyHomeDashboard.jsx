@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -114,6 +115,17 @@ function getChildAge(child) {
     }
   }
   return "";
+}
+
+function getChildColorClasses(child, index = 0) {
+  const fallbackColors = ["blue", "rose", "green", "violet", "amber", "teal"];
+  const rawColor =
+    typeof child === "object" && child !== null
+      ? child.colorId || child.color_id || child.color || child.familyColor || child.family_color || child.calendarColor || child.calendar_color
+      : "";
+
+  const colorId = normalizeColorId(rawColor || fallbackColors[index % fallbackColors.length], fallbackColors[index % fallbackColors.length]);
+  return getColorClasses(colorId, fallbackColors[index % fallbackColors.length]);
 }
 
 function getInitials(name) {
@@ -338,6 +350,7 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
         {visibleChildren.slice(0, 4).map((child, index) => {
           const name = getChildName(child, index);
           const age = getChildAge(child);
+          const colorClasses = getChildColorClasses(child, index);
           const isFirst = index === 0;
           const nextText = isFirst
             ? nextChange
@@ -346,11 +359,11 @@ function ChildrenSection({ children = [], todayLabel, nextChange, nextChangeLabe
             : "Next: review calendar";
 
           return (
-            <Link key={`${name}-${index}`} to="/children" className="group overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md">
-              <div className={`h-1.5 ${isFirst ? "bg-blue-400" : "bg-rose-300"}`} />
+            <Link key={`${name}-${index}`} to="/children" className={`group overflow-hidden rounded-[1.35rem] border bg-white transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}>
+              <div className={`h-1.5 ${colorClasses.stripe}`} />
               <div className="p-3.5">
                 <div className="flex items-start gap-3">
-                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.15rem] text-lg font-black shadow-sm ${isFirst ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>
+                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.15rem] text-lg font-black shadow-sm ${colorClasses.bgStrong} ${colorClasses.textStrong}`}>
                     {getInitials(name)}
                   </div>
                   <div className="min-w-0 flex-1">

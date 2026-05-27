@@ -90,8 +90,8 @@ export default function PersonCard({
         "group relative flex h-[158px] min-w-0 flex-col overflow-hidden rounded-[1.6rem] border p-3.5 text-left transition-all",
         "shadow-[0_10px_26px_rgba(38,50,56,0.045)] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(38,50,56,0.06)]",
         selected
-          ? "border-slate-200 bg-white ring-4 ring-slate-100/80"
-          : "border-white/80 bg-white/72 hover:bg-white/88"
+          ? `${colorClasses.borderStrong || colorClasses.border || "border-slate-200"} ${colorClasses.bg || "bg-white"} ring-4 ${colorClasses.ring || "ring-slate-100/80"}`
+          : `${colorClasses.border || "border-white/80"} ${colorClasses.bg || "bg-white/72"} hover:bg-white/92`
       )}
     >
       <div
@@ -103,7 +103,7 @@ export default function PersonCard({
 
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 opacity-[0.035]",
+          "pointer-events-none absolute inset-0 opacity-[0.16]",
           colorClasses.bgStrong || colorClasses.stripe || person.accent || "bg-primary"
         )}
       />
@@ -146,7 +146,7 @@ export default function PersonCard({
             {getScopeLabel(activeTaskScope)} progress
           </p>
 
-          <p className="text-xs font-black text-slate-600">
+          <p className={cn("text-xs font-black", colorClasses.textStrong || "text-slate-600")}>
             {completed}/{total}
           </p>
         </div>
@@ -159,7 +159,7 @@ export default function PersonCard({
                 ? "bg-slate-200"
                 : colorClasses.stripe || person.accent || "bg-primary"
             )}
-            style={{ width: `${percent}%`, opacity: total === 0 ? 0.45 : 0.55 }}
+            style={{ width: `${percent}%`, opacity: total === 0 ? 0.45 : 0.9 }}
           />
         </div>
 
