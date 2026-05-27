@@ -628,7 +628,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   return (
     <div className="flex flex-col lg:flex-row h-full min-h-screen bg-[#F7F8FC]">
       <CustodyCalendarSidebar
-        showFilters={showFilters}
+        showFilters={true}
         custodyFilterOptions={custodyFilterOptions}
         custodyFilter={custodyFilter}
         setCustodyFilter={setCustodyFilter}
@@ -653,8 +653,6 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           period={period}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          showFilters={showFilters}
-          setShowFilters={setShowFilters}
           canWrite={canWrite}
           goPrevious={goPrevious}
           goNext={goNext}
