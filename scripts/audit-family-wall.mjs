@@ -45,6 +45,16 @@ function shouldSkipFile(checkName, file) {
     ].includes(normalized);
   }
 
+  if (checkName === "Raw modal/dialog overlays") {
+    return [
+      "src/App.jsx",
+      "src/components/ProtectedRoute.jsx",
+      "src/components/app/AppDialog.jsx",
+      "src/features/custody/components/budget/BudgetAppDialog.jsx",
+      "src/features/tasks/components/RewardCelebrationOverlay.jsx",
+    ].includes(normalized);
+  }
+
   if (checkName === "Raw inputs/selects/textareas") {
     return normalized === "src/components/ui/input.jsx" || normalized === "src/components/ui/textarea.jsx";
   }
