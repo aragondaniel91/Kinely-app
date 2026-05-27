@@ -30,6 +30,7 @@ import { currency, getBudgetSummary, getExpenseLedger, initialCustodyExpenses, v
 import BudgetExpenseCard from "./components/budget/BudgetExpenseCard";
 import BudgetExpenseDetail from "./components/budget/BudgetExpenseDetail";
 import BudgetExpenseWizard from "./components/budget/BudgetExpenseWizard";
+import BudgetAppDialog from "./components/budget/BudgetAppDialog";
 
 function toMoney(value) {
   const number = Number(value || 0);
@@ -269,6 +270,9 @@ export default function BudgetHub() {
   const [savingExpense, setSavingExpense] = useState(false);
   const [detailExpense, setDetailExpense] = useState(null);
   const [savingPayment, setSavingPayment] = useState(false);
+  const [noticeDialog, setNoticeDialog] = useState(null);
+  const [deleteCandidate, setDeleteCandidate] = useState(null);
+  const [deletingExpense, setDeletingExpense] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -367,17 +371,29 @@ export default function BudgetHub() {
     );
   };
 
+  const showNotice = ({ tone = "warning", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
+
   const saveExpense = async (draftExpense) => {
     if (!user || !familyId || savingExpense) return;
 
     if (!draftExpense.title) {
-      window.alert("Please enter an expense title.");
+      showNotice({
+        tone: "warning",
+        title: "Missing expense title",
+        message: "Please enter an expense title before saving.",
+      });
       return;
     }
 
     const validationErrors = validateExpenseLedger(draftExpense);
     if (validationErrors.length > 0) {
-      window.alert(`Please fix this expense before saving:\n\n${validationErrors.join("\n")}`);
+      showNotice({
+        tone: "warning",
+        title: "Expense needs attention",
+        message: validationErrors.join("\n"),
+      });
       return;
     }
 
@@ -419,7 +435,11 @@ export default function BudgetHub() {
       closeWizard();
     } catch (error) {
       console.error("Error saving custody expense:", error);
-      window.alert(`Could not save expense: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save expense",
+        message: error.message,
+      });
     } finally {
       setSavingExpense(false);
     }
@@ -437,12 +457,20 @@ export default function BudgetHub() {
       activeParentLedger === "parent1" ? currentLedger.parent1Remaining : currentLedger.parent2Remaining;
 
     if (cleanAmount <= 0) {
-      window.alert("Please enter a payment greater than $0.");
+      showNotice({
+        tone: "warning",
+        title: "Invalid payment amount",
+        message: "Please enter a payment greater than $0.",
+      });
       return;
     }
 
     if (cleanAmount > selectedRemaining) {
-      window.alert(`Payment cannot be greater than the remaining balance of ${currency(selectedRemaining)}.`);
+      showNotice({
+        tone: "warning",
+        title: "Payment is too high",
+        message: `Payment cannot be greater than the remaining balance of ${currency(selectedRemaining)}.`,
+      });
       return;
     }
 
@@ -494,7 +522,11 @@ export default function BudgetHub() {
       refreshExpenseInState(currentExpense.id, payload);
     } catch (error) {
       console.error("Error saving payment:", error);
-      window.alert(`Could not save payment: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save payment",
+        message: error.message,
+      });
     } finally {
       setSavingPayment(false);
     }
@@ -552,7 +584,11 @@ export default function BudgetHub() {
       refreshExpenseInState(currentExpense.id, payload);
     } catch (error) {
       console.error("Error undoing payment:", error);
-      window.alert(`Could not undo payment: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not undo payment",
+        message: error.message,
+      });
     } finally {
       setSavingPayment(false);
     }
@@ -584,25 +620,42 @@ export default function BudgetHub() {
       refreshExpenseInState(currentExpense.id, payload);
     } catch (error) {
       console.error("Error updating review status:", error);
-      window.alert(`Could not update review status: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not update review status",
+        message: error.message,
+      });
     } finally {
       setSavingPayment(false);
     }
   };
 
-  const deleteExpense = async (expenseToDelete) => {
-    const confirmed = window.confirm(`Delete "${expenseToDelete.title}" from shared expenses?`);
-    if (!confirmed) return;
+  const deleteExpense = (expenseToDelete) => {
+    setDeleteCandidate(expenseToDelete);
+  };
 
+  const confirmDeleteExpense = async () => {
+    if (!deleteCandidate || deletingExpense) return;
+
+    const expenseToDelete = deleteCandidate;
     const previousExpenses = expenses;
+
+    setDeletingExpense(true);
     setExpenses((current) => current.filter((expense) => expense.id !== expenseToDelete.id));
 
     try {
       await deleteDoc(doc(db, "custodyExpenses", expenseToDelete.id));
+      setDeleteCandidate(null);
     } catch (error) {
       console.error("Error deleting custody expense:", error);
       setExpenses(previousExpenses);
-      window.alert(`Could not delete expense: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete expense",
+        message: error.message,
+      });
+    } finally {
+      setDeletingExpense(false);
     }
   };
 
@@ -723,6 +776,32 @@ export default function BudgetHub() {
           onUndo={undoPayment}
           onMarkReview={(note) => setReview(true, note)}
           onClearReview={() => setReview(false)}
+        />
+
+        <BudgetAppDialog
+          open={Boolean(deleteCandidate)}
+          tone="danger"
+          title="Delete expense?"
+          message={
+            deleteCandidate
+              ? `This will permanently remove "${deleteCandidate.title}" from the shared budget.`
+              : ""
+          }
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          loading={deletingExpense}
+          onConfirm={confirmDeleteExpense}
+          onCancel={() => setDeleteCandidate(null)}
+        />
+
+        <BudgetAppDialog
+          open={Boolean(noticeDialog)}
+          tone={noticeDialog?.tone}
+          title={noticeDialog?.title}
+          message={noticeDialog?.message}
+          confirmLabel="Got it"
+          onConfirm={() => setNoticeDialog(null)}
+          onCancel={() => setNoticeDialog(null)}
         />
 
         <BudgetExpenseWizard
