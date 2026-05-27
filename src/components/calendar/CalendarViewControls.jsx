@@ -14,6 +14,7 @@ export default function CalendarViewControls({
   setViewMode,
   showFilters = true,
   setShowFilters,
+  showFilterToggle = true,
 }) {
   const [showViewMenu, setShowViewMenu] = useState(false);
 
@@ -65,19 +66,21 @@ export default function CalendarViewControls({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setShowFilters?.((prev) => !prev)}
-        className={cn(
-          "h-9 inline-flex items-center gap-1.5 rounded-full border px-3 text-xs font-bold shadow-sm active:scale-95 transition",
-          showFilters
-            ? "bg-primary text-primary-foreground border-primary"
-            : "bg-card text-muted-foreground border-border hover:text-foreground"
-        )}
-      >
-        <Filter className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Filters</span>
-      </button>
+      {showFilterToggle && (
+        <button
+          type="button"
+          onClick={() => setShowFilters?.((prev) => !prev)}
+          className={cn(
+            "h-9 inline-flex items-center gap-1.5 rounded-full border px-3 text-xs font-bold shadow-sm active:scale-95 transition",
+            showFilters
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-card text-muted-foreground border-border hover:text-foreground"
+          )}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Filters</span>
+        </button>
+      )}
     </div>
   );
 }
