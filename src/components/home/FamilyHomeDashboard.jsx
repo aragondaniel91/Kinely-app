@@ -9,14 +9,13 @@ import {
   Heart,
   History,
   Home,
+  ListChecks,
   Plus,
-  School,
   ShoppingCart,
   Sparkles,
   Sun,
   UtensilsCrossed,
   Users,
-  WalletCards,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -89,13 +88,14 @@ function getItemDate(item) {
       item?.scheduled_date ||
       item?.startDate ||
       item?.start_date ||
-      item?.start
+      item?.start ||
+      item?.eventDate ||
+      item?.event_date
   );
 }
 
-function getChildName(child, index) {
-  if (typeof child === "string") return child;
-  return child?.name || child?.fullName || child?.displayName || child?.firstName || child?.childName || `Child ${index + 1}`;
+function getItemTime(item) {
+  return item?.time || item?.startTime || item?.start_time || item?.hour || "";
 }
 
 function getInitials(name) {
@@ -106,23 +106,6 @@ function getInitials(name) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
-}
-
-function getChildColorClasses(child, index = 0) {
-  const fallbackColors = ["blue", "rose", "green", "violet", "amber", "teal"];
-  const rawColor =
-    typeof child === "object" && child !== null
-      ? child.colorId ||
-        child.color_id ||
-        child.color ||
-        child.familyColor ||
-        child.family_color ||
-        child.calendarColor ||
-        child.calendar_color
-      : "";
-
-  const fallback = fallbackColors[index % fallbackColors.length];
-  return getColorClasses(normalizeColorId(rawColor || fallback, fallback), fallback);
 }
 
 function getToneClasses(tone = "blue") {
@@ -138,11 +121,77 @@ function getToneClasses(tone = "blue") {
   return tones[tone] || tones.blue;
 }
 
+function getPersonColorClasses(person, index = 0) {
+  const fallbackColors = ["blue", "rose", "green", "violet", "amber", "teal"];
+  const fallback = fallbackColors[index % fallbackColors.length];
+  const rawColor =
+    person?.colorId ||
+    person?.color_id ||
+    person?.color ||
+    person?.familyColor ||
+    person?.family_color ||
+    person?.calendarColor ||
+    person?.calendar_color ||
+    fallback;
+
+  return getColorClasses(normalizeColorId(rawColor, fallback), fallback);
+}
+
+function matchesPerson(item, person) {
+  if (!item || !person) return false;
+
+  const personTokens = [
+    person.id,
+    person.uid,
+    person.email,
+    person.name,
+    person.displayName,
+    person.fullName,
+    person.firstName,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+
+  if (!personTokens.length) return false;
+
+  const rawValues = [
+    item.assignedTo,
+    item.assigned_to,
+    item.assignee,
+    item.assigneeName,
+    item.assignee_name,
+    item.owner,
+    item.ownerName,
+    item.owner_name,
+    item.childId,
+    item.child_id,
+    item.childName,
+    item.child_name,
+    item.personId,
+    item.person_id,
+    item.memberId,
+    item.member_id,
+    item.createdBy,
+    item.created_by,
+    item.actorName,
+    item.actor_name,
+    item.actorEmail,
+    item.actor_email,
+  ];
+
+  const values = rawValues
+    .flatMap((value) => Array.isArray(value) ? value : [value])
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+
+  return values.some((value) => personTokens.includes(value));
+}
+
 function getActivityIcon(type = "") {
   if (type.includes("task")) return CheckSquare;
   if (type.includes("meal")) return UtensilsCrossed;
   if (type.includes("grocery") || type.includes("list")) return ShoppingCart;
-  if (type.includes("travel") || type.includes("calendar") || type.includes("event")) return CalendarDays;
+  if (type.includes("calendar") || type.includes("event")) return CalendarDays;
   if (type.includes("custody")) return Heart;
   if (type.includes("deleted")) return AlertCircle;
   return History;
@@ -153,42 +202,9 @@ function getActivityTone(type = "") {
   if (type.includes("task")) return "blue";
   if (type.includes("meal")) return "amber";
   if (type.includes("grocery") || type.includes("list")) return "emerald";
+  if (type.includes("calendar") || type.includes("event")) return "violet";
   if (type.includes("custody")) return "rose";
-  if (type.includes("travel") || type.includes("calendar") || type.includes("event")) return "violet";
   return "slate";
-}
-
-function getFamilyMode({ hasChildren, hasCustody }) {
-  if (hasCustody) {
-    return {
-      id: "coparenting",
-      label: "Coparenting rhythm",
-      headline: "Family rhythm with custody context",
-      description: "Custody, kids, tasks, meals, and shared planning.",
-      icon: Heart,
-      tone: "rose",
-    };
-  }
-
-  if (hasChildren) {
-    return {
-      id: "family",
-      label: "Family household",
-      headline: "Kids, meals, tasks, lists, and events",
-      description: "A compact view of what matters today.",
-      icon: Home,
-      tone: "blue",
-    };
-  }
-
-  return {
-    id: "shared",
-    label: "Shared household",
-    headline: "Tasks, meals, lists, and shared plans",
-    description: "Everything your household needs today.",
-    icon: Users,
-    tone: "emerald",
-  };
 }
 
 function WeatherPill() {
@@ -200,13 +216,16 @@ function WeatherPill() {
   }, []);
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/85 px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
-      <span className="text-sm font-black text-slate-900">
-        {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-      </span>
-      <span className="h-1 w-1 rounded-full bg-slate-300" />
-      <Sun className="h-4 w-4 text-amber-400" />
-      <span className="hidden text-sm font-bold text-slate-500 sm:inline">Today</span>
+    <div className="rounded-[1.4rem] border border-white/80 bg-white/90 px-4 py-3 text-right shadow-[0_12px_32px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
+      <div className="flex items-center justify-end gap-2">
+        <p className="text-2xl font-black tracking-tight text-slate-950">
+          {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        </p>
+        <Sun className="h-5 w-5 text-amber-400" />
+      </div>
+      <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+        Today · Family wall
+      </p>
     </div>
   );
 }
@@ -231,22 +250,6 @@ function SectionHeader({ kicker, title, action, to }) {
   );
 }
 
-function MetricPill({ icon: Icon, label, value, tone = "blue", to }) {
-  const content = (
-    <div className="flex min-h-[72px] items-center gap-3 rounded-[1.2rem] border border-white/80 bg-white/80 px-3 py-2 shadow-sm transition hover:bg-white hover:shadow-md">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${getToneClasses(tone)}`}>
-        <Icon className="h-4.5 w-4.5" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-xl font-black leading-none text-slate-950">{value}</p>
-        <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{label}</p>
-      </div>
-    </div>
-  );
-
-  return to ? <Link to={to}>{content}</Link> : content;
-}
-
 function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
   const content = (
     <div className="flex items-center gap-3 rounded-[1.05rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-blue-100 hover:bg-white">
@@ -263,74 +266,23 @@ function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
   return to ? <Link to={to} className="block">{content}</Link> : content;
 }
 
-function AttentionChip({ icon: Icon, title, text, tone = "blue", to }) {
-  const content = (
-    <div className="flex h-full items-center gap-3 rounded-[1.25rem] border border-white/80 bg-white/85 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
-        <Icon className="h-4.5 w-4.5" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-black text-slate-950">{title}</p>
-        <p className="truncate text-xs font-semibold text-slate-500">{text}</p>
-      </div>
-    </div>
-  );
-
-  return to ? <Link to={to}>{content}</Link> : content;
-}
-
-function CompactHero({
+function Hero({
   familyName,
-  familyMode,
-  hasCustody,
-  hasChildren,
-  todayLabel,
-  todayParent,
-  dadName,
-  momName,
-  dadColor,
-  momColor,
-  nextChange,
-  nextChangeLabel,
-  tasks,
-  meals,
-  groceries,
-  canReadCalendar,
+  tasksToday,
+  mealsToday,
+  calendarEventsToday,
+  openLists,
 }) {
-  const ModeIcon = familyMode.icon;
-
-  const parentColor =
-    todayParent === "dad"
-      ? dadColor || "blue"
-      : todayParent === "mom"
-      ? momColor || "amber"
-      : familyMode.tone;
-
-  const parentClasses = getColorClasses(normalizeColorId(parentColor, familyMode.tone), familyMode.tone);
-
-  const ownerLabel =
-    todayParent === "dad"
-      ? dadName || "Dad"
-      : todayParent === "mom"
-      ? momName || "Mom"
-      : todayParent === "split"
-      ? "Split day"
-      : "";
-
-  const todayTitle = hasCustody && ownerLabel
-    ? `${ownerLabel} today`
-    : hasChildren
-    ? `${familyName} plan for today`
-    : `${familyName} shared plan`;
-
-  const todayText = hasCustody && nextChange
-    ? `Next exchange ${formatShortDate(nextChange.date)} with ${nextChangeLabel}.`
-    : familyMode.description;
+  const vibe = tasksToday.length > 8 || calendarEventsToday.length > 3
+    ? "Busy family day"
+    : tasksToday.length || mealsToday.length || calendarEventsToday.length
+    ? "Everything has a place today"
+    : "A calm day starts here";
 
   return (
     <section className="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
       <div className="kinly-family-gradient p-5 md:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
             <Sparkles className="h-3.5 w-3.5" />
             Family home
@@ -338,72 +290,26 @@ function CompactHero({
           <WeatherPill />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1fr_0.85fr] xl:items-center">
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr] xl:items-end">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-2xl border border-white/80 bg-white/75 px-3 py-2 shadow-sm">
-              <span className={`flex h-8 w-8 items-center justify-center rounded-xl border ${getToneClasses(familyMode.tone)}`}>
-                <ModeIcon className="h-4 w-4" />
-              </span>
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">Family mode</p>
-                <p className="text-xs font-black text-slate-800">{familyMode.label}</p>
-              </div>
-            </div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+              {vibe}
+            </p>
 
-            <h1 className="max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-4xl lg:text-5xl">
+            <h1 className="mt-2 max-w-4xl text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
               {getGreeting()}, {familyName}
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600 md:text-base">
-              {familyMode.headline}
+            <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-600">
+              A beautiful snapshot of today’s meals, tasks, events, and shared lists.
             </p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {canReadCalendar && (
-                <Link to="/calendar" className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
-                  Open calendar
-                </Link>
-              )}
-              <Link to="/tasks" className="rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:text-blue-700 hover:shadow-md">
-                Add task
-              </Link>
-              <Link to="/groceries" className="rounded-2xl bg-white/80 px-4 py-2.5 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:text-emerald-700 hover:shadow-md">
-                Open lists
-              </Link>
-            </div>
           </div>
 
-          <div className="rounded-[1.55rem] border border-white/80 bg-white/88 p-4 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Today</p>
-                <h2 className="mt-1 text-xl font-black text-slate-950 md:text-2xl">{todayTitle}</h2>
-                <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{todayText}</p>
-              </div>
-
-              {hasCustody && ownerLabel ? (
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border ${parentClasses.bgStrong} ${parentClasses.textStrong} ${parentClasses.border}`}>
-                  <Heart className="h-5 w-5" />
-                </div>
-              ) : (
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] border ${getToneClasses(familyMode.tone)}`}>
-                  <Home className="h-5 w-5" />
-                </div>
-              )}
-            </div>
-
-            {hasCustody && ownerLabel && (
-              <div className={`mt-3 rounded-2xl border px-3 py-2 ${parentClasses.chip} ${parentClasses.border}`}>
-                <p className={`text-sm font-black ${parentClasses.textStrong}`}>{todayLabel}</p>
-              </div>
-            )}
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <MetricPill icon={CheckSquare} value={tasks.length} label="Open tasks" tone="blue" to="/tasks" />
-              <MetricPill icon={UtensilsCrossed} value={meals.length} label="Meals today" tone="amber" to="/meals" />
-              <MetricPill icon={ShoppingCart} value={groceries.length} label="List items" tone="emerald" to="/groceries" />
-              <MetricPill icon={CalendarDays} value={nextChange ? formatShortDate(nextChange.date) : "Today"} label={hasCustody ? "Next exchange" : "Calendar"} tone="violet" to="/calendar" />
-            </div>
+          <div className="grid gap-2 sm:grid-cols-4 xl:grid-cols-2">
+            <MiniPulse icon={CheckSquare} value={tasksToday.length} label="Tasks today" tone="blue" to="/tasks" />
+            <MiniPulse icon={UtensilsCrossed} value={mealsToday.length} label="Meals today" tone="amber" to="/meals" />
+            <MiniPulse icon={CalendarDays} value={calendarEventsToday.length} label="Events today" tone="violet" to="/calendar" />
+            <MiniPulse icon={ShoppingCart} value={openLists.length} label="Open lists" tone="emerald" to="/groceries" />
           </div>
         </div>
       </div>
@@ -411,44 +317,76 @@ function CompactHero({
   );
 }
 
-function NeedsAttention({ hasCustody, nextChange, nextChangeLabel, tasks, meals, groceries, canReadMeals, canReadGroceries }) {
+function MiniPulse({ icon: Icon, value, label, tone, to }) {
+  return (
+    <Link
+      to={to}
+      className="flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-white/80 bg-white/85 px-3 py-2.5 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+    >
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xl font-black leading-none text-slate-950">{value}</p>
+        <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{label}</p>
+      </div>
+    </Link>
+  );
+}
+
+function NeedsAttention({ tasksToday, mealsToday, calendarEventsToday, openLists }) {
   const items = [];
 
-  if (hasCustody && nextChange?.days <= 1) {
+  const overdueTasks = tasksToday.filter((task) => {
+    const date = getItemDate(task);
+    return date && date < getTodayKey();
+  });
+
+  if (overdueTasks.length) {
     items.push({
-      icon: Heart,
-      title: "Exchange soon",
-      text: `${formatShortDate(nextChange.date)} with ${nextChangeLabel}`,
+      icon: AlertCircle,
+      title: `${overdueTasks.length} overdue`,
+      text: "Tasks need attention",
       tone: "rose",
-      to: "/custody",
+      to: "/tasks",
     });
   }
 
-  if (tasks.length > 0) {
+  if (tasksToday.length) {
     items.push({
       icon: CheckSquare,
-      title: `${tasks.length} pending task${tasks.length === 1 ? "" : "s"}`,
-      text: "Review family assignments",
+      title: `${tasksToday.length} task${tasksToday.length === 1 ? "" : "s"} today`,
+      text: "Assignments for today",
       tone: "blue",
       to: "/tasks",
     });
   }
 
-  if (canReadMeals && meals.length === 0) {
+  if (!mealsToday.length) {
     items.push({
       icon: UtensilsCrossed,
-      title: "No meals planned",
-      text: "Add today’s meals",
+      title: "No meals yet",
+      text: "Plan today’s meals",
       tone: "amber",
       to: "/meals",
     });
   }
 
-  if (canReadGroceries && groceries.length > 0) {
+  if (calendarEventsToday.length) {
+    items.push({
+      icon: CalendarDays,
+      title: `${calendarEventsToday.length} event${calendarEventsToday.length === 1 ? "" : "s"} today`,
+      text: "Calendar has activity",
+      tone: "violet",
+      to: "/calendar",
+    });
+  }
+
+  if (openLists.length) {
     items.push({
       icon: ShoppingCart,
-      title: `${groceries.length} list item${groceries.length === 1 ? "" : "s"}`,
-      text: "Shared lists need review",
+      title: `${openLists.length} open list${openLists.length === 1 ? "" : "s"}`,
+      text: "Household lists active",
       tone: "emerald",
       to: "/groceries",
     });
@@ -458,19 +396,79 @@ function NeedsAttention({ hasCustody, nextChange, nextChangeLabel, tasks, meals,
     items.push({
       icon: Sparkles,
       title: "All calm",
-      text: "No urgent family items right now",
+      text: "Nothing urgent right now",
       tone: "emerald",
       to: "/calendar",
     });
   }
 
   return (
-    <Card className="rounded-[1.7rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-      <SectionHeader kicker="Needs attention" title="Status now" action="View calendar" to="/calendar" />
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <SectionHeader kicker="Needs attention" title="Today’s status" />
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {items.slice(0, 4).map((item) => <AttentionChip key={item.title} {...item} />)}
+        {items.slice(0, 4).map((item) => <AttentionCard key={item.title} {...item} />)}
       </div>
     </Card>
+  );
+}
+
+function AttentionCard({ icon: Icon, title, text, tone, to }) {
+  return (
+    <Link to={to} className="flex items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black text-slate-950">{title}</p>
+        <p className="truncate text-xs font-semibold text-slate-500">{text}</p>
+      </div>
+    </Link>
+  );
+}
+
+function ModulesGrid({ tasksToday, mealsToday, calendarEventsToday, openLists }) {
+  const cards = [
+    {
+      icon: CalendarDays,
+      title: "Calendar",
+      text: "Today’s events and shared plans",
+      metric: calendarEventsToday.length ? `${calendarEventsToday.length} today` : "Today",
+      tone: "blue",
+      to: "/calendar",
+    },
+    {
+      icon: CheckSquare,
+      title: "Tasks",
+      text: "Only tasks due today",
+      metric: tasksToday.length,
+      tone: "blue",
+      to: "/tasks",
+    },
+    {
+      icon: UtensilsCrossed,
+      title: "Meals",
+      text: "Meals planned for today",
+      metric: mealsToday.length,
+      tone: "amber",
+      to: "/meals",
+    },
+    {
+      icon: ShoppingCart,
+      title: "Lists",
+      text: "Open family lists",
+      metric: openLists.length,
+      tone: "emerald",
+      to: "/groceries",
+    },
+  ];
+
+  return (
+    <section>
+      <SectionHeader kicker="Family modules" title="Shared space" />
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => <ModuleCard key={card.title} {...card} />)}
+      </div>
+    </section>
   );
 }
 
@@ -484,107 +482,41 @@ function ModuleCard({ icon: Icon, title, text, metric, tone, to }) {
         <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:text-blue-500" />
       </div>
       <p className="mt-3 text-base font-black text-slate-950">{title}</p>
-      <p className="mt-1 min-h-[38px] text-xs font-semibold leading-5 text-slate-500">{text}</p>
+      <p className="mt-1 min-h-[34px] text-xs font-semibold leading-5 text-slate-500">{text}</p>
       <p className="mt-3 text-xl font-black text-slate-900">{metric}</p>
     </Link>
   );
 }
 
-function ModulesGrid({ hasCustody, tasks, meals, groceries, nextChange }) {
-  const cards = [
-    hasCustody
-      ? {
-          icon: Heart,
-          title: "Custody",
-          text: nextChange ? `Next exchange ${formatShortDate(nextChange.date)}` : "Schedule and notes",
-          metric: nextChange ? formatShortDate(nextChange.date) : "Open",
-          tone: "rose",
-          to: "/custody",
-        }
-      : {
-          icon: CalendarDays,
-          title: "Calendar",
-          text: "Events and shared plans",
-          metric: "Today",
-          tone: "blue",
-          to: "/calendar",
-        },
-    {
-      icon: CheckSquare,
-      title: "Tasks",
-      text: "Assignments and reminders",
-      metric: tasks.length,
-      tone: "blue",
-      to: "/tasks",
-    },
-    {
-      icon: UtensilsCrossed,
-      title: "Meals",
-      text: "Today and next meals",
-      metric: meals.length,
-      tone: "amber",
-      to: "/meals",
-    },
-    {
-      icon: ShoppingCart,
-      title: "Lists",
-      text: "Groceries and household lists",
-      metric: groceries.length,
-      tone: "emerald",
-      to: "/groceries",
-    },
-    {
-      icon: WalletCards,
-      title: "Budget",
-      text: "Expenses and reimbursements",
-      metric: "Open",
-      tone: "violet",
-      to: "/custody?tab=budget",
-    },
-  ];
+function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToday }) {
+  if (!people.length) return null;
 
   return (
-    <section>
-      <SectionHeader kicker="Family modules" title="Shared space" />
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {cards.map((card) => <ModuleCard key={card.title} {...card} />)}
-      </div>
-    </section>
-  );
-}
-
-function FamilySnapshot({ children = [], hasCustody, todayLabel, nextChange, nextChangeLabel, tasksCount, mealsCount }) {
-  if (!children.length) return null;
-
-  return (
-    <Card className="rounded-[1.7rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-      <SectionHeader kicker="Family snapshot" title="Children" action="View all" to="/children" />
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {children.slice(0, 4).map((child, index) => {
-          const name = getChildName(child, index);
-          const colorClasses = getChildColorClasses(child, index);
-          const status = hasCustody
-            ? nextChange
-              ? `Next: ${formatShortDate(nextChange.date)} with ${nextChangeLabel}`
-              : todayLabel
-            : `${tasksCount} tasks · ${mealsCount} meals today`;
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <SectionHeader kicker="Family members" title="Today by person" action="View profile" to="/profile" />
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {people.slice(0, 8).map((person, index) => {
+          const name = person.displayName || person.name || person.fullName || person.email || `Member ${index + 1}`;
+          const colorClasses = getPersonColorClasses(person, index);
+          const personTasks = tasksToday.filter((task) => matchesPerson(task, person));
+          const personEvents = calendarEventsToday.filter((event) => matchesPerson(event, person));
+          const personMeals = mealsToday.filter((meal) => matchesPerson(meal, person));
 
           return (
             <Link
-              key={`${name}-${index}`}
-              to="/children"
-              className={`flex items-center gap-3 rounded-[1.3rem] border bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}
+              key={person.id || person.uid || person.email || name}
+              to="/profile"
+              className={`flex items-center gap-3 rounded-[1.25rem] border bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}
             >
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[1rem] text-base font-black shadow-sm ${colorClasses.bgStrong} ${colorClasses.textStrong}`}>
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] text-sm font-black shadow-sm ${colorClasses.bgStrong} ${colorClasses.textStrong}`}>
                 {getInitials(name)}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-black text-slate-950">{name}</p>
-                <p className="truncate text-xs font-semibold text-slate-500">{status}</p>
+                <p className="truncate text-sm font-black text-slate-950">{name}</p>
+                <p className="truncate text-xs font-semibold text-slate-500">
+                  {personTasks.length} tasks · {personEvents.length} events · {personMeals.length} meals
+                </p>
               </div>
-              <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
-                Active
-              </span>
             </Link>
           );
         })}
@@ -593,104 +525,12 @@ function FamilySnapshot({ children = [], hasCustody, todayLabel, nextChange, nex
   );
 }
 
-function buildNextSevenItems({ calendarEvents, tasks, upcomingMeals, groceries, nextChange, nextChangeLabel, hasCustody }) {
-  const today = getTodayKey();
-  const nextWeek = new Date(`${today}T12:00:00`);
-  nextWeek.setDate(nextWeek.getDate() + 7);
-  const nextWeekKey = nextWeek.toISOString().slice(0, 10);
-
-  const inWindow = (date) => date && date >= today && date <= nextWeekKey;
-
-  const eventItems = calendarEvents
-    .filter((event) => inWindow(getItemDate(event)))
-    .map((event) => ({
-      id: `event-${event.id || getItemTitle(event)}`,
-      date: getItemDate(event),
-      icon: CalendarDays,
-      title: getItemTitle(event, "Family event"),
-      text: `Calendar · ${formatShortDate(getItemDate(event))}`,
-      tone: "violet",
-      to: "/calendar",
-    }));
-
-  const taskItems = tasks
-    .filter((task) => inWindow(getItemDate(task)))
-    .map((task) => ({
-      id: `task-${task.id || getItemTitle(task)}`,
-      date: getItemDate(task),
-      icon: CheckSquare,
-      title: getItemTitle(task, "Task"),
-      text: `Task · ${formatShortDate(getItemDate(task))}`,
-      tone: "blue",
-      to: "/tasks",
-    }));
-
-  const mealItems = upcomingMeals
-    .filter((meal) => inWindow(getItemDate(meal)))
-    .map((meal) => ({
-      id: `meal-${meal.id || getItemTitle(meal)}`,
-      date: getItemDate(meal),
-      icon: UtensilsCrossed,
-      title: getItemTitle(meal, "Meal planned"),
-      text: `Meal · ${formatShortDate(getItemDate(meal))}`,
-      tone: "amber",
-      to: "/meals",
-    }));
-
-  const custodyItems =
-    hasCustody && nextChange
-      ? [{
-          id: "custody-next-change",
-          date: normalizeDate(nextChange.date),
-          icon: Heart,
-          title: `Exchange with ${nextChangeLabel}`,
-          text: `${formatShortDate(nextChange.date)} · custody`,
-          tone: "rose",
-          to: "/custody",
-        }]
-      : [];
-
-  const groceryItems = groceries.length
-    ? [{
-        id: "grocery-open-items",
-        date: today,
-        icon: ShoppingCart,
-        title: `${groceries.length} open list item${groceries.length === 1 ? "" : "s"}`,
-        text: "Shared lists · Today",
-        tone: "emerald",
-        to: "/groceries",
-      }]
-    : [];
-
-  return [...custodyItems, ...eventItems, ...taskItems, ...mealItems, ...groceryItems]
-    .filter((item) => item.date)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 6);
-}
-
-function NextSevenDaysCard({ calendarEvents, nextChange, nextChangeLabel, tasks, upcomingMeals, groceries, hasCustody }) {
-  const items = buildNextSevenItems({ calendarEvents, nextChange, nextChangeLabel, tasks, upcomingMeals, groceries, hasCustody });
+function TaskPreviewCard({ tasksToday }) {
+  const visibleTasks = tasksToday.slice(0, 5);
 
   return (
-    <Card className="rounded-[1.7rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-      <SectionHeader kicker="Next 7 days" title="Calendar flow" action="View calendar" to="/calendar" />
-      <div className="mt-4 space-y-2.5">
-        {items.length ? (
-          items.map((item) => <CompactItem key={item.id} icon={item.icon} title={item.title} text={item.text} tone={item.tone} to={item.to} />)
-        ) : (
-          <CompactItem icon={CalendarDays} title="No major events" text="The next week looks calm." tone="blue" to="/calendar" />
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function TaskPreviewCard({ tasks }) {
-  const visibleTasks = tasks.slice(0, 4);
-
-  return (
-    <Card className="rounded-[1.7rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-      <SectionHeader kicker="Today’s tasks" title={tasks.length ? `${tasks.length} pending` : "All clear"} action="View all" to="/tasks" />
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <SectionHeader kicker="Today’s tasks" title={tasksToday.length ? `${tasksToday.length} due today` : "All clear"} action="View all" to="/tasks" />
       <div className="mt-4 space-y-2.5">
         {visibleTasks.length ? (
           visibleTasks.map((task, index) => (
@@ -698,39 +538,92 @@ function TaskPreviewCard({ tasks }) {
               key={task.id || `${getItemTitle(task)}-${index}`}
               icon={CheckSquare}
               title={getItemTitle(task, "Family task")}
-              text={getItemDate(task) ? `Due ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Pending"}
+              text={getItemDate(task) ? `Due ${formatShortDate(getItemDate(task))}` : task.assignedTo || task.owner || "Today"}
               tone="blue"
               to="/tasks"
             />
           ))
         ) : (
-          <CompactItem icon={CheckSquare} title="No pending tasks" text="The family list looks calm." tone="emerald" />
+          <CompactItem icon={CheckSquare} title="No tasks due today" text="The family task board looks calm." tone="emerald" />
         )}
       </div>
     </Card>
   );
 }
 
-function MealsPreviewCard({ upcomingMeals }) {
-  const items = upcomingMeals.slice(0, 4);
+function MealsTodayCard({ mealsToday }) {
+  const visibleMeals = mealsToday.slice(0, 5);
 
   return (
-    <Card className="rounded-[1.7rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-      <SectionHeader kicker="Meals" title="Today + next days" action="Plan meals" to="/meals" />
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <SectionHeader kicker="Meals" title="Today’s meals" action="Plan meals" to="/meals" />
       <div className="mt-4 space-y-2.5">
-        {items.length ? (
-          items.map((meal, index) => (
+        {visibleMeals.length ? (
+          visibleMeals.map((meal, index) => (
             <CompactItem
               key={meal.id || `${getItemTitle(meal)}-${index}`}
               icon={UtensilsCrossed}
               title={getItemTitle(meal, "Meal")}
-              text={`${formatShortDate(getItemDate(meal))} · ${meal.meal_type || meal.mealType || "Meal"}`}
+              text={`${meal.meal_type || meal.mealType || "Meal"} · Today`}
               tone="amber"
               to="/meals"
             />
           ))
         ) : (
-          <CompactItem icon={UtensilsCrossed} title="No meals planned" text="Add meals for the next few days." tone="amber" to="/meals" />
+          <CompactItem icon={UtensilsCrossed} title="No meals planned" text="Add meals for today." tone="amber" to="/meals" />
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function NextSevenDaysCard({ calendarEvents }) {
+  const items = calendarEvents
+    .filter((event) => getItemDate(event))
+    .sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)))
+    .slice(0, 7);
+
+  return (
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <SectionHeader kicker="Next 7 days" title="Calendar" action="View calendar" to="/calendar" />
+      <div className="mt-4 space-y-2.5">
+        {items.length ? (
+          items.map((event, index) => (
+            <CompactItem
+              key={event.id || `${getItemTitle(event)}-${index}`}
+              icon={CalendarDays}
+              title={getItemTitle(event, "Family event")}
+              text={`${formatShortDate(getItemDate(event))}${getItemTime(event) ? ` · ${getItemTime(event)}` : ""}`}
+              tone="violet"
+              to="/calendar"
+            />
+          ))
+        ) : (
+          <CompactItem icon={CalendarDays} title="No events coming up" text="The next week looks calm." tone="blue" to="/calendar" />
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function OpenListsCard({ openLists }) {
+  return (
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <SectionHeader kicker="Lists" title="Open lists" action="Open" to="/groceries" />
+      <div className="mt-4 max-h-[330px] space-y-2.5 overflow-y-auto pr-1">
+        {openLists.length ? (
+          openLists.slice(0, 12).map((list, index) => (
+            <CompactItem
+              key={list.id || `${getItemTitle(list)}-${index}`}
+              icon={ListChecks}
+              title={getItemTitle(list, "Family list")}
+              text={`${list.pendingCount ?? list.itemsCount ?? list.count ?? "Open"} item${Number(list.pendingCount ?? list.itemsCount ?? list.count) === 1 ? "" : "s"}`}
+              tone="emerald"
+              to="/groceries"
+            />
+          ))
+        ) : (
+          <CompactItem icon={ShoppingCart} title="No open lists" text="Shared lists are clear." tone="emerald" />
         )}
       </div>
     </Card>
@@ -738,8 +631,9 @@ function MealsPreviewCard({ upcomingMeals }) {
 }
 
 function ActivityItem({ item }) {
-  const Icon = getActivityIcon(item.type || item.category || "");
-  const tone = getActivityTone(item.type || item.category || "");
+  const type = item.type || item.category || "";
+  const Icon = getActivityIcon(type);
+  const tone = getActivityTone(type);
   const actor = item.actorName || item.actor_name || item.actorEmail || "Family";
 
   return (
@@ -749,10 +643,10 @@ function ActivityItem({ item }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="truncate text-sm font-black text-slate-950">{item.title || "Family activity"}</p>
+          <p className="truncate text-sm font-black text-slate-950">{item.title || "Family update"}</p>
           <span className="shrink-0 text-[11px] font-bold text-slate-400">{formatActivityTime(item)}</span>
         </div>
-        <p className="truncate text-xs font-semibold text-slate-500">{item.description || "Updated family information"}</p>
+        <p className="truncate text-xs font-semibold text-slate-500">{item.description || "Family activity updated"}</p>
         <p className="mt-0.5 truncate text-[11px] font-bold text-slate-400">by {actor}</p>
       </div>
     </div>
@@ -761,11 +655,11 @@ function ActivityItem({ item }) {
 
 function FamilyActivityCard({ activity = [] }) {
   return (
-    <Card className="rounded-[1.7rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Activity" title="Family updates" />
       <div className="mt-4 space-y-2.5">
         {activity.length ? (
-          activity.slice(0, 4).map((item, index) => (
+          activity.slice(0, 5).map((item, index) => (
             <ActivityItem key={item.id || `${item.type}-${index}`} item={item} />
           ))
         ) : (
@@ -778,98 +672,59 @@ function FamilyActivityCard({ activity = [] }) {
 
 export default function FamilyHomeDashboard({
   familyName = "Family",
-  todayLabel = "",
-  todayParent,
-  dadName,
-  momName,
-  dadColor,
-  momColor,
-  nextChange,
-  nextChangeLabel,
-  todayCustody,
-  children = [],
-  tasks = [],
-  meals = [],
-  upcomingMeals = [],
-  groceries = [],
+  people = [],
+  tasksToday = [],
+  mealsToday = [],
+  openLists = [],
   activity = [],
   calendarEvents = [],
   loading = false,
-  canReadTasks = true,
-  canReadMeals = true,
-  canReadGroceries = true,
-  canReadCalendar = true,
 }) {
-  const hasChildren = children.length > 0;
-  const hasCustody = Boolean(todayCustody || nextChange);
-  const familyMode = getFamilyMode({ hasChildren, hasCustody });
+  const today = getTodayKey();
+  const calendarEventsToday = calendarEvents.filter((event) => getItemDate(event) === today);
 
   return (
     <div className="kinly-gradient-bg min-h-full px-3 pb-24 pt-2 md:px-5 md:pb-10 lg:px-6">
       <div className="mx-auto max-w-7xl space-y-4">
-        <CompactHero
+        <Hero
           familyName={familyName}
-          familyMode={familyMode}
-          hasCustody={hasCustody}
-          hasChildren={hasChildren}
-          todayLabel={todayLabel}
-          todayParent={todayParent}
-          dadName={dadName}
-          momName={momName}
-          dadColor={dadColor}
-          momColor={momColor}
-          nextChange={nextChange}
-          nextChangeLabel={nextChangeLabel}
-          tasks={tasks}
-          meals={meals}
-          groceries={groceries}
-          canReadCalendar={canReadCalendar}
+          tasksToday={tasksToday}
+          mealsToday={mealsToday}
+          calendarEventsToday={calendarEventsToday}
+          openLists={openLists}
         />
 
         <NeedsAttention
-          hasCustody={hasCustody}
-          nextChange={nextChange}
-          nextChangeLabel={nextChangeLabel}
-          tasks={tasks}
-          meals={meals}
-          groceries={groceries}
-          canReadMeals={canReadMeals}
-          canReadGroceries={canReadGroceries}
+          tasksToday={tasksToday}
+          mealsToday={mealsToday}
+          calendarEventsToday={calendarEventsToday}
+          openLists={openLists}
         />
 
         <ModulesGrid
-          hasCustody={hasCustody}
-          tasks={tasks}
-          meals={meals}
-          groceries={groceries}
-          nextChange={nextChange}
+          tasksToday={tasksToday}
+          mealsToday={mealsToday}
+          calendarEventsToday={calendarEventsToday}
+          openLists={openLists}
         />
 
-        <FamilySnapshot
-          children={children}
-          hasCustody={hasCustody}
-          todayLabel={todayLabel}
-          nextChange={nextChange}
-          nextChangeLabel={nextChangeLabel}
-          tasksCount={tasks.length}
-          mealsCount={meals.length}
+        <FamilyMembersToday
+          people={people}
+          tasksToday={tasksToday}
+          calendarEventsToday={calendarEventsToday}
+          mealsToday={mealsToday}
         />
 
         <div className="grid gap-4 xl:grid-cols-3">
-          {canReadTasks && <TaskPreviewCard tasks={tasks} />}
-          <NextSevenDaysCard
-            calendarEvents={calendarEvents}
-            nextChange={nextChange}
-            nextChangeLabel={nextChangeLabel}
-            tasks={tasks}
-            upcomingMeals={upcomingMeals}
-            groceries={groceries}
-            hasCustody={hasCustody}
-          />
-          {canReadMeals ? <MealsPreviewCard upcomingMeals={upcomingMeals} /> : <FamilyActivityCard activity={activity} />}
+          <TaskPreviewCard tasksToday={tasksToday} />
+          <MealsTodayCard mealsToday={mealsToday} />
+          <NextSevenDaysCard calendarEvents={calendarEvents} />
         </div>
 
-        {canReadMeals && <FamilyActivityCard activity={activity} />}
+        <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+          <OpenListsCard openLists={openLists} />
+          <FamilyActivityCard activity={activity} />
+        </div>
       </div>
     </div>
   );

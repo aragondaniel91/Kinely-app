@@ -30,69 +30,24 @@ function normalizeDate(value) {
   return String(value).slice(0, 10);
 }
 
-function getCustodyDayOwner(day) {
-  if (!day) return null;
-  return day.with_whom || day.withWhom || null;
+function getItemDate(item) {
+  return normalizeDate(
+    item?.date ||
+      item?.dueDate ||
+      item?.due_date ||
+      item?.due ||
+      item?.scheduledDate ||
+      item?.scheduled_date ||
+      item?.startDate ||
+      item?.start_date ||
+      item?.start ||
+      item?.eventDate ||
+      item?.event_date
+  );
 }
 
-function isCustodySplitDay(day) {
-  return Boolean(day?.is_split || day?.isSplit);
-}
-
-function getCustodyDaySegments(day) {
-  if (!day) return [];
-
-  if (isCustodySplitDay(day)) {
-    return [
-      { period: "AM", owner: day.morning || null },
-      { period: "PM", owner: day.afternoon || null },
-    ].filter((segment) => segment.owner && segment.owner !== "none");
-  }
-
-  const owner = getCustodyDayOwner(day);
-  return owner && owner !== "none" ? [{ period: "All day", owner }] : [];
-}
-
-function getEndOfDayOwner(day) {
-  const segments = getCustodyDaySegments(day);
-  return segments.at(-1)?.owner || null;
-}
-
-function getParentForDay(day) {
-  if (!day) return null;
-  if (isCustodySplitDay(day)) return "split";
-  return getCustodyDayOwner(day);
-}
-
-function findNextChangeFromDays(custodyDays, todayCustody) {
-  if (!todayCustody) return null;
-
-  let currentOwner = getEndOfDayOwner(todayCustody);
-  if (!currentOwner) return null;
-
-  const today = new Date();
-
-  for (let i = 1; i <= 45; i += 1) {
-    const nextDate = addDays(today, i);
-    const nextKey = format(nextDate, "yyyy-MM-dd");
-    const nextDay = custodyDays.find((day) => normalizeDate(day.date) === nextKey);
-    const segments = getCustodyDaySegments(nextDay);
-
-    for (const segment of segments) {
-      if (segment.owner && segment.owner !== currentOwner) {
-        return {
-          days: i,
-          with: segment.owner,
-          date: nextDate,
-          period: segment.period,
-        };
-      }
-
-      if (segment.owner) currentOwner = segment.owner;
-    }
-  }
-
-  return null;
+function isInDateRange(dateKey, startKey, endKey) {
+  return dateKey && dateKey >= startKey && dateKey <= endKey;
 }
 
 function getActivitySortValue(activity) {
@@ -102,21 +57,83 @@ function getActivitySortValue(activity) {
   return String(raw || "");
 }
 
-function getEventDate(event) {
-  return normalizeDate(
-    event.date ||
-      event.startDate ||
-      event.start_date ||
-      event.start ||
-      event.startTime ||
-      event.start_time ||
-      event.eventDate ||
-      event.event_date
+function getFamilyName(profile = {}) {
+  return (
+    profile.familyName ||
+    profile.family_name ||
+    profile.name ||
+    profile.displayName ||
+    "Family"
   );
 }
 
-function isInDateRange(dateKey, startKey, endKey) {
-  return dateKey && dateKey >= startKey && dateKey <= endKey;
+function normalizePerson(person, fallback = {}) {
+  if (!person) return null;
+  if (typeof person === "string") return { name: person, ...fallback };
+
+  return {
+    ...fallback,
+    ...person,
+    name:
+      person.name ||
+      person.displayName ||
+      person.fullName ||
+      person.firstName ||
+      person.email ||
+      fallback.name,
+    colorId:
+      person.colorId ||
+      person.color_id ||
+      person.color ||
+      person.familyColor ||
+      person.family_color ||
+      fallback.colorId,
+  };
+}
+
+function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
+  const children = (profile?.children || profile?.childProfiles || [])
+    .map((child, index) => normalizePerson(child, { type: "child", colorId: ["blue", "rose", "green", "violet"][index % 4] }))
+    .filter(Boolean);
+
+  const members = (profile?.members || profile?.familyMembers || profile?.caregivers || [])
+    .map((member) => normalizePerson(member, { type: "member", colorId: "teal" }))
+    .filter(Boolean);
+
+  const parents = [
+    dadName ? { id: "dad", name: dadName, type: "parent", colorId: dadColor || "blue" } : null,
+    momName ? { id: "mom", name: momName, type: "parent", colorId: momColor || "amber" } : null,
+  ].filter(Boolean);
+
+  const currentUser =
+    user && !parents.length && !members.some((member) => member.email === user.email)
+      ? [{ id: user.uid, uid: user.uid, email: user.email, name: user.displayName || user.email || "Me", type: "member", colorId: "blue" }]
+      : [];
+
+  const seen = new Set();
+
+  return [...children, ...parents, ...members, ...currentUser].filter((person) => {
+    const key = String(person.id || person.uid || person.email || person.name || "").toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function summarizeList(list) {
+  const items = Array.isArray(list.items) ? list.items : [];
+  const pendingItems = items.filter((item) => item && item.checked !== true && item.done !== true && item.completed !== true);
+
+  return {
+    ...list,
+    title: list.title || list.name || list.label || "Family list",
+    pendingCount:
+      list.pendingCount ??
+      list.pending_count ??
+      list.openCount ??
+      list.open_count ??
+      (items.length ? pendingItems.length : list.itemsCount ?? list.items_count ?? list.count ?? 0),
+  };
 }
 
 async function loadFamilyCollection(collectionName, familyId) {
@@ -141,11 +158,9 @@ async function loadFamilyCollection(collectionName, familyId) {
 export default function Dashboard() {
   const { user, familyId, profile, dadName, momName, dadColor, momColor, perms } = useFamily();
 
-  const [custodyDays, setCustodyDays] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [meals, setMeals] = useState([]);
-  const [upcomingMeals, setUpcomingMeals] = useState([]);
-  const [groceries, setGroceries] = useState([]);
+  const [tasksToday, setTasksToday] = useState([]);
+  const [mealsToday, setMealsToday] = useState([]);
+  const [openLists, setOpenLists] = useState([]);
   const [activity, setActivity] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -155,6 +170,10 @@ export default function Dashboard() {
   const canReadGroceries =
     perms?.groceries?.read !== false && perms?.meals?.read !== false;
   const canReadCalendar = perms?.calendar?.read !== false;
+
+  const people = useMemo(() => {
+    return buildPeople({ profile, user, dadName, momName, dadColor, momColor });
+  }, [profile, user, dadName, momName, dadColor, momColor]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -167,21 +186,39 @@ export default function Dashboard() {
 
       try {
         const today = todayStr();
-        const nextSevenDate = addDays(new Date(), 7);
-        const nextSeven = format(nextSevenDate, "yyyy-MM-dd");
-        const nextThreeDate = addDays(new Date(), 2);
-        const nextThree = format(nextThreeDate, "yyyy-MM-dd");
+        const nextSeven = format(addDays(new Date(), 7), "yyyy-MM-dd");
 
-        let custodyData = [];
         let taskData = [];
         let mealData = [];
-        let groceryData = [];
+        let listData = [];
         let activityData = [];
         let calendarData = [];
 
-        if (canReadCalendar) {
-          custodyData = await loadFamilyCollection("custodyDays", familyId);
+        if (canReadTasks) {
+          taskData = await loadFamilyCollection("tasks", familyId);
+        }
 
+        if (canReadMeals) {
+          mealData = await loadFamilyCollection("meals", familyId);
+        }
+
+        if (canReadGroceries) {
+          const familyLists = await loadFamilyCollection("familyLists", familyId);
+          const groceries = familyLists.length ? [] : await loadFamilyCollection("groceries", familyId);
+
+          listData = familyLists.length
+            ? familyLists.map(summarizeList)
+            : groceries
+                .filter((item) => item.checked !== true && item.status !== "archived")
+                .map((item) => summarizeList({
+                  id: item.id,
+                  title: item.listTitle || item.list_title || item.category || "Grocery list",
+                  pendingCount: 1,
+                  source: "groceries",
+                }));
+        }
+
+        if (canReadCalendar) {
           const calendarCollections = [
             "familyCalendarEvents",
             "familyEvents",
@@ -197,52 +234,45 @@ export default function Dashboard() {
           calendarData = calendarResults
             .flat()
             .filter((event) => {
-              const key = `${event.id || ""}-${event.title || event.name || ""}-${getEventDate(event)}`;
-              if (seen.has(key)) return false;
+              const date = getItemDate(event);
+              const key = `${event.id || ""}-${event.title || event.name || ""}-${date}`;
+              if (!date || seen.has(key)) return false;
               seen.add(key);
               return true;
-            });
-        }
-
-        if (canReadTasks) {
-          taskData = await loadFamilyCollection("tasks", familyId);
-        }
-
-        if (canReadMeals) {
-          mealData = await loadFamilyCollection("meals", familyId);
-        }
-
-        if (canReadGroceries) {
-          const groceriesPrimary = await loadFamilyCollection("groceries", familyId);
-          const groceriesLists = groceriesPrimary.length
-            ? groceriesPrimary
-            : await loadFamilyCollection("familyLists", familyId);
-
-          groceryData = groceriesLists;
+            })
+            .filter((event) => isInDateRange(getItemDate(event), today, nextSeven));
         }
 
         activityData = await loadFamilyCollection("familyActivity", familyId);
 
-        taskData.sort((a, b) => (b.created_date || b.createdDate || "").localeCompare(a.created_date || a.createdDate || ""));
-        mealData.sort((a, b) => normalizeDate(a.date).localeCompare(normalizeDate(b.date)));
-        groceryData.sort((a, b) => (b.created_date || b.createdDate || "").localeCompare(a.created_date || a.createdDate || ""));
-        activityData.sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)));
-        calendarData.sort((a, b) => getEventDate(a).localeCompare(getEventDate(b)));
+        const normalizedTasks = taskData.filter((task) => {
+          const status = String(task.status || "pending").toLowerCase();
+          const date = getItemDate(task);
+          return status === "pending" && date && date <= today;
+        });
 
-        setCustodyDays(custodyData);
-        setTasks(taskData.filter((task) => (task.status || "pending") === "pending"));
-        setMeals(mealData.filter((meal) => normalizeDate(meal.date) === today));
-        setUpcomingMeals(mealData.filter((meal) => isInDateRange(normalizeDate(meal.date), today, nextThree)));
-        setGroceries(groceryData.filter((item) => item.checked !== true && item.status !== "archived"));
-        setCalendarEvents(calendarData.filter((event) => isInDateRange(getEventDate(event), today, nextSeven)).slice(0, 20));
+        const normalizedMeals = mealData.filter((meal) => getItemDate(meal) === today);
+
+        const normalizedLists = listData
+          .map(summarizeList)
+          .filter((list) => list.status !== "archived" && Number(list.pendingCount ?? 0) > 0);
+
+        normalizedTasks.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
+        normalizedMeals.sort((a, b) => String(a.meal_type || a.mealType || "").localeCompare(String(b.meal_type || b.mealType || "")));
+        normalizedLists.sort((a, b) => Number(b.pendingCount ?? 0) - Number(a.pendingCount ?? 0));
+        calendarData.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
+        activityData.sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)));
+
+        setTasksToday(normalizedTasks);
+        setMealsToday(normalizedMeals);
+        setOpenLists(normalizedLists);
+        setCalendarEvents(calendarData.slice(0, 20));
         setActivity(activityData.slice(0, 6));
       } catch (error) {
         console.error("Error loading dashboard data:", error);
-        setCustodyDays([]);
-        setTasks([]);
-        setMeals([]);
-        setUpcomingMeals([]);
-        setGroceries([]);
+        setTasksToday([]);
+        setMealsToday([]);
+        setOpenLists([]);
         setCalendarEvents([]);
         setActivity([]);
       } finally {
@@ -260,57 +290,16 @@ export default function Dashboard() {
     canReadCalendar,
   ]);
 
-  const todayCustody = useMemo(() => {
-    return custodyDays.find((day) => normalizeDate(day.date) === todayStr());
-  }, [custodyDays]);
-
-  const todayParent = getParentForDay(todayCustody);
-  const isWithDad = todayParent === "dad";
-  const isSplit = todayParent === "split";
-
-  const nextChange = findNextChangeFromDays(custodyDays, todayCustody);
-
-  const nextChangeLabel =
-    nextChange?.with === "dad"
-      ? dadName || "Dad"
-      : nextChange?.with === "mom"
-      ? momName || "Mom"
-      : nextChange?.with === "split"
-      ? "split day"
-      : "shared day";
-
-  const todayLabel = todayCustody
-    ? isSplit
-      ? "Split day"
-      : isWithDad
-      ? `With ${dadName || "Dad"}`
-      : `With ${momName || "Mom"}`
-    : "";
-
   return (
     <FamilyHomeDashboard
-      familyName={profile?.familyName || profile?.family_name || profile?.name || "Family"}
-      todayLabel={todayLabel}
-      todayParent={todayParent}
-      dadName={dadName}
-      momName={momName}
-      dadColor={dadColor}
-      momColor={momColor}
-      nextChange={nextChange}
-      nextChangeLabel={nextChangeLabel}
-      todayCustody={todayCustody}
-      children={profile?.children || profile?.childProfiles || []}
-      tasks={tasks}
-      meals={meals}
-      upcomingMeals={upcomingMeals}
-      groceries={groceries}
+      familyName={getFamilyName(profile)}
+      people={people}
+      tasksToday={tasksToday}
+      mealsToday={mealsToday}
+      openLists={openLists}
       activity={activity}
       calendarEvents={calendarEvents}
       loading={loading}
-      canReadTasks={canReadTasks}
-      canReadMeals={canReadMeals}
-      canReadGroceries={canReadGroceries}
-      canReadCalendar={canReadCalendar}
     />
   );
 }
