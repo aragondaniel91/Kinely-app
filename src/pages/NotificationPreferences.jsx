@@ -7,6 +7,7 @@ import { useFamily } from "@/lib/FamilyContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const DEFAULT_PREFERENCES = {
   channels: {
@@ -367,11 +368,21 @@ export default function NotificationPreferences() {
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <Label>Start</Label>
-                <input type="time" value={preferences.quietHours.start || "22:00"} onChange={(event) => updateSection("quietHours", "start", event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700" />
+                <Input
+                  type="time"
+                  value={preferences.quietHours.start || "22:00"}
+                  onChange={(event) => updateSection("quietHours", "start", event.target.value)}
+                  className="mt-1 rounded-xl border-slate-200 bg-white text-sm font-bold text-slate-700"
+                />
               </div>
               <div>
                 <Label>End</Label>
-                <input type="time" value={preferences.quietHours.end || "07:00"} onChange={(event) => updateSection("quietHours", "end", event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700" />
+                <Input
+                  type="time"
+                  value={preferences.quietHours.end || "07:00"}
+                  onChange={(event) => updateSection("quietHours", "end", event.target.value)}
+                  className="mt-1 rounded-xl border-slate-200 bg-white text-sm font-bold text-slate-700"
+                />
               </div>
             </div>
           </div>
