@@ -89,7 +89,7 @@ function FamilyCard({ family, active, onSelect }) {
       <div className="mt-3 flex flex-wrap gap-1.5">
         {children.length > 0 ? (
           children.slice(0, 4).map((child) => {
-            const color = getColorMeta(child.color);
+            const color = getColorMeta(child.colorId || child.color_id || child.color);
             return (
               <span key={child.id || child.name} className={`rounded-full border px-2.5 py-1 text-xs font-bold ${color.bg} ${color.text} ${color.border}`}>
                 👶 {child.name}
@@ -167,7 +167,13 @@ export default function ProfileFamiliesSection() {
     if (!value) return;
     setChildren((current) => [
       ...current,
-      { id: `child-${Date.now()}`, name: value, color: newChildColor },
+      {
+        id: `child-${Date.now()}`,
+        name: value,
+        color: newChildColor,
+        colorId: newChildColor,
+        color_id: newChildColor,
+      },
     ]);
     setNewChild("");
     setNewChildColor("green");
@@ -196,7 +202,9 @@ export default function ProfileFamiliesSection() {
           childId: child.childId || child.id || `child-${String(child.name || "child").toLowerCase().replace(/\s+/g, "-")}`,
           name: String(child.name || "").trim(),
           childName: child.childName || String(child.name || "").trim(),
-          color: child.color || "green",
+          color: child.colorId || child.color_id || child.color || "green",
+          colorId: child.colorId || child.color_id || child.color || "green",
+          color_id: child.color_id || child.colorId || child.color || "green",
         }))
         .filter((child) => child.name);
 
@@ -245,6 +253,8 @@ export default function ProfileFamiliesSection() {
           name: name.trim(),
           childName: name.trim(),
           color: PERSON_COLOR_OPTIONS[(index + 1) % PERSON_COLOR_OPTIONS.length].id,
+          colorId: PERSON_COLOR_OPTIONS[(index + 1) % PERSON_COLOR_OPTIONS.length].id,
+          color_id: PERSON_COLOR_OPTIONS[(index + 1) % PERSON_COLOR_OPTIONS.length].id,
         }))
         .filter((child) => child.name);
 
@@ -331,13 +341,14 @@ export default function ProfileFamiliesSection() {
                 <Label>Children and colors</Label>
                 <div className="mt-3 space-y-3">
                   {children.map((child) => {
-                    const classes = colorClasses(child.color);
+                    const childColor = child.colorId || child.color_id || child.color || "green";
+                    const classes = colorClasses(childColor);
                     return (
                       <div key={child.id} className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_220px_auto] md:items-center">
                         <Input value={child.name} onChange={(event) => handleUpdateChild(child.id, { name: event.target.value })} disabled={!canEdit} />
                         <div className="flex flex-wrap gap-1.5">
                           {PERSON_COLOR_OPTIONS.map((color) => (
-                            <button key={color.id} type="button" disabled={!canEdit} onClick={() => handleUpdateChild(child.id, { color: color.id })} className={`h-7 w-7 rounded-full border-2 ${color.dot} ${child.color === color.id ? "border-slate-900" : "border-white"}`} aria-label={color.label} />
+                            <button key={color.id} type="button" disabled={!canEdit} onClick={() => handleUpdateChild(child.id, { color: color.id, colorId: color.id, color_id: color.id })} className={`h-7 w-7 rounded-full border-2 ${color.dot} ${childColor === color.id ? "border-slate-900" : "border-white"}`} aria-label={color.label} />
                           ))}
                         </div>
                         <Button type="button" variant="outline" onClick={() => handleRemoveChild(child)} disabled={!canEdit} className={`gap-1 border-red-200 bg-red-50 text-red-700 ${classes.ring}`}><Trash2 className="h-4 w-4" /> Remove</Button>
