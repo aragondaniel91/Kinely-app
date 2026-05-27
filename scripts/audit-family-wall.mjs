@@ -59,6 +59,10 @@ function shouldSkipFile(checkName, file) {
       "src/features/custody/components/budget/BudgetExpenseDetail.jsx",
       "src/features/custody/components/budget/BudgetExpenseWizard.jsx",
       "src/features/family-calendar/components/FamilyEventOverflowPopover.jsx",
+
+      // Intentional complex profile/event overlays.
+      "src/components/profile/ProfileMemberEditorDialog.jsx",
+      "src/features/family-calendar/components/FamilyEventDetailsPopover.jsx",
     ].includes(normalized);
   }
 

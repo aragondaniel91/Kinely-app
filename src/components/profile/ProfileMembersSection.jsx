@@ -4,6 +4,7 @@ import { Palette, Pencil, Plus, Shield, Trash2 } from "lucide-react";
 import { useFamily } from "@/lib/FamilyContext";
 import { getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ProfileMemberEditorDialog, { normalizeMemberRole } from "@/components/profile/ProfileMemberEditorDialog";
@@ -376,22 +377,17 @@ export default function ProfileMembersSection() {
         saving={saving}
       />
 
-      {confirmDelete && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="relative z-[10000] w-full max-w-lg rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl">
-            <h2 className="text-2xl font-black tracking-tight text-slate-950">Delete member?</h2>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              Remove {confirmDelete.name || confirmDelete.email || "this member"} from this family space?
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-              <Button type="button" disabled={saving} onClick={() => deleteMember(confirmDelete)} className="bg-red-600 hover:bg-red-700">
-                {saving ? "Deleting..." : "Delete member"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AppDialog
+        open={Boolean(confirmDelete)}
+        tone="danger"
+        title="Delete member?"
+        message={`Remove ${confirmDelete?.name || confirmDelete?.email || "this member"} from this family space?`}
+        confirmLabel={saving ? "Deleting..." : "Delete member"}
+        cancelLabel="Cancel"
+        loading={saving}
+        onConfirm={() => deleteMember(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 # Family Wall Audit Report
 
 Scanned files: 181
-Generated: 2026-05-27T21:10:05.765Z
+Generated: 2026-05-27T21:13:39.870Z
 
 ## Browser dialogs still in use
 
@@ -17,9 +17,6 @@ Reason: Likely custom overlay outside the app dialog system.
 
 - src/pages/Groceries.jsx: 7 match(es), sample lines: 3123, 3167, 3211, 3268, 3393, 3434, 3519
 - src/pages/Meals.jsx: 3 match(es), sample lines: 718, 1454, 2507
-- src/features/family-calendar/components/FamilyEventDetailsPopover.jsx: 2 match(es), sample lines: 350, 490
-- src/components/profile/ProfileMemberEditorDialog.jsx: 1 match(es), sample lines: 218
-- src/components/profile/ProfileMembersSection.jsx: 1 match(es), sample lines: 380
 
 ## Raw inputs/selects/textareas
 
@@ -59,7 +56,7 @@ Reason: Mostly visual/status colors; review only when tied to people, parents, o
 - src/features/tasks/data/taskPeople.js: 20 match(es), sample lines: 17, 18, 19, 20, 29, 30, 31, 32, 41, 42, 43, 44
 - src/features/custody/calendar/components/CustodyDayDialog.jsx: 19 match(es), sample lines: 859, 859, 864, 864, 882, 882, 883, 886, 891, 895, 983, 1016
 - src/features/tasks/components/ApplyTaskTemplateDialog.jsx: 18 match(es), sample lines: 80, 80, 81, 81, 82, 82, 83, 83, 84, 84, 90, 90
-- src/components/profile/ProfileMembersSection.jsx: 17 match(es), sample lines: 98, 98, 98, 104, 104, 104, 110, 110, 110, 323, 323, 323
+- src/components/profile/ProfileMembersSection.jsx: 17 match(es), sample lines: 99, 99, 99, 105, 105, 105, 111, 111, 111, 324, 324, 324
 - src/features/family-calendar/components/FamilyCalendarPlannerHeader.jsx: 17 match(es), sample lines: 28, 29, 29, 42, 42, 42, 45, 45, 45, 48, 48, 48
 - src/pages/ChildProfiles.jsx: 17 match(es), sample lines: 84, 84, 88, 267, 280, 283, 288, 288, 288, 299, 299, 299
 - src/components/profile/ProfileFamiliesSection.jsx: 15 match(es), sample lines: 78, 78, 79, 79, 90, 293, 293, 293, 295, 295, 295, 334
@@ -198,7 +195,6 @@ Reason: Can make tablet/kiosk feel heavy.
 - src/features/tasks/components/TasksFocusPanel.jsx: 2 match(es), sample lines: 329, 329
 - src/components/app/AppDialog.jsx: 1 match(es), sample lines: 54
 - src/components/profile/ProfileMemberEditorDialog.jsx: 1 match(es), sample lines: 218
-- src/components/profile/ProfileMembersSection.jsx: 1 match(es), sample lines: 380
 - src/features/custody/calendar/components/CustodyDayCard.jsx: 1 match(es), sample lines: 39
 - src/features/family-calendar/components/FamilyEventDetailsPopover.jsx: 1 match(es), sample lines: 490
 - src/features/tasks/components/ChildRewardCard.jsx: 1 match(es), sample lines: 80
