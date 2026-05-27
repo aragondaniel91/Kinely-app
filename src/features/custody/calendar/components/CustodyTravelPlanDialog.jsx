@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -42,6 +43,16 @@ export default function CustodyTravelPlanDialog({
 }) {
   const editing = Boolean(existingTravel?.id);
 
+  const [noticeDialog, setNoticeDialog] = useState(null);
+
+  const showValidationNotice = (message, title = "Review travel plan") => {
+    setNoticeDialog({
+      tone: "warning",
+      title,
+      message,
+    });
+  };
+
   const [title, setTitle] = useState(existingTravel?.title || "Vacation / travel");
   const [destination, setDestination] = useState(existingTravel?.destination || "");
   const [startDate, setStartDate] = useState(normalizeDate(existingTravel?.startDate || existingTravel?.start_date || defaultDate));
@@ -51,17 +62,17 @@ export default function CustodyTravelPlanDialog({
 
   const handleSave = async () => {
     if (!title.trim()) {
-      alert("Add a title for this travel plan.");
+      showValidationNotice("Add a title for this travel plan.", "Title required");
       return;
     }
 
     if (!startDate || !endDate) {
-      alert("Select a start and end date.");
+      showValidationNotice("Select a start and end date.", "Dates required");
       return;
     }
 
     if (endDate < startDate) {
-      alert("The end date cannot be before the start date.");
+      showValidationNotice("The end date cannot be before the start date.", "Invalid date range");
       return;
     }
 
@@ -77,7 +88,8 @@ export default function CustodyTravelPlanDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose?.()}>
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent className="max-w-lg rounded-[2rem] p-0 overflow-hidden">
         <DialogHeader className="border-b bg-background px-5 py-4">
           <DialogTitle className="font-heading text-xl flex items-center gap-2">
@@ -173,5 +185,16 @@ export default function CustodyTravelPlanDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+    </>
   );
 }

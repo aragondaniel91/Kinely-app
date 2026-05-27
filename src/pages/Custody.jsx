@@ -18,6 +18,7 @@ import { collection, getDocs, onSnapshot, query, where } from "firebase/firestor
 import CustodyCalendarView from "@/features/custody/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import AppDialog from "@/components/app/AppDialog";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
@@ -138,6 +139,31 @@ function WeatherTimeBadge() {
         <p className="text-sm font-black text-slate-950">{formatTime(now)}</p>
         <p className="text-[11px] font-bold text-slate-500">68° · Sunny</p>
       </div>
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+
+      <AppDialog
+        open={Boolean(confirmDialog)}
+        tone={confirmDialog?.tone}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        cancelLabel="Cancel"
+        loading={isResetting}
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          action?.();
+        }}
+      />
     </div>
   );
 }
@@ -243,6 +269,16 @@ export default function Custody() {
   const [viewMode, setViewMode] = useState("month");
   const [activeModule, setActiveModule] = useState("dashboard");
   const [isResetting, setIsResetting] = useState(false);
+  const [noticeDialog, setNoticeDialog] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
+
+  const askConfirm = ({ tone = "danger", title, message, confirmLabel = "Confirm", onConfirm }) => {
+    setConfirmDialog({ tone, title, message, confirmLabel, onConfirm });
+  };
   const [custodyActivity, setCustodyActivity] = useState([]);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [loadingActivity, setLoadingActivity] = useState(false);
@@ -339,14 +375,19 @@ export default function Custody() {
     setCalendarRefreshKey((current) => current + 1);
   }, [latestActivityId]);
 
-  const handleResetCustody = async () => {
+  const handleResetCustody = async ({ skipConfirm = false } = {}) => {
     if (!canResetCustody || isResetting) return;
 
-    const confirmed = window.confirm(
-      "This will permanently delete the existing custody days for the selected custody scope and start the custody calendar from zero. Continue?"
-    );
-
-    if (!confirmed) return;
+    if (!skipConfirm) {
+      askConfirm({
+        tone: "danger",
+        title: "Reset custody calendar?",
+        message: "This will permanently delete the existing custody days for the selected custody scope and start the custody calendar from zero. Continue?",
+        confirmLabel: "Reset calendar",
+        onConfirm: () => handleResetCustody({ skipConfirm: true }),
+      });
+      return;
+    }
 
     setIsResetting(true);
 
@@ -356,11 +397,19 @@ export default function Custody() {
         userId: user.uid,
       });
 
-      window.alert(`Custody reset completed. Deleted ${result.deleted} day(s).`);
-      window.location.reload();
+      showNotice({
+        tone: "success",
+        title: "Custody reset completed",
+        message: `Deleted ${result.deleted} day(s). The calendar will refresh now.`,
+      });
+      window.setTimeout(() => window.location.reload(), 900);
     } catch (error) {
       console.error("Error resetting custody data:", error);
-      window.alert(`Could not reset custody data: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not reset custody data",
+        message: error.message,
+      });
     } finally {
       setIsResetting(false);
     }

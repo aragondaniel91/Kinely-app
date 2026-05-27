@@ -18,6 +18,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -478,6 +479,15 @@ function AlertCard({ alert }) {
           </p>
         </div>
       </div>
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
     </div>
   );
 }
@@ -490,6 +500,11 @@ export default function SmartNotificationsHub() {
   const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
   const [expenses, setExpenses] = useState(initialCustodyExpenses);
   const [loading, setLoading] = useState(true);
+  const [noticeDialog, setNoticeDialog] = useState(null);
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
@@ -619,7 +634,11 @@ export default function SmartNotificationsHub() {
       }, { merge: true });
     } catch (error) {
       console.error("Error saving custody notification preferences:", error);
-      window.alert(`Could not save notification preferences: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save notification preferences",
+        message: error.message,
+      });
     } finally {
       setSavingPrefs(false);
     }

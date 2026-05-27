@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
@@ -54,6 +55,16 @@ export default function CustodySpecialEventDialog({
 }) {
   const editing = Boolean(existingEvent?.id);
 
+  const [noticeDialog, setNoticeDialog] = useState(null);
+
+  const showValidationNotice = (message, title = "Review special event") => {
+    setNoticeDialog({
+      tone: "warning",
+      title,
+      message,
+    });
+  };
+
   const [title, setTitle] = useState(existingEvent?.title || "");
   const [category, setCategory] = useState(existingEvent?.category || "sports");
   const [date, setDate] = useState(normalizeDate(existingEvent?.date || defaultDate));
@@ -64,12 +75,12 @@ export default function CustodySpecialEventDialog({
 
   const handleSave = async () => {
     if (!title.trim()) {
-      alert("Add a title for this special event.");
+      showValidationNotice("Add a title for this special event.", "Title required");
       return;
     }
 
     if (!date) {
-      alert("Select a date for this special event.");
+      showValidationNotice("Select a date for this special event.", "Date required");
       return;
     }
 
@@ -86,7 +97,8 @@ export default function CustodySpecialEventDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose?.()}>
+    <>
+      <Dialog open onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent className="max-w-lg rounded-[2rem] p-0 overflow-hidden">
         <DialogHeader className="border-b bg-background px-5 py-4">
           <DialogTitle className="font-heading text-xl flex items-center gap-2">
@@ -197,5 +209,16 @@ export default function CustodySpecialEventDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+    </>
   );
 }
