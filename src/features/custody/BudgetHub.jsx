@@ -198,7 +198,7 @@ function applySplitDefaults(form, nextAmount = form.amount, nextSplitType = form
 
 function BudgetHero({ total, paid, remaining, loading }) {
   return (
-    <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_18px_52px_rgba(15,23,42,0.08)]">
+    <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-sm">
       <div className="bg-[radial-gradient(circle_at_top_left,rgba(255,209,102,0.28),transparent_34%),linear-gradient(135deg,#ffffff_0%,#fff7ed_46%,#f8f7f4_100%)] p-6 md:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
@@ -214,7 +214,7 @@ function BudgetHero({ total, paid, remaining, loading }) {
             </p>
           </div>
 
-          <div className="rounded-[1.75rem] border border-white/80 bg-white/86 p-5 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur">
+          <div className="rounded-[1.75rem] border border-white/80 bg-white/86 p-5 shadow-sm backdrop-blur">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
               Total expenses
             </p>
@@ -243,7 +243,7 @@ function SummaryCard({ icon: Icon, label, value, helper, tone = "blue" }) {
   }[tone];
 
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.06)]">
+    <Card className="rounded-[1.6rem] border-white/80 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-4">
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${toneClass}`}>
           <Icon className="h-5 w-5" />
@@ -306,7 +306,7 @@ function ParentLedgerPanel({
   ];
 
   return (
-    <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
+    <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-sm md:p-6">
       <div className="mb-4">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
           Parent ledger
@@ -329,7 +329,7 @@ function ParentLedgerPanel({
               key={option.id}
               type="button"
               onClick={() => setActiveParent(option.id)}
-              className={`rounded-2xl border px-3 py-3 text-left transition active:scale-[0.98] ${
+              className={`rounded-2xl border px-3 py-3 text-left transition  ${
                 active
                   ? `${optionClasses.border} ${optionClasses.bg} shadow-sm`
                   : "border-slate-200 bg-slate-50 hover:bg-white"
@@ -462,7 +462,7 @@ function ExpenseRow({
     <button
       type="button"
       onClick={() => onPayment(expense)}
-      className="w-full rounded-[1.35rem] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md active:scale-[0.99]"
+      className="w-full rounded-[1.35rem] border border-slate-200 bg-white p-3 text-left shadow-sm transition  hover:border-amber-200  "
     >
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
@@ -592,8 +592,8 @@ function PaymentModal({
   const classes = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
-      <div className="w-full max-w-xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4  md:items-center">
+      <div className="w-full max-w-xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-lg md:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
@@ -747,8 +747,8 @@ function ExpenseModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
-      <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4  md:items-center">
+      <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white p-5 shadow-lg md:p-6">
         <div className="mb-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Budget expense</p>
           <h3 className="mt-1 text-2xl font-black text-slate-950">{isEdit ? "Edit expense" : "Add expense"}</h3>
@@ -1483,7 +1483,7 @@ export default function BudgetHub() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.82fr]">
-          <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
+          <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-sm md:p-6">
             <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
@@ -1532,7 +1532,7 @@ export default function BudgetHub() {
               summary={summary}
             />
 
-            <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
+            <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-sm md:p-6">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
                   <FileText className="h-6 w-6" />
