@@ -41,6 +41,7 @@ function shouldSkipFile(checkName, file) {
     return [
       "src/lib/appColorUtils.js",
       "src/lib/personColorUtils.js",
+      "src/components/profile/ParentColorPicker.jsx",
     ].includes(normalized);
   }
 

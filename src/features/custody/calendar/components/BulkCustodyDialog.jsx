@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 
 import { cn } from "@/lib/utils";
+import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
 import AppDialog from "@/components/app/AppDialog";
 
 const WEEK_DAYS = [
@@ -235,7 +236,17 @@ function summarizeSmartSegments(days, dayMap, dadLabel, momLabel) {
   }));
 }
 
-function ParentPicker({ value, onChange, dadLabel = "Dad", momLabel = "Mom" }) {
+function ParentPicker({
+  value,
+  onChange,
+  dadLabel = "Dad",
+  momLabel = "Mom",
+  dadColor = "blue",
+  momColor = "amber",
+}) {
+  const dadTheme = getAppColor(normalizeColorId(dadColor, "blue"), "blue");
+  const momTheme = getAppColor(normalizeColorId(momColor, "amber"), "amber");
+
   return (
     <div className="grid grid-cols-2 gap-3">
       <button
@@ -243,7 +254,9 @@ function ParentPicker({ value, onChange, dadLabel = "Dad", momLabel = "Mom" }) {
         onClick={() => onChange("dad")}
         className={cn(
           "rounded-2xl border px-4 py-3 text-left font-semibold transition-all",
-          value === "dad" ? "border-blue-400 bg-blue-50 text-blue-700" : "border-border bg-background text-foreground"
+          value === "dad"
+            ? `${dadTheme.borderStrong} ${dadTheme.chip} ${dadTheme.textStrong}`
+            : "border-border bg-background text-foreground"
         )}
       >
         👨 {dadLabel}
@@ -254,7 +267,9 @@ function ParentPicker({ value, onChange, dadLabel = "Dad", momLabel = "Mom" }) {
         onClick={() => onChange("mom")}
         className={cn(
           "rounded-2xl border px-4 py-3 text-left font-semibold transition-all",
-          value === "mom" ? "border-amber-400 bg-amber-50 text-amber-700" : "border-border bg-background text-foreground"
+          value === "mom"
+            ? `${momTheme.borderStrong} ${momTheme.chip} ${momTheme.textStrong}`
+            : "border-border bg-background text-foreground"
         )}
       >
         👩 {momLabel}
@@ -270,6 +285,8 @@ export default function BulkCustodyDialog({
   isSaving = false,
   dadLabel = "Dad",
   momLabel = "Mom",
+  dadColor = "blue",
+  momColor = "amber",
 }) {
   const defaultKey = format(defaultDate, "yyyy-MM-dd");
   const threeMonthsLater = format(addMonths(defaultDate, 3), "yyyy-MM-dd");
