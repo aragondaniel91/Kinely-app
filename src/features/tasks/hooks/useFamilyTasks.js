@@ -87,7 +87,11 @@ export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profi
       await loadTasks();
     } catch (error) {
       console.error("Error toggling task:", error);
-      alert(`There was an error updating the task: ${error.message}`);
+      notifyTaskNotice({
+        tone: "danger",
+        title: "Could not update task",
+        message: error.message,
+      });
     }
   };
 
@@ -102,7 +106,11 @@ export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profi
       await loadTasks();
     } catch (error) {
       console.error("Error deleting task:", error);
-      alert(`There was an error deleting the task: ${error.message}`);
+      notifyTaskNotice({
+        tone: "danger",
+        title: "Could not delete task",
+        message: error.message,
+      });
     }
   };
 

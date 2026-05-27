@@ -178,7 +178,11 @@ export function useTaskRewards({ familyId, canRead, people = [], user = null, pr
         await loadRewards();
       } catch (error) {
         console.error("Error resetting reward:", error);
-        alert(`There was an error resetting the reward: ${error.message}`);
+        notifyRewardNotice({
+          tone: "danger",
+          title: "Could not reset reward",
+          message: error.message,
+        });
       }
     },
     [familyId, loadRewards, profile, user]

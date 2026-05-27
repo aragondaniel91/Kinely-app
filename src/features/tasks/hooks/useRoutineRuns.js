@@ -210,7 +210,11 @@ export function useRoutineRuns({
         await loadRoutineRuns();
       } catch (error) {
         console.error("Error skipping routine today:", error);
-        alert(`There was an error skipping the routine: ${error.message}`);
+        notifyRoutineNotice({
+          tone: "danger",
+          title: "Could not skip routine",
+          message: error.message,
+        });
       }
     },
     [familyId, canWrite, todayKey, user, loadRoutineRuns]
@@ -258,7 +262,11 @@ export function useRoutineRuns({
       const templateTasks = Array.isArray(template.tasks) ? template.tasks : [];
 
       if (!templateTasks.length) {
-        alert("This routine does not have tasks to regenerate.");
+        notifyRoutineNotice({
+          tone: "warning",
+          title: "No tasks to regenerate",
+          message: "This routine does not have tasks to regenerate.",
+        });
         return;
       }
 
@@ -272,9 +280,11 @@ export function useRoutineRuns({
         const existingTasksToday = await getExistingRoutineTasksToday(template);
 
         if (existingTasksToday.length > 0) {
-          alert(
-            `This routine already has ${existingTasksToday.length} task${existingTasksToday.length === 1 ? "" : "s"} for today. Recreate is blocked to avoid duplicates.`
-          );
+          notifyRoutineNotice({
+            tone: "warning",
+            title: "Routine already has tasks today",
+            message: `This routine already has ${existingTasksToday.length} task${existingTasksToday.length === 1 ? "" : "s"} for today. Recreate is blocked to avoid duplicates.`,
+          });
           return;
         }
         const selectedPerson = getAssignedPersonFromTemplate(template, people);
@@ -383,7 +393,11 @@ export function useRoutineRuns({
         await loadRoutineRuns();
       } catch (error) {
         console.error("Error regenerating routine today:", error);
-        alert(`There was an error regenerating the routine: ${error.message}`);
+        notifyRoutineNotice({
+          tone: "danger",
+          title: "Could not regenerate routine",
+          message: error.message,
+        });
       }
     },
     [familyId, canWrite, todayKey, user, profile, people, loadRoutineRuns, getExistingRoutineTasksToday]
@@ -451,7 +465,11 @@ export function useRoutineRuns({
         await loadRoutineRuns();
       } catch (error) {
         console.error("Error cancelling routine today:", error);
-        alert(`There was an error cancelling this routine: ${error.message}`);
+        notifyRoutineNotice({
+          tone: "danger",
+          title: "Could not cancel routine",
+          message: error.message,
+        });
       }
     },
     [familyId, todayKey, user, loadRoutineRuns, getExistingRoutineTasksToday]
