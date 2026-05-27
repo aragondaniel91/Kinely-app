@@ -11,17 +11,12 @@ import {
   where,
 } from "firebase/firestore";
 import {
-  AlertTriangle,
   BadgeDollarSign,
   CheckCircle2,
   FileText,
   HeartHandshake,
-  Pencil,
   Plus,
-  ReceiptText,
-  Repeat,
   Scale,
-  Trash2,
   WalletCards,
 } from "lucide-react";
 
@@ -31,34 +26,10 @@ import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
-import {
-  currency,
-  getBudgetSummary,
-  getExpenseLedger,
-  getExpenseDueStatus,
-  initialCustodyExpenses,
-  validateExpenseLedger,
-} from "@/data/custodyBudget";
-
-const emptyNewExpense = {
-  title: "",
-  category: "School",
-  amount: "",
-  splitType: "50/50",
-  parent1ShareAmount: "",
-  parent2ShareAmount: "",
-  parent1PaidAmount: "",
-  parent2PaidAmount: "",
-  due: "",
-  dueDate: "",
-  dueDayOfMonth: "",
-  recurring: false,
-};
-
-function moneyInput(value) {
-  if (value === undefined || value === null || value === "") return "";
-  return String(value);
-}
+import { currency, getBudgetSummary, getExpenseLedger, initialCustodyExpenses, validateExpenseLedger } from "@/data/custodyBudget";
+import BudgetExpenseCard from "./components/budget/BudgetExpenseCard";
+import BudgetExpenseDetail from "./components/budget/BudgetExpenseDetail";
+import BudgetExpenseWizard from "./components/budget/BudgetExpenseWizard";
 
 function toMoney(value) {
   const number = Number(value || 0);
@@ -66,23 +37,9 @@ function toMoney(value) {
   return Math.round(number * 100) / 100;
 }
 
-function expenseToForm(expense) {
-  const ledger = getExpenseLedger(expense);
-
-  return {
-    title: expense?.title || "",
-    category: expense?.category || "School",
-    amount: moneyInput(ledger.amount),
-    splitType: ledger.splitType || "50/50",
-    parent1ShareAmount: moneyInput(ledger.parent1ShareAmount),
-    parent2ShareAmount: moneyInput(ledger.parent2ShareAmount),
-    parent1PaidAmount: moneyInput(ledger.parent1PaidAmount),
-    parent2PaidAmount: moneyInput(ledger.parent2PaidAmount),
-    due: expense?.due || "",
-    dueDate: expense?.dueDate || "",
-    dueDayOfMonth: expense?.dueDayOfMonth ? String(expense.dueDayOfMonth) : "",
-    recurring: Boolean(expense?.recurring),
-  };
+function makePaymentId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `payment-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function normalizeExpenseDoc(docSnap) {
@@ -105,8 +62,6 @@ function normalizeExpenseDoc(docSnap) {
     reviewFlag: Boolean(data.reviewFlag),
     reviewNote: data.reviewNote || "",
     order: data.order ?? 999,
-
-    // Legacy fields kept only so old Firestore docs still normalize correctly.
     paidBy: data.paidBy || "Shared",
     split: data.split || "50/50",
     status: data.status || "review",
@@ -115,84 +70,6 @@ function normalizeExpenseDoc(docSnap) {
   return {
     ...expense,
     ledger: getExpenseLedger(expense),
-  };
-}
-
-function statusMeta(status) {
-  if (status === "paid") {
-    return {
-      label: "Paid",
-      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    };
-  }
-
-  if (status === "partial") {
-    return {
-      label: "Partial",
-      className: "border-amber-200 bg-amber-50 text-amber-700",
-    };
-  }
-
-  if (status === "open") {
-    return {
-      label: "Open",
-      className: "border-slate-200 bg-slate-50 text-slate-700",
-    };
-  }
-
-  return {
-    label: "Review",
-    className: "border-rose-200 bg-rose-50 text-rose-700",
-  };
-}
-
-function applySplitDefaults(form, nextAmount = form.amount, nextSplitType = form.splitType) {
-  const amount = toMoney(nextAmount);
-  const splitType = nextSplitType || "50/50";
-
-  if (!amount || amount <= 0) {
-    return {
-      ...form,
-      amount: nextAmount,
-      splitType,
-    };
-  }
-
-  if (splitType === "50/50") {
-    const parent1Share = Math.round((amount / 2) * 100) / 100;
-    return {
-      ...form,
-      amount: String(nextAmount),
-      splitType,
-      parent1ShareAmount: String(parent1Share),
-      parent2ShareAmount: String(Math.round((amount - parent1Share) * 100) / 100),
-    };
-  }
-
-  if (splitType === "Parent 1 pays") {
-    return {
-      ...form,
-      amount: String(nextAmount),
-      splitType,
-      parent1ShareAmount: String(amount),
-      parent2ShareAmount: "0",
-    };
-  }
-
-  if (splitType === "Parent 2 pays") {
-    return {
-      ...form,
-      amount: String(nextAmount),
-      splitType,
-      parent1ShareAmount: "0",
-      parent2ShareAmount: String(amount),
-    };
-  }
-
-  return {
-    ...form,
-    amount: String(nextAmount),
-    splitType,
   };
 }
 
@@ -214,10 +91,8 @@ function BudgetHero({ total, paid, remaining, loading }) {
             </p>
           </div>
 
-          <div className="rounded-[1.75rem] border border-white/80 bg-white/86 p-5 shadow-sm backdrop-blur">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-              Total expenses
-            </p>
+          <div className="rounded-[1.75rem] border border-white/80 bg-white/86 p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Total expenses</p>
             <p className="mt-2 text-4xl font-black text-slate-950">{loading ? "..." : currency(total)}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Badge className="rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
@@ -291,31 +166,17 @@ function ParentLedgerPanel({
   const selectedClasses = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
 
   const options = [
-    {
-      id: "parent1",
-      name: parent1Name,
-      color: parent1Color,
-      remaining: summary.parent1Remaining,
-    },
-    {
-      id: "parent2",
-      name: parent2Name,
-      color: parent2Color,
-      remaining: summary.parent2Remaining,
-    },
+    { id: "parent1", name: parent1Name, color: parent1Color, remaining: summary.parent1Remaining },
+    { id: "parent2", name: parent2Name, color: parent2Color, remaining: summary.parent2Remaining },
   ];
 
   return (
     <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-sm md:p-6">
       <div className="mb-4">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-          Parent ledger
-        </p>
-        <h3 className="mt-1 text-2xl font-black text-slate-950">
-          Balance by parent
-        </h3>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Parent ledger</p>
+        <h3 className="mt-1 text-2xl font-black text-slate-950">Balance by parent</h3>
         <p className="mt-2 text-sm font-semibold text-slate-500">
-          Tap a parent to focus the totals and expense breakdown.
+          Tap a parent to focus totals and expense breakdowns.
         </p>
       </div>
 
@@ -329,10 +190,8 @@ function ParentLedgerPanel({
               key={option.id}
               type="button"
               onClick={() => setActiveParent(option.id)}
-              className={`rounded-2xl border px-3 py-3 text-left transition  ${
-                active
-                  ? `${optionClasses.border} ${optionClasses.bg} shadow-sm`
-                  : "border-slate-200 bg-slate-50 hover:bg-white"
+              className={`rounded-2xl border px-3 py-3 text-left transition ${
+                active ? `${optionClasses.border} ${optionClasses.bg}` : "border-slate-200 bg-slate-50 hover:bg-white"
               }`}
             >
               <p className={`text-sm font-black ${active ? optionClasses.textStrong : "text-slate-700"}`}>
@@ -384,588 +243,6 @@ function ParentLedgerPanel({
   );
 }
 
-function ExpenseBreakdownLine({ label, color, share, paid, remaining, overpaid }) {
-  const classes = getColorClasses(normalizeColorId(color, "blue"), "blue");
-
-  return (
-    <div className={`rounded-2xl border p-3 ${classes.border} ${classes.bg}`}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className={`text-sm font-black ${classes.textStrong}`}>{label}</p>
-        <Badge className={`rounded-full bg-white/75 ${classes.textStrong} hover:bg-white/75`}>
-          owes {currency(remaining)}
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-xs font-bold text-slate-600">
-        <div className="rounded-xl bg-white/70 p-2">
-          <p className="text-slate-400">Share</p>
-          <p className="text-slate-950">{currency(share)}</p>
-        </div>
-        <div className="rounded-xl bg-white/70 p-2">
-          <p className="text-slate-400">Paid</p>
-          <p className="text-slate-950">{currency(paid)}</p>
-        </div>
-        <div className="rounded-xl bg-white/70 p-2">
-          <p className="text-slate-400">Remaining</p>
-          <p className={remaining > 0 ? classes.textStrong : "text-emerald-700"}>
-            {currency(remaining)}
-          </p>
-        </div>
-      </div>
-
-      {overpaid > 0 && (
-        <p className="mt-2 text-xs font-bold text-blue-700">
-          Overpaid by {currency(overpaid)}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ExpenseRow({
-  expense,
-  activeParent,
-  parent1Name,
-  parent2Name,
-  parent1Color,
-  parent2Color,
-  onPayment,
-  onEdit,
-  onDelete,
-}) {
-  const ledger = expense.ledger || getExpenseLedger(expense);
-  const meta = statusMeta(ledger.status);
-  const dueStatus = getExpenseDueStatus(expense, ledger);
-
-  const selected =
-    activeParent === "parent1"
-      ? {
-          name: parent1Name,
-          color: parent1Color,
-          share: ledger.parent1ShareAmount,
-          paid: ledger.parent1PaidAmount,
-          remaining: ledger.parent1Remaining,
-          overpaid: ledger.parent1Overpaid,
-        }
-      : {
-          name: parent2Name,
-          color: parent2Color,
-          share: ledger.parent2ShareAmount,
-          paid: ledger.parent2PaidAmount,
-          remaining: ledger.parent2Remaining,
-          overpaid: ledger.parent2Overpaid,
-        };
-
-  const selectedClasses = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
-
-  return (
-    <button
-      type="button"
-      onClick={() => onPayment(expense)}
-      className="w-full rounded-[1.35rem] border border-slate-200 bg-white p-3 text-left shadow-sm transition  hover:border-amber-200  "
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-          {expense.recurring ? <Repeat className="h-5 w-5" /> : <ReceiptText className="h-5 w-5" />}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-black text-slate-950 md:text-base">{expense.title}</p>
-            <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black ${meta.className}`}>
-              {meta.label}
-            </span>
-            <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black ${dueStatus.className}`}>
-              {dueStatus.label}
-            </span>
-            {expense.recurring && (
-              <Badge variant="secondary" className="rounded-full bg-blue-50 text-blue-700 hover:bg-blue-50">
-                Recurring
-              </Badge>
-            )}
-          </div>
-
-          <p className="mt-1 text-xs font-bold text-slate-500">
-            {expense.category} · {currency(ledger.amount)} · Split {ledger.splitType}
-          </p>
-
-          <div className={`mt-3 rounded-2xl border p-3 ${selectedClasses.border} ${selectedClasses.bg}`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className={`text-xs font-black ${selectedClasses.textStrong}`}>
-                {selected.name}
-              </p>
-              <p className={`text-xs font-black ${selected.remaining > 0 ? selectedClasses.textStrong : "text-emerald-700"}`}>
-                Owes {currency(selected.remaining)}
-              </p>
-            </div>
-
-            <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] font-bold">
-              <div className="rounded-xl bg-white/70 p-2">
-                <p className="text-slate-400">Share</p>
-                <p className="text-slate-950">{currency(selected.share)}</p>
-              </div>
-              <div className="rounded-xl bg-white/70 p-2">
-                <p className="text-slate-400">Paid</p>
-                <p className="text-slate-950">{currency(selected.paid)}</p>
-              </div>
-              <div className="rounded-xl bg-white/80 p-2">
-                <p className="text-slate-400">Left</p>
-                <p className={selected.remaining > 0 ? selectedClasses.textStrong : "text-emerald-700"}>
-                  {currency(selected.remaining)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {expense.reviewNote && (
-            <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
-              Review note: {expense.reviewNote}
-            </p>
-          )}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => onEdit(expense)}
-            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-            aria-label={`Edit ${expense.title}`}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onDelete(expense)}
-            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-            aria-label={`Delete ${expense.title}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function PaymentModal({
-  expense,
-  activeParent,
-  parent1Name,
-  parent2Name,
-  parent1Color,
-  parent2Color,
-  value,
-  saving,
-  onChange,
-  onClose,
-  onSubmit,
-  onPayFull,
-  onMarkReview,
-  onClearReview,
-  onUndoLastPayment,
-  lastPayment,
-}) {
-  if (!expense) return null;
-
-  const ledger = expense.ledger || getExpenseLedger(expense);
-
-  const selected =
-    activeParent === "parent1"
-      ? {
-          id: "parent1",
-          name: parent1Name,
-          color: parent1Color,
-          share: ledger.parent1ShareAmount,
-          paid: ledger.parent1PaidAmount,
-          remaining: ledger.parent1Remaining,
-        }
-      : {
-          id: "parent2",
-          name: parent2Name,
-          color: parent2Color,
-          share: ledger.parent2ShareAmount,
-          paid: ledger.parent2PaidAmount,
-          remaining: ledger.parent2Remaining,
-        };
-
-  const classes = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 md:items-center md:p-6">
-      <div className="w-full max-w-xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-lg md:p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
-              Record payment
-            </p>
-            <h3 className="mt-1 text-2xl font-black text-slate-950">{expense.title}</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              Apply payment for {selected.name}. Total expense: {currency(ledger.amount)}.
-            </p>
-          </div>
-
-          <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMeta(ledger.status).className}`}>
-            {statusMeta(ledger.status).label}
-          </span>
-        </div>
-
-        <div className={`rounded-[1.5rem] border p-4 ${classes.border} ${classes.bg}`}>
-          <p className={`text-sm font-black ${classes.textStrong}`}>{selected.name}</p>
-
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-white/75 p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Share</p>
-              <p className="mt-1 text-lg font-black text-slate-950">{currency(selected.share)}</p>
-            </div>
-            <div className="rounded-2xl bg-white/75 p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Paid</p>
-              <p className="mt-1 text-lg font-black text-slate-950">{currency(selected.paid)}</p>
-            </div>
-            <div className="rounded-2xl bg-white/85 p-3">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Remaining</p>
-              <p className={`mt-1 text-xl font-black ${selected.remaining > 0 ? classes.textStrong : "text-emerald-700"}`}>
-                {currency(selected.remaining)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3">
-          <Button
-            type="button"
-            disabled={saving || selected.remaining <= 0}
-            onClick={onPayFull}
-            className="h-12 rounded-2xl font-black"
-          >
-            Pay full balance — {currency(selected.remaining)}
-          </Button>
-
-          {lastPayment && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={onUndoLastPayment}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-            >
-              Undo last payment — {currency(lastPayment.amount)}
-            </button>
-          )}
-
-          <form onSubmit={onSubmit} className="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1.5">
-                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Partial payment</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={value.amount}
-                  onChange={(event) => onChange({ ...value, amount: event.target.value })}
-                  placeholder="0.00"
-                  className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                />
-              </label>
-
-              <label className="grid gap-1.5">
-                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Observation</span>
-                <input
-                  value={value.note}
-                  onChange={(event) => onChange({ ...value, note: event.target.value })}
-                  placeholder="Optional note"
-                  className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                />
-              </label>
-            </div>
-
-            <Button type="submit" disabled={saving} variant="outline" className="h-11 rounded-2xl font-black">
-              Save partial payment
-            </Button>
-          </form>
-
-          {expense.reviewFlag ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={onClearReview}
-              className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
-            >
-              Clear review status
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={onMarkReview}
-              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-800 transition hover:bg-rose-100"
-            >
-              Mark this expense for review
-            </button>
-          )}
-        </div>
-
-        <div className="mt-5 flex justify-end">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="h-10 rounded-full px-5 font-black">
-            Close
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ExpenseModal({
-  open,
-  mode,
-  value,
-  saving,
-  parent1Name,
-  parent2Name,
-  onChange,
-  onClose,
-  onSubmit,
-}) {
-  if (!open) return null;
-
-  const isEdit = mode === "edit";
-  const amount = toMoney(value.amount);
-  const previewLedger = getExpenseLedger({
-    amount,
-    splitType: value.splitType,
-    parent1ShareAmount: value.parent1ShareAmount,
-    parent2ShareAmount: value.parent2ShareAmount,
-    parent1PaidAmount: value.parent1PaidAmount,
-    parent2PaidAmount: value.parent2PaidAmount,
-  });
-
-  const handleAmountChange = (nextAmount) => {
-    onChange(applySplitDefaults(value, nextAmount, value.splitType));
-  };
-
-  const handleSplitChange = (nextSplitType) => {
-    onChange(applySplitDefaults(value, value.amount, nextSplitType));
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 md:items-center md:p-6">
-      <form onSubmit={onSubmit} className="max-h-[88vh] w-full max-w-2xl overflow-y-auto overflow-x-hidden rounded-[2rem] border border-white/80 bg-white p-4 shadow-lg md:p-6">
-        <div className="mb-5">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Budget expense</p>
-          <h3 className="mt-1 text-2xl font-black text-slate-950">{isEdit ? "Edit expense" : "Add expense"}</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            Enter the total cost, each parent&apos;s share, and how much each parent already paid.
-          </p>
-        </div>
-
-        <div className="grid gap-3">
-          <label className="grid gap-1.5">
-            <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Title</span>
-            <input
-              value={value.title}
-              onChange={(event) => onChange({ ...value, title: event.target.value })}
-              placeholder="Example: Daycare"
-              className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-              required
-            />
-          </label>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="grid gap-1.5">
-              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Total amount</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={value.amount}
-                onChange={(event) => handleAmountChange(event.target.value)}
-                placeholder="0.00"
-                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                required
-              />
-            </label>
-
-            <label className="grid gap-1.5">
-              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Split rule</span>
-              <select
-                value={value.splitType}
-                onChange={(event) => handleSplitChange(event.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-              >
-                <option>50/50</option>
-                <option>Custom</option>
-                <option>Parent 1 pays</option>
-                <option>Parent 2 pays</option>
-              </select>
-            </label>
-
-            <label className="grid gap-1.5">
-              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Due date</span>
-              <input
-                type="date"
-                value={value.dueDate}
-                onChange={(event) => onChange({ ...value, dueDate: event.target.value })}
-                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/60 p-3">
-              <p className="text-sm font-black text-slate-950">{parent1Name}</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1.5">
-                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Should pay</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={value.parent1ShareAmount}
-                    onChange={(event) => onChange({ ...value, parent1ShareAmount: event.target.value, splitType: "Custom" })}
-                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                  />
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Already paid</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={value.parent1PaidAmount}
-                    onChange={(event) => onChange({ ...value, parent1PaidAmount: event.target.value })}
-                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50/60 p-3">
-              <p className="text-sm font-black text-slate-950">{parent2Name}</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1.5">
-                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Should pay</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={value.parent2ShareAmount}
-                    onChange={(event) => onChange({ ...value, parent2ShareAmount: event.target.value, splitType: "Custom" })}
-                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                  />
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Already paid</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={value.parent2PaidAmount}
-                    onChange={(event) => onChange({ ...value, parent2PaidAmount: event.target.value })}
-                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1.5">
-              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Category</span>
-              <select
-                value={value.category}
-                onChange={(event) => onChange({ ...value, category: event.target.value })}
-                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-              >
-                <option>School</option>
-                <option>Medical</option>
-                <option>Activities</option>
-                <option>Clothes</option>
-                <option>Childcare</option>
-                <option>General</option>
-              </select>
-            </label>
-
-            <div className="grid gap-3 rounded-2xl border border-slate-200 px-4 py-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={value.recurring}
-                  onChange={(event) => onChange({ ...value, recurring: event.target.checked })}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm font-black text-slate-700">Recurring monthly expense</span>
-              </label>
-
-              {value.recurring && (
-                <label className="grid gap-1.5">
-                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Monthly due day</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={value.dueDayOfMonth}
-                    onChange={(event) => onChange({ ...value, dueDayOfMonth: event.target.value })}
-                    placeholder="15"
-                    className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                  />
-                </label>
-              )}
-
-              <label className="grid gap-1.5">
-                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Note</span>
-                <input
-                  value={value.due}
-                  onChange={(event) => onChange({ ...value, due: event.target.value })}
-                  placeholder="Example: invoice #, receipt note, payment detail"
-                  className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Preview</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl bg-white p-3 text-sm font-bold">
-                <p className="text-slate-950">{parent1Name}</p>
-                <p className="text-slate-500">Share: {currency(previewLedger.parent1ShareAmount)}</p>
-                <p className="text-slate-500">Paid: {currency(previewLedger.parent1PaidAmount)}</p>
-                <p className={previewLedger.parent1Remaining > 0 ? "text-amber-700" : "text-emerald-700"}>
-                  Still owes: {currency(previewLedger.parent1Remaining)}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white p-3 text-sm font-bold">
-                <p className="text-slate-950">{parent2Name}</p>
-                <p className="text-slate-500">Share: {currency(previewLedger.parent2ShareAmount)}</p>
-                <p className="text-slate-500">Paid: {currency(previewLedger.parent2PaidAmount)}</p>
-                <p className={previewLedger.parent2Remaining > 0 ? "text-amber-700" : "text-emerald-700"}>
-                  Still owes: {currency(previewLedger.parent2Remaining)}
-                </p>
-              </div>
-            </div>
-
-            {previewLedger.validationErrors.length > 0 && (
-              <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-800">
-                {previewLedger.validationErrors.map((error) => (
-                  <p key={error}>• {error}</p>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="h-10 rounded-full px-5 font-black">
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving} className="h-10 rounded-full bg-amber-600 px-5 font-black hover:bg-amber-700">
-            {saving ? "Saving..." : isEdit ? "Save changes" : "Add expense"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
 export default function BudgetHub() {
   const {
     user,
@@ -986,13 +263,11 @@ export default function BudgetHub() {
 
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [savingExpense, setSavingExpense] = useState(false);
-  const [expenseForm, setExpenseForm] = useState(emptyNewExpense);
-  const [editingExpense, setEditingExpense] = useState(null);
   const [activeParentLedger, setActiveParentLedger] = useState("parent1");
-  const [paymentExpense, setPaymentExpense] = useState(null);
-  const [paymentForm, setPaymentForm] = useState({ amount: "", note: "" });
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [detailExpense, setDetailExpense] = useState(null);
   const [savingPayment, setSavingPayment] = useState(false);
 
   useEffect(() => {
@@ -1032,12 +307,7 @@ export default function BudgetHub() {
               };
 
               const docRef = await addDoc(collection(db, "custodyExpenses"), payload);
-
-              return {
-                ...payload,
-                id: docRef.id,
-                ledger: getExpenseLedger(payload),
-              };
+              return { ...payload, id: docRef.id, ledger: getExpenseLedger(payload) };
             })
           );
 
@@ -1045,10 +315,7 @@ export default function BudgetHub() {
           return;
         }
 
-        const data = snap.docs
-          .map(normalizeExpenseDoc)
-          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-
+        const data = snap.docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         if (!cancelled) setExpenses(data);
       } catch (error) {
         console.error("Error loading custody expenses:", error);
@@ -1069,49 +336,44 @@ export default function BudgetHub() {
 
   const summary = useMemo(() => getBudgetSummary(expenses), [expenses]);
 
-  const closeExpenseModal = () => {
-    setShowExpenseModal(false);
-    setEditingExpense(null);
-    setExpenseForm(emptyNewExpense);
-  };
-
   const openAddExpense = () => {
     setEditingExpense(null);
-    setExpenseForm(applySplitDefaults(emptyNewExpense, "", "50/50"));
-    setShowExpenseModal(true);
+    setWizardOpen(true);
   };
 
   const openEditExpense = (expense) => {
     setEditingExpense(expense);
-    setExpenseForm(expenseToForm(expense));
-    setShowExpenseModal(true);
+    setWizardOpen(true);
   };
 
-  const saveExpense = async (event) => {
-    event.preventDefault();
+  const closeWizard = () => {
+    setEditingExpense(null);
+    setWizardOpen(false);
+  };
 
+  const refreshExpenseInState = (id, payload) => {
+    setExpenses((current) =>
+      current.map((expense) =>
+        expense.id === id
+          ? { ...expense, ...payload, updatedAt: undefined, ledger: getExpenseLedger({ ...expense, ...payload }) }
+          : expense
+      )
+    );
+
+    setDetailExpense((current) =>
+      current?.id === id
+        ? { ...current, ...payload, updatedAt: undefined, ledger: getExpenseLedger({ ...current, ...payload }) }
+        : current
+    );
+  };
+
+  const saveExpense = async (draftExpense) => {
     if (!user || !familyId || savingExpense) return;
 
-    const cleanTitle = expenseForm.title.trim();
-    if (!cleanTitle) {
+    if (!draftExpense.title) {
       window.alert("Please enter an expense title.");
       return;
     }
-
-    const draftExpense = {
-      title: cleanTitle,
-      category: expenseForm.category,
-      amount: toMoney(expenseForm.amount),
-      splitType: expenseForm.splitType,
-      parent1ShareAmount: toMoney(expenseForm.parent1ShareAmount),
-      parent2ShareAmount: toMoney(expenseForm.parent2ShareAmount),
-      parent1PaidAmount: toMoney(expenseForm.parent1PaidAmount),
-      parent2PaidAmount: toMoney(expenseForm.parent2PaidAmount),
-      due: expenseForm.due.trim(),
-      dueDate: expenseForm.dueDate || "",
-      dueDayOfMonth: expenseForm.dueDayOfMonth ? Number(expenseForm.dueDayOfMonth) : "",
-      recurring: Boolean(expenseForm.recurring),
-    };
 
     const validationErrors = validateExpenseLedger(draftExpense);
     if (validationErrors.length > 0) {
@@ -1120,7 +382,6 @@ export default function BudgetHub() {
     }
 
     const ledger = getExpenseLedger(draftExpense);
-
     setSavingExpense(true);
 
     try {
@@ -1138,20 +399,13 @@ export default function BudgetHub() {
 
       if (editingExpense) {
         await updateDoc(doc(db, "custodyExpenses", editingExpense.id), payload);
-        setExpenses((current) =>
-          current.map((expense) =>
-            expense.id === editingExpense.id
-              ? { ...expense, ...payload, ledger: getExpenseLedger(payload) }
-              : expense
-          )
-        );
+        refreshExpenseInState(editingExpense.id, payload);
       } else {
-        const order = expenses.length;
         const createPayload = {
           ...payload,
           familyId,
           createdBy: user.uid,
-          order,
+          order: expenses.length,
           createdAt: serverTimestamp(),
         };
 
@@ -1162,7 +416,7 @@ export default function BudgetHub() {
         ]);
       }
 
-      closeExpenseModal();
+      closeWizard();
     } catch (error) {
       console.error("Error saving custody expense:", error);
       window.alert(`Could not save expense: ${error.message}`);
@@ -1171,63 +425,16 @@ export default function BudgetHub() {
     }
   };
 
-  const closePaymentModal = () => {
-    setPaymentExpense(null);
-    setPaymentForm({ amount: "", note: "" });
-  };
+  const savePayment = async ({ amount, note = "" }) => {
+    if (!detailExpense || !user || !familyId || savingPayment) return;
 
-  const openPaymentModal = (expense) => {
-    setPaymentExpense(expense);
-    setPaymentForm({ amount: "", note: "" });
-  };
-
-  const savePaymentForExpense = async ({ amount, note = "", reviewOnly = false }) => {
-    if (!paymentExpense || !user || !familyId || savingPayment) return;
-
-    const currentExpense = expenses.find((expense) => expense.id === paymentExpense.id) || paymentExpense;
+    const currentExpense = expenses.find((expense) => expense.id === detailExpense.id) || detailExpense;
     const currentLedger = currentExpense.ledger || getExpenseLedger(currentExpense);
+    const cleanAmount = toMoney(amount);
     const cleanNote = String(note || "").trim();
 
-    if (reviewOnly) {
-      setSavingPayment(true);
-
-      const reviewPayload = {
-        reviewFlag: true,
-        reviewNote: cleanNote || "Marked for review",
-        status: "review",
-        updatedAt: serverTimestamp(),
-      };
-
-      try {
-        await updateDoc(doc(db, "custodyExpenses", currentExpense.id), reviewPayload);
-        setExpenses((current) =>
-          current.map((expense) =>
-            expense.id === currentExpense.id
-              ? {
-                  ...expense,
-                  ...reviewPayload,
-                  updatedAt: undefined,
-                  ledger: getExpenseLedger({ ...expense, ...reviewPayload }),
-                }
-              : expense
-          )
-        );
-        closePaymentModal();
-      } catch (error) {
-        console.error("Error marking expense for review:", error);
-        window.alert(`Could not mark for review: ${error.message}`);
-      } finally {
-        setSavingPayment(false);
-      }
-
-      return;
-    }
-
-    const cleanAmount = toMoney(amount);
     const selectedRemaining =
-      activeParentLedger === "parent1"
-        ? currentLedger.parent1Remaining
-        : currentLedger.parent2Remaining;
+      activeParentLedger === "parent1" ? currentLedger.parent1Remaining : currentLedger.parent2Remaining;
 
     if (cleanAmount <= 0) {
       window.alert("Please enter a payment greater than $0.");
@@ -1250,6 +457,8 @@ export default function BudgetHub() {
         : currentLedger.parent2PaidAmount;
 
     const paymentRecord = {
+      id: makePaymentId(),
+      type: "payment",
       parent: activeParentLedger,
       amount: cleanAmount,
       note: cleanNote,
@@ -1263,6 +472,7 @@ export default function BudgetHub() {
       parent2PaidAmount: nextParent2Paid,
       reviewFlag: false,
       reviewNote: "",
+      payments: [...(currentExpense.payments || []), paymentRecord],
     };
 
     const updatedLedger = getExpenseLedger(updatedExpense);
@@ -1273,7 +483,7 @@ export default function BudgetHub() {
       status: updatedLedger.status,
       reviewFlag: false,
       reviewNote: "",
-      payments: [...(currentExpense.payments || []), paymentRecord],
+      payments: updatedExpense.payments,
       updatedAt: serverTimestamp(),
     };
 
@@ -1281,19 +491,7 @@ export default function BudgetHub() {
 
     try {
       await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
-      setExpenses((current) =>
-        current.map((expense) =>
-          expense.id === currentExpense.id
-            ? {
-                ...expense,
-                ...payload,
-                updatedAt: undefined,
-                ledger: getExpenseLedger({ ...expense, ...payload }),
-              }
-            : expense
-        )
-      );
-      closePaymentModal();
+      refreshExpenseInState(currentExpense.id, payload);
     } catch (error) {
       console.error("Error saving payment:", error);
       window.alert(`Could not save payment: ${error.message}`);
@@ -1302,87 +500,30 @@ export default function BudgetHub() {
     }
   };
 
-  const setReviewForPaymentExpense = async (reviewFlag) => {
-    if (!paymentExpense || !user || !familyId || savingPayment) return;
+  const undoPayment = async (payment) => {
+    if (!detailExpense || !payment || !user || savingPayment) return;
 
-    const currentExpense = expenses.find((expense) => expense.id === paymentExpense.id) || paymentExpense;
-    const cleanNote = String(paymentForm.note || "").trim();
-
-    const updatedExpense = {
-      ...currentExpense,
-      reviewFlag,
-      reviewNote: reviewFlag ? cleanNote || "Marked for review" : "",
-    };
-
-    const updatedLedger = getExpenseLedger(updatedExpense);
-
-    const payload = {
-      reviewFlag,
-      reviewNote: reviewFlag ? cleanNote || "Marked for review" : "",
-      status: updatedLedger.status,
-      updatedAt: serverTimestamp(),
-    };
-
-    setSavingPayment(true);
-
-    try {
-      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
-      setExpenses((current) =>
-        current.map((expense) =>
-          expense.id === currentExpense.id
-            ? {
-                ...expense,
-                ...payload,
-                updatedAt: undefined,
-                ledger: getExpenseLedger({ ...expense, ...payload }),
-              }
-            : expense
-        )
-      );
-      closePaymentModal();
-    } catch (error) {
-      console.error("Error updating review status:", error);
-      window.alert(`Could not update review status: ${error.message}`);
-    } finally {
-      setSavingPayment(false);
-    }
-  };
-
-  const undoLastPaymentForExpense = async () => {
-    if (!paymentExpense || !user || !familyId || savingPayment) return;
-
-    const currentExpense = expenses.find((expense) => expense.id === paymentExpense.id) || paymentExpense;
-    const payments = Array.isArray(currentExpense.payments) ? currentExpense.payments : [];
-    const lastPayment = [...payments]
-      .reverse()
-      .find((payment) => payment.parent === activeParentLedger && payment.type !== "reversal");
-
-    if (!lastPayment) {
-      window.alert("There is no payment to undo for the selected parent.");
-      return;
-    }
-
-    const confirmed = window.confirm(`Undo last payment of ${currency(lastPayment.amount)}?`);
-    if (!confirmed) return;
-
+    const currentExpense = expenses.find((expense) => expense.id === detailExpense.id) || detailExpense;
     const currentLedger = currentExpense.ledger || getExpenseLedger(currentExpense);
-    const amountToReverse = toMoney(lastPayment.amount);
+    const amountToReverse = toMoney(payment.amount);
 
     const nextParent1Paid =
-      activeParentLedger === "parent1"
+      payment.parent === "parent1"
         ? Math.max(0, toMoney(currentLedger.parent1PaidAmount - amountToReverse))
         : currentLedger.parent1PaidAmount;
 
     const nextParent2Paid =
-      activeParentLedger === "parent2"
+      payment.parent === "parent2"
         ? Math.max(0, toMoney(currentLedger.parent2PaidAmount - amountToReverse))
         : currentLedger.parent2PaidAmount;
 
     const reversalRecord = {
+      id: makePaymentId(),
       type: "reversal",
-      parent: activeParentLedger,
+      parent: payment.parent,
       amount: amountToReverse,
-      note: `Reversed payment from ${lastPayment.createdAt || "previous entry"}`,
+      reversesPaymentId: payment.id,
+      note: `Reversed payment from ${payment.createdAt || "previous entry"}`,
       createdBy: user.uid,
       createdAt: new Date().toISOString(),
     };
@@ -1391,7 +532,7 @@ export default function BudgetHub() {
       ...currentExpense,
       parent1PaidAmount: nextParent1Paid,
       parent2PaidAmount: nextParent2Paid,
-      payments: [...payments, reversalRecord],
+      payments: [...(currentExpense.payments || []), reversalRecord],
     };
 
     const updatedLedger = getExpenseLedger(updatedExpense);
@@ -1408,19 +549,7 @@ export default function BudgetHub() {
 
     try {
       await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
-      setExpenses((current) =>
-        current.map((expense) =>
-          expense.id === currentExpense.id
-            ? {
-                ...expense,
-                ...payload,
-                updatedAt: undefined,
-                ledger: getExpenseLedger({ ...expense, ...payload }),
-              }
-            : expense
-        )
-      );
-      closePaymentModal();
+      refreshExpenseInState(currentExpense.id, payload);
     } catch (error) {
       console.error("Error undoing payment:", error);
       window.alert(`Could not undo payment: ${error.message}`);
@@ -1429,12 +558,36 @@ export default function BudgetHub() {
     }
   };
 
-  const submitPartialPayment = async (event) => {
-    event.preventDefault();
-    await savePaymentForExpense({
-      amount: paymentForm.amount,
-      note: paymentForm.note,
-    });
+  const setReview = async (reviewFlag, note = "") => {
+    if (!detailExpense || !user || savingPayment) return;
+
+    const currentExpense = expenses.find((expense) => expense.id === detailExpense.id) || detailExpense;
+    const updatedExpense = {
+      ...currentExpense,
+      reviewFlag,
+      reviewNote: reviewFlag ? String(note || "").trim() || "Marked for review" : "",
+    };
+
+    const updatedLedger = getExpenseLedger(updatedExpense);
+
+    const payload = {
+      reviewFlag,
+      reviewNote: updatedExpense.reviewNote,
+      status: updatedLedger.status,
+      updatedAt: serverTimestamp(),
+    };
+
+    setSavingPayment(true);
+
+    try {
+      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
+      refreshExpenseInState(currentExpense.id, payload);
+    } catch (error) {
+      console.error("Error updating review status:", error);
+      window.alert(`Could not update review status: ${error.message}`);
+    } finally {
+      setSavingPayment(false);
+    }
   };
 
   const deleteExpense = async (expenseToDelete) => {
@@ -1486,12 +639,8 @@ export default function BudgetHub() {
           <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-sm md:p-6">
             <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Shared expenses
-                </p>
-                <h3 className="mt-1 text-2xl font-black text-slate-950">
-                  Child-related costs
-                </h3>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Shared expenses</p>
+                <h3 className="mt-1 text-2xl font-black text-slate-950">Child-related costs</h3>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
                   Use the parent toggle to focus each expense breakdown.
                 </p>
@@ -1505,7 +654,7 @@ export default function BudgetHub() {
 
             <div className="space-y-3">
               {expenses.map((expense) => (
-                <ExpenseRow
+                <BudgetExpenseCard
                   key={expense.id}
                   expense={expense}
                   activeParent={activeParentLedger}
@@ -1513,7 +662,7 @@ export default function BudgetHub() {
                   parent2Name={parent2Name}
                   parent1Color={parent1Color}
                   parent2Color={parent2Color}
-                  onPayment={openPaymentModal}
+                  onOpen={setDetailExpense}
                   onEdit={openEditExpense}
                   onDelete={deleteExpense}
                 />
@@ -1538,12 +687,8 @@ export default function BudgetHub() {
                   <FileText className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                    Receipts
-                  </p>
-                  <h3 className="mt-1 text-2xl font-black text-slate-950">
-                    Attach proof later
-                  </h3>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Receipts</p>
+                  <h3 className="mt-1 text-2xl font-black text-slate-950">Attach proof later</h3>
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
                     Next backend step: attach receipt images, notes, approval history, and payment audit trail.
                   </p>
@@ -1551,15 +696,13 @@ export default function BudgetHub() {
               </div>
             </Card>
 
-            <Card className="rounded-[2rem] border-emerald-100 bg-emerald-50/70 p-5 shadow-[0_14px_38px_rgba(15,23,42,0.06)] md:p-6">
+            <Card className="rounded-[2rem] border-emerald-100 bg-emerald-50/70 p-5 shadow-sm md:p-6">
               <div className="flex items-start gap-4">
                 <HeartHandshake className="mt-1 h-6 w-6 shrink-0 text-emerald-700" />
                 <div>
-                  <p className="text-sm font-black text-emerald-900">
-                    Clear, not confrontational
-                  </p>
+                  <p className="text-sm font-black text-emerald-900">Clear, not confrontational</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-emerald-800">
-                    This ledger avoids guessing. It shows each parent&apos;s share, each parent&apos;s payments, and the exact remaining balance.
+                    This ledger avoids guessing. It shows each parent&apos;s share, payments, and exact remaining balance.
                   </p>
                 </div>
               </div>
@@ -1567,45 +710,30 @@ export default function BudgetHub() {
           </div>
         </div>
 
-        <PaymentModal
-          expense={paymentExpense}
+        <BudgetExpenseDetail
+          expense={detailExpense}
           activeParent={activeParentLedger}
           parent1Name={parent1Name}
           parent2Name={parent2Name}
           parent1Color={parent1Color}
           parent2Color={parent2Color}
-          value={paymentForm}
           saving={savingPayment}
-          onChange={setPaymentForm}
-          onClose={closePaymentModal}
-          onSubmit={submitPartialPayment}
-          onPayFull={() => {
-            const ledger = paymentExpense?.ledger || getExpenseLedger(paymentExpense || {});
-            const amount = activeParentLedger === "parent1" ? ledger.parent1Remaining : ledger.parent2Remaining;
-            savePaymentForExpense({ amount, note: paymentForm.note });
-          }}
-          onMarkReview={() => setReviewForPaymentExpense(true)}
-          onClearReview={() => setReviewForPaymentExpense(false)}
-          onUndoLastPayment={undoLastPaymentForExpense}
-          lastPayment={
-            paymentExpense
-              ? [...(paymentExpense.payments || [])]
-                  .reverse()
-                  .find((payment) => payment.parent === activeParentLedger && payment.type !== "reversal")
-              : null
-          }
+          onClose={() => setDetailExpense(null)}
+          onPay={savePayment}
+          onUndo={undoPayment}
+          onMarkReview={(note) => setReview(true, note)}
+          onClearReview={() => setReview(false)}
         />
 
-        <ExpenseModal
-          open={showExpenseModal}
+        <BudgetExpenseWizard
+          open={wizardOpen}
           mode={editingExpense ? "edit" : "add"}
-          value={expenseForm}
-          saving={savingExpense}
+          initialExpense={editingExpense}
           parent1Name={parent1Name}
           parent2Name={parent2Name}
-          onChange={setExpenseForm}
-          onClose={closeExpenseModal}
-          onSubmit={saveExpense}
+          saving={savingExpense}
+          onClose={closeWizard}
+          onSave={saveExpense}
         />
       </div>
     </div>
