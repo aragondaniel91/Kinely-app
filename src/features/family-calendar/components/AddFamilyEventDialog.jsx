@@ -44,6 +44,7 @@ import {
 import { Button } from "@/components/ui/button";
 import AppDialog from "@/components/app/AppDialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 import {
@@ -661,11 +662,11 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
             </div>
             <div className="relative mt-1">
               <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-              <textarea
+              <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value.slice(0, 500))}
                 placeholder="Example: Pick up at 3:00 PM after baseball practice. Bring uniform and water bottle."
-                className="min-h-[108px] w-full resize-none rounded-xl border border-input bg-background px-3 py-3 pl-9 text-base leading-6 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-[108px] resize-none rounded-xl bg-background pl-9 text-base leading-6"
               />
             </div>
             <p className="mt-1 text-xs font-semibold text-slate-400">These notes will show in the event details panel.</p>
