@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 
 const mealOrder = ["breakfast", "lunch", "snack", "dinner"];
@@ -926,11 +927,10 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
                 )}
               >
                 <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={createGroceryList}
-                    onChange={(event) => setCreateGroceryList(event.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-slate-300"
+                    onCheckedChange={setCreateGroceryList}
+                    className="mt-1"
                   />
 
                   <div>

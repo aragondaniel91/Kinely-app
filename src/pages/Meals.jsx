@@ -47,6 +47,8 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import AddMealDialog from "@/components/meals/AddMealDialog";
 
@@ -616,11 +618,10 @@ function PantryIngredientHelper({
           </div>
 
           <label className="mt-3 flex cursor-pointer items-start gap-2">
-            <input
-              type="checkbox"
+            <Switch
               checked={addMissingToPantry}
-              onChange={(event) => setAddMissingToPantry(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-amber-300"
+              onCheckedChange={setAddMissingToPantry}
+              className="mt-1"
             />
 
             <span className="text-xs font-bold leading-5 text-amber-800">
@@ -875,11 +876,11 @@ function IngredientField({
         </button>
       </div>
 
-      <textarea
+      <Textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={"One per line:\ntortillas\nground beef\ncheese"}
-        className="mt-1 min-h-[130px] w-full rounded-2xl border border-slate-200 bg-white p-3 text-sm font-semibold outline-none transition focus:border-accent/20 focus:ring-2 focus:ring-accent/15"
+        className="mt-1 min-h-[130px] rounded-2xl border-slate-200 bg-white text-sm font-semibold focus-visible:ring-accent/15"
       />
 
       {missingIngredients.length > 0 && (
@@ -900,11 +901,10 @@ function IngredientField({
           </div>
 
           <label className="mt-3 flex cursor-pointer items-start gap-2">
-            <input
-              type="checkbox"
+            <Switch
               checked={addMissingToPantry}
-              onChange={(event) => setAddMissingToPantry(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-amber-300"
+              onCheckedChange={setAddMissingToPantry}
+              className="mt-1"
             />
 
             <span className="text-xs font-bold leading-5 text-amber-800">
