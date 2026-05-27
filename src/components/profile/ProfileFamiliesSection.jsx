@@ -135,7 +135,7 @@ export default function ProfileFamiliesSection() {
   const [parent2Name, setParent2Name] = useState("");
   const [parent2Email, setParent2Email] = useState("");
   const [parent2Role, setParent2Role] = useState("mom");
-  const [parent2Color, setParent2Color] = useState("orange");
+  const [parent2Color, setParent2Color] = useState("amber");
 
   const [showCreateFamily, setShowCreateFamily] = useState(false);
   const [creatingFamily, setCreatingFamily] = useState(false);
@@ -161,7 +161,7 @@ export default function ProfileFamiliesSection() {
     setParent2Name(profile.parent2_name || profile.parent2Name || "");
     setParent2Email(profile.parent2_email || profile.parent2Email || "");
     setParent2Role(profile.parent2_role || profile.parent2Role || "mom");
-    setParent2Color(profile.parent2_color || profile.parent2Color || "orange");
+    setParent2Color(profile.parent2_color || profile.parent2Color || "amber");
   }, [profile, user]);
 
   function clearStatus() {
