@@ -357,8 +357,20 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoading(true);
       try {
-        const snap = await getDocs(query(collection(db, "custodyDays"), where("familyId", "==", familyId)));
-        const data = snap.docs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        const collectionRef = collection(db, "custodyDays");
+
+        const [familyIdSnap, legacyFamilyIdSnap] = await Promise.all([
+          getDocs(query(collectionRef, where("familyId", "==", familyId))),
+          getDocs(query(collectionRef, where("family_id", "==", familyId))),
+        ]);
+
+        const byId = new Map();
+
+        [...familyIdSnap.docs, ...legacyFamilyIdSnap.docs].forEach((docSnap) => {
+          byId.set(docSnap.id, normalizeCustodyDay(docSnap));
+        });
+
+        const data = Array.from(byId.values()).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
         if (!cancelled) setCustodyDays(data);
       } catch (error) {
         console.error("Error loading custody dashboard:", error);
