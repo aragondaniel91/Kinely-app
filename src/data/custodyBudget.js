@@ -103,6 +103,7 @@ export function getExpenseLedger(expense = {}) {
   const parent2Overpaid = money(Math.max(parent2PaidAmount - parent2ShareAmount, 0));
 
   const validationErrors = [];
+  const reviewFlag = Boolean(expense.reviewFlag);
 
   if (amount <= 0) validationErrors.push("Amount must be greater than $0.");
 
@@ -123,7 +124,7 @@ export function getExpenseLedger(expense = {}) {
   const paidTotal = money(parent1PaidAmount + parent2PaidAmount);
   const remainingTotal = money(parent1Remaining + parent2Remaining);
 
-  if (validationErrors.length) {
+  if (validationErrors.length || reviewFlag) {
     status = "review";
   } else if (remainingTotal === 0) {
     status = "paid";
@@ -145,6 +146,7 @@ export function getExpenseLedger(expense = {}) {
     paidTotal,
     remainingTotal,
     status,
+    reviewFlag,
     validationErrors,
   };
 }

@@ -94,6 +94,9 @@ function normalizeExpenseDoc(docSnap) {
     parent2PaidAmount: data.parent2PaidAmount,
     due: data.due || "",
     recurring: Boolean(data.recurring),
+    payments: Array.isArray(data.payments) ? data.payments : [],
+    reviewFlag: Boolean(data.reviewFlag),
+    reviewNote: data.reviewNote || "",
     order: data.order ?? 999,
 
     // Legacy fields kept only so old Firestore docs still normalize correctly.
@@ -419,6 +422,7 @@ function ExpenseRow({
   parent2Name,
   parent1Color,
   parent2Color,
+  onPayment,
   onEdit,
   onDelete,
 }) {
@@ -444,103 +448,230 @@ function ExpenseRow({
           overpaid: ledger.parent2Overpaid,
         };
 
-  const other =
-    activeParent === "parent1"
-      ? {
-          name: parent2Name,
-          remaining: ledger.parent2Remaining,
-        }
-      : {
-          name: parent1Name,
-          remaining: ledger.parent1Remaining,
-        };
+  const selectedClasses = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
 
   return (
-    <div className="w-full rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-              {expense.recurring ? <Repeat className="h-5 w-5" /> : <ReceiptText className="h-5 w-5" />}
+    <button
+      type="button"
+      onClick={() => onPayment(expense)}
+      className="w-full rounded-[1.35rem] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md active:scale-[0.99]"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+          {expense.recurring ? <Repeat className="h-5 w-5" /> : <ReceiptText className="h-5 w-5" />}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-black text-slate-950 md:text-base">{expense.title}</p>
+            <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black ${meta.className}`}>
+              {meta.label}
+            </span>
+            {expense.recurring && (
+              <Badge variant="secondary" className="rounded-full bg-blue-50 text-blue-700 hover:bg-blue-50">
+                Recurring
+              </Badge>
+            )}
+          </div>
+
+          <p className="mt-1 text-xs font-bold text-slate-500">
+            {expense.category} · {currency(ledger.amount)} · Split {ledger.splitType}
+          </p>
+
+          <div className={`mt-3 rounded-2xl border p-3 ${selectedClasses.border} ${selectedClasses.bg}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className={`text-xs font-black ${selectedClasses.textStrong}`}>
+                {selected.name}
+              </p>
+              <p className={`text-xs font-black ${selected.remaining > 0 ? selectedClasses.textStrong : "text-emerald-700"}`}>
+                Owes {currency(selected.remaining)}
+              </p>
             </div>
 
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-base font-black text-slate-950">{expense.title}</p>
-                {expense.recurring && (
-                  <Badge variant="secondary" className="rounded-full bg-blue-50 text-blue-700 hover:bg-blue-50">
-                    Recurring
-                  </Badge>
-                )}
+            <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] font-bold">
+              <div className="rounded-xl bg-white/70 p-2">
+                <p className="text-slate-400">Share</p>
+                <p className="text-slate-950">{currency(selected.share)}</p>
               </div>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
-                {expense.category} · Split {ledger.splitType} · {expense.due || "No due note"}
-              </p>
-              <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">
-                Total {currency(ledger.amount)}
-              </p>
+              <div className="rounded-xl bg-white/70 p-2">
+                <p className="text-slate-400">Paid</p>
+                <p className="text-slate-950">{currency(selected.paid)}</p>
+              </div>
+              <div className="rounded-xl bg-white/80 p-2">
+                <p className="text-slate-400">Left</p>
+                <p className={selected.remaining > 0 ? selectedClasses.textStrong : "text-emerald-700"}>
+                  {currency(selected.remaining)}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3 md:justify-end">
-            <div className="text-left md:text-right">
-              <p className="text-xl font-black text-slate-950">{currency(ledger.remainingTotal)}</p>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Still owed</p>
+          {expense.reviewNote && (
+            <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
+              Review note: {expense.reviewNote}
+            </p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => onEdit(expense)}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            aria-label={`Edit ${expense.title}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDelete(expense)}
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+            aria-label={`Delete ${expense.title}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function PaymentModal({
+  expense,
+  activeParent,
+  parent1Name,
+  parent2Name,
+  parent1Color,
+  parent2Color,
+  value,
+  saving,
+  onChange,
+  onClose,
+  onSubmit,
+  onPayFull,
+  onMarkReview,
+}) {
+  if (!expense) return null;
+
+  const ledger = expense.ledger || getExpenseLedger(expense);
+
+  const selected =
+    activeParent === "parent1"
+      ? {
+          id: "parent1",
+          name: parent1Name,
+          color: parent1Color,
+          share: ledger.parent1ShareAmount,
+          paid: ledger.parent1PaidAmount,
+          remaining: ledger.parent1Remaining,
+        }
+      : {
+          id: "parent2",
+          name: parent2Name,
+          color: parent2Color,
+          share: ledger.parent2ShareAmount,
+          paid: ledger.parent2PaidAmount,
+          remaining: ledger.parent2Remaining,
+        };
+
+  const classes = getColorClasses(normalizeColorId(selected.color, "blue"), "blue");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
+      <div className="w-full max-w-xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+              Record payment
+            </p>
+            <h3 className="mt-1 text-2xl font-black text-slate-950">{expense.title}</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Apply payment for {selected.name}. Total expense: {currency(ledger.amount)}.
+            </p>
+          </div>
+
+          <span className={`rounded-full border px-3 py-1 text-xs font-black ${statusMeta(ledger.status).className}`}>
+            {statusMeta(ledger.status).label}
+          </span>
+        </div>
+
+        <div className={`rounded-[1.5rem] border p-4 ${classes.border} ${classes.bg}`}>
+          <p className={`text-sm font-black ${classes.textStrong}`}>{selected.name}</p>
+
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-white/75 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Share</p>
+              <p className="mt-1 text-lg font-black text-slate-950">{currency(selected.share)}</p>
             </div>
-
-            <span className={`rounded-full border px-3 py-1 text-xs font-black ${meta.className}`}>
-              {meta.label}
-            </span>
-
-            <button
-              type="button"
-              onClick={() => onEdit(expense)}
-              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-              aria-label={`Edit ${expense.title}`}
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onDelete(expense)}
-              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-              aria-label={`Delete ${expense.title}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="rounded-2xl bg-white/75 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Paid</p>
+              <p className="mt-1 text-lg font-black text-slate-950">{currency(selected.paid)}</p>
+            </div>
+            <div className="rounded-2xl bg-white/85 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Remaining</p>
+              <p className={`mt-1 text-xl font-black ${selected.remaining > 0 ? classes.textStrong : "text-emerald-700"}`}>
+                {currency(selected.remaining)}
+              </p>
+            </div>
           </div>
         </div>
 
-        {ledger.validationErrors?.length > 0 && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold leading-5 text-rose-800">
-            <div className="mb-1 flex items-center gap-2 font-black">
-              <AlertTriangle className="h-4 w-4" />
-              Needs review
+        <div className="mt-4 grid gap-3">
+          <Button
+            type="button"
+            disabled={saving || selected.remaining <= 0}
+            onClick={onPayFull}
+            className="h-12 rounded-2xl font-black"
+          >
+            Pay full balance — {currency(selected.remaining)}
+          </Button>
+
+          <form onSubmit={onSubmit} className="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Partial payment</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={value.amount}
+                  onChange={(event) => onChange({ ...value, amount: event.target.value })}
+                  placeholder="0.00"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Observation</span>
+                <input
+                  value={value.note}
+                  onChange={(event) => onChange({ ...value, note: event.target.value })}
+                  placeholder="Optional note"
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                />
+              </label>
             </div>
-            {ledger.validationErrors.map((error) => (
-              <p key={error}>• {error}</p>
-            ))}
-          </div>
-        )}
 
-        <div className="grid gap-2 md:grid-cols-[1fr_180px]">
-          <ExpenseBreakdownLine
-            label={selected.name}
-            color={selected.color}
-            share={selected.share}
-            paid={selected.paid}
-            remaining={selected.remaining}
-            overpaid={selected.overpaid}
-          />
+            <Button type="submit" disabled={saving} variant="outline" className="h-11 rounded-2xl font-black">
+              Save partial payment
+            </Button>
+          </form>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-500">
-            <p className="text-slate-400">Other parent</p>
-            <p className="mt-1 text-sm font-black text-slate-800">{other.name}</p>
-            <p className="mt-1">
-              Owes <span className={other.remaining > 0 ? "text-amber-700" : "text-emerald-700"}>{currency(other.remaining)}</span>
-            </p>
-          </div>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onMarkReview}
+            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-800 transition hover:bg-rose-100"
+          >
+            Mark this expense for review
+          </button>
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="rounded-full">
+            Close
+          </Button>
         </div>
       </div>
     </div>
@@ -797,6 +928,9 @@ export default function BudgetHub() {
   const [expenseForm, setExpenseForm] = useState(emptyNewExpense);
   const [editingExpense, setEditingExpense] = useState(null);
   const [activeParentLedger, setActiveParentLedger] = useState("parent1");
+  const [paymentExpense, setPaymentExpense] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ amount: "", note: "" });
+  const [savingPayment, setSavingPayment] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -972,6 +1106,145 @@ export default function BudgetHub() {
     }
   };
 
+  const closePaymentModal = () => {
+    setPaymentExpense(null);
+    setPaymentForm({ amount: "", note: "" });
+  };
+
+  const openPaymentModal = (expense) => {
+    setPaymentExpense(expense);
+    setPaymentForm({ amount: "", note: "" });
+  };
+
+  const savePaymentForExpense = async ({ amount, note = "", reviewOnly = false }) => {
+    if (!paymentExpense || !user || !familyId || savingPayment) return;
+
+    const currentExpense = expenses.find((expense) => expense.id === paymentExpense.id) || paymentExpense;
+    const currentLedger = currentExpense.ledger || getExpenseLedger(currentExpense);
+    const cleanNote = String(note || "").trim();
+
+    if (reviewOnly) {
+      setSavingPayment(true);
+
+      const reviewPayload = {
+        reviewFlag: true,
+        reviewNote: cleanNote || "Marked for review",
+        status: "review",
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        await updateDoc(doc(db, "custodyExpenses", currentExpense.id), reviewPayload);
+        setExpenses((current) =>
+          current.map((expense) =>
+            expense.id === currentExpense.id
+              ? {
+                  ...expense,
+                  ...reviewPayload,
+                  updatedAt: undefined,
+                  ledger: getExpenseLedger({ ...expense, ...reviewPayload }),
+                }
+              : expense
+          )
+        );
+        closePaymentModal();
+      } catch (error) {
+        console.error("Error marking expense for review:", error);
+        window.alert(`Could not mark for review: ${error.message}`);
+      } finally {
+        setSavingPayment(false);
+      }
+
+      return;
+    }
+
+    const cleanAmount = toMoney(amount);
+    const selectedRemaining =
+      activeParentLedger === "parent1"
+        ? currentLedger.parent1Remaining
+        : currentLedger.parent2Remaining;
+
+    if (cleanAmount <= 0) {
+      window.alert("Please enter a payment greater than $0.");
+      return;
+    }
+
+    if (cleanAmount > selectedRemaining) {
+      window.alert(`Payment cannot be greater than the remaining balance of ${currency(selectedRemaining)}.`);
+      return;
+    }
+
+    const nextParent1Paid =
+      activeParentLedger === "parent1"
+        ? toMoney(currentLedger.parent1PaidAmount + cleanAmount)
+        : currentLedger.parent1PaidAmount;
+
+    const nextParent2Paid =
+      activeParentLedger === "parent2"
+        ? toMoney(currentLedger.parent2PaidAmount + cleanAmount)
+        : currentLedger.parent2PaidAmount;
+
+    const paymentRecord = {
+      parent: activeParentLedger,
+      amount: cleanAmount,
+      note: cleanNote,
+      createdBy: user.uid,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedExpense = {
+      ...currentExpense,
+      parent1PaidAmount: nextParent1Paid,
+      parent2PaidAmount: nextParent2Paid,
+      reviewFlag: false,
+      reviewNote: "",
+    };
+
+    const updatedLedger = getExpenseLedger(updatedExpense);
+
+    const payload = {
+      parent1PaidAmount: updatedLedger.parent1PaidAmount,
+      parent2PaidAmount: updatedLedger.parent2PaidAmount,
+      status: updatedLedger.status,
+      reviewFlag: false,
+      reviewNote: "",
+      payments: [...(currentExpense.payments || []), paymentRecord],
+      updatedAt: serverTimestamp(),
+    };
+
+    setSavingPayment(true);
+
+    try {
+      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
+      setExpenses((current) =>
+        current.map((expense) =>
+          expense.id === currentExpense.id
+            ? {
+                ...expense,
+                ...payload,
+                updatedAt: undefined,
+                ledger: getExpenseLedger({ ...expense, ...payload }),
+              }
+            : expense
+        )
+      );
+      closePaymentModal();
+    } catch (error) {
+      console.error("Error saving payment:", error);
+      window.alert(`Could not save payment: ${error.message}`);
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const submitPartialPayment = async (event) => {
+    event.preventDefault();
+    await savePaymentForExpense({
+      amount: paymentForm.amount,
+      note: paymentForm.note,
+    });
+  };
+
   const deleteExpense = async (expenseToDelete) => {
     const confirmed = window.confirm(`Delete "${expenseToDelete.title}" from shared expenses?`);
     if (!confirmed) return;
@@ -1048,6 +1321,7 @@ export default function BudgetHub() {
                   parent2Name={parent2Name}
                   parent1Color={parent1Color}
                   parent2Color={parent2Color}
+                  onPayment={openPaymentModal}
                   onEdit={openEditExpense}
                   onDelete={deleteExpense}
                 />
@@ -1100,6 +1374,26 @@ export default function BudgetHub() {
             </Card>
           </div>
         </div>
+
+        <PaymentModal
+          expense={paymentExpense}
+          activeParent={activeParentLedger}
+          parent1Name={parent1Name}
+          parent2Name={parent2Name}
+          parent1Color={parent1Color}
+          parent2Color={parent2Color}
+          value={paymentForm}
+          saving={savingPayment}
+          onChange={setPaymentForm}
+          onClose={closePaymentModal}
+          onSubmit={submitPartialPayment}
+          onPayFull={() => {
+            const ledger = paymentExpense?.ledger || getExpenseLedger(paymentExpense || {});
+            const amount = activeParentLedger === "parent1" ? ledger.parent1Remaining : ledger.parent2Remaining;
+            savePaymentForExpense({ amount, note: paymentForm.note });
+          }}
+          onMarkReview={() => savePaymentForExpense({ reviewOnly: true, note: paymentForm.note })}
+        />
 
         <ExpenseModal
           open={showExpenseModal}
