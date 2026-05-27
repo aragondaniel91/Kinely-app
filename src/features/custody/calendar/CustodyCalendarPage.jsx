@@ -66,6 +66,81 @@ import {
   generateBlockStarts,
 } from "@/features/custody/calendar/utils/custodyBulkUtils";
 
+function getCustodyDaySegments(day) {
+  if (!day) return [];
+
+  if (day.is_split || day.isSplit) {
+    return [
+      { period: "AM", owner: day.morning || null, suggestedTime: "08:00" },
+      { period: "PM", owner: day.afternoon || null, suggestedTime: "12:00" },
+    ].filter((segment) => segment.owner && segment.owner !== "none");
+  }
+
+  const owner = day.with_whom || day.withWhom || null;
+  return owner && owner !== "none"
+    ? [{ period: "All day", owner, suggestedTime: "18:00" }]
+    : [];
+}
+
+function getEndOfCustodyDayOwner(day) {
+  const segments = getCustodyDaySegments(day);
+  return segments.at(-1)?.owner || "none";
+}
+
+function findCurrentCustodyOwner(sortedDays, todayKey) {
+  let owner = "none";
+
+  sortedDays.forEach((day) => {
+    const dateKey = normalizeDate(day.date);
+    if (dateKey && dateKey <= todayKey) {
+      owner = getEndOfCustodyDayOwner(day) || owner;
+    }
+  });
+
+  return owner;
+}
+
+function findNextCustodyChange(sortedDays, todayKey) {
+  let previousOwner = findCurrentCustodyOwner(sortedDays, todayKey);
+
+  if (!previousOwner || previousOwner === "none") {
+    const todayOrFuture = sortedDays.find((day) => {
+      const dateKey = normalizeDate(day.date);
+      return dateKey && dateKey >= todayKey && getCustodyDaySegments(day).length;
+    });
+
+    previousOwner = getEndOfCustodyDayOwner(todayOrFuture);
+  }
+
+  if (!previousOwner || previousOwner === "none") return null;
+
+  for (const day of sortedDays) {
+    const dateKey = normalizeDate(day.date);
+    if (!dateKey || dateKey <= todayKey) continue;
+
+    const segments = getCustodyDaySegments(day);
+
+    for (const segment of segments) {
+      if (segment.owner && segment.owner !== previousOwner) {
+        return {
+          ...day,
+          date: dateKey,
+          with_whom: segment.owner,
+          withWhom: segment.owner,
+          changeFrom: previousOwner,
+          changeTo: segment.owner,
+          changePeriod: segment.period,
+          changeTime: segment.suggestedTime,
+        };
+      }
+
+      if (segment.owner) previousOwner = segment.owner;
+    }
+  }
+
+  return null;
+}
+
 export default function CustodyCalendar({ viewMode = "month", setViewMode, showFilters = true, setShowFilters }) {
   const { user, profile, familyId, perms, dadName, momName, dadColor, momColor } = useFamily();
 
@@ -500,17 +575,8 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       : (momName || "MAMÁ").toUpperCase()
     : null;
 
-  const sortedBaseDays = [...custodyDays].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-  const nextChange = sortedBaseDays.find((d) => {
-    const dateKey = normalizeDate(d.date);
-    if (!dateKey || dateKey <= todayKey) return false;
-    const prevKey = format(addDays(parseISO(dateKey + "T12:00:00"), -1), "yyyy-MM-dd");
-    const prev = allCustodyMap[prevKey];
-    if (!prev) return false;
-    const prevParent = prev.is_split ? prev.afternoon : prev.with_whom;
-    const thisParent = d.is_split ? d.morning : d.with_whom;
-    return prevParent !== thisParent;
-  });
+  const sortedFinalDays = Object.values(finalCustodyMap).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const nextChange = findNextCustodyChange(sortedFinalDays, todayKey);
 
   const upcoming = Object.values(finalCustodyMap)
     .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
