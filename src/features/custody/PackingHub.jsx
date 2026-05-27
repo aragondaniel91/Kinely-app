@@ -18,6 +18,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -189,6 +190,31 @@ function PackingItem({ item, onCycle, onEdit, onDelete }) {
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+
+      <AppDialog
+        open={Boolean(confirmDialog)}
+        tone={confirmDialog?.tone}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        cancelLabel="Cancel"
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          action?.();
+        }}
+      />
     </div>
   );
 }
@@ -331,6 +357,17 @@ export default function PackingHub() {
   const { user, familyId } = useFamily();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [noticeDialog, setNoticeDialog] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
+
+  const askConfirm = ({ tone = "danger", title, message, confirmLabel = "Confirm", onConfirm }) => {
+    setConfirmDialog({ tone, title, message, confirmLabel, onConfirm });
+  };
+
   const [showItemModal, setShowItemModal] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
   const [itemForm, setItemForm] = useState(emptyNewItem);
@@ -487,15 +524,27 @@ export default function PackingHub() {
       closeItemModal();
     } catch (error) {
       console.error("Error saving packing item:", error);
-      window.alert(`Could not save packing item: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save packing item",
+        message: error.message,
+      });
     } finally {
       setSavingItem(false);
     }
   };
 
   const deletePackingItem = async (itemToDelete) => {
-    const confirmed = window.confirm(`Delete "${itemToDelete.name}" from the packing list?`);
-    if (!confirmed) return;
+    if (!skipConfirm) {
+      askConfirm({
+        tone: "danger",
+        title: "Delete packing item?",
+        message: `Delete "${itemToDelete.name}" from the packing list? This action cannot be undone.`,
+        confirmLabel: "Delete item",
+        onConfirm: () => handleDeletePackingItem({ skipConfirm: true }),
+      });
+      return;
+    }
 
     const previousItems = items;
     setItems((current) => current.filter((item) => item.id !== itemToDelete.id));
@@ -505,7 +554,11 @@ export default function PackingHub() {
     } catch (error) {
       console.error("Error deleting packing item:", error);
       setItems(previousItems);
-      window.alert(`Could not delete packing item: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete packing item",
+        message: error.message,
+      });
     }
   };
 

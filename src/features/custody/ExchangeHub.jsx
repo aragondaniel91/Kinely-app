@@ -16,6 +16,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -324,6 +325,31 @@ function ExchangeRow({ exchange, dadName, momName, onCycle, onEdit, onDelete }) 
           </button>
         </div>
       </div>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+
+      <AppDialog
+        open={Boolean(confirmDialog)}
+        tone={confirmDialog?.tone}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        cancelLabel="Cancel"
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          action?.();
+        }}
+      />
     </div>
   );
 }
@@ -429,6 +455,17 @@ export default function ExchangeHub() {
   const [exchanges, setExchanges] = useState([]);
   const [custodyDays, setCustodyDays] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [noticeDialog, setNoticeDialog] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
+
+  const askConfirm = ({ tone = "danger", title, message, confirmLabel = "Confirm", onConfirm }) => {
+    setConfirmDialog({ tone, title, message, confirmLabel, onConfirm });
+  };
+
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [savingExchange, setSavingExchange] = useState(false);
   const [exchangeForm, setExchangeForm] = useState({ ...emptyExchange, date: getTodayKey() });
@@ -597,7 +634,11 @@ export default function ExchangeHub() {
       closeExchangeModal();
     } catch (error) {
       console.error("Error saving custody exchange:", error);
-      window.alert(`Could not save exchange: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save exchange",
+        message: error.message,
+      });
     } finally {
       setSavingExchange(false);
     }
@@ -628,8 +669,16 @@ export default function ExchangeHub() {
   };
 
   const deleteExchange = async (exchangeToDelete) => {
-    const confirmed = window.confirm(`Delete exchange on ${formatDate(exchangeToDelete.date)}?`);
-    if (!confirmed) return;
+    if (!skipConfirm) {
+      askConfirm({
+        tone: "danger",
+        title: "Delete exchange?",
+        message: `Delete exchange on ${formatDate(exchangeToDelete.date)}? This action cannot be undone.`,
+        confirmLabel: "Delete exchange",
+        onConfirm: () => handleDeleteExchange({ skipConfirm: true }),
+      });
+      return;
+    }
 
     const previousExchanges = exchanges;
     setExchanges((current) => current.filter((exchange) => exchange.id !== exchangeToDelete.id));
@@ -639,7 +688,11 @@ export default function ExchangeHub() {
     } catch (error) {
       console.error("Error deleting custody exchange:", error);
       setExchanges(previousExchanges);
-      window.alert(`Could not delete exchange: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete exchange",
+        message: error.message,
+      });
     }
   };
 
