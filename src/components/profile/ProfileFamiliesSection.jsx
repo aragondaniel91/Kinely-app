@@ -6,6 +6,13 @@ import { PERSON_COLOR_OPTIONS, colorClasses, getColorMeta, normalizeChildren } f
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
 const roleOptions = [
@@ -330,11 +337,39 @@ export default function ProfileFamiliesSection() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div><Label>Family name</Label><Input value={familyName} onChange={(event) => setFamilyName(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
               <div><Label>Parent 1 name</Label><Input value={parent1Name} onChange={(event) => setParent1Name(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
-              <div><Label>Parent 1 role</Label><select value={parent1Role} onChange={(event) => setParent1Role(event.target.value)} disabled={!canEdit} className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">{roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}</select></div>
+              <div>
+                <Label>Parent 1 role</Label>
+                <Select value={parent1Role} onValueChange={setParent1Role} disabled={!canEdit}>
+                  <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <ColorPicker label="Parent 1 family color" value={parent1Color} onChange={setParent1Color} disabled={!canEdit} />
               <div><Label>Parent 2 name</Label><Input value={parent2Name} onChange={(event) => setParent2Name(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
               <div><Label>Parent 2 email</Label><Input value={parent2Email} onChange={(event) => setParent2Email(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
-              <div><Label>Parent 2 role</Label><select value={parent2Role} onChange={(event) => setParent2Role(event.target.value)} disabled={!canEdit} className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">{roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}</select></div>
+              <div>
+                <Label>Parent 2 role</Label>
+                <Select value={parent2Role} onValueChange={setParent2Role} disabled={!canEdit}>
+                  <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <ColorPicker label="Parent 2 family color" value={parent2Color} onChange={setParent2Color} disabled={!canEdit} />
 
               <div className="md:col-span-2">
