@@ -634,9 +634,60 @@ export default function BulkCustodyDialog({
                         <div>
                           <Label>Finaliza</Label>
                           <div className="space-y-3 mt-2">
-                            <label className="flex items-center gap-3"><input type="radio" name="endMode" checked={endMode === "never"} onChange={() => setEndMode("never")} /><span>Nunca</span></label>
-                            <div className="flex items-center gap-3"><input type="radio" name="endMode" checked={endMode === "onDate"} onChange={() => setEndMode("onDate")} /><span className="w-14">El día</span><Input type="date" value={untilDate} onChange={(e) => setUntilDate(e.target.value)} disabled={endMode !== "onDate"} /></div>
-                            <div className="flex items-center gap-3"><input type="radio" name="endMode" checked={endMode === "after"} onChange={() => setEndMode("after")} /><span className="w-20">Después de</span><Input type="number" min="1" value={occurrences} onChange={(e) => setOccurrences(e.target.value)} disabled={endMode !== "after"} className="w-24" /><span className="text-muted-foreground">ocurrencias</span></div>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              <Button
+                                type="button"
+                                variant={endMode === "never" ? "default" : "outline"}
+                                onClick={() => setEndMode("never")}
+                                className="rounded-2xl"
+                              >
+                                Nunca
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={endMode === "onDate" ? "default" : "outline"}
+                                onClick={() => setEndMode("onDate")}
+                                className="rounded-2xl"
+                              >
+                                El día
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={endMode === "after" ? "default" : "outline"}
+                                onClick={() => setEndMode("after")}
+                                className="rounded-2xl"
+                              >
+                                Después de
+                              </Button>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className={cn("rounded-2xl border p-3", endMode === "onDate" ? "border-primary bg-primary/5" : "border-border bg-muted/30")}>
+                                <Label className="text-xs font-black uppercase tracking-wide text-muted-foreground">Finalizar el día</Label>
+                                <Input
+                                  type="date"
+                                  value={untilDate}
+                                  onChange={(e) => setUntilDate(e.target.value)}
+                                  disabled={endMode !== "onDate"}
+                                  className="mt-2"
+                                />
+                              </div>
+
+                              <div className={cn("rounded-2xl border p-3", endMode === "after" ? "border-primary bg-primary/5" : "border-border bg-muted/30")}>
+                                <Label className="text-xs font-black uppercase tracking-wide text-muted-foreground">Después de ocurrencias</Label>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={occurrences}
+                                    onChange={(e) => setOccurrences(e.target.value)}
+                                    disabled={endMode !== "after"}
+                                    className="w-24"
+                                  />
+                                  <span className="text-sm font-semibold text-muted-foreground">ocurrencias</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </>
