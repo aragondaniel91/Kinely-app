@@ -35,6 +35,7 @@ import {
   currency,
   getBudgetSummary,
   getExpenseLedger,
+  getExpenseDueStatus,
   initialCustodyExpenses,
   validateExpenseLedger,
 } from "@/data/custodyBudget";
@@ -49,6 +50,8 @@ const emptyNewExpense = {
   parent1PaidAmount: "",
   parent2PaidAmount: "",
   due: "",
+  dueDate: "",
+  dueDayOfMonth: "",
   recurring: false,
 };
 
@@ -76,6 +79,8 @@ function expenseToForm(expense) {
     parent1PaidAmount: moneyInput(ledger.parent1PaidAmount),
     parent2PaidAmount: moneyInput(ledger.parent2PaidAmount),
     due: expense?.due || "",
+    dueDate: expense?.dueDate || "",
+    dueDayOfMonth: expense?.dueDayOfMonth ? String(expense.dueDayOfMonth) : "",
     recurring: Boolean(expense?.recurring),
   };
 }
@@ -93,6 +98,8 @@ function normalizeExpenseDoc(docSnap) {
     parent1PaidAmount: data.parent1PaidAmount,
     parent2PaidAmount: data.parent2PaidAmount,
     due: data.due || "",
+    dueDate: data.dueDate || "",
+    dueDayOfMonth: data.dueDayOfMonth || "",
     recurring: Boolean(data.recurring),
     payments: Array.isArray(data.payments) ? data.payments : [],
     reviewFlag: Boolean(data.reviewFlag),
@@ -428,6 +435,7 @@ function ExpenseRow({
 }) {
   const ledger = expense.ledger || getExpenseLedger(expense);
   const meta = statusMeta(ledger.status);
+  const dueStatus = getExpenseDueStatus(expense, ledger);
 
   const selected =
     activeParent === "parent1"
@@ -466,6 +474,9 @@ function ExpenseRow({
             <p className="truncate text-sm font-black text-slate-950 md:text-base">{expense.title}</p>
             <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black ${meta.className}`}>
               {meta.label}
+            </span>
+            <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-black ${dueStatus.className}`}>
+              {dueStatus.label}
             </span>
             {expense.recurring && (
               <Badge variant="secondary" className="rounded-full bg-blue-50 text-blue-700 hover:bg-blue-50">
@@ -551,6 +562,9 @@ function PaymentModal({
   onSubmit,
   onPayFull,
   onMarkReview,
+  onClearReview,
+  onUndoLastPayment,
+  lastPayment,
 }) {
   if (!expense) return null;
 
@@ -627,6 +641,17 @@ function PaymentModal({
             Pay full balance — {currency(selected.remaining)}
           </Button>
 
+          {lastPayment && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onUndoLastPayment}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            >
+              Undo last payment — {currency(lastPayment.amount)}
+            </button>
+          )}
+
           <form onSubmit={onSubmit} className="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1.5">
@@ -658,14 +683,25 @@ function PaymentModal({
             </Button>
           </form>
 
-          <button
-            type="button"
-            disabled={saving}
-            onClick={onMarkReview}
-            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-800 transition hover:bg-rose-100"
-          >
-            Mark this expense for review
-          </button>
+          {expense.reviewFlag ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onClearReview}
+              className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
+            >
+              Clear review status
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onMarkReview}
+              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-800 transition hover:bg-rose-100"
+            >
+              Mark this expense for review
+            </button>
+          )}
         </div>
 
         <div className="mt-5 flex justify-end">
@@ -763,11 +799,11 @@ function ExpenseModal({
             </label>
 
             <label className="grid gap-1.5">
-              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Due / note</span>
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Due date</span>
               <input
-                value={value.due}
-                onChange={(event) => onChange({ ...value, due: event.target.value })}
-                placeholder="Example: May 25 or Paid"
+                type="date"
+                value={value.dueDate}
+                onChange={(event) => onChange({ ...value, dueDate: event.target.value })}
                 className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
               />
             </label>
@@ -848,15 +884,42 @@ function ExpenseModal({
               </select>
             </label>
 
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
-              <input
-                type="checkbox"
-                checked={value.recurring}
-                onChange={(event) => onChange({ ...value, recurring: event.target.checked })}
-                className="h-4 w-4"
-              />
-              <span className="text-sm font-black text-slate-700">Recurring expense</span>
-            </label>
+            <div className="grid gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={value.recurring}
+                  onChange={(event) => onChange({ ...value, recurring: event.target.checked })}
+                  className="h-4 w-4"
+                />
+                <span className="text-sm font-black text-slate-700">Recurring monthly expense</span>
+              </label>
+
+              {value.recurring && (
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-400">Monthly due day</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={value.dueDayOfMonth}
+                    onChange={(event) => onChange({ ...value, dueDayOfMonth: event.target.value })}
+                    placeholder="15"
+                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                  />
+                </label>
+              )}
+
+              <label className="grid gap-1.5">
+                <span className="text-xs font-black uppercase tracking-wide text-slate-400">Note</span>
+                <input
+                  value={value.due}
+                  onChange={(event) => onChange({ ...value, due: event.target.value })}
+                  placeholder="Example: invoice #, receipt note, payment detail"
+                  className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-amber-300"
+                />
+              </label>
+            </div>
           </div>
 
           <div className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-4">
@@ -1045,6 +1108,8 @@ export default function BudgetHub() {
       parent1PaidAmount: toMoney(expenseForm.parent1PaidAmount),
       parent2PaidAmount: toMoney(expenseForm.parent2PaidAmount),
       due: expenseForm.due.trim(),
+      dueDate: expenseForm.dueDate || "",
+      dueDayOfMonth: expenseForm.dueDayOfMonth ? Number(expenseForm.dueDayOfMonth) : "",
       recurring: Boolean(expenseForm.recurring),
     };
 
@@ -1237,6 +1302,133 @@ export default function BudgetHub() {
     }
   };
 
+  const setReviewForPaymentExpense = async (reviewFlag) => {
+    if (!paymentExpense || !user || !familyId || savingPayment) return;
+
+    const currentExpense = expenses.find((expense) => expense.id === paymentExpense.id) || paymentExpense;
+    const cleanNote = String(paymentForm.note || "").trim();
+
+    const updatedExpense = {
+      ...currentExpense,
+      reviewFlag,
+      reviewNote: reviewFlag ? cleanNote || "Marked for review" : "",
+    };
+
+    const updatedLedger = getExpenseLedger(updatedExpense);
+
+    const payload = {
+      reviewFlag,
+      reviewNote: reviewFlag ? cleanNote || "Marked for review" : "",
+      status: updatedLedger.status,
+      updatedAt: serverTimestamp(),
+    };
+
+    setSavingPayment(true);
+
+    try {
+      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
+      setExpenses((current) =>
+        current.map((expense) =>
+          expense.id === currentExpense.id
+            ? {
+                ...expense,
+                ...payload,
+                updatedAt: undefined,
+                ledger: getExpenseLedger({ ...expense, ...payload }),
+              }
+            : expense
+        )
+      );
+      closePaymentModal();
+    } catch (error) {
+      console.error("Error updating review status:", error);
+      window.alert(`Could not update review status: ${error.message}`);
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const undoLastPaymentForExpense = async () => {
+    if (!paymentExpense || !user || !familyId || savingPayment) return;
+
+    const currentExpense = expenses.find((expense) => expense.id === paymentExpense.id) || paymentExpense;
+    const payments = Array.isArray(currentExpense.payments) ? currentExpense.payments : [];
+    const lastPayment = [...payments]
+      .reverse()
+      .find((payment) => payment.parent === activeParentLedger && payment.type !== "reversal");
+
+    if (!lastPayment) {
+      window.alert("There is no payment to undo for the selected parent.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Undo last payment of ${currency(lastPayment.amount)}?`);
+    if (!confirmed) return;
+
+    const currentLedger = currentExpense.ledger || getExpenseLedger(currentExpense);
+    const amountToReverse = toMoney(lastPayment.amount);
+
+    const nextParent1Paid =
+      activeParentLedger === "parent1"
+        ? Math.max(0, toMoney(currentLedger.parent1PaidAmount - amountToReverse))
+        : currentLedger.parent1PaidAmount;
+
+    const nextParent2Paid =
+      activeParentLedger === "parent2"
+        ? Math.max(0, toMoney(currentLedger.parent2PaidAmount - amountToReverse))
+        : currentLedger.parent2PaidAmount;
+
+    const reversalRecord = {
+      type: "reversal",
+      parent: activeParentLedger,
+      amount: amountToReverse,
+      note: `Reversed payment from ${lastPayment.createdAt || "previous entry"}`,
+      createdBy: user.uid,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedExpense = {
+      ...currentExpense,
+      parent1PaidAmount: nextParent1Paid,
+      parent2PaidAmount: nextParent2Paid,
+      payments: [...payments, reversalRecord],
+    };
+
+    const updatedLedger = getExpenseLedger(updatedExpense);
+
+    const payload = {
+      parent1PaidAmount: updatedLedger.parent1PaidAmount,
+      parent2PaidAmount: updatedLedger.parent2PaidAmount,
+      status: updatedLedger.status,
+      payments: updatedExpense.payments,
+      updatedAt: serverTimestamp(),
+    };
+
+    setSavingPayment(true);
+
+    try {
+      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
+      setExpenses((current) =>
+        current.map((expense) =>
+          expense.id === currentExpense.id
+            ? {
+                ...expense,
+                ...payload,
+                updatedAt: undefined,
+                ledger: getExpenseLedger({ ...expense, ...payload }),
+              }
+            : expense
+        )
+      );
+      closePaymentModal();
+    } catch (error) {
+      console.error("Error undoing payment:", error);
+      window.alert(`Could not undo payment: ${error.message}`);
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
   const submitPartialPayment = async (event) => {
     event.preventDefault();
     await savePaymentForExpense({
@@ -1392,7 +1584,16 @@ export default function BudgetHub() {
             const amount = activeParentLedger === "parent1" ? ledger.parent1Remaining : ledger.parent2Remaining;
             savePaymentForExpense({ amount, note: paymentForm.note });
           }}
-          onMarkReview={() => savePaymentForExpense({ reviewOnly: true, note: paymentForm.note })}
+          onMarkReview={() => setReviewForPaymentExpense(true)}
+          onClearReview={() => setReviewForPaymentExpense(false)}
+          onUndoLastPayment={undoLastPaymentForExpense}
+          lastPayment={
+            paymentExpense
+              ? [...(paymentExpense.payments || [])]
+                  .reverse()
+                  .find((payment) => payment.parent === activeParentLedger && payment.type !== "reversal")
+              : null
+          }
         />
 
         <ExpenseModal

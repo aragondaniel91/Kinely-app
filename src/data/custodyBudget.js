@@ -195,3 +195,66 @@ export function getBudgetSummary(expenses = initialCustodyExpenses) {
     parent2Overpaid,
   };
 }
+
+
+export function getExpenseDueStatus(expense = {}, ledger = getExpenseLedger(expense), now = new Date()) {
+  if (ledger.remainingTotal <= 0) {
+    return {
+      status: "paid",
+      label: "Paid",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      daysUntilDue: null,
+    };
+  }
+
+  let dueDateValue = expense.dueDate || "";
+
+  if (!dueDateValue && expense.recurring && expense.dueDayOfMonth) {
+    const day = Number(expense.dueDayOfMonth);
+    if (day >= 1 && day <= 31) {
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const candidate = new Date(year, month, day);
+      dueDateValue = candidate.toISOString().slice(0, 10);
+    }
+  }
+
+  if (!dueDateValue) {
+    return {
+      status: "none",
+      label: "No due date",
+      className: "border-slate-200 bg-slate-50 text-slate-600",
+      daysUntilDue: null,
+    };
+  }
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const due = new Date(`${dueDateValue}T12:00:00`);
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  const daysUntilDue = Math.round((dueDay - today) / 86400000);
+
+  if (daysUntilDue < 0) {
+    return {
+      status: "overdue",
+      label: `Overdue by ${Math.abs(daysUntilDue)}d`,
+      className: "border-rose-200 bg-rose-50 text-rose-700",
+      daysUntilDue,
+    };
+  }
+
+  if (daysUntilDue <= 3) {
+    return {
+      status: "due_soon",
+      label: daysUntilDue === 0 ? "Due today" : `Due in ${daysUntilDue}d`,
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+      daysUntilDue,
+    };
+  }
+
+  return {
+    status: "scheduled",
+    label: `Due in ${daysUntilDue}d`,
+    className: "border-blue-200 bg-blue-50 text-blue-700",
+    daysUntilDue,
+  };
+}
