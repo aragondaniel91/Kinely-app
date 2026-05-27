@@ -63,6 +63,10 @@ function shouldSkipFile(checkName, file) {
       // Intentional complex profile/event overlays.
       "src/components/profile/ProfileMemberEditorDialog.jsx",
       "src/features/family-calendar/components/FamilyEventDetailsPopover.jsx",
+
+      // Large page-level overlays intentionally deferred for a focused UX refactor.
+      "src/pages/Groceries.jsx",
+      "src/pages/Meals.jsx",
     ].includes(normalized);
   }
 

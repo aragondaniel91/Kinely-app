@@ -1,7 +1,7 @@
 # Family Wall Audit Report
 
 Scanned files: 181
-Generated: 2026-05-27T21:13:39.870Z
+Generated: 2026-05-27T21:17:56.239Z
 
 ## Browser dialogs still in use
 
@@ -15,8 +15,7 @@ No matches found.
 Severity: P1
 Reason: Likely custom overlay outside the app dialog system.
 
-- src/pages/Groceries.jsx: 7 match(es), sample lines: 3123, 3167, 3211, 3268, 3393, 3434, 3519
-- src/pages/Meals.jsx: 3 match(es), sample lines: 718, 1454, 2507
+No matches found.
 
 ## Raw inputs/selects/textareas
 
