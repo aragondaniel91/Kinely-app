@@ -83,6 +83,14 @@ export function getBudgetSummary(expenses = initialCustodyExpenses) {
     (acc, expense) => {
       const amount = Number(expense.amount || 0);
       const paidBy = normalizePaidBy(expense.paidBy);
+      const split = String(expense?.split || "50/50").trim().toLowerCase();
+
+      if (!amount || amount <= 0 || paidBy === "shared" || split !== "50/50") {
+        acc.excludedCount += 1;
+        acc.excludedAmount += amount || 0;
+        return acc;
+      }
+
       const { dadShare, momShare } = getSplitShares(expense);
 
       if (paidBy === "dad") {
@@ -95,7 +103,7 @@ export function getBudgetSummary(expenses = initialCustodyExpenses) {
 
       return acc;
     },
-    { dadOwesMom: 0, momOwesDad: 0 }
+    { dadOwesMom: 0, momOwesDad: 0, excludedCount: 0, excludedAmount: 0 }
   );
 
   const netDadOwesMom = Math.max(0, balances.dadOwesMom - balances.momOwesDad);
@@ -117,5 +125,7 @@ export function getBudgetSummary(expenses = initialCustodyExpenses) {
     momOwesDad: Math.round(netMomOwesDad),
     grossDadOwesMom: Math.round(balances.dadOwesMom),
     grossMomOwesDad: Math.round(balances.momOwesDad),
+    excludedReimbursementCount: balances.excludedCount,
+    excludedReimbursementAmount: Math.round(balances.excludedAmount),
   };
 }

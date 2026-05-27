@@ -345,34 +345,68 @@ function SplitPreview({
   pending,
   dadOwesMom = 0,
   momOwesDad = 0,
+  excludedReimbursementCount = 0,
+  excludedReimbursementAmount = 0,
 }) {
   const dadClasses = getColorClasses(normalizeColorId(dadColor, "blue"), "blue");
   const momClasses = getColorClasses(normalizeColorId(momColor, "amber"), "amber");
+
+  const dadLabel = dadName || "Dad";
+  const momLabel = momName || "Mom";
+  const hasReimbursement = dadOwesMom > 0 || momOwesDad > 0;
+  const payerLabel = dadOwesMom > 0 ? dadLabel : momLabel;
+  const receiverLabel = dadOwesMom > 0 ? momLabel : dadLabel;
+  const amountDue = dadOwesMom > 0 ? dadOwesMom : momOwesDad;
+  const payerClasses = dadOwesMom > 0 ? dadClasses : momClasses;
 
   return (
     <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
       <div className="mb-5">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-          Reimbursement preview
+          Reimbursement
         </p>
         <h3 className="mt-1 text-2xl font-black text-slate-950">
-          Who owes what
+          Who needs to pay?
         </h3>
         <p className="mt-2 text-sm font-semibold text-slate-500">
-          Net estimate based on pending/review expenses and a 50/50 default split.
+          Based only on pending/review expenses with a 50/50 split.
         </p>
       </div>
 
-      <div className="space-y-3">
-        <div className={`rounded-[1.4rem] border p-4 ${dadClasses.border} ${dadClasses.bg}`}>
-          <p className={`text-sm font-black ${dadClasses.textStrong}`}>{dadName || "Dad"}</p>
-          <p className={`mt-1 text-3xl font-black ${dadClasses.text}`}>{currency(dadOwesMom)}</p>
-          <p className={`mt-1 text-xs font-bold ${dadClasses.text}`}>Owes {momName || "Mom"}</p>
+      {hasReimbursement ? (
+        <div className={`rounded-[1.6rem] border p-5 ${payerClasses.border} ${payerClasses.bg}`}>
+          <p className={`text-sm font-black ${payerClasses.textStrong}`}>
+            {payerLabel} owes {receiverLabel}
+          </p>
+          <p className={`mt-2 text-5xl font-black tracking-tight ${payerClasses.text}`}>
+            {currency(amountDue)}
+          </p>
+          <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+            Settled expenses are not included. Shared/custom split expenses are excluded until reviewed.
+          </p>
         </div>
-        <div className={`rounded-[1.4rem] border p-4 ${momClasses.border} ${momClasses.bg}`}>
-          <p className={`text-sm font-black ${momClasses.textStrong}`}>{momName || "Mom"}</p>
-          <p className={`mt-1 text-3xl font-black ${momClasses.text}`}>{currency(momOwesDad)}</p>
-          <p className={`mt-1 text-xs font-bold ${momClasses.text}`}>Owes {dadName || "Dad"}</p>
+      ) : (
+        <div className="rounded-[1.6rem] border border-emerald-100 bg-emerald-50 p-5">
+          <p className="text-sm font-black text-emerald-800">No reimbursement needed</p>
+          <p className="mt-2 text-3xl font-black text-emerald-700">{currency(0)}</p>
+          <p className="mt-3 text-xs font-bold leading-5 text-emerald-700/80">
+            There is no net balance due from pending/review expenses.
+          </p>
+        </div>
+      )}
+
+      {excludedReimbursementCount > 0 && (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-800">
+          {excludedReimbursementCount} item(s) totaling {currency(excludedReimbursementAmount)} need review before they can be included in reimbursement.
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-slate-500">
+        <div className={`rounded-2xl border p-3 ${dadClasses.border} ${dadClasses.bg}`}>
+          <span className={dadClasses.textStrong}>{dadLabel}</span>
+        </div>
+        <div className={`rounded-2xl border p-3 ${momClasses.border} ${momClasses.bg}`}>
+          <span className={momClasses.textStrong}>{momLabel}</span>
         </div>
       </div>
     </Card>
@@ -512,7 +546,31 @@ export default function BudgetHub() {
 
     const cleanTitle = expenseForm.title.trim();
     const cleanAmount = Number(expenseForm.amount);
-    if (!cleanTitle || Number.isNaN(cleanAmount) || cleanAmount < 0 || !user || !familyId || savingExpense) return;
+    const cleanPaidBy = String(expenseForm.paidBy || "").trim();
+    const cleanSplit = String(expenseForm.split || "").trim();
+    const cleanStatus = String(expenseForm.status || "").trim();
+
+    if (!user || !familyId || savingExpense) return;
+
+    if (!cleanTitle) {
+      window.alert("Please enter an expense title.");
+      return;
+    }
+
+    if (Number.isNaN(cleanAmount) || cleanAmount <= 0) {
+      window.alert("Please enter an amount greater than $0.");
+      return;
+    }
+
+    if ((cleanStatus === "pending" || cleanStatus === "review") && cleanPaidBy === "Shared") {
+      window.alert("For pending/review expenses, please select who paid: Dad or Mom. Shared expenses cannot be calculated safely yet.");
+      return;
+    }
+
+    if ((cleanStatus === "pending" || cleanStatus === "review") && cleanSplit !== "50/50") {
+      window.alert("Custom split is not calculated yet. Please use 50/50 or mark the item as settled until custom split support is added.");
+      return;
+    }
 
     setSavingExpense(true);
 
@@ -521,9 +579,9 @@ export default function BudgetHub() {
         title: cleanTitle,
         category: expenseForm.category,
         amount: cleanAmount,
-        paidBy: expenseForm.paidBy,
-        split: expenseForm.split,
-        status: expenseForm.status,
+        paidBy: cleanPaidBy,
+        split: cleanSplit,
+        status: cleanStatus,
         due: expenseForm.due.trim(),
         recurring: Boolean(expenseForm.recurring),
         updatedAt: serverTimestamp(),
@@ -623,6 +681,8 @@ export default function BudgetHub() {
               pending={summary.pending}
               dadOwesMom={summary.dadOwesMom}
               momOwesDad={summary.momOwesDad}
+              excludedReimbursementCount={summary.excludedReimbursementCount}
+              excludedReimbursementAmount={summary.excludedReimbursementAmount}
             />
 
             <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
