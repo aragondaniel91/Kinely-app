@@ -139,22 +139,6 @@ function WeatherTimeBadge() {
         <p className="text-sm font-black text-slate-950">{formatTime(now)}</p>
         <p className="text-[11px] font-bold text-slate-500">68° · Sunny</p>
       </div>
-
-      <AppDialog
-        open={Boolean(confirmDialog)}
-        tone={confirmDialog?.tone}
-        title={confirmDialog?.title}
-        message={confirmDialog?.message}
-        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
-        cancelLabel="Cancel"
-        loading={isResetting}
-        onCancel={() => setConfirmDialog(null)}
-        onConfirm={() => {
-          const action = confirmDialog?.onConfirm;
-          setConfirmDialog(null);
-          action?.();
-        }}
-      />
     </div>
   );
 }

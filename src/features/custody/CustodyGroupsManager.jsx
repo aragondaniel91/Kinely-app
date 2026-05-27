@@ -118,21 +118,6 @@ function ColorSelector({ label, value, onChange }) {
           );
         })}
       </div>
-
-      <AppDialog
-        open={Boolean(confirmDialog)}
-        tone={confirmDialog?.tone}
-        title={confirmDialog?.title}
-        message={confirmDialog?.message}
-        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
-        cancelLabel="Cancel"
-        onCancel={() => setConfirmDialog(null)}
-        onConfirm={() => {
-          const action = confirmDialog?.onConfirm;
-          setConfirmDialog(null);
-          action?.();
-        }}
-      />
     </div>
   );
 }

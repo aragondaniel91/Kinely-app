@@ -199,21 +199,6 @@ function PackingItem({ item, onCycle, onEdit, onDelete }) {
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
-
-      <AppDialog
-        open={Boolean(confirmDialog)}
-        tone={confirmDialog?.tone}
-        title={confirmDialog?.title}
-        message={confirmDialog?.message}
-        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
-        cancelLabel="Cancel"
-        onCancel={() => setConfirmDialog(null)}
-        onConfirm={() => {
-          const action = confirmDialog?.onConfirm;
-          setConfirmDialog(null);
-          action?.();
-        }}
-      />
     </div>
   );
 }
