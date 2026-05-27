@@ -3,10 +3,13 @@ export const initialCustodyExpenses = [
     id: "daycare",
     title: "Daycare monthly payment",
     category: "School",
-    amount: 850,
-    paidBy: "Dad",
-    split: "50/50",
-    status: "pending",
+    amount: 1000,
+    splitType: "50/50",
+    parent1ShareAmount: 500,
+    parent2ShareAmount: 500,
+    parent1PaidAmount: 500,
+    parent2PaidAmount: 0,
+    status: "partial",
     due: "May 20",
     recurring: true,
   },
@@ -15,32 +18,13 @@ export const initialCustodyExpenses = [
     title: "Soccer registration",
     category: "Activities",
     amount: 140,
-    paidBy: "Mom",
-    split: "50/50",
-    status: "settled",
+    splitType: "50/50",
+    parent1ShareAmount: 70,
+    parent2ShareAmount: 70,
+    parent1PaidAmount: 70,
+    parent2PaidAmount: 70,
+    status: "paid",
     due: "Paid",
-    recurring: false,
-  },
-  {
-    id: "medicine",
-    title: "Prescription refill",
-    category: "Medical",
-    amount: 38,
-    paidBy: "Dad",
-    split: "50/50",
-    status: "review",
-    due: "May 18",
-    recurring: false,
-  },
-  {
-    id: "school-supplies",
-    title: "School supplies",
-    category: "School",
-    amount: 62,
-    paidBy: "Shared",
-    split: "Custom",
-    status: "pending",
-    due: "May 22",
     recurring: false,
   },
 ];
@@ -50,82 +34,162 @@ export function currency(value) {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
-  }).format(value || 0);
+  }).format(Number(value || 0));
 }
 
-function normalizePaidBy(value) {
+function money(value) {
+  const number = Number(value || 0);
+  if (Number.isNaN(number)) return 0;
+  return Math.round(number * 100) / 100;
+}
+
+function hasExplicitLedgerFields(expense = {}) {
+  return (
+    expense.parent1ShareAmount !== undefined ||
+    expense.parent2ShareAmount !== undefined ||
+    expense.parent1PaidAmount !== undefined ||
+    expense.parent2PaidAmount !== undefined
+  );
+}
+
+function normalizeLegacyPaidBy(value) {
   const paidBy = String(value || "").trim().toLowerCase();
 
-  if (paidBy === "dad" || paidBy === "father" || paidBy === "parent 1") return "dad";
-  if (paidBy === "mom" || paidBy === "mother" || paidBy === "parent 2") return "mom";
+  if (paidBy === "dad" || paidBy === "father" || paidBy === "parent 1") return "parent1";
+  if (paidBy === "mom" || paidBy === "mother" || paidBy === "parent 2") return "parent2";
 
   return "shared";
 }
 
-function getSplitShares(expense) {
-  const split = String(expense?.split || "50/50").trim().toLowerCase();
+export function getExpenseLedger(expense = {}) {
+  const amount = money(expense.amount);
+  const splitType = String(expense.splitType || expense.split || "50/50").trim();
 
-  if (split === "50/50" || split === "default") {
-    return { dadShare: 0.5, momShare: 0.5 };
+  let parent1ShareAmount = money(expense.parent1ShareAmount);
+  let parent2ShareAmount = money(expense.parent2ShareAmount);
+
+  if (!parent1ShareAmount && !parent2ShareAmount) {
+    if (splitType === "Parent 1 pays" || splitType === "Dad pays") {
+      parent1ShareAmount = amount;
+      parent2ShareAmount = 0;
+    } else if (splitType === "Parent 2 pays" || splitType === "Mom pays") {
+      parent1ShareAmount = 0;
+      parent2ShareAmount = amount;
+    } else {
+      parent1ShareAmount = money(amount / 2);
+      parent2ShareAmount = money(amount - parent1ShareAmount);
+    }
   }
 
-  return { dadShare: 0.5, momShare: 0.5 };
+  let parent1PaidAmount = money(expense.parent1PaidAmount);
+  let parent2PaidAmount = money(expense.parent2PaidAmount);
+
+  if (!hasExplicitLedgerFields(expense)) {
+    if (expense.status === "settled" || expense.status === "paid") {
+      parent1PaidAmount = parent1ShareAmount;
+      parent2PaidAmount = parent2ShareAmount;
+    } else {
+      const legacyPaidBy = normalizeLegacyPaidBy(expense.paidBy);
+
+      if (legacyPaidBy === "parent1") parent1PaidAmount = amount;
+      if (legacyPaidBy === "parent2") parent2PaidAmount = amount;
+    }
+  }
+
+  const parent1Remaining = money(Math.max(parent1ShareAmount - parent1PaidAmount, 0));
+  const parent2Remaining = money(Math.max(parent2ShareAmount - parent2PaidAmount, 0));
+
+  const parent1Overpaid = money(Math.max(parent1PaidAmount - parent1ShareAmount, 0));
+  const parent2Overpaid = money(Math.max(parent2PaidAmount - parent2ShareAmount, 0));
+
+  const validationErrors = [];
+
+  if (amount <= 0) validationErrors.push("Amount must be greater than $0.");
+
+  const shareTotal = money(parent1ShareAmount + parent2ShareAmount);
+  if (amount > 0 && Math.abs(shareTotal - amount) > 0.01) {
+    validationErrors.push("Parent shares must add up to the total expense amount.");
+  }
+
+  if (parent1ShareAmount < 0 || parent2ShareAmount < 0) {
+    validationErrors.push("Share amounts cannot be negative.");
+  }
+
+  if (parent1PaidAmount < 0 || parent2PaidAmount < 0) {
+    validationErrors.push("Paid amounts cannot be negative.");
+  }
+
+  let status = "open";
+  const paidTotal = money(parent1PaidAmount + parent2PaidAmount);
+  const remainingTotal = money(parent1Remaining + parent2Remaining);
+
+  if (validationErrors.length) {
+    status = "review";
+  } else if (remainingTotal === 0) {
+    status = "paid";
+  } else if (paidTotal > 0) {
+    status = "partial";
+  }
+
+  return {
+    amount,
+    splitType,
+    parent1ShareAmount,
+    parent2ShareAmount,
+    parent1PaidAmount,
+    parent2PaidAmount,
+    parent1Remaining,
+    parent2Remaining,
+    parent1Overpaid,
+    parent2Overpaid,
+    paidTotal,
+    remainingTotal,
+    status,
+    validationErrors,
+  };
+}
+
+export function validateExpenseLedger(expense = {}) {
+  return getExpenseLedger(expense).validationErrors;
 }
 
 export function getBudgetSummary(expenses = initialCustodyExpenses) {
-  const total = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-  const pendingExpenses = expenses.filter((expense) => expense.status !== "settled");
+  const ledgers = expenses.map((expense) => getExpenseLedger(expense));
 
-  const pending = pendingExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-  const settled = total - pending;
+  const total = ledgers.reduce((sum, ledger) => sum + ledger.amount, 0);
+  const paid = ledgers.reduce((sum, ledger) => sum + ledger.paidTotal, 0);
+  const remaining = ledgers.reduce((sum, ledger) => sum + ledger.remainingTotal, 0);
 
-  const balances = pendingExpenses.reduce(
-    (acc, expense) => {
-      const amount = Number(expense.amount || 0);
-      const paidBy = normalizePaidBy(expense.paidBy);
-      const split = String(expense?.split || "50/50").trim().toLowerCase();
+  const parent1ShouldPay = ledgers.reduce((sum, ledger) => sum + ledger.parent1ShareAmount, 0);
+  const parent2ShouldPay = ledgers.reduce((sum, ledger) => sum + ledger.parent2ShareAmount, 0);
 
-      if (!amount || amount <= 0 || paidBy === "shared" || split !== "50/50") {
-        acc.excludedCount += 1;
-        acc.excludedAmount += amount || 0;
-        return acc;
-      }
+  const parent1Paid = ledgers.reduce((sum, ledger) => sum + ledger.parent1PaidAmount, 0);
+  const parent2Paid = ledgers.reduce((sum, ledger) => sum + ledger.parent2PaidAmount, 0);
 
-      const { dadShare, momShare } = getSplitShares(expense);
+  const parent1Remaining = ledgers.reduce((sum, ledger) => sum + ledger.parent1Remaining, 0);
+  const parent2Remaining = ledgers.reduce((sum, ledger) => sum + ledger.parent2Remaining, 0);
 
-      if (paidBy === "dad") {
-        acc.momOwesDad += amount * momShare;
-      }
-
-      if (paidBy === "mom") {
-        acc.dadOwesMom += amount * dadShare;
-      }
-
-      return acc;
-    },
-    { dadOwesMom: 0, momOwesDad: 0, excludedCount: 0, excludedAmount: 0 }
-  );
-
-  const netDadOwesMom = Math.max(0, balances.dadOwesMom - balances.momOwesDad);
-  const netMomOwesDad = Math.max(0, balances.momOwesDad - balances.dadOwesMom);
-
-  const reviewCount = expenses.filter((expense) => expense.status === "review").length;
-  const pendingCount = expenses.filter((expense) => expense.status === "pending").length;
-  const settledCount = expenses.filter((expense) => expense.status === "settled").length;
+  const parent1Overpaid = ledgers.reduce((sum, ledger) => sum + ledger.parent1Overpaid, 0);
+  const parent2Overpaid = ledgers.reduce((sum, ledger) => sum + ledger.parent2Overpaid, 0);
 
   return {
     total,
-    pending,
-    settled,
-    reviewCount,
-    pendingCount,
-    settledCount,
+    paid,
+    pending: remaining,
+    remaining,
+    settled: paid,
     totalCount: expenses.length,
-    dadOwesMom: Math.round(netDadOwesMom),
-    momOwesDad: Math.round(netMomOwesDad),
-    grossDadOwesMom: Math.round(balances.dadOwesMom),
-    grossMomOwesDad: Math.round(balances.momOwesDad),
-    excludedReimbursementCount: balances.excludedCount,
-    excludedReimbursementAmount: Math.round(balances.excludedAmount),
+    openCount: ledgers.filter((ledger) => ledger.status === "open").length,
+    partialCount: ledgers.filter((ledger) => ledger.status === "partial").length,
+    paidCount: ledgers.filter((ledger) => ledger.status === "paid").length,
+    reviewCount: ledgers.filter((ledger) => ledger.status === "review").length,
+    parent1ShouldPay,
+    parent2ShouldPay,
+    parent1Paid,
+    parent2Paid,
+    parent1Remaining,
+    parent2Remaining,
+    parent1Overpaid,
+    parent2Overpaid,
   };
 }
