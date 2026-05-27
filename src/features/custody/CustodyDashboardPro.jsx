@@ -309,8 +309,29 @@ function WeekStrip({ weekDays }) {
   );
 }
 
+function getCustodyChildDisplayName(custodyChildren = []) {
+  const children = Array.isArray(custodyChildren) ? custodyChildren.filter(Boolean) : [];
+
+  if (!children.length) return "Child";
+
+  const names = children
+    .map((child) => {
+      if (typeof child === "string") return child;
+      return child.name || child.fullName || child.displayName || child.childName || child.firstName || "";
+    })
+    .map((name) => String(name || "").trim())
+    .filter(Boolean);
+
+  if (!names.length) return "Child";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+
+  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
+}
+
 export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, onOpenPacking, onOpenNotifications, onOpenBudget, onOpenChat }) {
-  const { user, familyId, dadName, momName, perms } = useFamily();
+  const { user, familyId, dadName, momName, perms, custodyChildren } = useFamily();
+  const custodyChildDisplayName = getCustodyChildDisplayName(custodyChildren);
   const [custodyDays, setCustodyDays] = useState([]);
   const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
   const [expenses, setExpenses] = useState(initialCustodyExpenses);
@@ -550,7 +571,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                   <HeartHandshake className="h-3.5 w-3.5" />
                   Custody today
                 </div>
-                <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Joaquin is with</p>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">{custodyChildDisplayName} is with</p>
                 <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl md:text-6xl">
                   {loading ? "..." : dashboard.todayLabel}
                 </h1>
