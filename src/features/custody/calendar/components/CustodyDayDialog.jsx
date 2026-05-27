@@ -38,6 +38,7 @@ import CustodySpecialEventDialog, {
   getCustodyEventCategory,
 } from "@/features/custody/calendar/components/CustodySpecialEventDialog";
 import CustodyTravelPlanDialog from "@/features/custody/calendar/components/CustodyTravelPlanDialog";
+import AppDialog from "@/components/app/AppDialog";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -294,6 +295,7 @@ export default function CustodyDayDialog({
   const [showDeleteChoice, setShowDeleteChoice] = useState(false);
   const [showDeleteDayConfirm, setShowDeleteDayConfirm] = useState(false);
   const [deletingSeries, setDeletingSeries] = useState(false);
+  const [noticeDialog, setNoticeDialog] = useState(null);
 
   const [specialEvents, setSpecialEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -331,6 +333,10 @@ export default function CustodyDayDialog({
   const travelOverrideChangedParent = Boolean(
     hasTravelOverride && !isSplit && travelOverrideParent !== withWhom
   );
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
 
   const loadSpecialEvents = async () => {
     if (!familyId || !dateKey) {
@@ -447,7 +453,11 @@ export default function CustodyDayDialog({
 
   const saveSpecialEvent = async (payload) => {
     if (!user || !familyId || !dateKey) {
-      alert("Could not save this event because the family context is missing. Please refresh and try again.");
+      showNotice({
+        tone: "warning",
+        title: "Missing family context",
+        message: "Could not save this event because the family context is missing. Please refresh and try again.",
+      });
       return;
     }
 
@@ -511,7 +521,11 @@ export default function CustodyDayDialog({
       setShowSpecialEventDialog(false);
     } catch (error) {
       console.error("Error saving custody special event:", error);
-      alert(`There was an error saving this special event: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save special event",
+        message: error.message,
+      });
     } finally {
       setSavingSpecialEvent(false);
     }
@@ -552,7 +566,11 @@ export default function CustodyDayDialog({
       setSpecialEvents((prev) => prev.filter((item) => item.id !== event.id));
     } catch (error) {
       console.error("Error deleting custody special event:", error);
-      alert(`There was an error deleting this special event: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete special event",
+        message: error.message,
+      });
     } finally {
       setSavingSpecialEvent(false);
     }
@@ -560,7 +578,11 @@ export default function CustodyDayDialog({
 
   const saveTravelPlan = async (payload) => {
     if (!user || !familyId || !dateKey) {
-      alert("Could not save this travel plan because the family context is missing. Please refresh and try again.");
+      showNotice({
+        tone: "warning",
+        title: "Missing family context",
+        message: "Could not save this travel plan because the family context is missing. Please refresh and try again.",
+      });
       return;
     }
 
@@ -631,7 +653,11 @@ export default function CustodyDayDialog({
       setShowTravelDialog(false);
     } catch (error) {
       console.error("Error saving custody travel plan:", error);
-      alert(`There was an error saving this travel plan: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save travel plan",
+        message: error.message,
+      });
     } finally {
       setSavingTravelPlan(false);
     }
@@ -677,7 +703,11 @@ export default function CustodyDayDialog({
       setTravelPlans((prev) => prev.filter((item) => item.id !== plan.id));
     } catch (error) {
       console.error("Error deleting custody travel plan:", error);
-      alert(`There was an error deleting this travel plan: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete travel plan",
+        message: error.message,
+      });
     } finally {
       setSavingTravelPlan(false);
     }
@@ -690,8 +720,8 @@ export default function CustodyDayDialog({
     }
 
     if (!skipConfirm) {
-      const confirmDelete = window.confirm("Delete custody information for this day?");
-      if (!confirmDelete) return;
+      setShowDeleteDayConfirm(true);
+      return;
     }
 
     const before = buildCustodyAuditSnapshot(existingData, { dadLabel, momLabel });
@@ -720,11 +750,8 @@ export default function CustodyDayDialog({
     if (!bulkRunId || !familyId) return;
 
     if (!skipConfirm) {
-      const confirmDelete = window.confirm(
-        "Delete the entire bulk custody schedule connected to this day? This will remove all days created by the same bulk/template action."
-      );
-
-      if (!confirmDelete) return;
+      setShowDeleteChoice(true);
+      return;
     }
 
     setDeletingSeries(true);
@@ -743,7 +770,11 @@ export default function CustodyDayDialog({
       docsBySnake.docs.forEach((docSnap) => refs.set(docSnap.id, docSnap.ref));
 
       if (!refs.size) {
-        alert("No matching bulk schedule days were found.");
+        showNotice({
+          tone: "warning",
+          title: "No matching schedule days",
+          message: "No matching bulk schedule days were found.",
+        });
         return;
       }
 
@@ -772,7 +803,11 @@ export default function CustodyDayDialog({
       window.location.reload();
     } catch (error) {
       console.error("Error deleting bulk custody schedule:", error);
-      alert(`Could not delete the bulk custody schedule: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete bulk schedule",
+        message: error.message,
+      });
     } finally {
       setDeletingSeries(false);
     }
@@ -1320,6 +1355,16 @@ export default function CustodyDayDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
 
       <Dialog open={showDeleteChoice} onOpenChange={setShowDeleteChoice}>
         <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden">
