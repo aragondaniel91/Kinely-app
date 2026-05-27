@@ -16,6 +16,15 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AppDialog from "@/components/app/AppDialog";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
@@ -372,21 +381,21 @@ function ExchangeModal({ open, mode, value, saving, onChange, onClose, onSubmit 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">Date</span>
-              <input
+              <Input
                 type="date"
                 value={value.date}
                 onChange={(event) => onChange({ ...value, date: event.target.value })}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+                className="rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-blue-200"
                 required
               />
             </label>
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">Time</span>
-              <input
+              <Input
                 type="time"
                 value={value.time}
                 onChange={(event) => onChange({ ...value, time: event.target.value })}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+                className="rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-blue-200"
                 required
               />
             </label>
@@ -394,11 +403,11 @@ function ExchangeModal({ open, mode, value, saving, onChange, onClose, onSubmit 
 
           <label className="grid gap-1.5">
             <span className="text-xs font-black uppercase tracking-wide text-slate-400">Location</span>
-            <input
+            <Input
               value={value.location}
               onChange={(event) => onChange({ ...value, location: event.target.value })}
               placeholder="Example: Daycare pickup"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+              className="rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-blue-200"
               required
             />
           </label>
@@ -406,35 +415,50 @@ function ExchangeModal({ open, mode, value, saving, onChange, onClose, onSubmit 
           <div className="grid gap-3 md:grid-cols-3">
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">From</span>
-              <select value={value.fromParent} onChange={(event) => onChange({ ...value, fromParent: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300">
-                <option value="dad">Dad</option>
-                <option value="mom">Mom</option>
-              </select>
+              <Select value={value.fromParent} onValueChange={(nextValue) => onChange({ ...value, fromParent: nextValue })}>
+                <SelectTrigger className="rounded-2xl border-slate-200 text-sm font-bold focus:ring-blue-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dad">Dad</SelectItem>
+                  <SelectItem value="mom">Mom</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">To</span>
-              <select value={value.toParent} onChange={(event) => onChange({ ...value, toParent: event.target.value, pickupBy: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300">
-                <option value="dad">Dad</option>
-                <option value="mom">Mom</option>
-              </select>
+              <Select value={value.toParent} onValueChange={(nextValue) => onChange({ ...value, toParent: nextValue, pickupBy: nextValue })}>
+                <SelectTrigger className="rounded-2xl border-slate-200 text-sm font-bold focus:ring-blue-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dad">Dad</SelectItem>
+                  <SelectItem value="mom">Mom</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">Status</span>
-              <select value={value.status} onChange={(event) => onChange({ ...value, status: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300">
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="issue">Issue</option>
-              </select>
+              <Select value={value.status} onValueChange={(nextValue) => onChange({ ...value, status: nextValue })}>
+                <SelectTrigger className="rounded-2xl border-slate-200 text-sm font-bold focus:ring-blue-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="issue">Issue</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
           </div>
 
           <label className="grid gap-1.5">
             <span className="text-xs font-black uppercase tracking-wide text-slate-400">Handoff notes</span>
-            <textarea
+            <Textarea
               value={value.notes}
               onChange={(event) => onChange({ ...value, notes: event.target.value })}
               placeholder="Example: Medicine bag and backpack included."
-              className="min-h-24 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-blue-300"
+              className="min-h-24 rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-blue-200"
             />
           </label>
         </div>

@@ -18,6 +18,15 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AppDialog from "@/components/app/AppDialog";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
@@ -238,11 +247,11 @@ function PackingItemModal({ open, mode, value, saving, onChange, onClose, onSubm
         <div className="grid gap-4">
           <label className="grid gap-1.5">
             <span className="text-xs font-black uppercase tracking-wide text-slate-400">Name</span>
-            <input
+            <Input
               value={value.name}
               onChange={(event) => onChange({ ...value, name: event.target.value })}
               placeholder="Example: Lunchbox"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
+              className="rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-emerald-200"
               required
             />
           </label>
@@ -250,56 +259,57 @@ function PackingItemModal({ open, mode, value, saving, onChange, onClose, onSubm
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">Category</span>
-              <select
-                value={value.category}
-                onChange={(event) => onChange({ ...value, category: event.target.value })}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
-              >
-                <option>School</option>
-                <option>Clothes</option>
-                <option>Medicine</option>
-                <option>Sports</option>
-                <option>Comfort</option>
-                <option>General</option>
-              </select>
+              <Select value={value.category} onValueChange={(nextValue) => onChange({ ...value, category: nextValue })}>
+                <SelectTrigger className="rounded-2xl border-slate-200 text-sm font-bold focus:ring-emerald-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="School">School</SelectItem>
+                  <SelectItem value="Clothes">Clothes</SelectItem>
+                  <SelectItem value="Medicine">Medicine</SelectItem>
+                  <SelectItem value="Sports">Sports</SelectItem>
+                  <SelectItem value="Comfort">Comfort</SelectItem>
+                  <SelectItem value="General">General</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
 
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">Responsible</span>
-              <select
-                value={value.owner}
-                onChange={(event) => onChange({ ...value, owner: event.target.value })}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
-              >
-                <option>Shared</option>
-                <option>Dad</option>
-                <option>Mom</option>
-              </select>
+              <Select value={value.owner} onValueChange={(nextValue) => onChange({ ...value, owner: nextValue })}>
+                <SelectTrigger className="rounded-2xl border-slate-200 text-sm font-bold focus:ring-emerald-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Shared">Shared</SelectItem>
+                  <SelectItem value="Dad">Dad</SelectItem>
+                  <SelectItem value="Mom">Mom</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1.5">
               <span className="text-xs font-black uppercase tracking-wide text-slate-400">Status</span>
-              <select
-                value={value.status}
-                onChange={(event) => onChange({ ...value, status: event.target.value })}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold outline-none focus:border-emerald-300"
-              >
-                <option value="review">Review</option>
-                <option value="packed">Packed</option>
-                <option value="missing">Missing</option>
-              </select>
+              <Select value={value.status} onValueChange={(nextValue) => onChange({ ...value, status: nextValue })}>
+                <SelectTrigger className="rounded-2xl border-slate-200 text-sm font-bold focus:ring-emerald-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="review">Review</SelectItem>
+                  <SelectItem value="packed">Packed</SelectItem>
+                  <SelectItem value="missing">Missing</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
 
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
-              <input
-                type="checkbox"
-                checked={value.important}
-                onChange={(event) => onChange({ ...value, important: event.target.checked })}
-                className="h-4 w-4"
-              />
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3">
               <span className="text-sm font-black text-slate-700">Mark as important</span>
+              <Switch
+                checked={value.important}
+                onCheckedChange={(checked) => onChange({ ...value, important: checked })}
+              />
             </label>
           </div>
         </div>
