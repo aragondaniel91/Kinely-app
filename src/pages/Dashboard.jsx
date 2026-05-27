@@ -19,6 +19,10 @@ function normalizeDate(value) {
   if (!value) return "";
   if (typeof value === "string") return value.slice(0, 10);
 
+  if (value instanceof Date) {
+    return format(value, "yyyy-MM-dd");
+  }
+
   if (value?.toDate) {
     return format(value.toDate(), "yyyy-MM-dd");
   }
@@ -92,10 +96,46 @@ function findNextChangeFromDays(custodyDays, todayCustody) {
 }
 
 function getActivitySortValue(activity) {
-  const raw = activity.created_at || activity.createdAt || activity.updated_date || "";
+  const raw = activity.created_at || activity.createdAt || activity.updated_date || activity.updatedDate || "";
   if (typeof raw === "string") return raw;
   if (raw?.toDate) return raw.toDate().toISOString();
   return String(raw || "");
+}
+
+function getEventDate(event) {
+  return normalizeDate(
+    event.date ||
+      event.startDate ||
+      event.start_date ||
+      event.start ||
+      event.startTime ||
+      event.start_time ||
+      event.eventDate ||
+      event.event_date
+  );
+}
+
+function isInDateRange(dateKey, startKey, endKey) {
+  return dateKey && dateKey >= startKey && dateKey <= endKey;
+}
+
+async function loadFamilyCollection(collectionName, familyId) {
+  try {
+    const snap = await getDocs(
+      query(collection(db, collectionName), where("familyId", "==", familyId))
+    );
+    return snap.docs.map(normalizeDoc);
+  } catch (error) {
+    try {
+      const snap = await getDocs(
+        query(collection(db, collectionName), where("family_id", "==", familyId))
+      );
+      return snap.docs.map(normalizeDoc);
+    } catch (legacyError) {
+      console.warn(`Could not load ${collectionName}:`, legacyError);
+      return [];
+    }
+  }
 }
 
 export default function Dashboard() {
@@ -104,8 +144,10 @@ export default function Dashboard() {
   const [custodyDays, setCustodyDays] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [meals, setMeals] = useState([]);
+  const [upcomingMeals, setUpcomingMeals] = useState([]);
   const [groceries, setGroceries] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const canReadTasks = perms?.tasks?.read !== false;
@@ -125,136 +167,83 @@ export default function Dashboard() {
 
       try {
         const today = todayStr();
+        const nextSevenDate = addDays(new Date(), 7);
+        const nextSeven = format(nextSevenDate, "yyyy-MM-dd");
+        const nextThreeDate = addDays(new Date(), 2);
+        const nextThree = format(nextThreeDate, "yyyy-MM-dd");
+
         let custodyData = [];
         let taskData = [];
         let mealData = [];
         let groceryData = [];
         let activityData = [];
+        let calendarData = [];
 
         if (canReadCalendar) {
-          try {
-            const custodyByFamily = query(
-              collection(db, "custodyDays"),
-              where("familyId", "==", familyId)
-            );
-            const snap = await getDocs(custodyByFamily);
-            custodyData = snap.docs.map(normalizeDoc);
-          } catch (error) {
-            console.warn("Fallback custody query by family_id/userId:", error);
-            try {
-              const custodyByFamilyLegacy = query(
-                collection(db, "custodyDays"),
-                where("family_id", "==", familyId)
-              );
-              const snap = await getDocs(custodyByFamilyLegacy);
-              custodyData = snap.docs.map(normalizeDoc);
-            } catch (legacyError) {
-              console.warn("Fallback custody query by userId:", legacyError);
-              const custodyByUser = query(
-                collection(db, "custodyDays"),
-                where("userId", "==", user.uid)
-              );
-              const snap = await getDocs(custodyByUser);
-              custodyData = snap.docs.map(normalizeDoc);
-            }
-          }
+          custodyData = await loadFamilyCollection("custodyDays", familyId);
+
+          const calendarCollections = [
+            "familyCalendarEvents",
+            "familyEvents",
+            "calendarEvents",
+            "events",
+          ];
+
+          const calendarResults = await Promise.all(
+            calendarCollections.map((name) => loadFamilyCollection(name, familyId))
+          );
+
+          const seen = new Set();
+          calendarData = calendarResults
+            .flat()
+            .filter((event) => {
+              const key = `${event.id || ""}-${event.title || event.name || ""}-${getEventDate(event)}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
         }
 
         if (canReadTasks) {
-          try {
-            const taskQuery = query(
-              collection(db, "tasks"),
-              where("familyId", "==", familyId)
-            );
-            const snap = await getDocs(taskQuery);
-            taskData = snap.docs.map(normalizeDoc);
-          } catch (error) {
-            console.warn("Fallback tasks query by family_id:", error);
-            const taskQuery = query(
-              collection(db, "tasks"),
-              where("family_id", "==", familyId)
-            );
-            const snap = await getDocs(taskQuery);
-            taskData = snap.docs.map(normalizeDoc);
-          }
+          taskData = await loadFamilyCollection("tasks", familyId);
         }
 
         if (canReadMeals) {
-          try {
-            const mealQuery = query(
-              collection(db, "meals"),
-              where("familyId", "==", familyId)
-            );
-            const snap = await getDocs(mealQuery);
-            mealData = snap.docs.map(normalizeDoc);
-          } catch (error) {
-            console.warn("Fallback meals query by family_id:", error);
-            const mealQuery = query(
-              collection(db, "meals"),
-              where("family_id", "==", familyId)
-            );
-            const snap = await getDocs(mealQuery);
-            mealData = snap.docs.map(normalizeDoc);
-          }
+          mealData = await loadFamilyCollection("meals", familyId);
         }
 
         if (canReadGroceries) {
-          try {
-            const groceryQuery = query(
-              collection(db, "groceries"),
-              where("familyId", "==", familyId)
-            );
-            const snap = await getDocs(groceryQuery);
-            groceryData = snap.docs.map(normalizeDoc);
-          } catch (error) {
-            console.warn("Fallback groceries query by family_id:", error);
-            const groceryQuery = query(
-              collection(db, "groceries"),
-              where("family_id", "==", familyId)
-            );
-            const snap = await getDocs(groceryQuery);
-            groceryData = snap.docs.map(normalizeDoc);
-          }
+          const groceriesPrimary = await loadFamilyCollection("groceries", familyId);
+          const groceriesLists = groceriesPrimary.length
+            ? groceriesPrimary
+            : await loadFamilyCollection("familyLists", familyId);
+
+          groceryData = groceriesLists;
         }
 
-        try {
-          const activityQuery = query(
-            collection(db, "familyActivity"),
-            where("familyId", "==", familyId)
-          );
-          const snap = await getDocs(activityQuery);
-          activityData = snap.docs.map(normalizeDoc);
-        } catch (error) {
-          console.warn("Fallback family activity query by family_id:", error);
-          try {
-            const activityQuery = query(
-              collection(db, "familyActivity"),
-              where("family_id", "==", familyId)
-            );
-            const snap = await getDocs(activityQuery);
-            activityData = snap.docs.map(normalizeDoc);
-          } catch (activityError) {
-            console.warn("Could not load family activity:", activityError);
-            activityData = [];
-          }
-        }
+        activityData = await loadFamilyCollection("familyActivity", familyId);
 
-        taskData.sort((a, b) => (b.created_date || "").localeCompare(a.created_date || ""));
-        mealData.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-        groceryData.sort((a, b) => (b.created_date || "").localeCompare(a.created_date || ""));
+        taskData.sort((a, b) => (b.created_date || b.createdDate || "").localeCompare(a.created_date || a.createdDate || ""));
+        mealData.sort((a, b) => normalizeDate(a.date).localeCompare(normalizeDate(b.date)));
+        groceryData.sort((a, b) => (b.created_date || b.createdDate || "").localeCompare(a.created_date || a.createdDate || ""));
         activityData.sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)));
+        calendarData.sort((a, b) => getEventDate(a).localeCompare(getEventDate(b)));
 
         setCustodyDays(custodyData);
         setTasks(taskData.filter((task) => (task.status || "pending") === "pending"));
         setMeals(mealData.filter((meal) => normalizeDate(meal.date) === today));
-        setGroceries(groceryData.filter((item) => item.checked !== true));
+        setUpcomingMeals(mealData.filter((meal) => isInDateRange(normalizeDate(meal.date), today, nextThree)));
+        setGroceries(groceryData.filter((item) => item.checked !== true && item.status !== "archived"));
+        setCalendarEvents(calendarData.filter((event) => isInDateRange(getEventDate(event), today, nextSeven)).slice(0, 20));
         setActivity(activityData.slice(0, 6));
       } catch (error) {
         console.error("Error loading dashboard data:", error);
         setCustodyDays([]);
         setTasks([]);
         setMeals([]);
+        setUpcomingMeals([]);
         setGroceries([]);
+        setCalendarEvents([]);
         setActivity([]);
       } finally {
         setLoading(false);
@@ -283,20 +272,20 @@ export default function Dashboard() {
 
   const nextChangeLabel =
     nextChange?.with === "dad"
-      ? dadName || "Papá"
+      ? dadName || "Dad"
       : nextChange?.with === "mom"
-      ? momName || "Mamá"
+      ? momName || "Mom"
       : nextChange?.with === "split"
-      ? "día compartido"
-      : "día compartido";
+      ? "split day"
+      : "shared day";
 
   const todayLabel = todayCustody
     ? isSplit
-      ? "👨👩 Split Day"
+      ? "Split day"
       : isWithDad
-      ? `🏠 With ${dadName || "Dad"}`
-      : `💕 With ${momName || "Mom"}`
-    : "No custody info";
+      ? `With ${dadName || "Dad"}`
+      : `With ${momName || "Mom"}`
+    : "";
 
   return (
     <FamilyHomeDashboard
@@ -313,8 +302,10 @@ export default function Dashboard() {
       children={profile?.children || profile?.childProfiles || []}
       tasks={tasks}
       meals={meals}
+      upcomingMeals={upcomingMeals}
       groceries={groceries}
       activity={activity}
+      calendarEvents={calendarEvents}
       loading={loading}
       canReadTasks={canReadTasks}
       canReadMeals={canReadMeals}
