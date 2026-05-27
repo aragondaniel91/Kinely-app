@@ -29,6 +29,7 @@ import {
 } from "@/lib/custodyGroupUtils";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +118,31 @@ function ColorSelector({ label, value, onChange }) {
           );
         })}
       </div>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+
+      <AppDialog
+        open={Boolean(confirmDialog)}
+        tone={confirmDialog?.tone}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        cancelLabel="Cancel"
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          action?.();
+        }}
+      />
     </div>
   );
 }
@@ -230,6 +256,18 @@ export default function CustodyGroupsManager() {
   const { user, myEmail, profile, familyId, isOwner, isAdmin } = useFamily();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [noticeDialog, setNoticeDialog] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
+
+  const askConfirm = ({ tone = "danger", title, message, confirmLabel = "Confirm", onConfirm }) => {
+    setConfirmDialog({ tone, title, message, confirmLabel, onConfirm });
+  };
+
+
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState(null);
@@ -384,17 +422,29 @@ export default function CustodyGroupsManager() {
     const memberEmails = [...new Set([dadEmail, momEmail].filter(Boolean))];
 
     if (!cleanName) {
-      window.alert("Please add a custody group name.");
+      showNotice({
+        tone: "warning",
+        title: "Group name required",
+        message: "Please add a custody group name.",
+      });
       return;
     }
 
     if (!children.length) {
-      window.alert("Please add at least one child.");
+      window.showNotice({
+        tone: "warning",
+        title: "Child required",
+        message: "Please add at least one child.",
+      });
       return;
     }
 
     if (memberEmails.length < 2) {
-      window.alert("Please add both parent/member emails.");
+      showNotice({
+        tone: "warning",
+        title: "Parent emails required",
+        message: "Please add both parent/member emails.",
+      });
       return;
     }
 
@@ -456,7 +506,11 @@ export default function CustodyGroupsManager() {
       await loadGroups();
     } catch (error) {
       console.error("Error saving custody group:", error);
-      window.alert(`Could not save custody group: ${error.message}`);
+      window.showNotice({
+        tone: "danger",
+        title: "Could not save custody group",
+        message: error.message,
+      });
     } finally {
       setSaving(false);
     }
@@ -464,15 +518,24 @@ export default function CustodyGroupsManager() {
 
   const deleteGroup = async (group) => {
     if (!canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId })) {
-      window.alert("You do not have permission to delete this custody group.");
+      showNotice({
+        tone: "warning",
+        title: "Permission required",
+        message: "You do not have permission to delete this custody group.",
+      });
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete ${group.name || "this custody group"}? This removes the group profile. Existing custody days are not deleted.`
-    );
-
-    if (!confirmed) return;
+    if (!skipConfirm) {
+      askConfirm({
+        tone: "danger",
+        title: "Delete custody group?",
+        message: "This will not delete existing custody days, but it will remove the shared group access.",
+        confirmLabel: "Delete group",
+        onConfirm: () => deleteCustodyGroup(group, { skipConfirm: true }),
+      });
+      return;
+    }
 
     setSaving(true);
 
@@ -481,7 +544,11 @@ export default function CustodyGroupsManager() {
       await loadGroups();
     } catch (error) {
       console.error("Error deleting custody group:", error);
-      window.alert(`Could not delete custody group: ${error.message}`);
+      window.showNotice({
+        tone: "danger",
+        title: "Could not delete custody group",
+        message: error.message,
+      });
     } finally {
       setSaving(false);
     }
