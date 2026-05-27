@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
+import AppDialog from "@/components/app/AppDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -345,6 +346,12 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
   const initialStartParts = useMemo(() => timeToParts(editEvent?.startTime, "09:00"), [editEvent?.startTime]);
   const initialEndParts = useMemo(() => timeToParts(editEvent?.endTime, "10:00"), [editEvent?.endTime]);
 
+  const [noticeDialog, setNoticeDialog] = useState(null);
+
+  const showNotice = ({ tone = "info", title, message }) => {
+    setNoticeDialog({ tone, title, message });
+  };
+
   const [title, setTitle] = useState(editEvent?.title || "");
   const [description, setDescription] = useState(editEvent?.description || editEvent?.notes || "");
   const [eventDate, setEventDate] = useState(editEvent?.date || format(date || new Date(), "yyyy-MM-dd"));
@@ -392,12 +399,20 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
     if (!title.trim()) return;
 
     if (!familyId) {
-      alert("No active family found.");
+      showNotice({
+        tone: "warning",
+        title: "No active family found",
+        message: "Please select or create a family before adding an event.",
+      });
       return;
     }
 
     if (!isAllDay && endTime <= startTime) {
-      alert("End time must be after start time.");
+      showNotice({
+        tone: "warning",
+        title: "Invalid time range",
+        message: "End time must be after start time.",
+      });
       return;
     }
 
@@ -527,14 +542,19 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
       onSuccess?.();
     } catch (error) {
       console.error("Error saving family event:", error);
-      alert(`There was an error saving the event: ${error.message}`);
+      showNotice({
+        tone: "danger",
+        title: "Could not save event",
+        message: error.message,
+      });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <>
+      <Dialog open onOpenChange={onClose}>
       <DialogContent className="z-[200] max-h-[92vh] max-w-lg overflow-y-auto rounded-3xl">
         <DialogHeader>
           <DialogTitle className="font-heading flex items-center gap-2 text-xl">
@@ -708,5 +728,16 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onConfirm={() => setNoticeDialog(null)}
+        onCancel={() => setNoticeDialog(null)}
+      />
+    </>
   );
 }
