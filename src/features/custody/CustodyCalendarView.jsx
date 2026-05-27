@@ -11,6 +11,7 @@ import PackingHub from "@/features/custody/PackingHub";
 import SmartNotificationsHub from "@/features/custody/SmartNotificationsHub";
 import BudgetHub from "@/features/custody/BudgetHub";
 import { Badge } from "@/components/ui/badge";
+import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import CustodyScopeMetadataBackfill from "@/features/custody/CustodyScopeMetadataBackfill";
 
 function normalizeEmail(value) {
@@ -37,6 +38,24 @@ function parentLabel(parent) {
 
 function parentColor(parent, fallback) {
   return parent?.color || parent?.custodyColor || parent?.custody_color || fallback;
+}
+
+function custodyGroupColorClasses(group, fallback = "blue") {
+  const parents = groupParents(group);
+  const firstParent = parents[0] || {};
+  const rawColor =
+    group?.colorId ||
+    group?.color_id ||
+    group?.color ||
+    firstParent.colorId ||
+    firstParent.color_id ||
+    firstParent.color ||
+    firstParent.custodyColor ||
+    firstParent.custody_color ||
+    fallback;
+
+  const colorId = normalizeColorId(rawColor, fallback);
+  return getColorClasses(colorId, fallback);
 }
 
 function groupChildrenRaw(group) {
@@ -135,6 +154,7 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
       <div className="flex flex-wrap gap-2">
         {groups.map((group) => {
           const active = group.id === selectedGroupId;
+          const colorClasses = custodyGroupColorClasses(group, "blue");
           const children = groupChildren(group);
           const parents = groupParents(group);
           const access = resolveCustodyAccess(group, myEmail);
@@ -151,12 +171,12 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
               onClick={() => onSelect(group.id)}
               className={`min-w-[220px] max-w-full flex-1 rounded-[1.15rem] border px-3 py-2.5 text-left transition sm:max-w-[310px] ${
                 active
-                  ? "border-blue-100 bg-blue-50/75 shadow-sm ring-1 ring-blue-100"
-                  : "border-slate-200 bg-slate-50/70 hover:border-blue-100 hover:bg-white hover:shadow-sm"
+                  ? `${colorClasses.border} ${colorClasses.bg} shadow-sm ring-1 ${colorClasses.ring}`
+                  : `border-slate-200 bg-slate-50/70 hover:${colorClasses.border} hover:bg-white hover:shadow-sm`
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border ${active ? "border-blue-100 bg-blue-600 text-white" : "border-blue-100 bg-white text-blue-700"}`}>
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border ${active ? `${colorClasses.borderStrong} ${colorClasses.stripe} text-white` : `${colorClasses.border} bg-white ${colorClasses.text}`}`}>
                   <Baby className="h-4 w-4" />
                 </div>
 
@@ -166,7 +186,7 @@ function CustodyGroupSelector({ groups, selectedGroupId, onSelect, myEmail }) {
                       {group.name || "Custody Group"}
                     </p>
                     {active && (
-                      <Badge className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-black text-blue-700 hover:bg-blue-100">
+                      <Badge className={`rounded-full px-2 py-0.5 text-[10px] font-black hover:${colorClasses.bg} ${colorClasses.bg} ${colorClasses.text}`}>
                         Active
                       </Badge>
                     )}

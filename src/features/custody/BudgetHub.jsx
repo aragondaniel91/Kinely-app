@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
 
 const emptyNewExpense = {
@@ -336,8 +337,10 @@ function ExpenseModal({ open, mode, value, saving, onChange, onClose, onSubmit }
   );
 }
 
-function SplitPreview({ dadName, momName, pending }) {
+function SplitPreview({ dadName, momName, dadColor = "blue", momColor = "amber", pending }) {
   const estimatedShare = Math.round((pending || 0) / 2);
+  const dadClasses = getColorClasses(normalizeColorId(dadColor, "blue"), "blue");
+  const momClasses = getColorClasses(normalizeColorId(momColor, "amber"), "amber");
 
   return (
     <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
@@ -354,15 +357,15 @@ function SplitPreview({ dadName, momName, pending }) {
       </div>
 
       <div className="space-y-3">
-        <div className="rounded-[1.4rem] border border-blue-100 bg-blue-50/80 p-4">
-          <p className="text-sm font-black text-blue-900">{dadName || "Dad"}</p>
-          <p className="mt-1 text-3xl font-black text-blue-700">{currency(estimatedShare)}</p>
-          <p className="mt-1 text-xs font-bold text-blue-700/80">Estimated balance</p>
+        <div className={`rounded-[1.4rem] border p-4 ${dadClasses.border} ${dadClasses.bg}`}>
+          <p className={`text-sm font-black ${dadClasses.textStrong}`}>{dadName || "Dad"}</p>
+          <p className={`mt-1 text-3xl font-black ${dadClasses.text}`}>{currency(estimatedShare)}</p>
+          <p className={`mt-1 text-xs font-bold ${dadClasses.text}`}>Estimated balance</p>
         </div>
-        <div className="rounded-[1.4rem] border border-amber-100 bg-amber-50/80 p-4">
-          <p className="text-sm font-black text-amber-900">{momName || "Mom"}</p>
-          <p className="mt-1 text-3xl font-black text-amber-700">{currency(estimatedShare)}</p>
-          <p className="mt-1 text-xs font-bold text-amber-700/80">Estimated balance</p>
+        <div className={`rounded-[1.4rem] border p-4 ${momClasses.border} ${momClasses.bg}`}>
+          <p className={`text-sm font-black ${momClasses.textStrong}`}>{momName || "Mom"}</p>
+          <p className={`mt-1 text-3xl font-black ${momClasses.text}`}>{currency(estimatedShare)}</p>
+          <p className={`mt-1 text-xs font-bold ${momClasses.text}`}>Estimated balance</p>
         </div>
       </div>
     </Card>
@@ -370,7 +373,7 @@ function SplitPreview({ dadName, momName, pending }) {
 }
 
 export default function BudgetHub() {
-  const { user, familyId, dadName, momName } = useFamily();
+  const { user, familyId, dadName, momName, profile } = useFamily();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -595,7 +598,13 @@ export default function BudgetHub() {
           </Card>
 
           <div className="space-y-6">
-            <SplitPreview dadName={dadName} momName={momName} pending={summary.pending} />
+            <SplitPreview
+              dadName={dadName}
+              momName={momName}
+              dadColor={profile?.parent1Color || profile?.parent1_color || "blue"}
+              momColor={profile?.parent2Color || profile?.parent2_color || "amber"}
+              pending={summary.pending}
+            />
 
             <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
               <div className="flex items-start gap-4">
