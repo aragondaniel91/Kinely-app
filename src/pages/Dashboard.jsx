@@ -263,19 +263,23 @@ function summarizeList(list) {
     list.listItems,
     list.list_items,
     list.products,
+    list.entries,
   ].filter(Array.isArray);
 
   const flatItems = itemArrays.flat();
 
   const pendingItems = flatItems.filter((item) => {
     if (!item) return false;
+
+    const status = String(item.status || "").toLowerCase();
+
     return (
       item.checked !== true &&
       item.done !== true &&
       item.completed !== true &&
-      item.status !== "done" &&
-      item.status !== "completed" &&
-      item.status !== "archived"
+      status !== "done" &&
+      status !== "completed" &&
+      status !== "archived"
     );
   });
 
@@ -286,17 +290,147 @@ function summarizeList(list) {
     list.open_count ??
     list.itemsCount ??
     list.items_count ??
-    list.count ??
     list.itemCount ??
-    list.item_count;
+    list.item_count ??
+    list.count ??
+    list.total ??
+    list.totalItems ??
+    list.total_items;
 
   const calculatedCount = flatItems.length ? pendingItems.length : explicitCount ?? 0;
 
   return {
     ...list,
-    title: list.title || list.name || list.label || list.listTitle || list.list_title || "Family list",
+    title:
+      list.title ||
+      list.name ||
+      list.label ||
+      list.listTitle ||
+      list.list_title ||
+      list.category ||
+      "Family list",
     pendingCount: Number(calculatedCount) || 0,
   };
+}
+
+function isPendingListItem(item = {}) {
+  const status = String(item.status || "").toLowerCase();
+
+  return (
+    item.checked !== true &&
+    item.done !== true &&
+    item.completed !== true &&
+    status !== "done" &&
+    status !== "completed" &&
+    status !== "archived"
+  );
+}
+
+function getListTitleFromItem(item = {}) {
+  return (
+    item.listTitle ||
+    item.list_title ||
+    item.listName ||
+    item.list_name ||
+    item.category ||
+    item.group ||
+    item.type ||
+    "Grocery list"
+  );
+}
+
+function getListKeyFromItem(item = {}) {
+  return String(
+    item.listId ||
+      item.list_id ||
+      item.familyListId ||
+      item.family_list_id ||
+      item.groceryListId ||
+      item.grocery_list_id ||
+      item.shoppingListId ||
+      item.shopping_list_id ||
+      getListTitleFromItem(item)
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function getListKeys(list = {}) {
+  const title =
+    list.title ||
+    list.name ||
+    list.label ||
+    list.listTitle ||
+    list.list_title ||
+    list.category ||
+    "";
+
+  return [
+    list.id,
+    list.listId,
+    list.list_id,
+    list.familyListId,
+    list.family_list_id,
+    list.groceryListId,
+    list.grocery_list_id,
+    list.shoppingListId,
+    list.shopping_list_id,
+    title,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+}
+
+function mergeListsWithItems(familyLists = [], rawItems = []) {
+  const pendingItems = rawItems.filter(isPendingListItem);
+  const groupedItems = new Map();
+
+  pendingItems.forEach((item) => {
+    const key = getListKeyFromItem(item);
+    const title = getListTitleFromItem(item);
+
+    if (!groupedItems.has(key)) {
+      groupedItems.set(key, {
+        id: key,
+        title,
+        pendingCount: 0,
+        source: "items",
+      });
+    }
+
+    groupedItems.get(key).pendingCount += 1;
+  });
+
+  const normalizedLists = familyLists.map((list) => {
+    const summary = summarizeList(list);
+    const keys = getListKeys(summary);
+
+    const matchingGroup = Array.from(groupedItems.entries()).find(([groupKey, group]) => {
+      const groupTitle = String(group.title || "").trim().toLowerCase();
+      return keys.includes(groupKey) || keys.includes(groupTitle);
+    });
+
+    return {
+      ...summary,
+      pendingCount: matchingGroup
+        ? matchingGroup[1].pendingCount
+        : Number(summary.pendingCount ?? 0),
+    };
+  });
+
+  const existingKeys = new Set(
+    normalizedLists.flatMap((list) => getListKeys(list))
+  );
+
+  groupedItems.forEach((group, key) => {
+    const titleKey = String(group.title || "").trim().toLowerCase();
+
+    if (!existingKeys.has(key) && !existingKeys.has(titleKey)) {
+      normalizedLists.push(group);
+    }
+  });
+
+  return normalizedLists;
 }
 
 async function loadFamilyCollection(collectionName, familyId) {
@@ -368,102 +502,22 @@ export default function Dashboard() {
 
         if (canReadGroceries) {
           const familyLists = await loadFamilyCollection("familyLists", familyId);
-          const groceries = await loadFamilyCollection("groceries", familyId);
 
-          const groupedItems = new Map();
+          const itemCollections = [
+            "groceries",
+            "groceryItems",
+            "familyListItems",
+            "listItems",
+            "shoppingItems",
+          ];
 
-          groceries
-            .filter((item) => {
-              return (
-                item.checked !== true &&
-                item.done !== true &&
-                item.completed !== true &&
-                item.status !== "done" &&
-                item.status !== "completed" &&
-                item.status !== "archived"
-              );
-            })
-            .forEach((item) => {
-              const listId =
-                item.listId ||
-                item.list_id ||
-                item.familyListId ||
-                item.family_list_id ||
-                item.groceryListId ||
-                item.grocery_list_id ||
-                "";
+          const itemResults = await Promise.all(
+            itemCollections.map((name) => loadFamilyCollection(name, familyId))
+          );
 
-              const title =
-                item.listTitle ||
-                item.list_title ||
-                item.category ||
-                item.group ||
-                item.type ||
-                "Grocery list";
+          const allListItems = itemResults.flat();
 
-              const key = String(listId || title).trim().toLowerCase();
-
-              if (!groupedItems.has(key)) {
-                groupedItems.set(key, {
-                  id: listId || `grocery-${key}`,
-                  title,
-                  pendingCount: 0,
-                  source: "groceries",
-                });
-              }
-
-              groupedItems.get(key).pendingCount += 1;
-            });
-
-          const groceryGroups = Array.from(groupedItems.values());
-
-          if (familyLists.length) {
-            listData = familyLists.map((list) => {
-              const title = list.title || list.name || list.label || "Family list";
-              const listId = list.id || list.listId || list.list_id || "";
-
-              const matchingGroup = groceryGroups.find((group) => {
-                const sameId = listId && String(group.id).toLowerCase() === String(listId).toLowerCase();
-                const sameTitle =
-                  String(group.title || "").trim().toLowerCase() ===
-                  String(title || "").trim().toLowerCase();
-
-                return sameId || sameTitle;
-              });
-
-              return summarizeList({
-                ...list,
-                title,
-                pendingCount:
-                  matchingGroup?.pendingCount ??
-                  list.pendingCount ??
-                  list.pending_count ??
-                  list.openCount ??
-                  list.open_count ??
-                  list.itemsCount ??
-                  list.items_count ??
-                  list.count ??
-                  0,
-              });
-            });
-
-            const existingKeys = new Set(
-              listData.map((list) =>
-                String(list.id || list.title || list.name || "").trim().toLowerCase()
-              )
-            );
-
-            groceryGroups.forEach((group) => {
-              const key = String(group.id || group.title || "").trim().toLowerCase();
-              const titleKey = String(group.title || "").trim().toLowerCase();
-
-              if (!existingKeys.has(key) && !existingKeys.has(titleKey)) {
-                listData.push(group);
-              }
-            });
-          } else {
-            listData = groceryGroups;
-          }
+          listData = mergeListsWithItems(familyLists, allListItems);
         }
 
         if (canReadCalendar) {
@@ -510,9 +564,6 @@ export default function Dashboard() {
           .map(summarizeList)
           .filter((list) => list.status !== "archived");
 
-        normalizedTasksToday.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
-        normalizedOverdueTasks.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
-        normalizedMeals.sort((a, b) => String(a.meal_type || a.mealType || "").localeCompare(String(b.meal_type || b.mealType || "")));
         normalizedLists.sort((a, b) => {
           const countDiff = Number(b.pendingCount ?? 0) - Number(a.pendingCount ?? 0);
           if (countDiff !== 0) return countDiff;
