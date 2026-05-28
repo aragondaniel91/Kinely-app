@@ -559,3 +559,98 @@ export function resolveEventPersonFromRecord(record = {}, people = []) {
   return colorMatches.length === 1 ? colorMatches[0] : null;
 }
 
+// -----------------------------------------------------------------------------
+// Assignment-only identity resolution
+// -----------------------------------------------------------------------------
+// Used for tasks/lists/meals where createdBy is not the assignee.
+// This prevents "Mary's task created by Daniel" from counting under Daniel.
+
+export function getAssignmentIdentityTokens(record = {}) {
+  const rawFields = [
+    record.assignedToPersonId,
+    record.assigned_to_person_id,
+    record.assignedPersonId,
+    record.assigned_person_id,
+    record.assignedPersonIds,
+    record.assigned_person_ids,
+    record.assignedToPersonIds,
+    record.assigned_to_person_ids,
+
+    record.assignedToPersonName,
+    record.assigned_to_person_name,
+    record.assignedPersonName,
+    record.assigned_person_name,
+    record.assignedPersonNames,
+    record.assigned_person_names,
+
+    record.assignedTo,
+    record.assigned_to,
+    record.assignee,
+    record.assignees,
+    record.assigneeName,
+    record.assignee_name,
+    record.assignedToName,
+    record.assigned_to_name,
+    record.assignedToNames,
+    record.assigned_to_names,
+
+    record.owner,
+    record.ownerName,
+    record.owner_name,
+    record.ownerId,
+    record.owner_id,
+    record.ownerUid,
+    record.owner_uid,
+
+    record.personId,
+    record.person_id,
+    record.personIds,
+    record.person_ids,
+    record.personName,
+    record.person_name,
+
+    record.memberId,
+    record.member_id,
+    record.memberIds,
+    record.member_ids,
+    record.memberName,
+    record.member_name,
+
+    record.childId,
+    record.child_id,
+    record.childIds,
+    record.child_ids,
+    record.childName,
+    record.child_name,
+  ];
+
+  const values = [];
+  rawFields.forEach((field) => collectIdentityValues(field, values));
+
+  const tokens = values
+    .filter(Boolean)
+    .map(normalizeIdentityToken)
+    .filter(Boolean);
+
+  values.forEach((value) => {
+    const first = firstNameToken(value);
+    if (first) tokens.push(`adult-first:${first}`);
+  });
+
+  return Array.from(new Set(tokens));
+}
+
+export function resolveAssignedPersonFromRecord(record = {}, people = []) {
+  if (!record || !people.length) return null;
+
+  const recordTokens = getAssignmentIdentityTokens(record);
+  if (!recordTokens.length) return null;
+
+  return (
+    people.find((person) => {
+      const personTokens = getPersonIdentityTokens(person);
+      return personTokens.some((token) => recordTokens.includes(token));
+    }) || null
+  );
+}
+

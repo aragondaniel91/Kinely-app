@@ -32,19 +32,26 @@ function normalizeDate(value) {
 }
 
 function getItemDate(item) {
-  return normalizeDate(
+  const raw =
     item?.date ||
-      item?.dueDate ||
-      item?.due_date ||
-      item?.due ||
-      item?.scheduledDate ||
-      item?.scheduled_date ||
-      item?.startDate ||
-      item?.start_date ||
-      item?.start ||
-      item?.eventDate ||
-      item?.event_date
-  );
+    item?.eventDate ||
+    item?.event_date ||
+    item?.startDate ||
+    item?.start_date ||
+    item?.start ||
+    item?.startTime ||
+    item?.start_time ||
+    item?.startsAt ||
+    item?.starts_at ||
+    item?.dueDate ||
+    item?.due_date ||
+    item?.due ||
+    item?.scheduledDate ||
+    item?.scheduled_date;
+
+  if (!raw) return "";
+
+  return normalizeDate(raw);
 }
 
 function isInDateRange(dateKey, startKey, endKey) {

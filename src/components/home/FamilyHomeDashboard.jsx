@@ -18,7 +18,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
-import { resolvePersonFromRecord, resolveEventPersonFromRecord, samePerson } from "@/core/people/peopleCore";
+import { resolveAssignedPersonFromRecord, resolveEventPersonFromRecord, resolvePersonFromRecord, samePerson } from "@/core/people/peopleCore";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -376,9 +376,12 @@ function findPersonForItem(item, people = []) {
 }
 
 function recordBelongsToPerson(record, person, people = [], options = {}) {
-  const resolvedPerson = options.type === "event"
-    ? resolveEventPersonFromRecord(record, people)
-    : resolvePersonFromRecord(record, people);
+  const resolvedPerson =
+    options.type === "event"
+      ? resolveEventPersonFromRecord(record, people)
+      : options.type === "assignment"
+      ? resolveAssignedPersonFromRecord(record, people)
+      : resolvePersonFromRecord(record, people);
 
   return Boolean(resolvedPerson && samePerson(resolvedPerson, person));
 }
@@ -734,9 +737,9 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
         {visiblePeople.slice(0, 8).map((person, index) => {
           const name = personName(person) || `Member ${index + 1}`;
           const colorClasses = getPersonColorClasses(person, index);
-          const personTasks = tasksToday.filter((task) => recordBelongsToPerson(task, person, people));
+          const personTasks = tasksToday.filter((task) => recordBelongsToPerson(task, person, people, { type: "assignment" }));
           const personEvents = calendarEventsToday.filter((event) => recordBelongsToPerson(event, person, people, { type: "event" }));
-          const personMeals = mealsToday.filter((meal) => recordBelongsToPerson(meal, person, people));
+          const personMeals = mealsToday.filter((meal) => recordBelongsToPerson(meal, person, people, { type: "assignment" }));
           const total = personTasks.length + personEvents.length + personMeals.length;
 
           return (
@@ -773,7 +776,7 @@ function TaskPreviewCard({ tasksToday, people }) {
       <div className="mt-3 max-h-[265px] space-y-2 overflow-y-auto pr-1">
         {visibleTasks.length ? (
           visibleTasks.map((task, index) => {
-            const assignedPerson = resolvePersonFromRecord(task, people);
+            const assignedPerson = resolveAssignedPersonFromRecord(task, people);
             const personClasses = assignedPerson ? getPersonColorClasses(assignedPerson, index) : null;
 
             return (
