@@ -195,15 +195,32 @@ function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
     )
     .filter(Boolean);
 
+  const currentUserName = user?.displayName || profile?.displayName || user?.email || "";
+  const currentUserFirst = firstToken(currentUserName);
+
+  const currentUserAlreadyRepresented =
+    Boolean(currentUserFirst) &&
+    [...parents, ...members].some((person) => {
+      const candidateFirst = firstToken(
+        person.name || person.displayName || person.fullName || person.email
+      );
+
+      const sameFirstName = candidateFirst && candidateFirst === currentUserFirst;
+      const sameEmail = user?.email && person.email === user.email;
+      const sameUid = user?.uid && (person.uid === user.uid || person.id === user.uid);
+
+      return sameFirstName || sameEmail || sameUid;
+    });
+
   const currentUser =
-    user
+    user && !currentUserAlreadyRepresented
       ? [
           normalizePerson(
             {
               id: user.uid,
               uid: user.uid,
               email: user.email,
-              name: user.displayName || profile?.displayName || user.email || "Me",
+              name: currentUserName || "Me",
               type: "owner",
               role: "owner",
               colorId: profile?.colorId || profile?.color_id || "blue",
