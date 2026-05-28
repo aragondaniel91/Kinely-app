@@ -117,6 +117,49 @@ function getPersonColorClasses(person, index = 0) {
   return getColorClasses(normalizeColorId(rawColor, fallback), fallback);
 }
 
+function getPersonColorId(person, fallback = "") {
+  return normalizeColorId(
+    person?.colorId ||
+      person?.color_id ||
+      person?.color ||
+      person?.familyColor ||
+      person?.family_color ||
+      person?.calendarColor ||
+      person?.calendar_color ||
+      fallback,
+    fallback || "blue"
+  );
+}
+
+function getEventColorId(event, fallback = "") {
+  return normalizeColorId(
+    event?.colorId ||
+      event?.color_id ||
+      event?.color ||
+      event?.eventColor ||
+      event?.event_color ||
+      event?.calendarColor ||
+      event?.calendar_color ||
+      event?.personColor ||
+      event?.person_color ||
+      fallback,
+    fallback || "violet"
+  );
+}
+
+function matchesPersonByColor(item, person) {
+  const itemColor = getEventColorId(item, "");
+  const personColor = getPersonColorId(person, "");
+
+  if (!itemColor || !personColor) return false;
+
+  return itemColor === personColor;
+}
+
+function matchesEventPerson(event, person) {
+  return matchesPerson(event, person) || matchesPersonByColor(event, person);
+}
+
 function getEventColorClasses(event, assignedPerson, index = 0) {
   const fallbackColors = ["violet", "blue", "amber", "emerald", "rose", "teal"];
   const fallback = fallbackColors[index % fallbackColors.length];
@@ -410,22 +453,22 @@ function TimeWeatherPanel({ tasksToday, mealsToday, calendarEventsToday }) {
       : "Looks like a calm family day ☀️";
 
   return (
-    <div className="rounded-[1.55rem] border border-white/35 bg-white/15 p-4 text-right shadow-[0_18px_42px_rgba(15,23,42,0.08)] backdrop-blur-md">
+    <div className="rounded-[1.35rem] border border-white/35 bg-white/15 p-3.5 text-right shadow-[0_18px_42px_rgba(15,23,42,0.08)] backdrop-blur-md">
       <div className="flex items-center justify-end gap-3">
         <div>
-          <p className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+          <p className="text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
             {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
           </p>
           <p className="mt-1 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
             {now.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
           </p>
         </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] border border-amber-100 bg-amber-50 text-amber-500">
+        <div className="flex h-9 w-9 items-center justify-center rounded-[1.25rem] border border-amber-100 bg-amber-50 text-amber-500">
           <Sun className="h-6 w-6" />
         </div>
       </div>
 
-      <div className="mt-3 rounded-2xl border border-white/30 bg-white/20 px-4 py-3 text-left backdrop-blur-sm">
+      <div className="mt-2 rounded-xl border border-white/30 bg-white/20 px-3 py-2 text-left backdrop-blur-sm">
         <p className="text-sm font-black text-slate-950">{message}</p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
           A calm glance at today’s rhythm for everyone at home.
@@ -459,13 +502,13 @@ function MiniPulse({ icon: Icon, value, label, tone, to }) {
   return (
     <Link
       to={to}
-      className="flex min-h-[58px] items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 px-3 py-2 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+      className="flex min-h-[52px] items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 px-3 py-2 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
     >
       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-3xl font-black leading-none text-slate-950">{value}</p>
+        <p className="text-2xl font-black leading-none text-slate-950">{value}</p>
         <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{label}</p>
       </div>
     </Link>
@@ -474,28 +517,28 @@ function MiniPulse({ icon: Icon, value, label, tone, to }) {
 
 function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLists }) {
   return (
-    <section className="overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
-      <div className="kinly-family-gradient p-4 md:p-5">
-        <div className="grid gap-5 xl:grid-cols-[1fr_0.7fr] xl:items-center">
+    <section className="overflow-hidden rounded-[1.35rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
+      <div className="kinly-family-gradient p-4 md:p-4">
+        <div className="grid gap-4 xl:grid-cols-[1fr_0.62fr] xl:items-center">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
               <Sparkles className="h-3.5 w-3.5" />
               Home dashboard
             </div>
 
-            <h1 className="max-w-4xl text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
+            <h1 className="max-w-4xl text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
               {getGreeting()}, {familyName} ✨
             </h1>
 
-            <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-600">
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
               Let’s keep today calm, clear, and organized.
             </p>
 
-            <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
+            <p className="mt-1 max-w-2xl text-xs font-bold leading-5 text-slate-500">
               Today’s meals, tasks, events, and shared lists — all in one beautiful family view.
             </p>
 
-            <div className="mt-4 grid max-w-3xl gap-2 sm:grid-cols-4">
+            <div className="mt-3 grid max-w-3xl gap-2 sm:grid-cols-4">
               <MiniPulse icon={CheckSquare} value={tasksToday.length} label="Tasks today" tone="blue" to="/tasks" />
               <MiniPulse icon={UtensilsCrossed} value={mealsToday.length} label="Meals today" tone="amber" to="/meals" />
               <MiniPulse icon={CalendarDays} value={calendarEventsToday.length} label="Events today" tone="violet" to="/calendar" />
@@ -517,7 +560,7 @@ function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLis
 function AttentionCard({ icon: Icon, title, text, tone, to }) {
   return (
     <Link to={to} className="flex items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
@@ -592,9 +635,9 @@ function NeedsAttention({ tasksToday, overdueTasks, mealsToday, calendarEventsTo
   }
 
   return (
-    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Needs attention" title="Today’s status" />
-      <div className="mt-3 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-2.5 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         {items.slice(0, 4).map((item) => <AttentionCard key={item.title} {...item} />)}
       </div>
     </Card>
@@ -603,16 +646,16 @@ function NeedsAttention({ tasksToday, overdueTasks, mealsToday, calendarEventsTo
 
 function ModuleCard({ icon: Icon, title, text, metric, tone, to }) {
   return (
-    <Link to={to} className="group rounded-[1.45rem] border border-white/80 bg-white p-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-md">
+    <Link to={to} className="group rounded-[1.25rem] border border-white/80 bg-white p-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+        <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
           <Icon className="h-4 w-4" />
         </div>
         <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:text-blue-500" />
       </div>
-      <p className="mt-3 text-base font-black text-slate-950">{title}</p>
-      <p className="mt-1 min-h-[34px] text-xs font-semibold leading-5 text-slate-500">{text}</p>
-      <p className="mt-3 text-xl font-black text-slate-900">{metric}</p>
+      <p className="mt-2 text-sm font-black text-slate-950">{title}</p>
+      <p className="mt-1 min-h-[28px] text-[11px] font-semibold leading-5 text-slate-500">{text}</p>
+      <p className="mt-2 text-2xl font-black text-slate-900">{metric}</p>
     </Link>
   );
 }
@@ -655,8 +698,8 @@ function ModulesGrid({ tasksToday, mealsToday, calendarEventsToday, openLists })
 
   return (
     <section>
-      <SectionHeader kicker="Family modules" title="Shared space" />
-      <div className="mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+      <SectionHeader kicker="Modules" title="Shared space" />
+      <div className="mt-2.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => <ModuleCard key={card.title} {...card} />)}
       </div>
     </section>
@@ -676,14 +719,14 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
   if (!visiblePeople.length) return null;
 
   return (
-    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Family members" title="Today by person" action="Manage" to="/profile" />
-      <div className="mt-3 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-2.5 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         {visiblePeople.slice(0, 8).map((person, index) => {
           const name = personName(person) || `Member ${index + 1}`;
           const colorClasses = getPersonColorClasses(person, index);
           const personTasks = tasksToday.filter((task) => matchesPerson(task, person));
-          const personEvents = calendarEventsToday.filter((event) => matchesPerson(event, person));
+          const personEvents = calendarEventsToday.filter((event) => matchesEventPerson(event, person));
           const personMeals = mealsToday.filter((meal) => matchesPerson(meal, person));
           const total = personTasks.length + personEvents.length + personMeals.length;
 
@@ -691,9 +734,9 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
             <Link
               key={person.id || person.uid || person.email || `${name}-${index}`}
               to="/profile"
-              className={`flex items-center gap-3 rounded-[1.1rem] border bg-white px-3 py-2.5 transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}
+              className={`flex items-center gap-3 rounded-[1.05rem] border bg-white px-3 py-2 transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}
             >
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] text-sm font-black shadow-sm ${colorClasses.bgStrong} ${colorClasses.textStrong}`}>
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[1rem] text-sm font-black shadow-sm ${colorClasses.bgStrong} ${colorClasses.textStrong}`}>
                 {getInitials(name)}
               </div>
               <div className="min-w-0 flex-1">
@@ -716,9 +759,9 @@ function TaskPreviewCard({ tasksToday, people }) {
   const visibleTasks = tasksToday.slice(0, 5);
 
   return (
-    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Today’s tasks" title={tasksToday.length ? `${tasksToday.length} due today` : "All clear"} action="View all" to="/tasks" />
-      <div className="mt-3 max-h-[285px] space-y-2 overflow-y-auto pr-1">
+      <div className="mt-3 max-h-[265px] space-y-2 overflow-y-auto pr-1">
         {visibleTasks.length ? (
           visibleTasks.map((task, index) => {
             const assignedPerson = findPersonForItem(task, people);
@@ -776,9 +819,9 @@ function MealsTodayCard({ mealsToday }) {
   const visibleMeals = mealsToday.slice(0, 5);
 
   return (
-    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Meals" title="Today’s meals" action="Plan meals" to="/meals" />
-      <div className="mt-3 max-h-[285px] space-y-2 overflow-y-auto pr-1">
+      <div className="mt-3 max-h-[265px] space-y-2 overflow-y-auto pr-1">
         {visibleMeals.length ? (
           visibleMeals.map((meal, index) => {
             const tone = getMealTone(meal);
@@ -810,9 +853,9 @@ function NextSevenDaysCard({ calendarEvents, people }) {
     .slice(0, 7);
 
   return (
-    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Next 7 days" title="Calendar" action="View calendar" to="/calendar" />
-      <div className="mt-3 max-h-[285px] space-y-2 overflow-y-auto pr-1">
+      <div className="mt-3 max-h-[265px] space-y-2 overflow-y-auto pr-1">
         {items.length ? (
           items.map((event, index) => {
             const assignedPerson = findPersonForItem(event, people);
@@ -848,9 +891,9 @@ function NextSevenDaysCard({ calendarEvents, people }) {
 
 function OpenListsCard({ openLists }) {
   return (
-    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Lists" title="Open lists" action="Open" to="/groceries" />
-      <div className="mt-4 max-h-[330px] space-y-2.5 overflow-y-auto pr-1">
+      <div className="mt-4 max-h-[265px] space-y-2.5 overflow-y-auto pr-1">
         {openLists.length ? (
           openLists.slice(0, 12).map((list, index) => (
             <CompactItem
@@ -895,9 +938,9 @@ function ActivityItem({ item }) {
 
 function FamilyActivityCard({ activity = [] }) {
   return (
-    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Activity" title="Family updates" />
-      <div className="mt-3 space-y-2">
+      <div className="mt-2.5 space-y-2">
         {activity.length ? (
           activity.slice(0, 5).map((item, index) => (
             <ActivityItem key={item.id || `${item.type}-${index}`} item={item} />
@@ -925,7 +968,7 @@ export default function FamilyHomeDashboard({
 
   return (
     <div className="kinly-gradient-bg min-h-full px-3 pb-24 pt-2 md:px-5 md:pb-10 lg:px-6">
-      <div className="mx-auto max-w-7xl space-y-3">
+      <div className="mx-auto max-w-7xl space-y-2.5">
         <Hero
           familyName={familyName}
           tasksToday={tasksToday}
