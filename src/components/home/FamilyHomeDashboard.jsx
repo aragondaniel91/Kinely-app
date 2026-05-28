@@ -18,6 +18,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
+import { resolvePersonFromRecord, samePerson } from "@/core/people/peopleCore";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -371,7 +372,12 @@ function matchesPerson(item, person) {
 }
 
 function findPersonForItem(item, people = []) {
-  return people.find((person) => matchesPerson(item, person)) || null;
+  return resolvePersonFromRecord(item, people);
+}
+
+function recordBelongsToPerson(record, person, people = []) {
+  const resolvedPerson = resolvePersonFromRecord(record, people);
+  return Boolean(resolvedPerson && samePerson(resolvedPerson, person));
 }
 
 function isCoreWallPerson(person) {
@@ -725,9 +731,9 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
         {visiblePeople.slice(0, 8).map((person, index) => {
           const name = personName(person) || `Member ${index + 1}`;
           const colorClasses = getPersonColorClasses(person, index);
-          const personTasks = tasksToday.filter((task) => matchesPerson(task, person));
-          const personEvents = calendarEventsToday.filter((event) => matchesEventPerson(event, person));
-          const personMeals = mealsToday.filter((meal) => matchesPerson(meal, person));
+          const personTasks = tasksToday.filter((task) => recordBelongsToPerson(task, person, people));
+          const personEvents = calendarEventsToday.filter((event) => recordBelongsToPerson(event, person, people));
+          const personMeals = mealsToday.filter((meal) => recordBelongsToPerson(meal, person, people));
           const total = personTasks.length + personEvents.length + personMeals.length;
 
           return (
@@ -764,7 +770,7 @@ function TaskPreviewCard({ tasksToday, people }) {
       <div className="mt-3 max-h-[265px] space-y-2 overflow-y-auto pr-1">
         {visibleTasks.length ? (
           visibleTasks.map((task, index) => {
-            const assignedPerson = findPersonForItem(task, people);
+            const assignedPerson = resolvePersonFromRecord(task, people);
             const personClasses = assignedPerson ? getPersonColorClasses(assignedPerson, index) : null;
 
             return (
@@ -858,7 +864,7 @@ function NextSevenDaysCard({ calendarEvents, people }) {
       <div className="mt-3 max-h-[265px] space-y-2 overflow-y-auto pr-1">
         {items.length ? (
           items.map((event, index) => {
-            const assignedPerson = findPersonForItem(event, people);
+            const assignedPerson = resolvePersonFromRecord(event, people);
             const eventClasses = getEventColorClasses(event, assignedPerson, index);
 
             return (

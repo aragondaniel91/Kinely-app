@@ -270,3 +270,244 @@ export function getPersonById(people = [], personId = "") {
   if (!personId) return null;
   return people.find((person) => person.id === personId) || null;
 }
+
+// -----------------------------------------------------------------------------
+// Production identity resolution
+// -----------------------------------------------------------------------------
+// Display names are labels only. Production logic should resolve records through
+// stable IDs first, then legacy fallbacks while old data is being backfilled.
+
+export function normalizeIdentityToken(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w@.\-\s]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+export function firstNameToken(value) {
+  return normalizeIdentityToken(value).split(" ")[0] || "";
+}
+
+export function getPersonIdentityTokens(person = {}) {
+  const tokens = [
+    person.id,
+    person.personId,
+    person.person_id,
+    person.uid,
+    person.userId,
+    person.user_id,
+    person.memberId,
+    person.member_id,
+    person.email,
+    person.displayName,
+    person.display_name,
+    person.fullName,
+    person.full_name,
+    person.name,
+    person.firstName,
+    person.first_name,
+    ...(Array.isArray(person.aliases) ? person.aliases : []),
+  ]
+    .filter(Boolean)
+    .map(normalizeIdentityToken)
+    .filter(Boolean);
+
+  const type = normalizeIdentityToken(person.type || person.role || person.relationship);
+  const first = firstNameToken(person.displayName || person.name || person.fullName || person.email);
+
+  // Adult first-name alias is only a legacy bridge.
+  // Stable IDs still win first.
+  if (first && !["child", "kid", "son", "daughter"].includes(type)) {
+    tokens.push(`adult-first:${first}`);
+  }
+
+  return Array.from(new Set(tokens));
+}
+
+function collectIdentityValues(value, output = []) {
+  if (!value) return output;
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectIdentityValues(entry, output));
+    return output;
+  }
+
+  if (typeof value === "object") {
+    [
+      value.id,
+      value.personId,
+      value.person_id,
+      value.uid,
+      value.userId,
+      value.user_id,
+      value.memberId,
+      value.member_id,
+      value.childId,
+      value.child_id,
+      value.email,
+      value.name,
+      value.displayName,
+      value.display_name,
+      value.fullName,
+      value.full_name,
+      value.firstName,
+      value.first_name,
+      value.label,
+      value.title,
+    ].forEach((entry) => collectIdentityValues(entry, output));
+
+    return output;
+  }
+
+  output.push(value);
+  return output;
+}
+
+export function getRecordIdentityTokens(record = {}) {
+  const rawFields = [
+    record.assignedToPersonId,
+    record.assigned_to_person_id,
+    record.assignedPersonId,
+    record.assigned_person_id,
+    record.assignedPersonIds,
+    record.assigned_person_ids,
+    record.assignedToPersonIds,
+    record.assigned_to_person_ids,
+    record.personId,
+    record.person_id,
+    record.personIds,
+    record.person_ids,
+
+    record.assignedTo,
+    record.assigned_to,
+    record.assignees,
+    record.assignee,
+    record.assigneeName,
+    record.assignee_name,
+    record.assignedToName,
+    record.assigned_to_name,
+    record.assignedToNames,
+    record.assigned_to_names,
+
+    record.owner,
+    record.ownerName,
+    record.owner_name,
+    record.ownerId,
+    record.owner_id,
+    record.ownerUid,
+    record.owner_uid,
+
+    record.member,
+    record.memberName,
+    record.member_name,
+    record.memberId,
+    record.member_id,
+    record.memberIds,
+    record.member_ids,
+
+    record.child,
+    record.childName,
+    record.child_name,
+    record.childId,
+    record.child_id,
+    record.childIds,
+    record.child_ids,
+
+    record.createdBy,
+    record.created_by,
+    record.createdByName,
+    record.created_by_name,
+    record.createdByUid,
+    record.created_by_uid,
+    record.createdByEmail,
+    record.created_by_email,
+
+    record.actor,
+    record.actorName,
+    record.actor_name,
+    record.actorEmail,
+    record.actor_email,
+    record.actorUid,
+    record.actor_uid,
+
+    record.attendees,
+    record.participants,
+    record.people,
+    record.members,
+    record.familyMembers,
+    record.guests,
+    record.invitees,
+  ];
+
+  const values = [];
+  rawFields.forEach((field) => collectIdentityValues(field, values));
+
+  const tokens = values
+    .filter(Boolean)
+    .map(normalizeIdentityToken)
+    .filter(Boolean);
+
+  values.forEach((value) => {
+    const first = firstNameToken(value);
+    if (first) tokens.push(`adult-first:${first}`);
+  });
+
+  return Array.from(new Set(tokens));
+}
+
+export function samePerson(a = {}, b = {}) {
+  const aTokens = getPersonIdentityTokens(a);
+  const bTokens = getPersonIdentityTokens(b);
+
+  if (!aTokens.length || !bTokens.length) return false;
+
+  return aTokens.some((token) => bTokens.includes(token));
+}
+
+export function resolvePersonFromRecord(record = {}, people = []) {
+  if (!record || !people.length) return null;
+
+  const recordTokens = getRecordIdentityTokens(record);
+  if (!recordTokens.length) return null;
+
+  return (
+    people.find((person) => {
+      const personTokens = getPersonIdentityTokens(person);
+      return personTokens.some((token) => recordTokens.includes(token));
+    }) || null
+  );
+}
+
+export function buildAssignmentFields(person = null) {
+  if (!person) {
+    return {
+      assignedToPersonId: "family",
+      assigned_to_person_id: "family",
+      assignedToPersonName: "Family",
+      assigned_to_person_name: "Family",
+      assignedTo: "Family",
+      assigned_to: "Family",
+    };
+  }
+
+  const id = person.id || person.personId || person.person_id || person.uid || person.email || "family";
+  const name = person.displayName || person.name || person.fullName || person.email || "Family";
+  const colorId = person.colorId || person.color_id || person.color || "blue";
+
+  return {
+    assignedToPersonId: id,
+    assigned_to_person_id: id,
+    assignedToPersonName: name,
+    assigned_to_person_name: name,
+    assignedToPersonColorId: colorId,
+    assigned_to_person_color_id: colorId,
+    assignedTo: name,
+    assigned_to: name,
+    assignedToName: name,
+    assigned_to_name: name,
+  };
+}
+
