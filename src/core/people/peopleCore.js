@@ -376,6 +376,12 @@ export function getRecordIdentityTokens(record = {}) {
     record.assigned_person_ids,
     record.assignedToPersonIds,
     record.assigned_to_person_ids,
+    record.assignedPersonSnapshot,
+    record.assigned_person_snapshot,
+    record.assignedPersonSnapshots,
+    record.assigned_person_snapshots,
+    record.personSnapshot,
+    record.person_snapshot,
     record.personId,
     record.person_id,
     record.personIds,
@@ -509,5 +515,47 @@ export function buildAssignmentFields(person = null) {
     assignedToName: name,
     assigned_to_name: name,
   };
+}
+
+
+export function getRecordColorId(record = "") {
+  return normalizeColorId(
+    record?.colorId ||
+      record?.color_id ||
+      record?.eventColor ||
+      record?.event_color ||
+      record?.calendarColor ||
+      record?.calendar_color ||
+      record?.personColor ||
+      record?.person_color ||
+      "",
+    ""
+  );
+}
+
+export function resolveEventPersonFromRecord(record = {}, people = []) {
+  const resolved = resolvePersonFromRecord(record, people);
+  if (resolved) return resolved;
+
+  const recordColorId = getRecordColorId(record);
+  if (!recordColorId) return null;
+
+  const colorMatches = people.filter((person) => {
+    const personColorId = normalizeColorId(
+      person.colorId ||
+        person.color_id ||
+        person.color ||
+        person.familyColor ||
+        person.family_color ||
+        person.calendarColor ||
+        person.calendar_color ||
+        "",
+      ""
+    );
+
+    return personColorId && personColorId === recordColorId;
+  });
+
+  return colorMatches.length === 1 ? colorMatches[0] : null;
 }
 

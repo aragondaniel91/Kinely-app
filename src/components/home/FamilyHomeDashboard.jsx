@@ -18,7 +18,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
-import { resolvePersonFromRecord, samePerson } from "@/core/people/peopleCore";
+import { resolvePersonFromRecord, resolveEventPersonFromRecord, samePerson } from "@/core/people/peopleCore";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -375,8 +375,11 @@ function findPersonForItem(item, people = []) {
   return resolvePersonFromRecord(item, people);
 }
 
-function recordBelongsToPerson(record, person, people = []) {
-  const resolvedPerson = resolvePersonFromRecord(record, people);
+function recordBelongsToPerson(record, person, people = [], options = {}) {
+  const resolvedPerson = options.type === "event"
+    ? resolveEventPersonFromRecord(record, people)
+    : resolvePersonFromRecord(record, people);
+
   return Boolean(resolvedPerson && samePerson(resolvedPerson, person));
 }
 
@@ -732,7 +735,7 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
           const name = personName(person) || `Member ${index + 1}`;
           const colorClasses = getPersonColorClasses(person, index);
           const personTasks = tasksToday.filter((task) => recordBelongsToPerson(task, person, people));
-          const personEvents = calendarEventsToday.filter((event) => recordBelongsToPerson(event, person, people));
+          const personEvents = calendarEventsToday.filter((event) => recordBelongsToPerson(event, person, people, { type: "event" }));
           const personMeals = mealsToday.filter((meal) => recordBelongsToPerson(meal, person, people));
           const total = personTasks.length + personEvents.length + personMeals.length;
 
@@ -864,7 +867,7 @@ function NextSevenDaysCard({ calendarEvents, people }) {
       <div className="mt-3 max-h-[265px] space-y-2 overflow-y-auto pr-1">
         {items.length ? (
           items.map((event, index) => {
-            const assignedPerson = resolvePersonFromRecord(event, people);
+            const assignedPerson = resolveEventPersonFromRecord(event, people);
             const eventClasses = getEventColorClasses(event, assignedPerson, index);
 
             return (
