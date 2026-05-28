@@ -117,6 +117,33 @@ function getPersonColorClasses(person, index = 0) {
   return getColorClasses(normalizeColorId(rawColor, fallback), fallback);
 }
 
+function getEventColorClasses(event, assignedPerson, index = 0) {
+  const fallbackColors = ["violet", "blue", "amber", "emerald", "rose", "teal"];
+  const fallback = fallbackColors[index % fallbackColors.length];
+
+  const rawEventColor =
+    event?.colorId ||
+    event?.color_id ||
+    event?.color ||
+    event?.eventColor ||
+    event?.event_color ||
+    event?.calendarColor ||
+    event?.calendar_color ||
+    event?.personColor ||
+    event?.person_color ||
+    "";
+
+  if (rawEventColor) {
+    return getColorClasses(normalizeColorId(rawEventColor, fallback), fallback);
+  }
+
+  if (assignedPerson) {
+    return getPersonColorClasses(assignedPerson, index);
+  }
+
+  return getColorClasses(normalizeColorId(fallback, fallback), fallback);
+}
+
 function personName(person) {
   return person?.displayName || person?.name || person?.fullName || person?.firstName || person?.email || "";
 }
@@ -662,21 +689,15 @@ function NextSevenDaysCard({ calendarEvents, people }) {
         {items.length ? (
           items.map((event, index) => {
             const assignedPerson = findPersonForItem(event, people);
-            const personClasses = assignedPerson ? getPersonColorClasses(assignedPerson, index) : null;
+            const eventClasses = getEventColorClasses(event, assignedPerson, index);
 
             return (
               <Link
                 key={event.id || `${getItemTitle(event)}-${index}`}
                 to="/calendar"
-                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2.5 transition hover:bg-white ${
-                  personClasses ? personClasses.border : "border-slate-200 hover:border-violet-100"
-                }`}
+                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2.5 transition hover:bg-white ${eventClasses.border}`}
               >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
-                  personClasses
-                    ? `${personClasses.bg} ${personClasses.textStrong} ${personClasses.border}`
-                    : getToneClasses("violet")
-                }`}>
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${eventClasses.bg} ${eventClasses.textStrong} ${eventClasses.border}`}>
                   <CalendarDays className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
