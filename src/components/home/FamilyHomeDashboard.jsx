@@ -148,56 +148,183 @@ function personName(person) {
   return person?.displayName || person?.name || person?.fullName || person?.firstName || person?.email || "";
 }
 
-function matchesPerson(item, person) {
-  if (!item || !person) return false;
+function normalizeIdentityToken(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w@.\-áéíóúñü\s]/gi, "")
+    .replace(/\s+/g, " ");
+}
 
-  const personTokens = [
+function firstNameToken(value) {
+  return normalizeIdentityToken(value).split(" ")[0] || "";
+}
+
+function collectIdentityValues(value, output = []) {
+  if (!value) return output;
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectIdentityValues(entry, output));
+    return output;
+  }
+
+  if (typeof value === "object") {
+    [
+      value.id,
+      value.uid,
+      value.userId,
+      value.user_id,
+      value.memberId,
+      value.member_id,
+      value.personId,
+      value.person_id,
+      value.childId,
+      value.child_id,
+      value.email,
+      value.name,
+      value.displayName,
+      value.fullName,
+      value.firstName,
+      value.label,
+      value.title,
+    ].forEach((entry) => collectIdentityValues(entry, output));
+
+    return output;
+  }
+
+  output.push(value);
+  return output;
+}
+
+function getPersonIdentityTokens(person = {}) {
+  const values = [
     person.id,
     person.uid,
+    person.userId,
+    person.user_id,
+    person.memberId,
+    person.member_id,
+    person.personId,
+    person.person_id,
     person.email,
     person.name,
     person.displayName,
     person.fullName,
     person.firstName,
-  ]
+  ];
+
+  const tokens = values
     .filter(Boolean)
-    .map((value) => String(value).trim().toLowerCase());
+    .map(normalizeIdentityToken)
+    .filter(Boolean);
 
-  if (!personTokens.length) return false;
+  const adultFirst = firstNameToken(person.name || person.displayName || person.fullName || person.email);
+  const type = normalizeIdentityToken(person.type || person.role || person.relationship);
 
-  const rawValues = [
+  if (adultFirst && !["child", "kid", "son", "daughter"].includes(type)) {
+    tokens.push(`adult-first:${adultFirst}`);
+  }
+
+  return Array.from(new Set(tokens));
+}
+
+function getItemIdentityTokens(item = {}) {
+  const rawFields = [
     item.assignedTo,
     item.assigned_to,
+    item.assignees,
     item.assignee,
     item.assigneeName,
     item.assignee_name,
+    item.assignedToName,
+    item.assigned_to_name,
+    item.assignedToNames,
+    item.assigned_to_names,
+
     item.owner,
     item.ownerName,
     item.owner_name,
-    item.childId,
-    item.child_id,
-    item.childName,
-    item.child_name,
+    item.ownerId,
+    item.owner_id,
+    item.ownerUid,
+    item.owner_uid,
+
+    item.person,
+    item.personName,
+    item.person_name,
     item.personId,
     item.person_id,
-    item.memberId,
-    item.member_id,
+    item.personIds,
+    item.person_ids,
+
+    item.member,
     item.memberName,
     item.member_name,
+    item.memberId,
+    item.member_id,
+    item.memberIds,
+    item.member_ids,
+
+    item.child,
+    item.childName,
+    item.child_name,
+    item.childId,
+    item.child_id,
+    item.childIds,
+    item.child_ids,
+
     item.createdBy,
     item.created_by,
+    item.createdByName,
+    item.created_by_name,
+    item.createdByUid,
+    item.created_by_uid,
+    item.createdByEmail,
+    item.created_by_email,
+
+    item.actor,
     item.actorName,
     item.actor_name,
     item.actorEmail,
     item.actor_email,
+    item.actorUid,
+    item.actor_uid,
+
+    item.attendees,
+    item.participants,
+    item.people,
+    item.members,
+    item.familyMembers,
+    item.guests,
+    item.invitees,
   ];
 
-  const values = rawValues
-    .flatMap((value) => Array.isArray(value) ? value : [value])
-    .filter(Boolean)
-    .map((value) => String(value).trim().toLowerCase());
+  const collected = [];
+  rawFields.forEach((field) => collectIdentityValues(field, collected));
 
-  return values.some((value) => personTokens.includes(value));
+  const tokens = collected
+    .filter(Boolean)
+    .map(normalizeIdentityToken)
+    .filter(Boolean);
+
+  // Adult first-name alias. This helps Daniel match Daniel Aragon when old records only store display names.
+  collected.forEach((value) => {
+    const first = firstNameToken(value);
+    if (first) tokens.push(`adult-first:${first}`);
+  });
+
+  return Array.from(new Set(tokens));
+}
+
+function matchesPerson(item, person) {
+  if (!item || !person) return false;
+
+  const personTokens = getPersonIdentityTokens(person);
+  const itemTokens = getItemIdentityTokens(item);
+
+  if (!personTokens.length || !itemTokens.length) return false;
+
+  return personTokens.some((token) => itemTokens.includes(token));
 }
 
 function findPersonForItem(item, people = []) {
@@ -283,7 +410,7 @@ function TimeWeatherPanel({ tasksToday, mealsToday, calendarEventsToday }) {
       : "Looks like a calm family day ☀️";
 
   return (
-    <div className="rounded-[1.8rem] border border-white/35 bg-white/15 p-5 text-right shadow-[0_18px_42px_rgba(15,23,42,0.08)] backdrop-blur-md">
+    <div className="rounded-[1.55rem] border border-white/35 bg-white/15 p-4 text-right shadow-[0_18px_42px_rgba(15,23,42,0.08)] backdrop-blur-md">
       <div className="flex items-center justify-end gap-3">
         <div>
           <p className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
@@ -293,12 +420,12 @@ function TimeWeatherPanel({ tasksToday, mealsToday, calendarEventsToday }) {
             {now.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
           </p>
         </div>
-        <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-amber-100 bg-amber-50 text-amber-500">
-          <Sun className="h-7 w-7" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] border border-amber-100 bg-amber-50 text-amber-500">
+          <Sun className="h-6 w-6" />
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-white/30 bg-white/20 px-4 py-3 text-left backdrop-blur-sm">
+      <div className="mt-3 rounded-2xl border border-white/30 bg-white/20 px-4 py-3 text-left backdrop-blur-sm">
         <p className="text-sm font-black text-slate-950">{message}</p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
           A calm glance at today’s rhythm for everyone at home.
@@ -332,13 +459,13 @@ function MiniPulse({ icon: Icon, value, label, tone, to }) {
   return (
     <Link
       to={to}
-      className="flex min-h-[66px] items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 px-3 py-2.5 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+      className="flex min-h-[58px] items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 px-3 py-2 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
     >
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-lg font-black leading-none text-slate-950">{value}</p>
+        <p className="text-3xl font-black leading-none text-slate-950">{value}</p>
         <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{label}</p>
       </div>
     </Link>
@@ -347,8 +474,8 @@ function MiniPulse({ icon: Icon, value, label, tone, to }) {
 
 function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLists }) {
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
-      <div className="kinly-family-gradient p-5 md:p-6">
+    <section className="overflow-hidden rounded-[1.75rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
+      <div className="kinly-family-gradient p-4 md:p-5">
         <div className="grid gap-5 xl:grid-cols-[1fr_0.7fr] xl:items-center">
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
@@ -356,11 +483,11 @@ function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLis
               Home dashboard
             </div>
 
-            <h1 className="max-w-4xl text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
+            <h1 className="max-w-4xl text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
               {getGreeting()}, {familyName} ✨
             </h1>
 
-            <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
+            <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-600">
               Let’s keep today calm, clear, and organized.
             </p>
 
@@ -368,7 +495,7 @@ function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLis
               Today’s meals, tasks, events, and shared lists — all in one beautiful family view.
             </p>
 
-            <div className="mt-5 grid max-w-3xl gap-2 sm:grid-cols-4">
+            <div className="mt-4 grid max-w-3xl gap-2 sm:grid-cols-4">
               <MiniPulse icon={CheckSquare} value={tasksToday.length} label="Tasks today" tone="blue" to="/tasks" />
               <MiniPulse icon={UtensilsCrossed} value={mealsToday.length} label="Meals today" tone="amber" to="/meals" />
               <MiniPulse icon={CalendarDays} value={calendarEventsToday.length} label="Events today" tone="violet" to="/calendar" />
@@ -465,9 +592,9 @@ function NeedsAttention({ tasksToday, overdueTasks, mealsToday, calendarEventsTo
   }
 
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Needs attention" title="Today’s status" />
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
         {items.slice(0, 4).map((item) => <AttentionCard key={item.title} {...item} />)}
       </div>
     </Card>
@@ -529,7 +656,7 @@ function ModulesGrid({ tasksToday, mealsToday, calendarEventsToday, openLists })
   return (
     <section>
       <SectionHeader kicker="Family modules" title="Shared space" />
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => <ModuleCard key={card.title} {...card} />)}
       </div>
     </section>
@@ -549,9 +676,9 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
   if (!visiblePeople.length) return null;
 
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Family members" title="Today by person" action="Manage" to="/profile" />
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
         {visiblePeople.slice(0, 8).map((person, index) => {
           const name = personName(person) || `Member ${index + 1}`;
           const colorClasses = getPersonColorClasses(person, index);
@@ -564,9 +691,9 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
             <Link
               key={person.id || person.uid || person.email || `${name}-${index}`}
               to="/profile"
-              className={`flex items-center gap-3 rounded-[1.25rem] border bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}
+              className={`flex items-center gap-3 rounded-[1.1rem] border bg-white px-3 py-2.5 transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}
             >
-              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] text-sm font-black shadow-sm ${colorClasses.bgStrong} ${colorClasses.textStrong}`}>
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] text-sm font-black shadow-sm ${colorClasses.bgStrong} ${colorClasses.textStrong}`}>
                 {getInitials(name)}
               </div>
               <div className="min-w-0 flex-1">
@@ -589,9 +716,9 @@ function TaskPreviewCard({ tasksToday, people }) {
   const visibleTasks = tasksToday.slice(0, 5);
 
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Today’s tasks" title={tasksToday.length ? `${tasksToday.length} due today` : "All clear"} action="View all" to="/tasks" />
-      <div className="mt-4 space-y-2.5">
+      <div className="mt-3 max-h-[285px] space-y-2 overflow-y-auto pr-1">
         {visibleTasks.length ? (
           visibleTasks.map((task, index) => {
             const assignedPerson = findPersonForItem(task, people);
@@ -601,11 +728,11 @@ function TaskPreviewCard({ tasksToday, people }) {
               <Link
                 key={task.id || `${getItemTitle(task)}-${index}`}
                 to="/tasks"
-                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2.5 transition hover:bg-white ${
+                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2 transition hover:bg-white ${
                   personClasses ? personClasses.border : "border-slate-200 hover:border-blue-100"
                 }`}
               >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${
                   personClasses
                     ? `${personClasses.bg} ${personClasses.textStrong} ${personClasses.border}`
                     : getToneClasses("blue")
@@ -631,8 +758,8 @@ function TaskPreviewCard({ tasksToday, people }) {
 
 function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
   const content = (
-    <div className="flex items-center gap-3 rounded-[1.05rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-blue-100 hover:bg-white">
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+    <div className="flex items-center gap-3 rounded-[1.05rem] border border-slate-200 bg-white/80 px-3 py-2 transition hover:border-blue-100 hover:bg-white">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -649,9 +776,9 @@ function MealsTodayCard({ mealsToday }) {
   const visibleMeals = mealsToday.slice(0, 5);
 
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Meals" title="Today’s meals" action="Plan meals" to="/meals" />
-      <div className="mt-4 space-y-2.5">
+      <div className="mt-3 max-h-[285px] space-y-2 overflow-y-auto pr-1">
         {visibleMeals.length ? (
           visibleMeals.map((meal, index) => {
             const tone = getMealTone(meal);
@@ -683,9 +810,9 @@ function NextSevenDaysCard({ calendarEvents, people }) {
     .slice(0, 7);
 
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Next 7 days" title="Calendar" action="View calendar" to="/calendar" />
-      <div className="mt-4 space-y-2.5">
+      <div className="mt-3 max-h-[285px] space-y-2 overflow-y-auto pr-1">
         {items.length ? (
           items.map((event, index) => {
             const assignedPerson = findPersonForItem(event, people);
@@ -695,9 +822,9 @@ function NextSevenDaysCard({ calendarEvents, people }) {
               <Link
                 key={event.id || `${getItemTitle(event)}-${index}`}
                 to="/calendar"
-                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2.5 transition hover:bg-white ${eventClasses.border}`}
+                className={`flex items-center gap-3 rounded-[1.05rem] border bg-white/80 px-3 py-2 transition hover:bg-white ${eventClasses.border}`}
               >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${eventClasses.bg} ${eventClasses.textStrong} ${eventClasses.border}`}>
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${eventClasses.bg} ${eventClasses.textStrong} ${eventClasses.border}`}>
                   <CalendarDays className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -721,7 +848,7 @@ function NextSevenDaysCard({ calendarEvents, people }) {
 
 function OpenListsCard({ openLists }) {
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Lists" title="Open lists" action="Open" to="/groceries" />
       <div className="mt-4 max-h-[330px] space-y-2.5 overflow-y-auto pr-1">
         {openLists.length ? (
@@ -750,8 +877,8 @@ function ActivityItem({ item }) {
   const actor = item.actorName || item.actor_name || item.actorEmail || "Family";
 
   return (
-    <div className="flex items-start gap-3 rounded-[1.05rem] border border-slate-200 bg-white/80 px-3 py-2.5">
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+    <div className="flex items-start gap-3 rounded-[1.05rem] border border-slate-200 bg-white/80 px-3 py-2">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -768,9 +895,9 @@ function ActivityItem({ item }) {
 
 function FamilyActivityCard({ activity = [] }) {
   return (
-    <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+    <Card className="rounded-[1.45rem] border-white/80 bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Activity" title="Family updates" />
-      <div className="mt-4 space-y-2.5">
+      <div className="mt-3 space-y-2">
         {activity.length ? (
           activity.slice(0, 5).map((item, index) => (
             <ActivityItem key={item.id || `${item.type}-${index}`} item={item} />
@@ -798,7 +925,7 @@ export default function FamilyHomeDashboard({
 
   return (
     <div className="kinly-gradient-bg min-h-full px-3 pb-24 pt-2 md:px-5 md:pb-10 lg:px-6">
-      <div className="mx-auto max-w-7xl space-y-4">
+      <div className="mx-auto max-w-7xl space-y-3">
         <Hero
           familyName={familyName}
           tasksToday={tasksToday}
