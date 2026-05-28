@@ -256,7 +256,7 @@ function TimeWeatherPanel({ tasksToday, mealsToday, calendarEventsToday }) {
       : "Looks like a calm family day ☀️";
 
   return (
-    <div className="rounded-[1.8rem] border border-white/80 bg-white/90 p-5 text-right shadow-[0_18px_42px_rgba(15,23,42,0.10)] backdrop-blur-2xl">
+    <div className="rounded-[1.8rem] border border-white/35 bg-white/15 p-5 text-right shadow-[0_18px_42px_rgba(15,23,42,0.08)] backdrop-blur-md">
       <div className="flex items-center justify-end gap-3">
         <div>
           <p className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
@@ -271,10 +271,10 @@ function TimeWeatherPanel({ tasksToday, mealsToday, calendarEventsToday }) {
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-left">
+      <div className="mt-4 rounded-2xl border border-white/30 bg-white/20 px-4 py-3 text-left backdrop-blur-sm">
         <p className="text-sm font-black text-slate-950">{message}</p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
-          Weather details can be connected later. For now, this card keeps the wall screen calm and readable.
+          A calm glance at today’s rhythm for everyone at home.
         </p>
       </div>
     </div>

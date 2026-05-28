@@ -95,6 +95,55 @@ function firstToken(value) {
   return String(value || "").trim().toLowerCase().split(/\s+/)[0] || "";
 }
 
+function isChildPerson(person = {}) {
+  const type = String(person.type || person.role || person.relationship || "").toLowerCase();
+  return ["child", "kid", "son", "daughter"].includes(type);
+}
+
+function personDisplayName(person = {}) {
+  return (
+    person.name ||
+    person.displayName ||
+    person.fullName ||
+    person.firstName ||
+    person.email ||
+    ""
+  );
+}
+
+function getPersonDedupeKeys(person = {}, index = 0) {
+  const name = personDisplayName(person);
+  const first = firstToken(name);
+  const type = String(person.type || person.role || person.relationship || "").toLowerCase();
+
+  // Children should not be merged with parents/adults just because they share a first name.
+  if (isChildPerson(person)) {
+    return [
+      person.id,
+      person.uid,
+      person.email,
+      `child-${person.id || person.uid || person.email || name || index}`,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase());
+  }
+
+  // Adults can appear as parent + member/owner. Merge Daniel with Daniel Aragon.
+  return [
+    person.email,
+    person.uid,
+    person.userId,
+    person.user_id,
+    person.memberId,
+    person.member_id,
+    person.id,
+    first ? `adult-first-${first}` : "",
+    type && first ? `${type}-${first}` : "",
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+}
+
 function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
   const children = (profile?.children || profile?.childProfiles || [])
     .map((child, index) =>
@@ -103,6 +152,7 @@ function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
         type: "child",
         role: "child",
         colorId: ["blue", "rose", "green", "violet"][index % 4],
+        showOnHomeDashboard: true,
       })
     )
     .filter(Boolean);
@@ -115,6 +165,7 @@ function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
           type: "parent",
           role: "parent",
           colorId: dadColor || "blue",
+          showOnHomeDashboard: true,
         }
       : null,
     momName
@@ -124,6 +175,7 @@ function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
           type: "parent",
           role: "parent",
           colorId: momColor || "amber",
+          showOnHomeDashboard: true,
         }
       : null,
   ].filter(Boolean);
@@ -135,30 +187,23 @@ function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
   ];
 
   const members = rawMembers
-    .map((member, index) => normalizePerson(member, { type: "member", colorId: ["teal", "violet", "amber"][index % 3] }))
+    .map((member, index) =>
+      normalizePerson(member, {
+        type: "member",
+        colorId: ["teal", "violet", "amber"][index % 3],
+      })
+    )
     .filter(Boolean);
 
-  const currentUserName = user?.displayName || profile?.displayName || profile?.name || user?.email || "";
-  const currentUserFirst = firstToken(currentUserName);
-
-  const alreadyRepresented =
-    currentUserFirst &&
-    [...parents, ...members].some((person) => {
-      const nameMatch = firstToken(person.name || person.displayName || person.fullName) === currentUserFirst;
-      const emailMatch = user?.email && person.email === user.email;
-      const uidMatch = user?.uid && (person.uid === user.uid || person.id === user.uid);
-      return nameMatch || emailMatch || uidMatch;
-    });
-
   const currentUser =
-    user && !alreadyRepresented
+    user
       ? [
           normalizePerson(
             {
               id: user.uid,
               uid: user.uid,
               email: user.email,
-              name: currentUserName || "Me",
+              name: user.displayName || profile?.displayName || user.email || "Me",
               type: "owner",
               role: "owner",
               colorId: profile?.colorId || profile?.color_id || "blue",
@@ -169,29 +214,27 @@ function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
         ]
       : [];
 
+  // Priority matters:
+  // 1. Parents first
+  // 2. Children always visible
+  // 3. Members/caregivers only if they are not duplicates
+  // 4. Current user only if not already represented
   const ordered = [...parents, ...children, ...members, ...currentUser];
   const seen = new Set();
 
   return ordered.filter((person, index) => {
-    const isChild = String(person.type || person.role || "").toLowerCase() === "child";
+    const keys = getPersonDedupeKeys(person, index);
 
-    const keys = isChild
-      ? [`child-${person.id || person.uid || person.name || index}`]
-      : [
-          person.email,
-          person.uid,
-          person.id,
-          person.name,
-          person.displayName,
-          person.fullName,
-        ].filter(Boolean);
+    if (!keys.length) return true;
 
-    const normalizedKeys = keys.map((key) => String(key).trim().toLowerCase());
-    const duplicate = normalizedKeys.some((key) => seen.has(key));
+    const duplicate = keys.some((key) => seen.has(key));
 
-    normalizedKeys.forEach((key) => seen.add(key));
+    if (duplicate) {
+      return false;
+    }
 
-    return !duplicate;
+    keys.forEach((key) => seen.add(key));
+    return true;
   });
 }
 
