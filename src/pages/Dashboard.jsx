@@ -256,18 +256,46 @@ function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
 }
 
 function summarizeList(list) {
-  const items = Array.isArray(list.items) ? list.items : [];
-  const pendingItems = items.filter((item) => item && item.checked !== true && item.done !== true && item.completed !== true);
+  const itemArrays = [
+    list.items,
+    list.groceryItems,
+    list.grocery_items,
+    list.listItems,
+    list.list_items,
+    list.products,
+  ].filter(Array.isArray);
+
+  const flatItems = itemArrays.flat();
+
+  const pendingItems = flatItems.filter((item) => {
+    if (!item) return false;
+    return (
+      item.checked !== true &&
+      item.done !== true &&
+      item.completed !== true &&
+      item.status !== "done" &&
+      item.status !== "completed" &&
+      item.status !== "archived"
+    );
+  });
+
+  const explicitCount =
+    list.pendingCount ??
+    list.pending_count ??
+    list.openCount ??
+    list.open_count ??
+    list.itemsCount ??
+    list.items_count ??
+    list.count ??
+    list.itemCount ??
+    list.item_count;
+
+  const calculatedCount = flatItems.length ? pendingItems.length : explicitCount ?? 0;
 
   return {
     ...list,
-    title: list.title || list.name || list.label || "Family list",
-    pendingCount:
-      list.pendingCount ??
-      list.pending_count ??
-      list.openCount ??
-      list.open_count ??
-      (items.length ? pendingItems.length : list.itemsCount ?? list.items_count ?? list.count ?? 0),
+    title: list.title || list.name || list.label || list.listTitle || list.list_title || "Family list",
+    pendingCount: Number(calculatedCount) || 0,
   };
 }
 
@@ -340,32 +368,101 @@ export default function Dashboard() {
 
         if (canReadGroceries) {
           const familyLists = await loadFamilyCollection("familyLists", familyId);
-          const groceries = familyLists.length ? [] : await loadFamilyCollection("groceries", familyId);
+          const groceries = await loadFamilyCollection("groceries", familyId);
+
+          const groupedItems = new Map();
+
+          groceries
+            .filter((item) => {
+              return (
+                item.checked !== true &&
+                item.done !== true &&
+                item.completed !== true &&
+                item.status !== "done" &&
+                item.status !== "completed" &&
+                item.status !== "archived"
+              );
+            })
+            .forEach((item) => {
+              const listId =
+                item.listId ||
+                item.list_id ||
+                item.familyListId ||
+                item.family_list_id ||
+                item.groceryListId ||
+                item.grocery_list_id ||
+                "";
+
+              const title =
+                item.listTitle ||
+                item.list_title ||
+                item.category ||
+                item.group ||
+                item.type ||
+                "Grocery list";
+
+              const key = String(listId || title).trim().toLowerCase();
+
+              if (!groupedItems.has(key)) {
+                groupedItems.set(key, {
+                  id: listId || `grocery-${key}`,
+                  title,
+                  pendingCount: 0,
+                  source: "groceries",
+                });
+              }
+
+              groupedItems.get(key).pendingCount += 1;
+            });
+
+          const groceryGroups = Array.from(groupedItems.values());
 
           if (familyLists.length) {
-            listData = familyLists.map(summarizeList);
-          } else {
-            const grouped = new Map();
+            listData = familyLists.map((list) => {
+              const title = list.title || list.name || list.label || "Family list";
+              const listId = list.id || list.listId || list.list_id || "";
 
-            groceries
-              .filter((item) => item.checked !== true && item.status !== "archived")
-              .forEach((item) => {
-                const title = item.listTitle || item.list_title || item.category || "Grocery list";
-                const key = String(title).trim().toLowerCase();
+              const matchingGroup = groceryGroups.find((group) => {
+                const sameId = listId && String(group.id).toLowerCase() === String(listId).toLowerCase();
+                const sameTitle =
+                  String(group.title || "").trim().toLowerCase() ===
+                  String(title || "").trim().toLowerCase();
 
-                if (!grouped.has(key)) {
-                  grouped.set(key, {
-                    id: `grocery-${key}`,
-                    title,
-                    pendingCount: 0,
-                    source: "groceries",
-                  });
-                }
-
-                grouped.get(key).pendingCount += 1;
+                return sameId || sameTitle;
               });
 
-            listData = Array.from(grouped.values());
+              return summarizeList({
+                ...list,
+                title,
+                pendingCount:
+                  matchingGroup?.pendingCount ??
+                  list.pendingCount ??
+                  list.pending_count ??
+                  list.openCount ??
+                  list.open_count ??
+                  list.itemsCount ??
+                  list.items_count ??
+                  list.count ??
+                  0,
+              });
+            });
+
+            const existingKeys = new Set(
+              listData.map((list) =>
+                String(list.id || list.title || list.name || "").trim().toLowerCase()
+              )
+            );
+
+            groceryGroups.forEach((group) => {
+              const key = String(group.id || group.title || "").trim().toLowerCase();
+              const titleKey = String(group.title || "").trim().toLowerCase();
+
+              if (!existingKeys.has(key) && !existingKeys.has(titleKey)) {
+                listData.push(group);
+              }
+            });
+          } else {
+            listData = groceryGroups;
           }
         }
 
@@ -416,7 +513,11 @@ export default function Dashboard() {
         normalizedTasksToday.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
         normalizedOverdueTasks.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
         normalizedMeals.sort((a, b) => String(a.meal_type || a.mealType || "").localeCompare(String(b.meal_type || b.mealType || "")));
-        normalizedLists.sort((a, b) => Number(b.pendingCount ?? 0) - Number(a.pendingCount ?? 0));
+        normalizedLists.sort((a, b) => {
+          const countDiff = Number(b.pendingCount ?? 0) - Number(a.pendingCount ?? 0);
+          if (countDiff !== 0) return countDiff;
+          return String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""));
+        });
         calendarData.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
         activityData.sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)));
 
