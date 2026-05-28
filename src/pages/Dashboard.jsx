@@ -5,6 +5,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import FamilyHomeDashboard from "@/components/home/FamilyHomeDashboard";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { buildFamilyPeople } from "@/core/people/peopleCore";
 
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
@@ -470,8 +471,25 @@ export default function Dashboard() {
   const canReadCalendar = perms?.calendar?.read !== false;
 
   const people = useMemo(() => {
-    return buildPeople({ profile, user, dadName, momName, dadColor, momColor });
-  }, [profile, user, dadName, momName, dadColor, momColor]);
+    const profileForPeople = {
+      ...(profile || {}),
+      id: profile?.id || profile?.familyId || profile?.family_id || familyId,
+      familyId: profile?.familyId || profile?.family_id || familyId,
+
+      // Keep existing profile values first. Use FamilyContext names/colors only as fallback.
+      parent1Name: profile?.parent1Name || profile?.parent1_name || profile?.ownerName || profile?.owner_name || dadName,
+      parent1_name: profile?.parent1_name || profile?.parent1Name || profile?.owner_name || profile?.ownerName || dadName,
+      parent1Color: profile?.parent1Color || profile?.parent1_color || dadColor,
+      parent1_color: profile?.parent1_color || profile?.parent1Color || dadColor,
+
+      parent2Name: profile?.parent2Name || profile?.parent2_name || momName,
+      parent2_name: profile?.parent2_name || profile?.parent2Name || momName,
+      parent2Color: profile?.parent2Color || profile?.parent2_color || momColor,
+      parent2_color: profile?.parent2_color || profile?.parent2Color || momColor,
+    };
+
+    return buildFamilyPeople(profileForPeople, user);
+  }, [profile, user, familyId, dadName, momName, dadColor, momColor]);
 
   useEffect(() => {
     const loadData = async () => {
