@@ -91,29 +91,42 @@ function normalizePerson(person, fallback = {}) {
   };
 }
 
-function shouldShowOnHomeDashboard(person = {}) {
-  if (person.showOnHomeDashboard === true || person.show_on_home_dashboard === true) return true;
-  if (person.homeDashboard === true || person.home_dashboard === true) return true;
-  if (person.livesHere === true || person.lives_here === true) return true;
-  if (person.household === true || person.isHousehold === true || person.is_household === true) return true;
-
-  const role = String(person.role || person.type || person.relationship || "").toLowerCase();
-
-  if (["child", "kid", "son", "daughter", "parent", "guardian", "partner", "spouse", "adult", "owner"].includes(role)) {
-    return true;
-  }
-
-  if (["grandparent", "grandma", "grandfather", "grandmother", "babysitter", "caregiver", "guest", "viewer"].includes(role)) {
-    return false;
-  }
-
-  return false;
+function firstToken(value) {
+  return String(value || "").trim().toLowerCase().split(/\s+/)[0] || "";
 }
 
-function buildPeople({ profile, user }) {
+function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
   const children = (profile?.children || profile?.childProfiles || [])
-    .map((child, index) => normalizePerson(child, { type: "child", colorId: ["blue", "rose", "green", "violet"][index % 4] }))
+    .map((child, index) =>
+      normalizePerson(child, {
+        id: child?.id || child?.uid || `child-${index}`,
+        type: "child",
+        role: "child",
+        colorId: ["blue", "rose", "green", "violet"][index % 4],
+      })
+    )
     .filter(Boolean);
+
+  const parents = [
+    dadName
+      ? {
+          id: "parent-dad",
+          name: dadName,
+          type: "parent",
+          role: "parent",
+          colorId: dadColor || "blue",
+        }
+      : null,
+    momName
+      ? {
+          id: "parent-mom",
+          name: momName,
+          type: "parent",
+          role: "parent",
+          colorId: momColor || "amber",
+        }
+      : null,
+  ].filter(Boolean);
 
   const rawMembers = [
     ...(profile?.members || []),
@@ -122,45 +135,61 @@ function buildPeople({ profile, user }) {
   ];
 
   const members = rawMembers
-    .map((member) => normalizePerson(member, { type: "member", colorId: "teal" }))
-    .filter(Boolean)
-    .filter(shouldShowOnHomeDashboard);
+    .map((member, index) => normalizePerson(member, { type: "member", colorId: ["teal", "violet", "amber"][index % 3] }))
+    .filter(Boolean);
 
-  const currentUser = user
-    ? [normalizePerson(
-        {
-          id: user.uid,
-          uid: user.uid,
-          email: user.email,
-          name: user.displayName || profile?.displayName || profile?.name || user.email || "Me",
-          type: "owner",
-          colorId: profile?.colorId || profile?.color_id || "blue",
-          showOnHomeDashboard: true,
-        },
-        { type: "owner", colorId: "blue" }
-      )]
-    : [];
+  const currentUserName = user?.displayName || profile?.displayName || profile?.name || user?.email || "";
+  const currentUserFirst = firstToken(currentUserName);
 
-  const people = [...children, ...members, ...currentUser].filter(Boolean);
+  const alreadyRepresented =
+    currentUserFirst &&
+    [...parents, ...members].some((person) => {
+      const nameMatch = firstToken(person.name || person.displayName || person.fullName) === currentUserFirst;
+      const emailMatch = user?.email && person.email === user.email;
+      const uidMatch = user?.uid && (person.uid === user.uid || person.id === user.uid);
+      return nameMatch || emailMatch || uidMatch;
+    });
+
+  const currentUser =
+    user && !alreadyRepresented
+      ? [
+          normalizePerson(
+            {
+              id: user.uid,
+              uid: user.uid,
+              email: user.email,
+              name: currentUserName || "Me",
+              type: "owner",
+              role: "owner",
+              colorId: profile?.colorId || profile?.color_id || "blue",
+              showOnHomeDashboard: true,
+            },
+            { type: "owner", colorId: "blue" }
+          ),
+        ]
+      : [];
+
+  const ordered = [...parents, ...children, ...members, ...currentUser];
   const seen = new Set();
 
-  return people.filter((person) => {
-    const keys = [
-      person.id,
-      person.uid,
-      person.email,
-      person.name,
-      person.displayName,
-      person.fullName,
-    ]
-      .filter(Boolean)
-      .map((value) => String(value).trim().toLowerCase());
+  return ordered.filter((person, index) => {
+    const isChild = String(person.type || person.role || "").toLowerCase() === "child";
 
-    const key = keys[0];
-    if (!key) return false;
+    const keys = isChild
+      ? [`child-${person.id || person.uid || person.name || index}`]
+      : [
+          person.email,
+          person.uid,
+          person.id,
+          person.name,
+          person.displayName,
+          person.fullName,
+        ].filter(Boolean);
 
-    const duplicate = keys.some((candidate) => seen.has(candidate));
-    keys.forEach((candidate) => seen.add(candidate));
+    const normalizedKeys = keys.map((key) => String(key).trim().toLowerCase());
+    const duplicate = normalizedKeys.some((key) => seen.has(key));
+
+    normalizedKeys.forEach((key) => seen.add(key));
 
     return !duplicate;
   });
@@ -205,6 +234,7 @@ export default function Dashboard() {
   const { user, familyId, profile, dadName, momName, dadColor, momColor, perms } = useFamily();
 
   const [tasksToday, setTasksToday] = useState([]);
+  const [overdueTasks, setOverdueTasks] = useState([]);
   const [mealsToday, setMealsToday] = useState([]);
   const [openLists, setOpenLists] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -218,8 +248,8 @@ export default function Dashboard() {
   const canReadCalendar = perms?.calendar?.read !== false;
 
   const people = useMemo(() => {
-    return buildPeople({ profile, user });
-  }, [profile, user]);
+    return buildPeople({ profile, user, dadName, momName, dadColor, momColor });
+  }, [profile, user, dadName, momName, dadColor, momColor]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -306,10 +336,15 @@ export default function Dashboard() {
 
         activityData = await loadFamilyCollection("familyActivity", familyId);
 
-        const normalizedTasks = taskData.filter((task) => {
+        const pendingTasks = taskData.filter((task) => {
           const status = String(task.status || "pending").toLowerCase();
+          return status === "pending";
+        });
+
+        const normalizedTasksToday = pendingTasks.filter((task) => getItemDate(task) === today);
+        const normalizedOverdueTasks = pendingTasks.filter((task) => {
           const date = getItemDate(task);
-          return status === "pending" && date && date <= today;
+          return date && date < today;
         });
 
         const normalizedMeals = mealData.filter((meal) => getItemDate(meal) === today);
@@ -318,13 +353,15 @@ export default function Dashboard() {
           .map(summarizeList)
           .filter((list) => list.status !== "archived");
 
-        normalizedTasks.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
+        normalizedTasksToday.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
+        normalizedOverdueTasks.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
         normalizedMeals.sort((a, b) => String(a.meal_type || a.mealType || "").localeCompare(String(b.meal_type || b.mealType || "")));
         normalizedLists.sort((a, b) => Number(b.pendingCount ?? 0) - Number(a.pendingCount ?? 0));
         calendarData.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
         activityData.sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)));
 
-        setTasksToday(normalizedTasks);
+        setTasksToday(normalizedTasksToday);
+        setOverdueTasks(normalizedOverdueTasks);
         setMealsToday(normalizedMeals);
         setOpenLists(normalizedLists);
         setCalendarEvents(calendarData.slice(0, 20));
@@ -332,6 +369,7 @@ export default function Dashboard() {
       } catch (error) {
         console.error("Error loading dashboard data:", error);
         setTasksToday([]);
+        setOverdueTasks([]);
         setMealsToday([]);
         setOpenLists([]);
         setCalendarEvents([]);
@@ -356,6 +394,7 @@ export default function Dashboard() {
       familyName={getFamilyName(profile)}
       people={people}
       tasksToday={tasksToday}
+      overdueTasks={overdueTasks}
       mealsToday={mealsToday}
       openLists={openLists}
       activity={activity}

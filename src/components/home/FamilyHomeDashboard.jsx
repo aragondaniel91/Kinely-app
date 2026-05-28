@@ -5,12 +5,10 @@ import {
   CalendarDays,
   CheckSquare,
   ChevronRight,
-  Clock,
   Heart,
   History,
   Home,
   ListChecks,
-  Plus,
   ShoppingCart,
   Sparkles,
   Sun,
@@ -53,25 +51,6 @@ function formatShortDate(value) {
   if (days > 1 && days <= 7) return target.toLocaleDateString([], { weekday: "short" });
 
   return target.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function formatActivityTime(activity) {
-  const raw = activity?.created_at || activity?.createdAt || activity?.updated_at || activity?.updatedAt;
-  const date = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null;
-
-  if (!date || Number.isNaN(date.getTime())) return "Just now";
-
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 function getItemTitle(item, fallback = "Item") {
@@ -124,6 +103,7 @@ function getToneClasses(tone = "blue") {
 function getPersonColorClasses(person, index = 0) {
   const fallbackColors = ["blue", "rose", "green", "violet", "amber", "teal"];
   const fallback = fallbackColors[index % fallbackColors.length];
+
   const rawColor =
     person?.colorId ||
     person?.color_id ||
@@ -135,6 +115,10 @@ function getPersonColorClasses(person, index = 0) {
     fallback;
 
   return getColorClasses(normalizeColorId(rawColor, fallback), fallback);
+}
+
+function personName(person) {
+  return person?.displayName || person?.name || person?.fullName || person?.firstName || person?.email || "";
 }
 
 function matchesPerson(item, person) {
@@ -171,6 +155,8 @@ function matchesPerson(item, person) {
     item.person_id,
     item.memberId,
     item.member_id,
+    item.memberName,
+    item.member_name,
     item.createdBy,
     item.created_by,
     item.actorName,
@@ -189,6 +175,18 @@ function matchesPerson(item, person) {
 
 function findPersonForItem(item, people = []) {
   return people.find((person) => matchesPerson(item, person)) || null;
+}
+
+function isCoreWallPerson(person) {
+  const type = String(person?.type || person?.role || person?.relationship || "").toLowerCase();
+
+  if (["parent", "child", "kid", "owner", "partner", "spouse", "adult"].includes(type)) return true;
+  if (person?.showOnHomeDashboard === true || person?.show_on_home_dashboard === true) return true;
+  if (person?.homeDashboard === true || person?.home_dashboard === true) return true;
+  if (person?.livesHere === true || person?.lives_here === true) return true;
+  if (person?.household === true || person?.isHousehold === true || person?.is_household === true) return true;
+
+  return false;
 }
 
 function getMealTone(meal) {
@@ -222,7 +220,26 @@ function getActivityTone(type = "") {
   return "slate";
 }
 
-function WeatherPill() {
+function formatActivityTime(activity) {
+  const raw = activity?.created_at || activity?.createdAt || activity?.updated_at || activity?.updatedAt;
+  const date = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null;
+
+  if (!date || Number.isNaN(date.getTime())) return "Just now";
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function TimeWeatherPanel({ tasksToday, mealsToday, calendarEventsToday }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -230,17 +247,36 @@ function WeatherPill() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const total = tasksToday.length + mealsToday.length + calendarEventsToday.length;
+  const message =
+    total >= 8
+      ? "A full family rhythm today 💙"
+      : total > 0
+      ? "Here’s what matters most today ☀️"
+      : "Looks like a calm family day ☀️";
+
   return (
-    <div className="rounded-[1.4rem] border border-white/80 bg-white/90 px-4 py-3 text-right shadow-[0_12px_32px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
-      <div className="flex items-center justify-end gap-2">
-        <p className="text-2xl font-black tracking-tight text-slate-950">
-          {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-        </p>
-        <Sun className="h-5 w-5 text-amber-400" />
+    <div className="rounded-[1.8rem] border border-white/80 bg-white/90 p-5 text-right shadow-[0_18px_42px_rgba(15,23,42,0.10)] backdrop-blur-2xl">
+      <div className="flex items-center justify-end gap-3">
+        <div>
+          <p className="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+            {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+          </p>
+          <p className="mt-1 text-sm font-black uppercase tracking-[0.18em] text-slate-400">
+            {now.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
+          </p>
+        </div>
+        <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-amber-100 bg-amber-50 text-amber-500">
+          <Sun className="h-7 w-7" />
+        </div>
       </div>
-      <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-        Today · Family wall
-      </p>
+
+      <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-left">
+        <p className="text-sm font-black text-slate-950">{message}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          Weather details can be connected later. For now, this card keeps the wall screen calm and readable.
+        </p>
+      </div>
     </div>
   );
 }
@@ -265,97 +301,81 @@ function SectionHeader({ kicker, title, action, to }) {
   );
 }
 
-function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
-  const content = (
-    <div className="flex items-center gap-3 rounded-[1.05rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-blue-100 hover:bg-white">
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-black text-slate-950">{title}</p>
-        <p className="truncate text-xs font-semibold text-slate-500">{text}</p>
-      </div>
-    </div>
-  );
-
-  return to ? <Link to={to} className="block">{content}</Link> : content;
-}
-
-function Hero({
-  familyName,
-  tasksToday,
-  mealsToday,
-  calendarEventsToday,
-  openLists,
-}) {
-  const vibe = tasksToday.length > 8 || calendarEventsToday.length > 3
-    ? "Busy family day"
-    : tasksToday.length || mealsToday.length || calendarEventsToday.length
-    ? "Everything has a place today"
-    : "A calm day starts here";
-
-  return (
-    <section className="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
-      <div className="kinly-family-gradient p-5 md:p-6">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            Family home
-          </div>
-          <WeatherPill />
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr] xl:items-end">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
-              {vibe}
-            </p>
-
-            <h1 className="mt-2 max-w-4xl text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
-              {getGreeting()}, {familyName}
-            </h1>
-
-            <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-600">
-              A beautiful snapshot of today’s meals, tasks, events, and shared lists.
-            </p>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-4 xl:grid-cols-2">
-            <MiniPulse icon={CheckSquare} value={tasksToday.length} label="Tasks today" tone="blue" to="/tasks" />
-            <MiniPulse icon={UtensilsCrossed} value={mealsToday.length} label="Meals today" tone="amber" to="/meals" />
-            <MiniPulse icon={CalendarDays} value={calendarEventsToday.length} label="Events today" tone="violet" to="/calendar" />
-            <MiniPulse icon={ShoppingCart} value={openLists.length} label="Open lists" tone="emerald" to="/groceries" />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function MiniPulse({ icon: Icon, value, label, tone, to }) {
   return (
     <Link
       to={to}
-      className="flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-white/80 bg-white/85 px-3 py-2.5 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+      className="flex min-h-[66px] items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 px-3 py-2.5 shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
     >
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
-        <Icon className="h-4.5 w-4.5" />
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+        <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <p className="text-xl font-black leading-none text-slate-950">{value}</p>
+        <p className="text-lg font-black leading-none text-slate-950">{value}</p>
         <p className="mt-1 truncate text-[11px] font-bold text-slate-500">{label}</p>
       </div>
     </Link>
   );
 }
 
-function NeedsAttention({ tasksToday, mealsToday, calendarEventsToday, openLists }) {
-  const items = [];
+function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLists }) {
+  return (
+    <section className="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
+      <div className="kinly-family-gradient p-5 md:p-6">
+        <div className="grid gap-5 xl:grid-cols-[1fr_0.7fr] xl:items-center">
+          <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
+              <Sparkles className="h-3.5 w-3.5" />
+              Home dashboard
+            </div>
 
-  const overdueTasks = tasksToday.filter((task) => {
-    const date = getItemDate(task);
-    return date && date < getTodayKey();
-  });
+            <h1 className="max-w-4xl text-4xl font-black tracking-tight text-slate-950 md:text-6xl">
+              {getGreeting()}, {familyName} ✨
+            </h1>
+
+            <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
+              Let’s keep today calm, clear, and organized.
+            </p>
+
+            <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
+              Today’s meals, tasks, events, and shared lists — all in one beautiful family view.
+            </p>
+
+            <div className="mt-5 grid max-w-3xl gap-2 sm:grid-cols-4">
+              <MiniPulse icon={CheckSquare} value={tasksToday.length} label="Tasks today" tone="blue" to="/tasks" />
+              <MiniPulse icon={UtensilsCrossed} value={mealsToday.length} label="Meals today" tone="amber" to="/meals" />
+              <MiniPulse icon={CalendarDays} value={calendarEventsToday.length} label="Events today" tone="violet" to="/calendar" />
+              <MiniPulse icon={ShoppingCart} value={openLists.length} label="Open lists" tone="emerald" to="/groceries" />
+            </div>
+          </div>
+
+          <TimeWeatherPanel
+            tasksToday={tasksToday}
+            mealsToday={mealsToday}
+            calendarEventsToday={calendarEventsToday}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AttentionCard({ icon: Icon, title, text, tone, to }) {
+  return (
+    <Link to={to} className="flex items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black text-slate-950">{title}</p>
+        <p className="truncate text-xs font-semibold text-slate-500">{text}</p>
+      </div>
+    </Link>
+  );
+}
+
+function NeedsAttention({ tasksToday, overdueTasks, mealsToday, calendarEventsToday, openLists }) {
+  const items = [];
 
   if (overdueTasks.length) {
     items.push({
@@ -427,16 +447,18 @@ function NeedsAttention({ tasksToday, mealsToday, calendarEventsToday, openLists
   );
 }
 
-function AttentionCard({ icon: Icon, title, text, tone, to }) {
+function ModuleCard({ icon: Icon, title, text, metric, tone, to }) {
   return (
-    <Link to={to} className="flex items-center gap-3 rounded-[1.15rem] border border-white/80 bg-white/85 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
-        <Icon className="h-4.5 w-4.5" />
+    <Link to={to} className="group rounded-[1.45rem] border border-white/80 bg-white p-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:text-blue-500" />
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-black text-slate-950">{title}</p>
-        <p className="truncate text-xs font-semibold text-slate-500">{text}</p>
-      </div>
+      <p className="mt-3 text-base font-black text-slate-950">{title}</p>
+      <p className="mt-1 min-h-[34px] text-xs font-semibold leading-5 text-slate-500">{text}</p>
+      <p className="mt-3 text-xl font-black text-slate-900">{metric}</p>
     </Link>
   );
 }
@@ -487,31 +509,24 @@ function ModulesGrid({ tasksToday, mealsToday, calendarEventsToday, openLists })
   );
 }
 
-function ModuleCard({ icon: Icon, title, text, metric, tone, to }) {
-  return (
-    <Link to={to} className="group rounded-[1.45rem] border border-white/80 bg-white p-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
-          <Icon className="h-4.5 w-4.5" />
-        </div>
-        <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:text-blue-500" />
-      </div>
-      <p className="mt-3 text-base font-black text-slate-950">{title}</p>
-      <p className="mt-1 min-h-[34px] text-xs font-semibold leading-5 text-slate-500">{text}</p>
-      <p className="mt-3 text-xl font-black text-slate-900">{metric}</p>
-    </Link>
-  );
-}
-
 function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToday }) {
-  if (!people.length) return null;
+  const visiblePeople = people.filter((person) => {
+    if (isCoreWallPerson(person)) return true;
+    return (
+      tasksToday.some((task) => matchesPerson(task, person)) ||
+      calendarEventsToday.some((event) => matchesPerson(event, person)) ||
+      mealsToday.some((meal) => matchesPerson(meal, person))
+    );
+  });
+
+  if (!visiblePeople.length) return null;
 
   return (
     <Card className="rounded-[1.6rem] border-white/80 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
       <SectionHeader kicker="Family members" title="Today by person" action="Manage" to="/profile" />
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {people.slice(0, 8).map((person, index) => {
-          const name = person.displayName || person.name || person.fullName || person.email || `Member ${index + 1}`;
+        {visiblePeople.slice(0, 8).map((person, index) => {
+          const name = personName(person) || `Member ${index + 1}`;
           const colorClasses = getPersonColorClasses(person, index);
           const personTasks = tasksToday.filter((task) => matchesPerson(task, person));
           const personEvents = calendarEventsToday.filter((event) => matchesPerson(event, person));
@@ -520,7 +535,7 @@ function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToda
 
           return (
             <Link
-              key={person.id || person.uid || person.email || name}
+              key={person.id || person.uid || person.email || `${name}-${index}`}
               to="/profile"
               className={`flex items-center gap-3 rounded-[1.25rem] border bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-md ${colorClasses.border}`}
             >
@@ -573,7 +588,7 @@ function TaskPreviewCard({ tasksToday, people }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-black text-slate-950">{getItemTitle(task, "Family task")}</p>
                   <p className="truncate text-xs font-semibold text-slate-500">
-                    {assignedPerson?.name || assignedPerson?.displayName || task.assignedTo || task.owner || "Today"} · Due {formatShortDate(getItemDate(task))}
+                    {assignedPerson ? personName(assignedPerson) : task.assignedTo || task.owner || "Today"} · Due {formatShortDate(getItemDate(task))}
                   </p>
                 </div>
               </Link>
@@ -585,6 +600,22 @@ function TaskPreviewCard({ tasksToday, people }) {
       </div>
     </Card>
   );
+}
+
+function CompactItem({ icon: Icon, title, text, tone = "blue", to }) {
+  const content = (
+    <div className="flex items-center gap-3 rounded-[1.05rem] border border-slate-200 bg-white/80 px-3 py-2.5 transition hover:border-blue-100 hover:bg-white">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getToneClasses(tone)}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black text-slate-950">{title}</p>
+        <p className="truncate text-xs font-semibold text-slate-500">{text}</p>
+      </div>
+    </div>
+  );
+
+  return to ? <Link to={to} className="block">{content}</Link> : content;
 }
 
 function MealsTodayCard({ mealsToday }) {
@@ -653,7 +684,7 @@ function NextSevenDaysCard({ calendarEvents, people }) {
                   <p className="truncate text-xs font-semibold text-slate-500">
                     {formatShortDate(getItemDate(event))}
                     {getItemTime(event) ? ` · ${getItemTime(event)}` : ""}
-                    {assignedPerson ? ` · ${assignedPerson.name || assignedPerson.displayName}` : ""}
+                    {assignedPerson ? ` · ${personName(assignedPerson)}` : ""}
                   </p>
                 </div>
               </Link>
@@ -735,11 +766,11 @@ export default function FamilyHomeDashboard({
   familyName = "Family",
   people = [],
   tasksToday = [],
+  overdueTasks = [],
   mealsToday = [],
   openLists = [],
   activity = [],
   calendarEvents = [],
-  loading = false,
 }) {
   const today = getTodayKey();
   const calendarEventsToday = calendarEvents.filter((event) => getItemDate(event) === today);
@@ -757,6 +788,7 @@ export default function FamilyHomeDashboard({
 
         <NeedsAttention
           tasksToday={tasksToday}
+          overdueTasks={overdueTasks}
           mealsToday={mealsToday}
           calendarEventsToday={calendarEventsToday}
           openLists={openLists}
