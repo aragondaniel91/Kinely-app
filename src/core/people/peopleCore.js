@@ -534,9 +534,37 @@ export function getRecordColorId(record = "") {
 }
 
 export function resolveEventPersonFromRecord(record = {}, people = []) {
-  const resolved = resolvePersonFromRecord(record, people);
+  if (!record || !people.length) return null;
+
+  // Production rule:
+  // Event creator is NOT the assigned person.
+  // Do not use createdBy / createdByEmail / actor fields for "Today by person".
+
+  const explicitEventRecord = {
+    assignedToPersonId: record.assignedToPersonId || record.assigned_to_person_id,
+    assignedPersonId: record.assignedPersonId || record.assigned_person_id,
+    assignedPersonIds: record.assignedPersonIds || record.assigned_person_ids,
+    assignedToPersonIds: record.assignedToPersonIds || record.assigned_to_person_ids,
+
+    assignedToPersonName: record.assignedToPersonName || record.assigned_to_person_name,
+    assignedPersonName: record.assignedPersonName || record.assigned_person_name,
+    assignedPersonNames: record.assignedPersonNames || record.assigned_person_names,
+
+    personId: record.personId || record.person_id,
+    personIds: record.personIds || record.person_ids,
+    personName: record.personName || record.person_name,
+
+    assignedPersonSnapshot: record.assignedPersonSnapshot || record.assigned_person_snapshot,
+    assignedPersonSnapshots: record.assignedPersonSnapshots || record.assigned_person_snapshots,
+    personSnapshot: record.personSnapshot || record.person_snapshot,
+  };
+
+  const resolved = resolveAssignedPersonFromRecord(explicitEventRecord, people);
   if (resolved) return resolved;
 
+  // Color is a visual fallback only. Use it only when it uniquely matches one person.
+  // If multiple people share the color, or the event has no explicit assignment,
+  // do not force it under Daniel or any other creator.
   const recordColorId = getRecordColorId(record);
   if (!recordColorId) return null;
 
