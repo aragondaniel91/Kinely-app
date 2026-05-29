@@ -452,23 +452,10 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
         ...corePayload,
         id: documentId || corePayload.id,
         firestoreId: documentId || corePayload.id,
-        firestore_id: documentId || corePayload.id,
         colorId: resolvedColorId,
-        color_id: resolvedColorId,
         familyName: profile?.family_name || profile?.familyName || "",
-        family_name: profile?.family_name || profile?.familyName || "",
         ...audiencePayload,
         assignedPersonSnapshot: assignedPerson
-          ? {
-              id: assignedPerson.id,
-              displayName: assignedPerson.displayName,
-              type: assignedPerson.type,
-              role: assignedPerson.role,
-              relationship: assignedPerson.relationship,
-              colorId: assignedPerson.colorId,
-            }
-          : null,
-        assigned_person_snapshot: assignedPerson
           ? {
               id: assignedPerson.id,
               displayName: assignedPerson.displayName,
@@ -495,11 +482,8 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
         await updateDoc(doc(db, "familyEvents", eventRef.id), {
           id: eventRef.id,
           firestoreId: eventRef.id,
-          firestore_id: eventRef.id,
           documentId: eventRef.id,
-          document_id: eventRef.id,
           legacyId: payload.id && payload.id !== eventRef.id ? payload.id : payload.legacyId || payload.legacy_id || "",
-          legacy_id: payload.id && payload.id !== eventRef.id ? payload.id : payload.legacy_id || payload.legacyId || "",
           updatedAt: serverTimestamp(),
         });
 
@@ -511,16 +495,11 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
             status: "active",
 
             familyId,
-            family_id: familyId,
 
             linkedEventId: eventRef.id,
-            linked_event_id: eventRef.id,
             linkedEventTitle: title.trim(),
-            linked_event_title: title.trim(),
             linkedEventDate: eventDate,
-            linked_event_date: eventDate,
             source: "calendar",
-            source_type: "calendar",
 
             createdBy: user?.uid || null,
             createdByEmail: user?.email || null,

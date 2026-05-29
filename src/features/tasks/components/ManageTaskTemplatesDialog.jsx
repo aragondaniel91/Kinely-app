@@ -215,6 +215,8 @@ function RoutineCard({
     runToday?.canceled === true ||
     runToday?.status === "cancelled";
   const assignedName =
+    template.assignedToPersonName ||
+    template.assigned_to_person_name ||
     template.assignedToName ||
     template.assigned_to_name ||
     template.defaultPersonName ||
@@ -721,7 +723,6 @@ export default function ManageTaskTemplatesDialog({
     try {
       const payload = {
         familyId,
-        family_id: familyId,
         title,
         description: draft.description.trim(),
         type: draft.type,
@@ -729,23 +730,13 @@ export default function ManageTaskTemplatesDialog({
         recurrence: draft.recurrence || "manual",
         repeat: draft.recurrence || "manual",
         autoGenerate: draft.recurrence !== "manual" && Boolean(draft.autoGenerate),
-        auto_generate: draft.recurrence !== "manual" && Boolean(draft.autoGenerate),
 
         assignedToPersonId: selectedAssignee?.id || "family",
-        assigned_to_person_id: selectedAssignee?.id || "family",
         defaultPersonId: selectedAssignee?.id || "family",
-        default_person_id: selectedAssignee?.id || "family",
-        assignedToName: selectedAssignee?.name || "Family",
-        assigned_to_name: selectedAssignee?.name || "Family",
+        assignedToPersonName: selectedAssignee?.name || "Family",
         defaultPersonName: selectedAssignee?.name || "Family",
-        default_person_name: selectedAssignee?.name || "Family",
         assignedRoleType: selectedAssignee?.roleType || selectedAssignee?.role || "family",
-        assigned_role_type: selectedAssignee?.roleType || selectedAssignee?.role || "family",
         childId:
-          selectedAssignee?.roleType === "child"
-            ? selectedAssignee.childId || selectedAssignee.id
-            : "",
-        child_id:
           selectedAssignee?.roleType === "child"
             ? selectedAssignee.childId || selectedAssignee.id
             : "",
@@ -763,7 +754,6 @@ export default function ManageTaskTemplatesDialog({
         await addDoc(collection(db, TASK_COLLECTIONS.templates), {
           ...payload,
           createdAt: serverTimestamp(),
-          created_date: new Date().toISOString(),
           createdBy: user?.uid || null,
         });
       }

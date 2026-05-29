@@ -10,6 +10,7 @@ import {
 import { db } from "@/lib/firebase";
 import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
+import { buildTaskPayload } from "@/features/tasks/utils/taskDialogOptions";
 
 function getDateKey(offsetDays = 0) {
   const date = new Date();
@@ -248,11 +249,6 @@ export function useRoutineRuns({
           return;
         }
         const selectedPerson = getAssignedPersonFromTemplate(template, people);
-        const childId =
-          selectedPerson?.roleType === "child"
-            ? selectedPerson.childId || selectedPerson.id
-            : "";
-
         const batch = writeBatch(db);
         const createdTaskIds = [];
 
@@ -264,52 +260,31 @@ export function useRoutineRuns({
           const rewardEligible = task.rewardEligible !== false;
 
           batch.set(taskRef, {
-            title: task.title,
-            category: task.category || template.category || "other",
-            priority: task.priority || "medium",
-            icon: task.icon || template.icon || "sparkles",
-
-            rewardEligible,
-            reward_eligible: rewardEligible,
+            ...buildTaskPayload({
+              title: task.title,
+              category: task.category || template.category || "other",
+              priority: task.priority || "medium",
+              icon: task.icon || template.icon || "sparkles",
+              rewardEligible,
+              selectedAssignee: selectedPerson,
+              dueDate: todayKey,
+              familyId,
+            }),
 
             chore: isChore,
             isChore,
-            is_chore: isChore,
             taskKind: isChore ? "chore" : "task",
-            task_kind: isChore ? "chore" : "task",
-
-            assignedTo: selectedPerson?.name || "Family",
-            assigned_to: selectedPerson?.name || "Family",
-            assignedToName: selectedPerson?.name || "Family",
-            assigned_to_name: selectedPerson?.name || "Family",
-            assignedToPersonId: selectedPerson?.id || "family",
-            assigned_to_person_id: selectedPerson?.id || "family",
-
-            childId,
-            child_id: childId,
-            assignedChildId: childId,
-            assigned_child_id: childId,
-
-            dueDate: todayKey,
-            due_date: todayKey,
             status: "pending",
 
-            familyId,
-            family_id: familyId,
             familyName: profile?.family_name || profile?.familyName || "",
 
             templateId: template.id,
-            template_id: template.id,
             templateTitle: template.title,
-            template_title: template.title,
 
             generatedFromRoutine: true,
-            generated_from_routine: true,
             routineRunId: runId,
-            routine_run_id: runId,
 
             regenerated: true,
-            regenerated_from_routine: true,
 
             createdBy: user?.uid || null,
             createdByEmail: user?.email || null,

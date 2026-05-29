@@ -180,34 +180,28 @@ export function buildTaskPayload({
   dueDate,
   familyId,
 }) {
+  const assigneeId = selectedAssignee?.value || selectedAssignee?.id || "family";
+  const assigneeName = selectedAssignee?.label || selectedAssignee?.name || "Family";
+  const roleType = selectedAssignee?.roleType || selectedAssignee?.role || "family";
   const childId =
-    selectedAssignee?.roleType === "child"
-      ? selectedAssignee.childId || selectedAssignee.value
+    roleType === "child"
+      ? selectedAssignee.childId || selectedAssignee.child_id || assigneeId
       : "";
 
   return {
-    title: title.trim(),
+    title: String(title || "").trim(),
     category,
     priority,
     icon,
     rewardEligible,
-    reward_eligible: rewardEligible,
-
-    assignedTo: selectedAssignee?.label || "Family",
-    assigned_to: selectedAssignee?.label || "Family",
-    assignedToName: selectedAssignee?.label || "Family",
-    assigned_to_name: selectedAssignee?.label || "Family",
-    assignedToPersonId: selectedAssignee?.value || "family",
-    assigned_to_person_id: selectedAssignee?.value || "family",
+    assignedToPersonId: assigneeId,
+    assignedToPersonName: assigneeName,
+    assignedToPersonColorId: selectedAssignee?.colorId || selectedAssignee?.color || "",
 
     childId,
-    child_id: childId,
     assignedChildId: childId,
-    assigned_child_id: childId,
 
-    due_date: dueDate || "",
     dueDate: dueDate || "",
     familyId,
-    family_id: familyId,
   };
 }

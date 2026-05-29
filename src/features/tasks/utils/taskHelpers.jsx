@@ -118,6 +118,10 @@ export function isDemoTask(task = {}) {
 
 export function getTaskAssignee(task = {}) {
   return (
+    task.assignedToPersonName ||
+    task.assigned_to_person_name ||
+    task.assignedPersonSnapshot?.displayName ||
+    task.assigned_person_snapshot?.displayName ||
     task.assignedToName ||
     task.assigned_to_name ||
     task.assignedTo ||

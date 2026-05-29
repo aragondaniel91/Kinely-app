@@ -36,6 +36,7 @@ import { Label } from "@/components/ui/label";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
   buildAssigneeOptions,
+  buildTaskPayload,
   findAssigneeOption,
   getDefaultTaskIcon,
 } from "@/features/tasks/utils/taskDialogOptions";
@@ -308,11 +309,6 @@ export default function ApplyTaskTemplateDialog({
     try {
       const batch = writeBatch(db);
       const dueDate = getDueDate();
-      const childId =
-        selectedAssignee?.roleType === "child"
-          ? selectedAssignee.childId || selectedAssignee.value
-          : "";
-
       templateTasks.forEach((task) => {
         const category = task.category || selectedTemplate.category || "other";
         const isChore = task.chore === true || selectedTemplate.type === "chore";
@@ -321,46 +317,27 @@ export default function ApplyTaskTemplateDialog({
         const taskRef = doc(collection(db, TASK_COLLECTIONS.tasks));
 
         batch.set(taskRef, {
-          title: task.title,
-          category,
-          priority: task.priority || "medium",
-          icon: task.icon || selectedTemplate.icon || getDefaultTaskIcon(category),
-
-          rewardEligible,
-          reward_eligible: rewardEligible,
+          ...buildTaskPayload({
+            title: task.title,
+            category,
+            priority: task.priority || "medium",
+            icon: task.icon || selectedTemplate.icon || getDefaultTaskIcon(category),
+            rewardEligible,
+            selectedAssignee,
+            dueDate,
+            familyId,
+          }),
 
           chore: isChore,
           isChore,
-          is_chore: isChore,
           taskKind: isChore ? "chore" : "task",
-          task_kind: isChore ? "chore" : "task",
-
-          assignedTo: selectedAssignee?.label || "Family",
-          assigned_to: selectedAssignee?.label || "Family",
-          assignedToName: selectedAssignee?.label || "Family",
-          assigned_to_name: selectedAssignee?.label || "Family",
-          assignedToPersonId: selectedAssignee?.value || "family",
-          assigned_to_person_id: selectedAssignee?.value || "family",
-
-          childId,
-          child_id: childId,
-          assignedChildId: childId,
-          assigned_child_id: childId,
-
-          dueDate,
-          due_date: dueDate,
           status: "pending",
 
-          familyId,
-          family_id: familyId,
           familyName: profile?.family_name || profile?.familyName || "",
 
           templateId: selectedTemplate.id,
-          template_id: selectedTemplate.id,
           templateTitle: selectedTemplate.title,
-          template_title: selectedTemplate.title,
           generatedFromRoutine: true,
-          generated_from_routine: true,
 
           createdBy: user?.uid || null,
           createdByEmail: user?.email || null,

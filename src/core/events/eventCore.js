@@ -119,17 +119,7 @@ export function buildEventAssignmentPayload(personId = "", people = []) {
 
   return {
     assignedPersonIds,
-    assigned_person_ids: assignedPersonIds,
     assignedPersonSnapshot: person
-      ? {
-          id: person.id,
-          displayName: person.displayName,
-          type: person.type,
-          relationship: person.relationship,
-          colorId: person.colorId,
-        }
-      : null,
-    assigned_person_snapshot: person
       ? {
           id: person.id,
           displayName: person.displayName,
@@ -170,10 +160,31 @@ export function buildFamilyEventPayload(input = {}, context = {}) {
   );
 
   return {
-    ...event,
+    id: event.id,
+    scope: event.scope,
     module: EVENT_SCOPES.FAMILY,
+    familyId: event.familyId,
+    custodyGroupId: event.custodyGroupId,
+    title: event.title,
+    description: event.description,
+    notes: event.notes,
+    date: event.date,
+    isAllDay: event.isAllDay,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    category: event.category,
+    location: event.location,
+    assignedPersonIds: event.assignedPersonIds,
+    assignedPersonSnapshot: assignment.assignedPersonSnapshot,
+    colorMode: event.colorMode,
+    colorId: event.colorId,
+    visibility: event.visibility,
+    notifications: event.notifications,
+    createdByUid: event.createdByUid,
+    createdByEmail: event.createdByEmail,
+    createdAt: event.createdAt,
+    updatedAt: event.updatedAt,
     eventSchemaVersion: 2,
-    event_schema_version: 2,
   };
 }
 

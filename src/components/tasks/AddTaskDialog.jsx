@@ -43,6 +43,7 @@ import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
   TASK_CREATE_CATEGORY_OPTIONS,
   TASK_PRIORITY_OPTIONS,
+  buildTaskPayload,
   getDefaultTaskIcon,
   getTaskAssigneeValue,
 } from "@/features/tasks/utils/taskDialogOptions";
@@ -460,49 +461,26 @@ export default function AddTaskDialog({
 
     try {
       const dueDate = getDueDate();
-      const childId =
-        selectedPerson?.roleType === "child"
-          ? selectedPerson.childId || selectedPerson.id
-          : "";
 
       const payload = {
-        title: cleanTitle,
-        category,
-        priority,
-        icon: getDefaultTaskIcon(category),
-
-        assignedTo: selectedPerson?.name || "Family",
-        assigned_to: selectedPerson?.name || "Family",
-        assignedToName: selectedPerson?.name || "Family",
-        assigned_to_name: selectedPerson?.name || "Family",
-        assignedToPersonId: selectedPerson?.id || "family",
-        assigned_to_person_id: selectedPerson?.id || "family",
-
-        childId,
-        child_id: childId,
-        assignedChildId: childId,
-        assigned_child_id: childId,
-
-        dueDate,
-        due_date: dueDate,
-
-        rewardEligible,
-        reward_eligible: rewardEligible,
+        ...buildTaskPayload({
+          title: cleanTitle,
+          category,
+          priority,
+          icon: getDefaultTaskIcon(category),
+          rewardEligible,
+          selectedAssignee: selectedPerson,
+          dueDate,
+          familyId,
+        }),
 
         chore: taskKind === "chore",
         isChore: taskKind === "chore",
-        is_chore: taskKind === "chore",
         taskKind,
-        task_kind: taskKind,
 
         linkedListId:
           editTask?.linkedListId ||
           editTask?.linked_list_id ||
-          initialTaskDraft?.linkedListId ||
-          "",
-        linked_list_id:
-          editTask?.linked_list_id ||
-          editTask?.linkedListId ||
           initialTaskDraft?.linkedListId ||
           "",
         linkedListTitle:
@@ -510,19 +488,9 @@ export default function AddTaskDialog({
           editTask?.linked_list_title ||
           initialTaskDraft?.linkedListTitle ||
           "",
-        linked_list_title:
-          editTask?.linked_list_title ||
-          editTask?.linkedListTitle ||
-          initialTaskDraft?.linkedListTitle ||
-          "",
         linkedEventId:
           editTask?.linkedEventId ||
           editTask?.linked_event_id ||
-          initialTaskDraft?.linkedEventId ||
-          "",
-        linked_event_id:
-          editTask?.linked_event_id ||
-          editTask?.linkedEventId ||
           initialTaskDraft?.linkedEventId ||
           "",
         linkedEventTitle:
@@ -530,22 +498,11 @@ export default function AddTaskDialog({
           editTask?.linked_event_title ||
           initialTaskDraft?.linkedEventTitle ||
           "",
-        linked_event_title:
-          editTask?.linked_event_title ||
-          editTask?.linkedEventTitle ||
-          initialTaskDraft?.linkedEventTitle ||
-          "",
         source:
           editTask?.source ||
           initialTaskDraft?.source ||
           "manual",
-        source_type:
-          editTask?.source_type ||
-          initialTaskDraft?.source ||
-          "manual",
 
-        familyId,
-        family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid || null,
