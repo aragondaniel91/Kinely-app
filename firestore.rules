@@ -84,8 +84,30 @@ service cloud.firestore {
         && request.auth.uid == custodyGroupDoc(familyId).data.ownerId;
     }
 
+    function isCustodyAdmin(familyId) {
+      return custodyGroupExists(familyId)
+        && (
+          isCustodyOwner(familyId)
+          || request.auth.uid == custodyGroupDoc(familyId).data.owner_id
+          || request.auth.uid == custodyGroupDoc(familyId).data.createdBy
+          || request.auth.uid == custodyGroupDoc(familyId).data.created_by
+          || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.adminIds)
+          || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.admin_ids)
+          || userEmail() == custodyGroupDoc(familyId).data.ownerEmail
+          || userEmail() == custodyGroupDoc(familyId).data.owner_email
+          || userEmail() == custodyGroupDoc(familyId).data.createdByEmail
+          || userEmail() == custodyGroupDoc(familyId).data.created_by_email
+          || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.adminEmails)
+          || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.admin_emails)
+        );
+    }
+
+    function canManageCustodyGroup(familyId) {
+      return isCustodyAdmin(familyId);
+    }
+
     function isCustodyMember(familyId) {
-      return isCustodyOwner(familyId)
+      return isCustodyAdmin(familyId)
         || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.memberIds)
         || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.memberEmails);
     }
@@ -263,7 +285,10 @@ service cloud.firestore {
 
     function canDeleteCustodyDoc() {
       return hasExistingCustodyScopeId()
-        && canWriteCustody(existingCustodyScopeId());
+        && (
+          canWriteCustody(existingCustodyScopeId())
+          || canManageCustodyGroup(existingCustodyScopeId())
+        );
     }
 
     function canReadBudgetDoc() {
@@ -285,7 +310,10 @@ service cloud.firestore {
 
     function canDeleteBudgetDoc() {
       return hasExistingCustodyScopeId()
-        && canWriteCustodyBudget(existingCustodyScopeId());
+        && (
+          canWriteCustodyBudget(existingCustodyScopeId())
+          || canManageCustodyGroup(existingCustodyScopeId())
+        );
     }
 
     function currentUserFamilyInvitationId(familyId) {
@@ -501,7 +529,7 @@ service cloud.firestore {
       allow update: if canManageFamily(familyId)
         || canAcceptFamilyInvitationUpdate(familyId)
         || canDeclineFamilyInvitationUpdate(familyId);
-      allow delete: if isFamilyOwner(familyId);
+      allow delete: if canManageFamily(familyId);
     }
 
     match /custodyGroups/{groupId} {
@@ -515,7 +543,7 @@ service cloud.firestore {
         || canAcceptCustodyMemberInvitationUpdate(groupId)
         || canAcceptCustodyViewerInvitationUpdate(groupId)
         || canDeclineCustodyInvitationUpdate(groupId);
-      allow delete: if isCustodyOwner(groupId);
+      allow delete: if canManageCustodyGroup(groupId);
     }
 
     match /familyEvents/{docId} {
@@ -676,12 +704,12 @@ service cloud.firestore {
     }
 
     match /custodyNotificationPrefs/{scopeId} {
-      allow read: if canReadCustodyDoc();
+      allow read: if canReadCustody(scopeId) || canReadCustodyDoc();
       allow create: if canCreateCustodyDoc()
         && requestCustodyScopeId() == scopeId;
       allow update: if canUpdateCustodyDoc()
         && requestCustodyScopeId() == scopeId;
-      allow delete: if canDeleteCustodyDoc();
+      allow delete: if canManageCustodyGroup(scopeId) || canDeleteCustodyDoc();
     }
 
     match /groceries/{docId} {

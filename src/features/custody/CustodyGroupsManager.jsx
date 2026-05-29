@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Baby, Eye, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
   query,
@@ -16,6 +15,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
+import { deleteCustodyGroupCascade } from "@/services/familyAdminService";
 import {
   CHILD_RELATIONSHIP_TYPES,
   buildCustodyGroupPayload,
@@ -116,6 +116,32 @@ function canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyI
   );
 }
 
+function canDeleteCustodyGroup(group, user, myEmail) {
+  const uid = user?.uid || "";
+  const email = normalizeEmail(myEmail || user?.email);
+  const adminIds = [
+    ...(Array.isArray(group?.adminIds) ? group.adminIds : []),
+    ...(Array.isArray(group?.admin_ids) ? group.admin_ids : []),
+  ];
+  const adminEmails = normalizeEmailList([
+    ...(Array.isArray(group?.adminEmails) ? group.adminEmails : []),
+    ...(Array.isArray(group?.admin_emails) ? group.admin_emails : []),
+  ]);
+
+  return Boolean(
+    group?.ownerId === uid ||
+      group?.owner_id === uid ||
+      group?.createdBy === uid ||
+      group?.created_by === uid ||
+      adminIds.includes(uid) ||
+      normalizeEmail(group?.ownerEmail) === email ||
+      normalizeEmail(group?.owner_email) === email ||
+      normalizeEmail(group?.createdByEmail) === email ||
+      normalizeEmail(group?.created_by_email) === email ||
+      adminEmails.includes(email)
+  );
+}
+
 function ColorSelector({ label, value, onChange }) {
   return (
     <div>
@@ -149,6 +175,7 @@ function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, o
   const viewerEmails = getCustodyGroupViewerEmails(group);
   const isMember = memberEmails.includes(normalizeEmail(myEmail));
   const canManage = canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId });
+  const canDelete = canDeleteCustodyGroup(group, user, myEmail);
   const isViewerOnly = !canManage && !isMember && viewerEmails.includes(normalizeEmail(myEmail));
   const children = getCustodyGroupChildren(group);
   const parents = getCustodyGroupParents(group);
@@ -228,21 +255,25 @@ function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, o
         </div>
       </div>
 
-      {canManage && (
+      {(canManage || canDelete) && (
         <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onEdit(group)} className="gap-2 rounded-2xl">
-            <Pencil className="h-4 w-4" />
-            Edit
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onDelete(group)}
-            className="gap-2 rounded-2xl border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
+          {canManage && (
+            <Button type="button" variant="outline" onClick={() => onEdit(group)} className="gap-2 rounded-2xl">
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onDelete(group)}
+              className="gap-2 rounded-2xl border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          )}
         </div>
       )}
     </Card>
@@ -470,6 +501,23 @@ export default function CustodyGroupsManager() {
       ).filter((email) => !acceptedMemberEmails.includes(email));
       const acceptedViewerIds = (Array.isArray(existingGroup?.viewerIds) ? existingGroup.viewerIds : [])
         .filter((uid) => !acceptedMemberIds.includes(uid));
+      const adminIds = [
+        ...new Set([
+          ...(Array.isArray(existingGroup?.adminIds) ? existingGroup.adminIds : []),
+          ...(Array.isArray(existingGroup?.admin_ids) ? existingGroup.admin_ids : []),
+          existingGroup?.ownerId,
+          existingGroup?.owner_id,
+          user.uid,
+        ].filter(Boolean)),
+      ];
+      const adminEmails = normalizeEmailList([
+        ...(Array.isArray(existingGroup?.adminEmails) ? existingGroup.adminEmails : []),
+        ...(Array.isArray(existingGroup?.admin_emails) ? existingGroup.admin_emails : []),
+        existingGroup?.ownerEmail,
+        existingGroup?.owner_email,
+        user.email,
+        myEmail,
+      ]);
       const pendingMemberEmails = getPendingMemberEmails(existingGroup);
       const pendingViewerEmails = getPendingViewerEmails(existingGroup);
       const payload = buildCustodyGroupPayload({
@@ -509,6 +557,10 @@ export default function CustodyGroupsManager() {
         owner_id: existingGroup?.owner_id || existingGroup?.ownerId || payload.ownerId,
         ownerEmail: existingGroup?.ownerEmail || existingGroup?.owner_email || payload.ownerEmail,
         owner_email: existingGroup?.owner_email || existingGroup?.ownerEmail || payload.ownerEmail,
+        adminIds,
+        admin_ids: adminIds,
+        adminEmails,
+        admin_emails: adminEmails,
         createdBy: existingGroup?.createdBy || existingGroup?.created_by || payload.createdBy,
         created_by: existingGroup?.created_by || existingGroup?.createdBy || payload.createdBy,
         createdByEmail: existingGroup?.createdByEmail || existingGroup?.created_by_email || payload.createdByEmail,
@@ -652,11 +704,11 @@ export default function CustodyGroupsManager() {
   };
 
   const deleteGroup = async (group, { skipConfirm = false } = {}) => {
-    if (!canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId })) {
+    if (!canDeleteCustodyGroup(group, user, myEmail)) {
       showNotice({
         tone: "warning",
         title: "Permission required",
-        message: "You do not have permission to delete this custody group.",
+        message: "Only the custody group owner, creator, or group admin can delete it. Invited parents can accept or decline access from Invitations.",
       });
       return;
     }
@@ -665,8 +717,8 @@ export default function CustodyGroupsManager() {
       askConfirm({
         tone: "danger",
         title: "Delete custody group?",
-        message: "This will not delete existing custody days, but it will remove the shared group access.",
-        confirmLabel: "Delete group",
+        message: "This will delete the custody group plus its calendar days, exchanges, packing items, travel plans, expenses, notifications, and pending invitations.",
+        confirmLabel: "Delete group and records",
         onConfirm: () => deleteGroup(group, { skipConfirm: true }),
       });
       return;
@@ -675,8 +727,13 @@ export default function CustodyGroupsManager() {
     setSaving(true);
 
     try {
-      await deleteDoc(doc(db, "custodyGroups", group.id));
+      const result = await deleteCustodyGroupCascade(group.id);
       await loadGroups();
+      showNotice({
+        tone: "success",
+        title: "Custody group deleted",
+        message: `${result.deletedRecords} related record${result.deletedRecords === 1 ? "" : "s"} removed.`,
+      });
     } catch (error) {
       console.error("Error deleting custody group:", error);
       showNotice({

@@ -4,6 +4,7 @@ import { Check, Plus, Save, Trash2, Users, X } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
+import { deleteFamilyCascade } from "@/services/familyAdminService";
 import {
   buildFamilyInvitation,
   familyInvitationId,
@@ -13,6 +14,7 @@ import { PERSON_COLOR_OPTIONS, colorClasses, getColorMeta, normalizeChildren } f
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import AppDialog from "@/components/app/AppDialog";
 import {
   Select,
   SelectContent,
@@ -158,6 +160,8 @@ export default function ProfileFamiliesSection() {
   const [newFamilyChildren, setNewFamilyChildren] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [deletingFamily, setDeletingFamily] = useState(false);
+  const [confirmDeleteFamily, setConfirmDeleteFamily] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -337,6 +341,46 @@ export default function ProfileFamiliesSection() {
     }
   }
 
+  async function handleDeleteFamily() {
+    const targetFamily = confirmDeleteFamily;
+    if (!targetFamily?.id) return;
+    if (!canEdit) {
+      setError("Only a family admin can delete this family space.");
+      setConfirmDeleteFamily(null);
+      return;
+    }
+
+    clearStatus();
+    setDeletingFamily(true);
+
+    try {
+      const remainingFamilies = families.filter((family) => family.id !== targetFamily.id);
+      const result = await deleteFamilyCascade({
+        familyId: targetFamily.id,
+        userId: user?.uid,
+      });
+
+      setConfirmDeleteFamily(null);
+
+      if (remainingFamilies[0]?.id) {
+        setActiveProfileId?.(remainingFamilies[0].id);
+      } else {
+        await createFamily?.({
+          familyName: `${user?.displayName || "My"} Family`,
+          children: [],
+        });
+      }
+
+      await refreshFamilies?.();
+      setMessage(`Family deleted. ${result.deletedRecords} related record${result.deletedRecords === 1 ? "" : "s"} removed.`);
+    } catch (err) {
+      console.error("Error deleting family", err);
+      setError(err?.message || "Error deleting family.");
+    } finally {
+      setDeletingFamily(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       {message && <Card className="border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-800">{message}</Card>}
@@ -453,10 +497,45 @@ export default function ProfileFamiliesSection() {
               </div>
 
               {canEdit && <div className="md:col-span-2"><Button onClick={handleSaveFamily} disabled={saving} className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700"><Save className="h-4 w-4" /> {saving ? "Saving..." : "Save family changes"}</Button></div>}
+
+              {canEdit && (
+                <div className="md:col-span-2 rounded-2xl border border-red-200 bg-red-50 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-black text-red-900">Danger zone</p>
+                      <p className="mt-1 text-sm font-semibold text-red-700">
+                        Delete this family space and all records tied to it. If it is your last family, a fresh empty family space will be created for your account.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={deletingFamily}
+                      onClick={() => setConfirmDeleteFamily(profile)}
+                      className="shrink-0 gap-2 border-red-300 bg-white text-red-700 hover:bg-red-100 hover:text-red-800"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete family
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Card>
       </div>
+
+      <AppDialog
+        open={Boolean(confirmDeleteFamily)}
+        tone="danger"
+        title="Delete family?"
+        message={`This will permanently delete ${familyNameOf(confirmDeleteFamily)} plus its events, tasks, meals, lists, custody groups, custody calendar, packing items, exchanges, budget records, and invitations.`}
+        confirmLabel={deletingFamily ? "Deleting..." : "Delete family and records"}
+        cancelLabel="Cancel"
+        loading={deletingFamily}
+        onConfirm={handleDeleteFamily}
+        onCancel={() => setConfirmDeleteFamily(null)}
+      />
     </div>
   );
 }

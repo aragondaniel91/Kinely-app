@@ -314,8 +314,18 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
 
   const userData = userSnap.exists() ? userSnap.data() : authProfile || {};
 
-  if (userData?.familyId) {
-    return userData.familyId;
+  const candidateFamilyIds = [
+    userData?.familyId,
+    ...(Array.isArray(userData?.familyIds) ? userData.familyIds : []),
+    authProfile?.familyId,
+    ...(Array.isArray(authProfile?.familyIds) ? authProfile.familyIds : []),
+  ].filter(Boolean);
+
+  for (const candidateFamilyId of [...new Set(candidateFamilyIds)]) {
+    const familySnap = await getDoc(doc(db, "families", candidateFamilyId));
+    if (familySnap.exists()) {
+      return candidateFamilyId;
+    }
   }
 
   const familyRef = doc(collection(db, "families"));
