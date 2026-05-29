@@ -36,6 +36,14 @@ service cloud.firestore {
       return /databases/$(database)/documents/familyInvitations/$(currentUserFamilyInvitationId(familyId));
     }
 
+    function currentUserCustodyInvitationId(groupId) {
+      return "custody_" + groupId + "_" + userEmail();
+    }
+
+    function currentUserCustodyInvitationPath(groupId) {
+      return /databases/$(database)/documents/custodyInvitations/$(currentUserCustodyInvitationId(groupId));
+    }
+
     function familyExists(familyId) {
       return exists(/databases/$(database)/documents/families/$(familyId));
     }
@@ -170,6 +178,114 @@ service cloud.firestore {
       return isCustodyMember(groupId);
     }
 
+    function currentUserCustodyInvitationExists(groupId) {
+      return signedIn()
+        && exists(currentUserCustodyInvitationPath(groupId));
+    }
+
+    function currentUserCustodyInvitationAfterStatus(groupId, status) {
+      return signedIn()
+        && currentUserCustodyInvitationExists(groupId)
+        && getAfter(currentUserCustodyInvitationPath(groupId)).data.status == status
+        && (
+          getAfter(currentUserCustodyInvitationPath(groupId)).data.recipientEmail == userEmail()
+          || getAfter(currentUserCustodyInvitationPath(groupId)).data.recipient_email == userEmail()
+        )
+        && (
+          getAfter(currentUserCustodyInvitationPath(groupId)).data.groupId == groupId
+          || getAfter(currentUserCustodyInvitationPath(groupId)).data.group_id == groupId
+          || getAfter(currentUserCustodyInvitationPath(groupId)).data.familyId == groupId
+          || getAfter(currentUserCustodyInvitationPath(groupId)).data.family_id == groupId
+        );
+    }
+
+    function custodyMemberEmailsPreserved() {
+      return listOrEmpty(request.resource.data.memberEmails)
+          .hasAll(listOrEmpty(resource.data.memberEmails))
+        && listOrEmpty(request.resource.data.member_emails)
+          .hasAll(listOrEmpty(resource.data.member_emails));
+    }
+
+    function custodyViewerEmailsPreserved() {
+      return listOrEmpty(request.resource.data.viewerEmails)
+          .hasAll(listOrEmpty(resource.data.viewerEmails))
+        && listOrEmpty(request.resource.data.viewer_emails)
+          .hasAll(listOrEmpty(resource.data.viewer_emails));
+    }
+
+    function custodyPendingMemberRemoved() {
+      return !(userEmail() in listOrEmpty(request.resource.data.pendingMemberEmails))
+        && !(userEmail() in listOrEmpty(request.resource.data.pending_member_emails));
+    }
+
+    function custodyPendingViewerRemoved() {
+      return !(userEmail() in listOrEmpty(request.resource.data.pendingViewerEmails))
+        && !(userEmail() in listOrEmpty(request.resource.data.pending_viewer_emails));
+    }
+
+    function canAcceptCustodyMemberInvitationUpdate(groupId) {
+      return signedIn()
+        && custodyGroupExists(groupId)
+        && (
+          userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
+          || userEmail() in listOrEmpty(resource.data.pending_member_emails)
+        )
+        && userEmail() in listOrEmpty(request.resource.data.memberEmails)
+        && userEmail() in listOrEmpty(request.resource.data.member_emails)
+        && custodyMemberEmailsPreserved()
+        && custodyPendingMemberRemoved()
+        && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "memberEmails",
+          "member_emails",
+          "pendingMemberEmails",
+          "pending_member_emails",
+          "updatedAt"
+        ]);
+    }
+
+    function canAcceptCustodyViewerInvitationUpdate(groupId) {
+      return signedIn()
+        && custodyGroupExists(groupId)
+        && (
+          userEmail() in listOrEmpty(resource.data.pendingViewerEmails)
+          || userEmail() in listOrEmpty(resource.data.pending_viewer_emails)
+        )
+        && userEmail() in listOrEmpty(request.resource.data.viewerEmails)
+        && userEmail() in listOrEmpty(request.resource.data.viewer_emails)
+        && custodyViewerEmailsPreserved()
+        && custodyPendingViewerRemoved()
+        && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "viewerEmails",
+          "viewer_emails",
+          "pendingViewerEmails",
+          "pending_viewer_emails",
+          "updatedAt"
+        ]);
+    }
+
+    function canDeclineCustodyInvitationUpdate(groupId) {
+      return signedIn()
+        && custodyGroupExists(groupId)
+        && (
+          userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
+          || userEmail() in listOrEmpty(resource.data.pending_member_emails)
+          || userEmail() in listOrEmpty(resource.data.pendingViewerEmails)
+          || userEmail() in listOrEmpty(resource.data.pending_viewer_emails)
+        )
+        && custodyPendingMemberRemoved()
+        && custodyPendingViewerRemoved()
+        && currentUserCustodyInvitationAfterStatus(groupId, "declined")
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "pendingMemberEmails",
+          "pending_member_emails",
+          "pendingViewerEmails",
+          "pending_viewer_emails",
+          "updatedAt"
+        ]);
+    }
+
     function hasRequestFamilyId() {
       return request.resource.data.familyId is string
         || request.resource.data.family_id is string;
@@ -241,7 +357,10 @@ service cloud.firestore {
           || userEmail() in listOrEmpty(request.resource.data.memberEmails)
           || userEmail() in listOrEmpty(request.resource.data.member_emails)
         );
-      allow update: if canWriteCustody(groupId);
+      allow update: if canWriteCustody(groupId)
+        || canAcceptCustodyMemberInvitationUpdate(groupId)
+        || canAcceptCustodyViewerInvitationUpdate(groupId)
+        || canDeclineCustodyInvitationUpdate(groupId);
       allow delete: if signedIn()
         && (
           request.auth.uid == resource.data.ownerId
@@ -345,6 +464,51 @@ service cloud.firestore {
           )
           && request.resource.data.familyId == resource.data.familyId
           && request.resource.data.family_id == resource.data.family_id
+          && request.resource.data.recipientEmail == resource.data.recipientEmail
+          && request.resource.data.recipient_email == resource.data.recipient_email
+          && request.resource.data.status in ["accepted", "declined"]
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "status",
+            "acceptedBy",
+            "accepted_by",
+            "acceptedAt",
+            "accepted_at",
+            "declinedBy",
+            "declined_by",
+            "declinedAt",
+            "declined_at",
+            "updatedAt",
+            "updated_at"
+          ])
+        );
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /custodyInvitations/{docId} {
+      allow read: if canReadScopedFamilyDoc()
+        || (
+          signedIn()
+          && (
+            userEmail() == resource.data.recipientEmail
+            || userEmail() == resource.data.recipient_email
+          )
+        );
+      allow create: if canCreateScopedFamilyDoc()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if canUpdateScopedFamilyDoc()
+        || (
+          signedIn()
+          && hasExistingFamilyId()
+          && hasRequestFamilyId()
+          && requestFamilyId() == existingFamilyId()
+          && (
+            userEmail() == resource.data.recipientEmail
+            || userEmail() == resource.data.recipient_email
+          )
+          && request.resource.data.familyId == resource.data.familyId
+          && request.resource.data.family_id == resource.data.family_id
+          && request.resource.data.groupId == resource.data.groupId
+          && request.resource.data.group_id == resource.data.group_id
           && request.resource.data.recipientEmail == resource.data.recipientEmail
           && request.resource.data.recipient_email == resource.data.recipient_email
           && request.resource.data.status in ["accepted", "declined"]

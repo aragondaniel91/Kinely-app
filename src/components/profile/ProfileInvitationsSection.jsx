@@ -29,20 +29,50 @@ const DEFAULT_MEMBER_PERMISSIONS = {
   groceries: { read: true, write: true },
 };
 
+const INVITATION_COLLECTIONS = {
+  FAMILY: "familyInvitations",
+  CUSTODY: "custodyInvitations",
+};
+
 function invitationEmail(invitation) {
   return normalizeInviteEmail(invitation?.recipientEmail || invitation?.recipient_email);
+}
+
+function invitationCollection(invitation) {
+  return invitation?.collectionName || invitation?.collection_name || INVITATION_COLLECTIONS.FAMILY;
+}
+
+function invitationKey(invitation) {
+  return `${invitationCollection(invitation)}:${invitation?.id || ""}`;
+}
+
+function isCustodyInvitation(invitation) {
+  const collectionName = invitationCollection(invitation);
+  const type = invitation?.type || invitation?.inviteType || invitation?.invite_type || "";
+  return collectionName === INVITATION_COLLECTIONS.CUSTODY || type.includes("custody");
 }
 
 function invitationFamilyId(invitation) {
   return invitation?.familyId || invitation?.family_id || "";
 }
 
+function invitationGroupId(invitation) {
+  return invitation?.groupId || invitation?.group_id || invitationFamilyId(invitation);
+}
+
 function invitationFamilyName(invitation) {
-  return invitation?.familyName || invitation?.family_name || "Family space";
+  return invitation?.groupName || invitation?.group_name || invitation?.familyName || invitation?.family_name || "Family space";
 }
 
 function invitationRole(invitation) {
   return invitation?.role || "family";
+}
+
+function invitationAccess(invitation) {
+  const access = invitation?.access || invitation?.accessLevel || invitation?.access_level || "";
+  const type = invitation?.type || invitation?.inviteType || invitation?.invite_type || "";
+  if (access === "viewer" || type.includes("viewer") || invitationRole(invitation) === "viewer") return "viewer";
+  return "member";
 }
 
 function invitationTypeLabel(invitation) {
@@ -55,7 +85,7 @@ function invitationTypeLabel(invitation) {
 function mergeInvitationDocs(...groups) {
   const map = new Map();
   groups.flat().forEach((item) => {
-    if (item?.id) map.set(item.id, item);
+    if (item?.id) map.set(invitationKey(item), item);
   });
   return Array.from(map.values())
     .filter((item) => (item.status || INVITATION_STATUS.PENDING) === INVITATION_STATUS.PENDING)
@@ -86,7 +116,27 @@ function buildAcceptedMember({ invitation, user, email }) {
   };
 }
 
+async function readInvitationDocs(collectionName, email) {
+  const invitationRef = collection(db, collectionName);
+  const [camelSnap, snakeSnap] = await Promise.allSettled([
+    getDocs(query(invitationRef, where("recipientEmail", "==", email))),
+    getDocs(query(invitationRef, where("recipient_email", "==", email))),
+  ]);
+
+  const camelDocs = camelSnap.status === "fulfilled"
+    ? camelSnap.value.docs.map((docSnap) => ({ id: docSnap.id, collectionName, ...docSnap.data() }))
+    : [];
+  const snakeDocs = snakeSnap.status === "fulfilled"
+    ? snakeSnap.value.docs.map((docSnap) => ({ id: docSnap.id, collectionName, ...docSnap.data() }))
+    : [];
+
+  return [...camelDocs, ...snakeDocs];
+}
+
 function InvitationCard({ invitation, busy, onAccept, onDecline }) {
+  const custodyInvite = isCustodyInvitation(invitation);
+  const access = invitationAccess(invitation);
+
   return (
     <Card className="rounded-[2rem] border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -103,7 +153,9 @@ function InvitationCard({ invitation, busy, onAccept, onDecline }) {
             {invitationFamilyName(invitation)}
           </h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-            You were invited as {invitationRole(invitation)}. Accepting adds this family space to your account.
+            {custodyInvite
+              ? `You were invited as ${access === "viewer" ? "a viewer" : invitationRole(invitation)}. Accepting adds this custody calendar to your account.`
+              : `You were invited as ${invitationRole(invitation)}. Accepting adds this family space to your account.`}
           </p>
           {invitation?.createdByEmail || invitation?.created_by_email ? (
             <p className="mt-2 text-xs font-bold text-slate-400">
@@ -170,20 +222,11 @@ export default function ProfileInvitationsSection() {
     setError("");
 
     try {
-      const invitationRef = collection(db, "familyInvitations");
-      const [camelSnap, snakeSnap] = await Promise.allSettled([
-        getDocs(query(invitationRef, where("recipientEmail", "==", email))),
-        getDocs(query(invitationRef, where("recipient_email", "==", email))),
+      const [familyDocs, custodyDocs] = await Promise.all([
+        readInvitationDocs(INVITATION_COLLECTIONS.FAMILY, email),
+        readInvitationDocs(INVITATION_COLLECTIONS.CUSTODY, email),
       ]);
-
-      const camelDocs = camelSnap.status === "fulfilled"
-        ? camelSnap.value.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-        : [];
-      const snakeDocs = snakeSnap.status === "fulfilled"
-        ? snakeSnap.value.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-        : [];
-
-      setInvitations(mergeInvitationDocs(camelDocs, snakeDocs));
+      setInvitations(mergeInvitationDocs(familyDocs, custodyDocs));
     } catch (loadError) {
       console.error("Error loading invitations:", loadError);
       setError(loadError?.message || "Could not load invitations.");
@@ -198,13 +241,80 @@ export default function ProfileInvitationsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
+  function removeInvitationFromList(invitation) {
+    const key = invitationKey(invitation);
+    setInvitations((current) => current.filter((item) => invitationKey(item) !== key));
+  }
+
+  async function acceptCustodyInvitation(invitation) {
+    const groupId = invitationGroupId(invitation);
+    const recipientEmail = invitationEmail(invitation);
+
+    if (!user || !groupId || !recipientEmail) return;
+
+    setBusyId(invitationKey(invitation));
+    setMessage("");
+    setError("");
+
+    try {
+      const access = invitationAccess(invitation);
+      const batch = writeBatch(db);
+      const invitationRef = doc(db, INVITATION_COLLECTIONS.CUSTODY, invitation.id);
+      const groupRef = doc(db, "custodyGroups", groupId);
+
+      batch.update(invitationRef, {
+        status: INVITATION_STATUS.ACCEPTED,
+        acceptedBy: user.uid,
+        accepted_by: user.uid,
+        acceptedAt: serverTimestamp(),
+        accepted_at: new Date().toISOString(),
+        updatedAt: serverTimestamp(),
+        updated_at: new Date().toISOString(),
+      });
+
+      const groupUpdate = {
+        updatedAt: serverTimestamp(),
+      };
+
+      if (access === "viewer") {
+        groupUpdate.viewerEmails = arrayUnion(recipientEmail);
+        groupUpdate.viewer_emails = arrayUnion(recipientEmail);
+        groupUpdate.pendingViewerEmails = arrayRemove(recipientEmail);
+        groupUpdate.pending_viewer_emails = arrayRemove(recipientEmail);
+      } else {
+        groupUpdate.memberEmails = arrayUnion(recipientEmail);
+        groupUpdate.member_emails = arrayUnion(recipientEmail);
+        groupUpdate.pendingMemberEmails = arrayRemove(recipientEmail);
+        groupUpdate.pending_member_emails = arrayRemove(recipientEmail);
+      }
+
+      batch.update(groupRef, groupUpdate);
+
+      await batch.commit();
+      removeInvitationFromList(invitation);
+      setMessage(access === "viewer"
+        ? "Invitation accepted. The custody calendar is now available in view-only mode."
+        : "Invitation accepted. The custody calendar is now active on your account.");
+    } catch (acceptError) {
+      console.error("Error accepting custody invitation:", acceptError);
+      setError(acceptError?.message || "Could not accept custody invitation.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   async function acceptInvitation(invitation) {
+    if (isCustodyInvitation(invitation)) {
+      await acceptCustodyInvitation(invitation);
+      return;
+    }
+
     const familyId = invitationFamilyId(invitation);
     const recipientEmail = invitationEmail(invitation);
 
     if (!user || !familyId || !recipientEmail) return;
 
-    setBusyId(invitation.id);
+    setBusyId(invitationKey(invitation));
     setMessage("");
     setError("");
 
@@ -248,7 +358,7 @@ export default function ProfileInvitationsSection() {
       await batch.commit();
       await refreshFamilies?.();
       setActiveProfileId?.(familyId);
-      setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+      removeInvitationFromList(invitation);
       setMessage("Invitation accepted. The family space is now active on your account.");
     } catch (acceptError) {
       console.error("Error accepting invitation:", acceptError);
@@ -258,13 +368,62 @@ export default function ProfileInvitationsSection() {
     }
   }
 
+  async function declineCustodyInvitation(invitation) {
+    const groupId = invitationGroupId(invitation);
+    const recipientEmail = invitationEmail(invitation);
+
+    if (!user || !groupId || !recipientEmail) return;
+
+    setBusyId(invitationKey(invitation));
+    setMessage("");
+    setError("");
+
+    try {
+      const batch = writeBatch(db);
+      const invitationRef = doc(db, INVITATION_COLLECTIONS.CUSTODY, invitation.id);
+      const groupRef = doc(db, "custodyGroups", groupId);
+
+      batch.update(invitationRef, {
+        status: INVITATION_STATUS.DECLINED,
+        declinedBy: user.uid,
+        declined_by: user.uid,
+        declinedAt: serverTimestamp(),
+        declined_at: new Date().toISOString(),
+        updatedAt: serverTimestamp(),
+        updated_at: new Date().toISOString(),
+      });
+
+      batch.update(groupRef, {
+        pendingMemberEmails: arrayRemove(recipientEmail),
+        pending_member_emails: arrayRemove(recipientEmail),
+        pendingViewerEmails: arrayRemove(recipientEmail),
+        pending_viewer_emails: arrayRemove(recipientEmail),
+        updatedAt: serverTimestamp(),
+      });
+
+      await batch.commit();
+      removeInvitationFromList(invitation);
+      setMessage("Invitation declined.");
+    } catch (declineError) {
+      console.error("Error declining custody invitation:", declineError);
+      setError(declineError?.message || "Could not decline custody invitation.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   async function declineInvitation(invitation) {
+    if (isCustodyInvitation(invitation)) {
+      await declineCustodyInvitation(invitation);
+      return;
+    }
+
     const familyId = invitationFamilyId(invitation);
     const recipientEmail = invitationEmail(invitation);
 
     if (!user || !familyId || !recipientEmail) return;
 
-    setBusyId(invitation.id);
+    setBusyId(invitationKey(invitation));
     setMessage("");
     setError("");
 
@@ -290,7 +449,7 @@ export default function ProfileInvitationsSection() {
       });
 
       await batch.commit();
-      setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+      removeInvitationFromList(invitation);
       setMessage("Invitation declined.");
     } catch (declineError) {
       console.error("Error declining invitation:", declineError);
@@ -309,10 +468,10 @@ export default function ProfileInvitationsSection() {
               Invitations
             </p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-              Pending family access
+              Pending access
             </h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-              Accept family invitations only when you recognize the family space and sender.
+              Accept family and custody invitations only when you recognize the space and sender.
             </p>
           </div>
 
@@ -340,9 +499,9 @@ export default function ProfileInvitationsSection() {
         <div className="space-y-3">
           {invitations.map((invitation) => (
             <InvitationCard
-              key={invitation.id}
+              key={invitationKey(invitation)}
               invitation={invitation}
-              busy={busyId === invitation.id}
+              busy={busyId === invitationKey(invitation)}
               onAccept={acceptInvitation}
               onDecline={declineInvitation}
             />

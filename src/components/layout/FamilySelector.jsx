@@ -33,10 +33,7 @@ function groupChildNames(group) {
 function groupMemberEmails(group) {
   const explicit = Array.isArray(group?.memberEmails) ? group.memberEmails : [];
   const legacy = Array.isArray(group?.member_emails) ? group.member_emails : [];
-  const parents = Array.isArray(group?.parents) ? group.parents : [];
-  const coParents = Array.isArray(group?.coParents) ? group.coParents : [];
-  const parentEmails = [...parents, ...coParents].map((parent) => parent?.email).filter(Boolean);
-  return [...new Set([...explicit, ...legacy, ...parentEmails].map(normalizeEmail).filter(Boolean))];
+  return [...new Set([...explicit, ...legacy].map(normalizeEmail).filter(Boolean))];
 }
 
 function groupViewerEmails(group) {

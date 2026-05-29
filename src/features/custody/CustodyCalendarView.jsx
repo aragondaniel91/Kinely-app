@@ -106,8 +106,7 @@ function groupParents(group) {
 function groupMemberEmails(group) {
   const explicitMembers = Array.isArray(group?.memberEmails) ? group.memberEmails : [];
   const legacyMembers = Array.isArray(group?.member_emails) ? group.member_emails : [];
-  const parentEmails = groupParents(group).map((parent) => parent.email).filter(Boolean);
-  return [...new Set([...explicitMembers, ...legacyMembers, ...parentEmails].map(normalizeEmail).filter(Boolean))];
+  return [...new Set([...explicitMembers, ...legacyMembers].map(normalizeEmail).filter(Boolean))];
 }
 
 function groupViewerEmails(group) {

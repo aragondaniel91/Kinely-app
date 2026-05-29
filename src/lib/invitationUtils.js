@@ -29,6 +29,10 @@ export function familyInvitationId(familyId, email) {
   return `family_${familyId}_${normalizeInviteEmail(email)}`;
 }
 
+export function custodyInvitationId(groupId, email) {
+  return `custody_${groupId}_${normalizeInviteEmail(email)}`;
+}
+
 export function buildFamilyInvitation({
   familyId,
   familyName = "",
@@ -55,6 +59,63 @@ export function buildFamilyInvitation({
     type,
     inviteType: type,
     invite_type: type,
+    status: INVITATION_STATUS.PENDING,
+    recipientName: String(recipientName || "").trim(),
+    recipient_name: String(recipientName || "").trim(),
+    recipientEmail: cleanEmail,
+    recipient_email: cleanEmail,
+    role,
+    permissions,
+    createdBy,
+    created_by: createdBy,
+    createdByEmail: normalizeInviteEmail(createdByEmail),
+    created_by_email: normalizeInviteEmail(createdByEmail),
+    createdAt: now,
+    created_at: now,
+    updatedAt: now,
+    updated_at: now,
+  };
+}
+
+export function buildCustodyInvitation({
+  groupId,
+  householdFamilyId = "",
+  groupName = "",
+  recipientName = "",
+  recipientEmail,
+  role = "coparent",
+  access = "member",
+  type = null,
+  permissions = null,
+  createdBy = "",
+  createdByEmail = "",
+  now = new Date().toISOString(),
+}) {
+  const cleanEmail = normalizeInviteEmail(recipientEmail);
+  if (!groupId || !cleanEmail) return null;
+
+  const cleanAccess = access === "viewer" ? "viewer" : "member";
+  const inviteType = type || (cleanAccess === "viewer" ? INVITATION_TYPES.CUSTODY_VIEWER : INVITATION_TYPES.CUSTODY_MEMBER);
+  const id = custodyInvitationId(groupId, cleanEmail);
+
+  return {
+    id,
+    familyId: groupId,
+    family_id: groupId,
+    groupId,
+    group_id: groupId,
+    householdFamilyId: householdFamilyId || "",
+    household_family_id: householdFamilyId || "",
+    groupName,
+    group_name: groupName,
+    familyName: groupName,
+    family_name: groupName,
+    type: inviteType,
+    inviteType,
+    invite_type: inviteType,
+    access: cleanAccess,
+    accessLevel: cleanAccess,
+    access_level: cleanAccess,
     status: INVITATION_STATUS.PENDING,
     recipientName: String(recipientName || "").trim(),
     recipient_name: String(recipientName || "").trim(),
@@ -117,6 +178,47 @@ export function withPendingFamilyInvitation(family = {}, invite) {
     ...family,
     pendingMemberEmails: pendingEmails,
     pending_member_emails: pendingEmails,
+    pendingInvites,
+    pending_invites: pendingInvites,
+  };
+}
+
+export function withPendingCustodyInvitation(group = {}, invite) {
+  if (!invite) return group;
+
+  const email = normalizeInviteEmail(invite.recipientEmail);
+  const isViewer = invite.access === "viewer" || invite.accessLevel === "viewer" || invite.access_level === "viewer";
+  const pendingInvites = mergeInvites(
+    group.pendingInvites || group.pending_invites,
+    invite
+  );
+
+  if (isViewer) {
+    const pendingViewerEmails = mergeUniqueEmails(
+      group.pendingViewerEmails,
+      group.pending_viewer_emails,
+      [email]
+    );
+
+    return {
+      ...group,
+      pendingViewerEmails,
+      pending_viewer_emails: pendingViewerEmails,
+      pendingInvites,
+      pending_invites: pendingInvites,
+    };
+  }
+
+  const pendingMemberEmails = mergeUniqueEmails(
+    group.pendingMemberEmails,
+    group.pending_member_emails,
+    [email]
+  );
+
+  return {
+    ...group,
+    pendingMemberEmails,
+    pending_member_emails: pendingMemberEmails,
     pendingInvites,
     pending_invites: pendingInvites,
   };

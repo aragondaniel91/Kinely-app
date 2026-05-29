@@ -10,6 +10,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -25,8 +26,14 @@ import {
   mergeCustodyGroups,
   normalizeChildRecord,
   normalizeEmail,
+  normalizeEmailList,
   normalizeKey,
 } from "@/lib/custodyGroupUtils";
+import {
+  buildCustodyInvitation,
+  custodyInvitationId,
+  withPendingCustodyInvitation,
+} from "@/lib/invitationUtils";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -54,6 +61,20 @@ function splitCsv(value) {
 
 function splitEmailCsv(value) {
   return [...new Set(splitCsv(value).map(normalizeEmail).filter(Boolean))];
+}
+
+function getPendingMemberEmails(group) {
+  return normalizeEmailList([
+    ...(Array.isArray(group?.pendingMemberEmails) ? group.pendingMemberEmails : []),
+    ...(Array.isArray(group?.pending_member_emails) ? group.pending_member_emails : []),
+  ]);
+}
+
+function getPendingViewerEmails(group) {
+  return normalizeEmailList([
+    ...(Array.isArray(group?.pendingViewerEmails) ? group.pendingViewerEmails : []),
+    ...(Array.isArray(group?.pending_viewer_emails) ? group.pending_viewer_emails : []),
+  ]);
 }
 
 function childLabel(child) {
@@ -251,7 +272,8 @@ export default function CustodyGroupsManager() {
   const familyChildren = useMemo(() => householdChildren.map(childLabel).filter(Boolean), [householdChildren]);
 
   const loadGroups = async () => {
-    if (!myEmail) {
+    const email = normalizeEmail(myEmail);
+    if (!email) {
       setGroups([]);
       setLoading(false);
       return;
@@ -261,8 +283,8 @@ export default function CustodyGroupsManager() {
 
     try {
       const ref = collection(db, "custodyGroups");
-      const memberQuery = query(ref, where("memberEmails", "array-contains", myEmail));
-      const viewerQuery = query(ref, where("viewerEmails", "array-contains", myEmail));
+      const memberQuery = query(ref, where("memberEmails", "array-contains", email));
+      const viewerQuery = query(ref, where("viewerEmails", "array-contains", email));
 
       const [memberSnap, viewerSnap] = await Promise.allSettled([
         getDocs(memberQuery),
@@ -389,10 +411,11 @@ export default function CustodyGroupsManager() {
 
     const cleanName = form.name.trim();
     const children = splitCsv(form.children);
-    const dadEmail = normalizeEmail(form.dadEmail || myEmail);
+    const activeEmail = normalizeEmail(myEmail || user.email);
+    const dadEmail = normalizeEmail(form.dadEmail || activeEmail);
     const momEmail = normalizeEmail(form.momEmail);
     const viewerEmails = splitEmailCsv(form.viewerEmails).filter((email) => email !== dadEmail && email !== momEmail);
-    const memberEmails = [...new Set([dadEmail, momEmail].filter(Boolean))];
+    const parentEmails = normalizeEmailList([dadEmail, momEmail]);
 
     if (!cleanName) {
       showNotice({
@@ -412,11 +435,11 @@ export default function CustodyGroupsManager() {
       return;
     }
 
-    if (memberEmails.length < 2) {
+    if (parentEmails.length < 2) {
       showNotice({
         tone: "warning",
         title: "Parent emails required",
-        message: "Please add both parent/member emails.",
+        message: "Please add both parent emails. The other parent will be invited before access is granted.",
       });
       return;
     }
@@ -425,7 +448,20 @@ export default function CustodyGroupsManager() {
 
     try {
       const now = serverTimestamp();
+      const nowIso = new Date().toISOString();
       const childRecords = await ensureChildRecords(children, now);
+      const existingGroup = editingGroupId ? groups.find((group) => group.id === editingGroupId) : null;
+      const groupRef = editingGroupId ? doc(db, "custodyGroups", editingGroupId) : doc(collection(db, "custodyGroups"));
+      const groupId = editingGroupId || groupRef.id;
+      const acceptedMemberEmails = normalizeEmailList([
+        ...(editingGroupId ? getCustodyGroupMemberEmails(existingGroup) : []),
+        activeEmail,
+      ]);
+      const acceptedViewerEmails = normalizeEmailList(
+        editingGroupId ? getCustodyGroupViewerEmails(existingGroup) : []
+      ).filter((email) => !acceptedMemberEmails.includes(email));
+      const pendingMemberEmails = getPendingMemberEmails(existingGroup);
+      const pendingViewerEmails = getPendingViewerEmails(existingGroup);
       const payload = buildCustodyGroupPayload({
         groupName: cleanName,
         familyId,
@@ -440,26 +476,132 @@ export default function CustodyGroupsManager() {
         coparentEmail: momEmail,
         coparentRole: "mom",
         coparentColor: form.momColor || "amber",
-        viewerEmails,
         now,
       });
 
-      const finalPayload = {
+      let finalPayload = {
         ...payload,
         relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
+        memberEmails: acceptedMemberEmails,
+        member_emails: acceptedMemberEmails,
+        viewerEmails: acceptedViewerEmails,
+        viewer_emails: acceptedViewerEmails,
+        pendingMemberEmails,
+        pending_member_emails: pendingMemberEmails,
+        pendingViewerEmails,
+        pending_viewer_emails: pendingViewerEmails,
+        pendingInvites: existingGroup?.pendingInvites || existingGroup?.pending_invites || [],
+        pending_invites: existingGroup?.pendingInvites || existingGroup?.pending_invites || [],
+        ownerId: existingGroup?.ownerId || existingGroup?.owner_id || payload.ownerId,
+        owner_id: existingGroup?.owner_id || existingGroup?.ownerId || payload.ownerId,
+        ownerEmail: existingGroup?.ownerEmail || existingGroup?.owner_email || payload.ownerEmail,
+        owner_email: existingGroup?.owner_email || existingGroup?.ownerEmail || payload.ownerEmail,
+        createdBy: existingGroup?.createdBy || existingGroup?.created_by || payload.createdBy,
+        created_by: existingGroup?.created_by || existingGroup?.createdBy || payload.createdBy,
+        createdByEmail: existingGroup?.createdByEmail || existingGroup?.created_by_email || payload.createdByEmail,
+        created_by_email: existingGroup?.created_by_email || existingGroup?.createdByEmail || payload.createdByEmail,
       };
 
-      let groupId = editingGroupId;
+      const inviteSpecs = [
+        {
+          email: dadEmail,
+          name: form.dadName.trim() || "Dad",
+          role: "dad",
+          access: "member",
+        },
+        {
+          email: momEmail,
+          name: form.momName.trim() || "Mom",
+          role: "mom",
+          access: "member",
+        },
+        ...viewerEmails.map((email) => ({
+          email,
+          name: email,
+          role: "viewer",
+          access: "viewer",
+        })),
+      ];
+
+      const invitationMap = new Map();
+      inviteSpecs.forEach((spec) => {
+        const email = normalizeEmail(spec.email);
+        if (!email || email === activeEmail) return;
+        if (spec.access === "viewer" && (acceptedViewerEmails.includes(email) || acceptedMemberEmails.includes(email))) return;
+        if (spec.access !== "viewer" && acceptedMemberEmails.includes(email)) return;
+
+        const invite = buildCustodyInvitation({
+          groupId,
+          householdFamilyId: familyId,
+          groupName: cleanName,
+          recipientName: spec.name,
+          recipientEmail: email,
+          role: spec.role,
+          access: spec.access,
+          createdBy: user.uid,
+          createdByEmail: user.email || myEmail,
+          now: nowIso,
+        });
+
+        if (invite) invitationMap.set(invite.id, invite);
+      });
+
+      const invitations = Array.from(invitationMap.values());
+      invitations.forEach((invite) => {
+        finalPayload = withPendingCustodyInvitation(finalPayload, invite);
+      });
 
       if (editingGroupId) {
-        await updateDoc(doc(db, "custodyGroups", editingGroupId), finalPayload);
+        if (invitations.length) {
+          const batch = writeBatch(db);
+          batch.update(groupRef, finalPayload);
+          invitations.forEach((invite) => {
+            batch.set(
+              doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
+              invite,
+              { merge: true }
+            );
+          });
+          await batch.commit();
+        } else {
+          await updateDoc(groupRef, finalPayload);
+        }
       } else {
-        const groupRef = doc(collection(db, "custodyGroups"));
-        groupId = groupRef.id;
-        await setDoc(groupRef, {
+        const basePayload = {
           ...finalPayload,
+          pendingMemberEmails: [],
+          pending_member_emails: [],
+          pendingViewerEmails: [],
+          pending_viewer_emails: [],
+          pendingInvites: [],
+          pending_invites: [],
+        };
+
+        await setDoc(groupRef, {
+          ...basePayload,
           createdAt: now,
         });
+
+        if (invitations.length) {
+          const batch = writeBatch(db);
+          batch.update(groupRef, {
+            pendingMemberEmails: finalPayload.pendingMemberEmails || [],
+            pending_member_emails: finalPayload.pending_member_emails || [],
+            pendingViewerEmails: finalPayload.pendingViewerEmails || [],
+            pending_viewer_emails: finalPayload.pending_viewer_emails || [],
+            pendingInvites: finalPayload.pendingInvites || [],
+            pending_invites: finalPayload.pending_invites || [],
+            updatedAt: now,
+          });
+          invitations.forEach((invite) => {
+            batch.set(
+              doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
+              invite,
+              { merge: true }
+            );
+          });
+          await batch.commit();
+        }
       }
 
       await Promise.all(

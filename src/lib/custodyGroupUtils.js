@@ -119,8 +119,7 @@ export function getCustodyGroupParents(group) {
 export function getCustodyGroupMemberEmails(group) {
   const explicitMembers = Array.isArray(group?.memberEmails) ? group.memberEmails : [];
   const legacyMembers = Array.isArray(group?.member_emails) ? group.member_emails : [];
-  const parentEmails = getCustodyGroupParents(group).map((parent) => parent.email).filter(Boolean);
-  return normalizeEmailList([...explicitMembers, ...legacyMembers, ...parentEmails]);
+  return normalizeEmailList([...explicitMembers, ...legacyMembers]);
 }
 
 export function getCustodyGroupViewerEmails(group) {
@@ -145,7 +144,6 @@ export function buildCustodyGroupPayload({
   coparentEmail,
   coparentRole = "parent",
   coparentColor = "amber",
-  viewerEmails = [],
   now,
 }) {
   const normalizedChildRecords = Array.isArray(childRecords) && childRecords.length
@@ -158,9 +156,7 @@ export function buildCustodyGroupPayload({
   const childIds = [...new Set(normalizedChildRecords.map((child) => child.id).filter(Boolean))];
   const ownerEmail = normalizeEmail(parentEmail || currentEmail || currentUser?.email);
   const otherEmail = normalizeEmail(coparentEmail);
-  const cleanViewerEmails = normalizeEmailList(viewerEmails).filter(
-    (email) => email !== ownerEmail && email !== otherEmail
-  );
+  const activeOwnerEmail = normalizeEmail(currentEmail || currentUser?.email || ownerEmail);
 
   const parents = [
     {
@@ -183,7 +179,7 @@ export function buildCustodyGroupPayload({
     },
   ].filter((parent) => parent.email);
 
-  const memberEmails = normalizeEmailList(parents.map((parent) => parent.email));
+  const memberEmails = normalizeEmailList([activeOwnerEmail]);
   const name = String(groupName || `${cleanChildren[0] || "Child"} Custody`).trim();
 
   return {
@@ -208,8 +204,8 @@ export function buildCustodyGroupPayload({
     coParents: parents,
     memberEmails,
     member_emails: memberEmails,
-    viewerEmails: cleanViewerEmails,
-    viewer_emails: cleanViewerEmails,
+    viewerEmails: [],
+    viewer_emails: [],
     ownerId: currentUser?.uid || null,
     ownerEmail: ownerEmail || "",
     createdBy: currentUser?.uid || null,
