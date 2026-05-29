@@ -15,6 +15,10 @@ import {
   buildDemoChildReward,
   getActiveFamilyReward,
 } from "@/features/tasks/data/demoRewards";
+import {
+  normalizeRewardChildFields,
+  rewardBelongsToChild,
+} from "@/features/tasks/utils/rewardIdentity";
 
 function normalizeReward(docSnap) {
   const data = docSnap.data() || {};
@@ -24,9 +28,7 @@ function normalizeReward(docSnap) {
     ...data,
     familyId: data.familyId || data.family_id || "",
     type: data.type || "family",
-    childPersonId: data.childPersonId || data.child_person_id || "",
-    childId: data.childId || data.child_id || "",
-    childName: data.childName || data.child_name || "",
+    ...normalizeRewardChildFields(data),
     title: data.title || "Reward",
     icon: data.icon || "",
     requiredTasks: Number(data.requiredTasks || data.required_tasks || 5),
@@ -37,16 +39,9 @@ function normalizeReward(docSnap) {
 function findRewardForChild(rewards = [], childPerson) {
   if (!childPerson) return null;
 
-  const childId = childPerson.childId || childPerson.child_id || childPerson.id;
-
   return rewards.find((reward) => {
     if (reward.type !== "child") return false;
-
-    return (
-      reward.childPersonId === childPerson.id ||
-      reward.childId === childId ||
-      reward.childName === childPerson.name
-    );
+    return rewardBelongsToChild(reward, childPerson);
   });
 }
 
@@ -125,23 +120,21 @@ export function useTaskRewards({ familyId, canRead, people = [], user = null, pr
             redeemed_count: increment(1),
           });
         } else {
+          const rewardType = reward.type || "family";
+          const childFields = rewardType === "child" ? normalizeRewardChildFields(reward) : {};
+
           await addDoc(collection(db, TASK_COLLECTIONS.rewards), {
             familyId,
             family_id: familyId,
             familyName: profile?.family_name || profile?.familyName || "",
 
-            type: reward.type || "family",
+            type: rewardType,
             title: reward.title || "Reward",
             icon: reward.icon || "gift",
             requiredTasks: Number(reward.requiredTasks || reward.required_tasks || 5),
             required_tasks: Number(reward.requiredTasks || reward.required_tasks || 5),
 
-            childPersonId: reward.childPersonId || reward.child_person_id || "",
-            child_person_id: reward.childPersonId || reward.child_person_id || "",
-            childId: reward.childId || reward.child_id || "",
-            child_id: reward.childId || reward.child_id || "",
-            childName: reward.childName || reward.child_name || "",
-            child_name: reward.childName || reward.child_name || "",
+            ...childFields,
 
             active: true,
             redeemedCount: 1,

@@ -30,6 +30,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
+import {
+  buildRewardChildFields,
+  rewardBelongsToChild,
+} from "@/features/tasks/utils/rewardIdentity";
 import { getRewardIconKey } from "@/features/tasks/utils/rewardIcons";
 
 function isRealReward(reward, familyId) {
@@ -40,21 +44,6 @@ function getNumber(value, fallback = 5) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.round(parsed);
-}
-
-function rewardBelongsToChild(reward, childPerson) {
-  if (!reward || !childPerson) return false;
-
-  const childId = childPerson.childId || childPerson.child_id || childPerson.id;
-
-  return (
-    reward.childPersonId === childPerson.id ||
-    reward.child_person_id === childPerson.id ||
-    reward.childId === childId ||
-    reward.child_id === childId ||
-    reward.childName === childPerson.name ||
-    reward.child_name === childPerson.name
-  );
 }
 
 function RewardSection({
@@ -194,20 +183,13 @@ export default function ManageTaskRewardsDialog({
 
     try {
       if (selectedChild) {
-        const childId = selectedChild.childId || selectedChild.child_id || selectedChild.id;
-
         await upsertReward(selectedChildReward, {
           familyId,
           family_id: familyId,
           familyName: profile?.family_name || profile?.familyName || "",
 
           type: "child",
-          childPersonId: selectedChild.id,
-          child_person_id: selectedChild.id,
-          childId,
-          child_id: childId,
-          childName: selectedChild.name,
-          child_name: selectedChild.name,
+          ...buildRewardChildFields(selectedChild),
 
           title: cleanChildTitle,
           icon: getRewardIconKey(cleanChildTitle, "trophy"),

@@ -28,6 +28,7 @@ import {
 } from "@/features/tasks/utils/taskSelectors";
 import { filterTasksByDateScope } from "@/features/tasks/utils/taskDateFilters";
 import { getRewardProgress } from "@/features/tasks/utils/rewardProgress";
+import { rewardBelongsToChild } from "@/features/tasks/utils/rewardIdentity";
 
 export default function Tasks() {
   const {
@@ -266,18 +267,7 @@ export default function Tasks() {
     () =>
       childRewards.map((reward) => {
         const childPerson =
-          childPeople.find((person) => {
-            const childId = person.childId || person.child_id || person.id;
-
-            return (
-              reward.childPersonId === person.id ||
-              reward.child_person_id === person.id ||
-              reward.childId === childId ||
-              reward.child_id === childId ||
-              reward.childName === person.name ||
-              reward.child_name === person.name
-            );
-          }) || null;
+          childPeople.find((person) => rewardBelongsToChild(reward, person)) || null;
 
         return {
           reward,
@@ -296,7 +286,7 @@ export default function Tasks() {
         return {
           ...item,
           progress,
-          rewardId: item.reward?.id || item.person?.id || item.reward?.childName,
+          rewardId: item.reward?.id || item.reward?.childPersonId || item.reward?.childId || item.person?.id,
         };
       }),
     [childRewardItems]

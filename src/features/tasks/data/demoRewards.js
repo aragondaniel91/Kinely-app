@@ -23,8 +23,11 @@ export function buildDemoChildReward(childPerson) {
     ...demoChildRewardTemplate,
     id: `${childPerson.id}-ice-cream`,
     childId: childPerson.childId || childPerson.child_id || childPerson.id,
+    child_id: childPerson.childId || childPerson.child_id || childPerson.id,
     childPersonId: childPerson.id,
+    child_person_id: childPerson.id,
     childName: childPerson.name,
+    child_name: childPerson.name,
   };
 }
 

@@ -91,7 +91,7 @@ export default function ChildRewardCard({
 
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-700">
-            {reward.childName} reward
+            {reward.childName || "Child"} reward
           </p>
 
           <h3 className="mt-1 truncate text-xl font-black tracking-tight text-slate-950">

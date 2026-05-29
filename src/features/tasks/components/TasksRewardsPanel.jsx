@@ -69,7 +69,7 @@ export default function TasksRewardsPanel({
             <div className="grid gap-4 xl:grid-cols-2">
               {items.map((item) => (
                 <ChildRewardCard
-                  key={item.reward?.id || item.reward?.childPersonId || item.reward?.childName}
+                  key={item.reward?.id || item.reward?.childPersonId || item.reward?.childId}
                   reward={item.reward}
                   childTasks={item.tasks || []}
                   canWrite={canWrite}
