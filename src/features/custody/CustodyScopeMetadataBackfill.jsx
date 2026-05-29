@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { collection, getDocs, query, setDoc, where, doc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 
 function arraysEqual(a = [], b = []) {
   if (a.length !== b.length) return false;
@@ -53,13 +54,12 @@ export default function CustodyScopeMetadataBackfill({ children }) {
       };
 
       try {
-        const q = query(collection(db, "custodyDays"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
+        const docs = await getFamilyScopedDocSnaps("custodyDays", familyId);
 
         if (cancelled) return;
 
         await Promise.all(
-          snap.docs.map(async (docSnap) => {
+          docs.map(async (docSnap) => {
             const data = docSnap.data();
             if (!needsMetadataUpdate(data, metadata)) return;
 

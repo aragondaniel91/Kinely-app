@@ -143,7 +143,10 @@ export function buildEventAssignmentPayload(personId = "", people = []) {
 
 export function buildFamilyEventPayload(input = {}, context = {}) {
   const people = context.people || [];
-  const assignment = buildEventAssignmentPayload(input.assignedPersonId || input.assignedPersonIds?.[0] || "", people);
+  const requestedAssignments = normalizeAssignedPersonIds(
+    input.assignedPersonIds || input.assigned_person_ids || input.assignedPersonId || input.assigned_person_id
+  );
+  const assignment = buildEventAssignmentPayload(requestedAssignments, people);
   const colorMode = input.colorMode || (assignment.assignedPersonIds.length ? EVENT_COLOR_MODES.PERSON : EVENT_COLOR_MODES.FAMILY);
   const event = normalizeEvent(
     {

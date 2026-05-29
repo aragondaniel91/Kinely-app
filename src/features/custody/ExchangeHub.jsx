@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import {
   ArrowRightLeft,
   CalendarClock,
@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 
 const emptyExchange = {
   date: "",
@@ -482,9 +483,8 @@ export default function ExchangeHub() {
       setLoading(true);
 
       try {
-        const q = query(collection(db, "custodyExchanges"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
-        const data = snap.docs
+        const docs = await getFamilyScopedDocSnaps("custodyExchanges", familyId);
+        const data = docs
           .map(normalizeExchangeDoc)
           .sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`));
 
@@ -514,9 +514,8 @@ export default function ExchangeHub() {
       }
 
       try {
-        const q = query(collection(db, "custodyDays"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
-        const data = snap.docs
+        const docs = await getFamilyScopedDocSnaps("custodyDays", familyId);
+        const data = docs
           .map(normalizeCustodyDay)
           .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 

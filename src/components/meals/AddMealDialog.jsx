@@ -3,10 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   addDoc,
   collection,
-  getDocs,
-  query,
   serverTimestamp,
-  where,
 } from "firebase/firestore";
 import { format } from "date-fns";
 import {
@@ -26,6 +23,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { cn } from "@/lib/utils";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -304,13 +302,11 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       setLoadingTemplates(true);
 
       try {
-        const snap = await getDocs(
-          query(collection(db, "mealTemplates"), where("familyId", "==", familyId))
-        );
+        const templateDocs = await getFamilyScopedDocSnaps("mealTemplates", familyId);
 
         if (cancelled) return;
 
-        const data = snap.docs.map(normalizeMealTemplate).sort((a, b) => {
+        const data = templateDocs.map(normalizeMealTemplate).sort((a, b) => {
           const order = { breakfast: 1, lunch: 2, snack: 3, dinner: 4 };
           const typeCompare =
             (order[a.mealType || a.meal_type] || 99) -
@@ -377,13 +373,11 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       ? ingredients.map((item) => String(item || "").trim()).filter(Boolean)
       : [];
 
-    const pantrySnap = await getDocs(
-      query(collection(db, PANTRY_COLLECTION), where("familyId", "==", familyId))
-    );
+    const pantryDocs = await getFamilyScopedDocSnaps(PANTRY_COLLECTION, familyId);
 
     const pantryByName = new Map();
 
-    pantrySnap.docs.forEach((docSnap) => {
+    pantryDocs.forEach((docSnap) => {
       const data = docSnap.data();
       const key = normalizeIngredientKey(data.title || data.name || "");
       const status = String(data.status || "in_stock").toLowerCase();

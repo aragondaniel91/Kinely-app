@@ -327,6 +327,25 @@ export function getPersonIdentityTokens(person = {}) {
   return Array.from(new Set(tokens));
 }
 
+export function getPersonStableIdentityTokens(person = {}) {
+  return [
+    person.id,
+    person.personId,
+    person.person_id,
+    person.uid,
+    person.userId,
+    person.user_id,
+    person.memberId,
+    person.member_id,
+    person.childId,
+    person.child_id,
+    person.email,
+  ]
+    .filter(Boolean)
+    .map(normalizeIdentityToken)
+    .filter(Boolean);
+}
+
 function collectIdentityValues(value, output = []) {
   if (!value) return output;
 
@@ -364,6 +383,71 @@ function collectIdentityValues(value, output = []) {
 
   output.push(value);
   return output;
+}
+
+function collectStableAssignmentValues(value, output = []) {
+  if (!value) return output;
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectStableAssignmentValues(entry, output));
+    return output;
+  }
+
+  if (typeof value === "object") {
+    [
+      value.id,
+      value.personId,
+      value.person_id,
+      value.uid,
+      value.userId,
+      value.user_id,
+      value.memberId,
+      value.member_id,
+      value.childId,
+      value.child_id,
+      value.email,
+    ].forEach((entry) => collectStableAssignmentValues(entry, output));
+
+    return output;
+  }
+
+  output.push(value);
+  return output;
+}
+
+export function getExplicitAssignmentIdentityTokens(record = {}) {
+  const rawFields = [
+    record.assignedToPersonId,
+    record.assigned_to_person_id,
+    record.assignedPersonId,
+    record.assigned_person_id,
+    record.assignedPersonIds,
+    record.assigned_person_ids,
+    record.assignedToPersonIds,
+    record.assigned_to_person_ids,
+    record.personId,
+    record.person_id,
+    record.personIds,
+    record.person_ids,
+    record.assignedPersonSnapshot,
+    record.assigned_person_snapshot,
+    record.assignedPersonSnapshots,
+    record.assigned_person_snapshots,
+    record.personSnapshot,
+    record.person_snapshot,
+  ];
+
+  const values = [];
+  rawFields.forEach((field) => collectStableAssignmentValues(field, values));
+
+  return Array.from(
+    new Set(
+      values
+        .filter(Boolean)
+        .map(normalizeIdentityToken)
+        .filter(Boolean)
+    )
+  );
 }
 
 export function getRecordIdentityTokens(record = {}) {
@@ -536,55 +620,15 @@ export function getRecordColorId(record = "") {
 export function resolveEventPersonFromRecord(record = {}, people = []) {
   if (!record || !people.length) return null;
 
-  // Production rule:
-  // Event creator is NOT the assigned person.
-  // Do not use createdBy / createdByEmail / actor fields for "Today by person".
+  const recordTokens = getExplicitAssignmentIdentityTokens(record);
+  if (!recordTokens.length) return null;
 
-  const explicitEventRecord = {
-    assignedToPersonId: record.assignedToPersonId || record.assigned_to_person_id,
-    assignedPersonId: record.assignedPersonId || record.assigned_person_id,
-    assignedPersonIds: record.assignedPersonIds || record.assigned_person_ids,
-    assignedToPersonIds: record.assignedToPersonIds || record.assigned_to_person_ids,
-
-    assignedToPersonName: record.assignedToPersonName || record.assigned_to_person_name,
-    assignedPersonName: record.assignedPersonName || record.assigned_person_name,
-    assignedPersonNames: record.assignedPersonNames || record.assigned_person_names,
-
-    personId: record.personId || record.person_id,
-    personIds: record.personIds || record.person_ids,
-    personName: record.personName || record.person_name,
-
-    assignedPersonSnapshot: record.assignedPersonSnapshot || record.assigned_person_snapshot,
-    assignedPersonSnapshots: record.assignedPersonSnapshots || record.assigned_person_snapshots,
-    personSnapshot: record.personSnapshot || record.person_snapshot,
-  };
-
-  const resolved = resolveAssignedPersonFromRecord(explicitEventRecord, people);
-  if (resolved) return resolved;
-
-  // Color is a visual fallback only. Use it only when it uniquely matches one person.
-  // If multiple people share the color, or the event has no explicit assignment,
-  // do not force it under Daniel or any other creator.
-  const recordColorId = getRecordColorId(record);
-  if (!recordColorId) return null;
-
-  const colorMatches = people.filter((person) => {
-    const personColorId = normalizeColorId(
-      person.colorId ||
-        person.color_id ||
-        person.color ||
-        person.familyColor ||
-        person.family_color ||
-        person.calendarColor ||
-        person.calendar_color ||
-        "",
-      ""
-    );
-
-    return personColorId && personColorId === recordColorId;
-  });
-
-  return colorMatches.length === 1 ? colorMatches[0] : null;
+  return (
+    people.find((person) => {
+      const personTokens = getPersonStableIdentityTokens(person);
+      return personTokens.some((token) => recordTokens.includes(token));
+    }) || null
+  );
 }
 
 // -----------------------------------------------------------------------------

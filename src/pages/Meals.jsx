@@ -5,11 +5,8 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 
 import {
@@ -42,6 +39,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -1571,30 +1569,11 @@ export default function Meals() {
     setLoading(true);
 
     try {
-      let snap;
-
-      try {
-        const q = query(
-          collection(db, "meals"),
-          where("familyId", "==", familyId)
-        );
-
-        snap = await getDocs(q);
-      } catch (error) {
-        console.warn("Fallback to family_id query:", error);
-
-        const q = query(
-          collection(db, "meals"),
-          where("family_id", "==", familyId)
-        );
-
-        snap = await getDocs(q);
-      }
-
       const startKey = format(weekStart, "yyyy-MM-dd");
       const endKey = format(weekEnd, "yyyy-MM-dd");
+      const mealDocs = await getFamilyScopedDocSnaps("meals", familyId);
 
-      const data = snap.docs
+      const data = mealDocs
         .map(normalizeMeal)
         .filter((meal) => meal.date >= startKey && meal.date <= endKey);
 
@@ -1614,29 +1593,21 @@ export default function Meals() {
 
       setMeals(data);
 
-      const listSnap = await getDocs(
-        query(
-          collection(db, "familyLists"),
-          where("familyId", "==", familyId),
-          where("source", "==", "meal")
-        )
-      );
+      const mealListDocs = (await getFamilyScopedDocSnaps("familyLists", familyId)).filter((docSnap) => {
+        const data = docSnap.data();
+        return data.source === "meal";
+      });
 
       setMealLists(
-        listSnap.docs.map((docSnap) => ({
+        mealListDocs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
         }))
       );
 
-      const templateSnap = await getDocs(
-        query(
-          collection(db, "mealTemplates"),
-          where("familyId", "==", familyId)
-        )
-      );
+      const templateDocs = await getFamilyScopedDocSnaps("mealTemplates", familyId);
 
-      const templateData = templateSnap.docs
+      const templateData = templateDocs
         .map(normalizeMealTemplate)
         .filter((template) => template.status !== "archived");
 
@@ -1659,14 +1630,9 @@ export default function Meals() {
 
       setMealTemplates(templateData);
 
-      const pantrySnap = await getDocs(
-        query(
-          collection(db, "familyPantryItems"),
-          where("familyId", "==", familyId)
-        )
-      );
+      const pantryDocs = await getFamilyScopedDocSnaps("familyPantryItems", familyId);
 
-      const pantryData = pantrySnap.docs
+      const pantryData = pantryDocs
         .map((docSnap) => {
           const data = docSnap.data();
 
@@ -1952,13 +1918,11 @@ export default function Meals() {
       let usedExistingList = false;
 
       if (shouldCreateGroceryList && ingredients.length > 0) {
-        const pantrySnap = await getDocs(
-          query(collection(db, "familyPantryItems"), where("familyId", "==", familyId))
-        );
+        const pantryDocs = await getFamilyScopedDocSnaps("familyPantryItems", familyId);
 
         const pantryByName = new Map();
 
-        pantrySnap.docs.forEach((docSnap) => {
+        pantryDocs.forEach((docSnap) => {
           const data = docSnap.data();
 
           const key = normalizeIngredientKey(data.title || data.name);
@@ -1992,16 +1956,13 @@ export default function Meals() {
           usedExistingList = true;
           targetListId = existingMealList.id;
 
-          const itemSnap = await getDocs(
-            query(
-              collection(db, "familyListItems"),
-              where("familyId", "==", familyId),
-              where("listId", "==", existingMealList.id)
-            )
-          );
+          const itemDocs = (await getFamilyScopedDocSnaps("familyListItems", familyId)).filter((docSnap) => {
+            const data = docSnap.data();
+            return (data.listId || data.list_id) === existingMealList.id;
+          });
 
           const existingItemKeys = new Set(
-            itemSnap.docs
+            itemDocs
               .map((docSnap) => docSnap.data())
               .filter((item) => String(item.status || "").toLowerCase() !== "archived")
               .map((item) => normalizeIngredientKey(item.title || item.name))

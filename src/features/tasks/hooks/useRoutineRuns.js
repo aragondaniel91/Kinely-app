@@ -2,15 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   collection,
   doc,
-  getDocs,
-  query,
   serverTimestamp,
   setDoc,
-  where,
   writeBatch,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 
 function getDateKey(offsetDays = 0) {
@@ -133,29 +131,12 @@ export function useRoutineRuns({
     setLoadingRoutineRuns(true);
 
     try {
-      let snap;
-
-      try {
-        const q = query(
-          collection(db, TASK_COLLECTIONS.routineRuns),
-          where("familyId", "==", familyId),
-          where("date", "==", todayKey)
-        );
-
-        snap = await getDocs(q);
-      } catch (error) {
-        console.warn("Fallback to routineRuns family_id query:", error);
-
-        const q = query(
-          collection(db, TASK_COLLECTIONS.routineRuns),
-          where("family_id", "==", familyId),
-          where("date", "==", todayKey)
-        );
-
-        snap = await getDocs(q);
-      }
-
-      setRoutineRuns(snap.docs.map(normalizeRoutineRun));
+      const runDocs = await getFamilyScopedDocSnaps(TASK_COLLECTIONS.routineRuns, familyId);
+      setRoutineRuns(
+        runDocs
+          .map(normalizeRoutineRun)
+          .filter((run) => run.date === todayKey)
+      );
     } catch (error) {
       console.error("Error loading routine runs:", error);
       setRoutineRuns([]);
@@ -224,33 +205,12 @@ export function useRoutineRuns({
     async (template) => {
       if (!familyId || !template?.id) return [];
 
-      try {
-        const q = query(
-          collection(db, TASK_COLLECTIONS.tasks),
-          where("familyId", "==", familyId),
-          where("templateId", "==", template.id)
-        );
+      const taskDocs = await getFamilyScopedDocSnaps(TASK_COLLECTIONS.tasks, familyId);
 
-        const snap = await getDocs(q);
-
-        return snap.docs
-          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-          .filter((task) => getTaskDateKey(task) === todayKey && !isCancelledTask(task));
-      } catch (error) {
-        console.warn("Fallback checking existing routine tasks:", error);
-
-        const q = query(
-          collection(db, TASK_COLLECTIONS.tasks),
-          where("family_id", "==", familyId),
-          where("template_id", "==", template.id)
-        );
-
-        const snap = await getDocs(q);
-
-        return snap.docs
-          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-          .filter((task) => getTaskDateKey(task) === todayKey && !isCancelledTask(task));
-      }
+      return taskDocs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter((task) => (task.templateId || task.template_id) === template.id)
+        .filter((task) => getTaskDateKey(task) === todayKey && !isCancelledTask(task));
     },
     [familyId, todayKey]
   );

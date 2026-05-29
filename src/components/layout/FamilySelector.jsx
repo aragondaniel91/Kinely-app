@@ -6,6 +6,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
+import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
 
 import {
   DropdownMenu,
@@ -60,28 +61,22 @@ export default function FamilySelector() {
       try {
         const ref = collection(db, "custodyGroups");
         const memberQuery = query(ref, where("memberEmails", "array-contains", email));
+        const legacyMemberQuery = query(ref, where("member_emails", "array-contains", email));
         const viewerQuery = query(ref, where("viewerEmails", "array-contains", email));
+        const legacyViewerQuery = query(ref, where("viewer_emails", "array-contains", email));
 
-        const [memberSnap, viewerSnap] = await Promise.allSettled([
+        const results = await Promise.allSettled([
           getDocs(memberQuery),
+          getDocs(legacyMemberQuery),
           getDocs(viewerQuery),
+          getDocs(legacyViewerQuery),
         ]);
 
-        const map = new Map();
-
-        if (memberSnap.status === "fulfilled") {
-          memberSnap.value.docs.forEach((docSnap) => {
-            map.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
-          });
+        if (results.every((result) => result.status === "rejected")) {
+          throw results[0].reason;
         }
 
-        if (viewerSnap.status === "fulfilled") {
-          viewerSnap.value.docs.forEach((docSnap) => {
-            map.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
-          });
-        }
-
-        if (!cancelled) setCustodyGroups(Array.from(map.values()));
+        if (!cancelled) setCustodyGroups(mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }));
       } catch (error) {
         console.warn("Could not load custody groups for selector:", error);
         if (!cancelled) setCustodyGroups([]);

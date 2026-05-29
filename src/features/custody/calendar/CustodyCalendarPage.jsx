@@ -38,6 +38,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 
 import CustodyDayDialog from "@/features/custody/calendar/components/CustodyDayDialog";
 import BulkCustodyDialog from "@/features/custody/calendar/components/BulkCustodyDialog";
@@ -190,60 +191,35 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     setLoading(true);
 
     try {
-      let data = [];
-
-      try {
-        const q = query(collection(db, "custodyDays"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
-        data = snap.docs.map(normalizeCustodyDay);
-      } catch (error) {
-        console.warn("Fallback custody query by family_id:", error);
-
+      let custodyDayDocs = await getFamilyScopedDocSnaps("custodyDays", familyId);
+      if (!custodyDayDocs.length) {
         try {
-          const q = query(collection(db, "custodyDays"), where("family_id", "==", familyId));
-          const snap = await getDocs(q);
-          data = snap.docs.map(normalizeCustodyDay);
-        } catch (legacyError) {
-          console.warn("Fallback custody query by userId:", legacyError);
           const q = query(collection(db, "custodyDays"), where("userId", "==", user.uid));
           const snap = await getDocs(q);
-          data = snap.docs.map(normalizeCustodyDay);
+          custodyDayDocs = snap.docs;
+        } catch (legacyError) {
+          console.warn("Fallback custody query by userId failed:", legacyError);
         }
       }
 
+      const data = custodyDayDocs.map(normalizeCustodyDay);
       data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       setCustodyDays(data);
 
       try {
-        const q = query(collection(db, "custodySpecialEvents"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
-        setSpecialEvents(snap.docs.map(normalizeSpecialEvent));
+        const specialEventDocs = await getFamilyScopedDocSnaps("custodySpecialEvents", familyId);
+        setSpecialEvents(specialEventDocs.map(normalizeSpecialEvent));
       } catch (eventError) {
-        console.warn("Fallback special events query by family_id:", eventError);
-        try {
-          const q = query(collection(db, "custodySpecialEvents"), where("family_id", "==", familyId));
-          const snap = await getDocs(q);
-          setSpecialEvents(snap.docs.map(normalizeSpecialEvent));
-        } catch (legacyEventError) {
-          console.warn("Could not load custody special events:", legacyEventError);
-          setSpecialEvents([]);
-        }
+        console.warn("Could not load custody special events:", eventError);
+        setSpecialEvents([]);
       }
 
       try {
-        const q = query(collection(db, "custodyTravelPlans"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
-        setTravelPlans(snap.docs.map(normalizeTravelPlan));
+        const travelPlanDocs = await getFamilyScopedDocSnaps("custodyTravelPlans", familyId);
+        setTravelPlans(travelPlanDocs.map(normalizeTravelPlan));
       } catch (travelError) {
-        console.warn("Fallback travel plans query by family_id:", travelError);
-        try {
-          const q = query(collection(db, "custodyTravelPlans"), where("family_id", "==", familyId));
-          const snap = await getDocs(q);
-          setTravelPlans(snap.docs.map(normalizeTravelPlan));
-        } catch (legacyTravelError) {
-          console.warn("Could not load custody travel plans:", legacyTravelError);
-          setTravelPlans([]);
-        }
+        console.warn("Could not load custody travel plans:", travelError);
+        setTravelPlans([]);
       }
     } catch (error) {
       console.error("Error loading custody days:", error);

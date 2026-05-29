@@ -15,6 +15,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
 import {
   CHILD_RELATIONSHIP_TYPES,
   buildCustodyGroupPayload,
@@ -285,22 +286,22 @@ export default function CustodyGroupsManager() {
     try {
       const ref = collection(db, "custodyGroups");
       const memberQuery = query(ref, where("memberEmails", "array-contains", email));
+      const legacyMemberQuery = query(ref, where("member_emails", "array-contains", email));
       const viewerQuery = query(ref, where("viewerEmails", "array-contains", email));
+      const legacyViewerQuery = query(ref, where("viewer_emails", "array-contains", email));
 
-      const [memberSnap, viewerSnap] = await Promise.allSettled([
+      const results = await Promise.allSettled([
         getDocs(memberQuery),
+        getDocs(legacyMemberQuery),
         getDocs(viewerQuery),
+        getDocs(legacyViewerQuery),
       ]);
 
-      const memberGroups = memberSnap.status === "fulfilled"
-        ? memberSnap.value.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-        : [];
+      if (results.every((result) => result.status === "rejected")) {
+        throw results[0].reason;
+      }
 
-      const viewerGroups = viewerSnap.status === "fulfilled"
-        ? viewerSnap.value.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-        : [];
-
-      setGroups(mergeCustodyGroups(memberGroups, viewerGroups));
+      setGroups(mergeCustodyGroups(mapSettledFirestoreSnapshots(results, { type: "custodyGroup" })));
     } catch (error) {
       console.error("Error loading custody groups:", error);
       setGroups([]);

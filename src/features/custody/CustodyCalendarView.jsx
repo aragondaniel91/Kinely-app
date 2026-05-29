@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 
 import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
+import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
 import CustodyCalendar from "@/features/custody/calendar/CustodyCalendarPage";
 import CustodyDashboardPro from "@/features/custody/CustodyDashboardPro";
 import ExchangeHub from "@/features/custody/ExchangeHub";
@@ -256,28 +257,22 @@ export default function CustodyCalendarView({
       try {
         const collectionRef = collection(db, "custodyGroups");
         const memberQuery = query(collectionRef, where("memberEmails", "array-contains", myEmail));
+        const legacyMemberQuery = query(collectionRef, where("member_emails", "array-contains", myEmail));
         const viewerQuery = query(collectionRef, where("viewerEmails", "array-contains", myEmail));
+        const legacyViewerQuery = query(collectionRef, where("viewer_emails", "array-contains", myEmail));
 
-        const [memberSnap, viewerSnap] = await Promise.allSettled([
+        const results = await Promise.allSettled([
           getDocs(memberQuery),
+          getDocs(legacyMemberQuery),
           getDocs(viewerQuery),
+          getDocs(legacyViewerQuery),
         ]);
 
-        const groupMap = new Map();
-
-        if (memberSnap.status === "fulfilled") {
-          memberSnap.value.docs.forEach((docSnap) => {
-            groupMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
-          });
+        if (results.every((result) => result.status === "rejected")) {
+          throw results[0].reason;
         }
 
-        if (viewerSnap.status === "fulfilled") {
-          viewerSnap.value.docs.forEach((docSnap) => {
-            groupMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
-          });
-        }
-
-        const data = Array.from(groupMap.values());
+        const data = mapSettledFirestoreSnapshots(results, { type: "custodyGroup" });
 
         if (!cancelled) {
           setGroups(data);

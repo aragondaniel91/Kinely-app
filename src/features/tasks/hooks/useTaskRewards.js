@@ -3,15 +3,13 @@ import {
   addDoc,
   collection,
   doc,
-  getDocs,
   increment,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
   buildDemoChildReward,
@@ -66,29 +64,8 @@ export function useTaskRewards({ familyId, canRead, people = [], user = null, pr
     setLoadingRewards(true);
 
     try {
-      let snap;
-
-      try {
-        const q = query(
-          collection(db, TASK_COLLECTIONS.rewards),
-          where("familyId", "==", familyId),
-          where("active", "==", true)
-        );
-
-        snap = await getDocs(q);
-      } catch (error) {
-        console.warn("Fallback to reward family_id query:", error);
-
-        const q = query(
-          collection(db, TASK_COLLECTIONS.rewards),
-          where("family_id", "==", familyId),
-          where("active", "==", true)
-        );
-
-        snap = await getDocs(q);
-      }
-
-      setRewards(snap.docs.map(normalizeReward));
+      const rewardDocs = await getFamilyScopedDocSnaps(TASK_COLLECTIONS.rewards, familyId);
+      setRewards(rewardDocs.map(normalizeReward).filter((reward) => reward.active !== false));
     } catch (error) {
       console.error("Error loading rewards:", error);
       setRewards([]);

@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
 
-import { db } from "@/lib/firebase";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import { starterTaskTemplates } from "@/features/tasks/data/starterTaskTemplates";
 
@@ -45,14 +39,9 @@ export function useTaskTemplates({ familyId, canRead = true } = {}) {
     setTemplateError("");
 
     try {
-      const templatesQuery = query(
-        collection(db, TASK_COLLECTIONS.templates),
-        where("familyId", "==", familyId)
-      );
+      const templateDocs = await getFamilyScopedDocSnaps(TASK_COLLECTIONS.templates, familyId);
 
-      const snap = await getDocs(templatesQuery);
-
-      const nextTemplates = snap.docs
+      const nextTemplates = templateDocs
         .map(normalizeTemplate)
         .filter((template) => template.active !== false)
         .sort((a, b) => getMillis(b.updatedAt) - getMillis(a.updatedAt));

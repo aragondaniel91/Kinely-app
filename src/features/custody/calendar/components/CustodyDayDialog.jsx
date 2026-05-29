@@ -34,6 +34,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import CustodySpecialEventDialog, {
   getCustodyEventCategory,
 } from "@/features/custody/calendar/components/CustodySpecialEventDialog";
@@ -347,27 +348,9 @@ export default function CustodyDayDialog({
     setLoadingEvents(true);
 
     try {
-      let docs = [];
-
-      try {
-        const q = query(
-          collection(db, "custodySpecialEvents"),
-          where("familyId", "==", familyId),
-          where("date", "==", dateKey)
-        );
-        const snap = await getDocs(q);
-        docs = snap.docs.map(normalizeSpecialEvent);
-      } catch (error) {
-        console.warn("Fallback special events query by family_id:", error);
-
-        const q = query(
-          collection(db, "custodySpecialEvents"),
-          where("family_id", "==", familyId),
-          where("date", "==", dateKey)
-        );
-        const snap = await getDocs(q);
-        docs = snap.docs.map(normalizeSpecialEvent);
-      }
+      const docs = (await getFamilyScopedDocSnaps("custodySpecialEvents", familyId))
+        .map(normalizeSpecialEvent)
+        .filter((event) => event.date === dateKey);
 
       setSpecialEvents(sortSpecialEvents(docs));
     } catch (error) {
@@ -387,19 +370,7 @@ export default function CustodyDayDialog({
     setLoadingTravelPlans(true);
 
     try {
-      let docs = [];
-
-      try {
-        const q = query(collection(db, "custodyTravelPlans"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
-        docs = snap.docs.map(normalizeTravelPlan);
-      } catch (error) {
-        console.warn("Fallback travel plans query by family_id:", error);
-
-        const q = query(collection(db, "custodyTravelPlans"), where("family_id", "==", familyId));
-        const snap = await getDocs(q);
-        docs = snap.docs.map(normalizeTravelPlan);
-      }
+      const docs = (await getFamilyScopedDocSnaps("custodyTravelPlans", familyId)).map(normalizeTravelPlan);
 
       const plansForDay = docs.filter((plan) => plan.startDate <= dateKey && plan.endDate >= dateKey);
       setTravelPlans(sortTravelPlans(plansForDay));

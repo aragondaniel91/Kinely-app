@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import {
   AlertTriangle,
   BellRing,
@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
 import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
 
@@ -550,19 +551,19 @@ export default function SmartNotificationsHub() {
       setLoading(true);
 
       try {
-        const [daysSnap, exchangesSnap, packingSnap, expensesSnap] = await Promise.all([
-          getDocs(query(collection(db, "custodyDays"), where("familyId", "==", familyId))),
-          getDocs(query(collection(db, "custodyExchanges"), where("familyId", "==", familyId))),
-          getDocs(query(collection(db, "custodyPackingItems"), where("familyId", "==", familyId))),
-          getDocs(query(collection(db, "custodyExpenses"), where("familyId", "==", familyId))),
+        const [dayDocs, exchangeDocs, packingDocs, expenseDocs] = await Promise.all([
+          getFamilyScopedDocSnaps("custodyDays", familyId),
+          getFamilyScopedDocSnaps("custodyExchanges", familyId),
+          getFamilyScopedDocSnaps("custodyPackingItems", familyId),
+          getFamilyScopedDocSnaps("custodyExpenses", familyId),
         ]);
 
         if (cancelled) return;
 
-        setCustodyDays(daysSnap.docs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || "")));
-        setExchanges(exchangesSnap.docs.map(normalizeExchangeDoc).sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`)));
-        setPackingItems(packingSnap.empty ? initialCustodyPackingItems : packingSnap.docs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
-        setExpenses(expensesSnap.empty ? initialCustodyExpenses : expensesSnap.docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
+        setCustodyDays(dayDocs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+        setExchanges(exchangeDocs.map(normalizeExchangeDoc).sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`)));
+        setPackingItems(packingDocs.length ? packingDocs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)) : initialCustodyPackingItems);
+        setExpenses(expenseDocs.length ? expenseDocs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)) : initialCustodyExpenses);
       } catch (error) {
         console.error("Error loading smart notification signals:", error);
         if (!cancelled) {

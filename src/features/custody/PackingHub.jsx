@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import {
   Backpack,
   CheckCircle2,
@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import {
   custodyPackingTemplates,
   getPackingSummary,
@@ -371,10 +372,9 @@ export default function PackingHub() {
       setLoading(true);
 
       try {
-        const q = query(collection(db, "custodyPackingItems"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
+        const docs = await getFamilyScopedDocSnaps("custodyPackingItems", familyId);
 
-        if (snap.empty) {
+        if (!docs.length) {
           const createdItems = await Promise.all(
             initialCustodyPackingItems.map(async (item, index) => {
               const docRef = await addDoc(collection(db, "custodyPackingItems"), {
@@ -394,7 +394,7 @@ export default function PackingHub() {
           return;
         }
 
-        const data = snap.docs
+        const data = docs
           .map(normalizePackingDoc)
           .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO, startOfWeek } from "date-fns";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import {
   BellRing,
   CalendarDays,
@@ -16,8 +15,8 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
@@ -407,20 +406,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoading(true);
       try {
-        const collectionRef = collection(db, "custodyDays");
-
-        const [familyIdSnap, legacyFamilyIdSnap] = await Promise.all([
-          getDocs(query(collectionRef, where("familyId", "==", familyId))),
-          getDocs(query(collectionRef, where("family_id", "==", familyId))),
-        ]);
-
-        const byId = new Map();
-
-        [...familyIdSnap.docs, ...legacyFamilyIdSnap.docs].forEach((docSnap) => {
-          byId.set(docSnap.id, normalizeCustodyDay(docSnap));
-        });
-
-        const data = Array.from(byId.values()).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        const docs = await getFamilyScopedDocSnaps("custodyDays", familyId);
+        const data = docs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
         if (!cancelled) setCustodyDays(data);
       } catch (error) {
         console.error("Error loading custody dashboard:", error);
@@ -446,10 +433,10 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoadingPacking(true);
       try {
-        const snap = await getDocs(query(collection(db, "custodyPackingItems"), where("familyId", "==", familyId)));
-        const data = snap.empty
+        const docs = await getFamilyScopedDocSnaps("custodyPackingItems", familyId);
+        const data = !docs.length
           ? initialCustodyPackingItems
-          : snap.docs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+          : docs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         if (!cancelled) setPackingItems(data);
       } catch (error) {
         console.error("Error loading packing dashboard summary:", error);
@@ -475,10 +462,10 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoadingBudget(true);
       try {
-        const snap = await getDocs(query(collection(db, "custodyExpenses"), where("familyId", "==", familyId)));
-        const data = snap.empty
+        const docs = await getFamilyScopedDocSnaps("custodyExpenses", familyId);
+        const data = !docs.length
           ? initialCustodyExpenses
-          : snap.docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+          : docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         if (!cancelled) setExpenses(data);
       } catch (error) {
         console.error("Error loading budget dashboard summary:", error);
@@ -504,8 +491,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoadingExchanges(true);
       try {
-        const snap = await getDocs(query(collection(db, "custodyExchanges"), where("familyId", "==", familyId)));
-        const data = snap.docs
+        const docs = await getFamilyScopedDocSnaps("custodyExchanges", familyId);
+        const data = docs
           .map(normalizeExchangeDoc)
           .sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`));
         if (!cancelled) setExchanges(data);

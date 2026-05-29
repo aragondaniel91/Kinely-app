@@ -22,6 +22,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/AuthContext";
 import { buildFamilyModel } from "@/core/family/familyCore";
+import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
 import {
   buildFamilyInvitation,
   familyInvitationId,
@@ -46,6 +47,28 @@ const READ_ONLY_PERMS = {
   meals: { read: true, write: false },
   groceries: { read: true, write: false },
 };
+
+function pushUniqueFamily(target, family) {
+  if (!family?.id || target.some((item) => item.id === family.id)) return;
+  target.push(family);
+}
+
+async function getFamiliesByMemberEmail(email) {
+  const cleanEmail = normalizeInviteEmail(email);
+  if (!cleanEmail) return [];
+
+  const familiesRef = collection(db, "families");
+  const results = await Promise.allSettled([
+    getDocs(query(familiesRef, where("memberEmails", "array-contains", cleanEmail))),
+    getDocs(query(familiesRef, where("member_emails", "array-contains", cleanEmail))),
+  ]);
+
+  if (results.every((result) => result.status === "rejected")) {
+    throw results[0].reason;
+  }
+
+  return mapSettledFirestoreSnapshots(results, { type: "family" });
+}
 
 function slugify(value) {
   return String(value || "")
@@ -410,16 +433,8 @@ export function FamilyProvider({ children }) {
         }
 
         if (myEmail) {
-          const memberQuery = query(
-            collection(db, "families"),
-            where("memberEmails", "array-contains", myEmail)
-          );
-          const memberSnap = await getDocs(memberQuery);
-          memberSnap.docs.forEach((familyDoc) => {
-            if (!loaded.some((f) => f.id === familyDoc.id)) {
-              loaded.push({ id: familyDoc.id, ...familyDoc.data() });
-            }
-          });
+          const memberFamilies = await getFamiliesByMemberEmail(myEmail);
+          memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
         }
 
         if (!cancelled) {
@@ -516,11 +531,8 @@ export function FamilyProvider({ children }) {
       }
 
       if (myEmail) {
-        const memberQuery = query(collection(db, "families"), where("memberEmails", "array-contains", myEmail));
-        const memberSnap = await getDocs(memberQuery);
-        memberSnap.docs.forEach((familyDoc) => {
-          if (!loaded.some((f) => f.id === familyDoc.id)) loaded.push({ id: familyDoc.id, ...familyDoc.data() });
-        });
+        const memberFamilies = await getFamiliesByMemberEmail(myEmail);
+        memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
       }
 
       setFamilies(loaded);

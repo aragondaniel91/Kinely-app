@@ -20,6 +20,7 @@ import AppDialog from "@/components/app/AppDialog";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
+import { uniqueFirestoreDocsFromSnapshots } from "@/core/firestore/firestoreDocUtils";
 
 const custodyModules = [
   {
@@ -283,15 +284,18 @@ export default function Custody() {
       if (email) {
         try {
           const groupRef = collection(db, "custodyGroups");
-          const [memberSnap, viewerSnap] = await Promise.allSettled([
+          const groupResults = await Promise.allSettled([
             getDocs(query(groupRef, where("memberEmails", "array-contains", email))),
+            getDocs(query(groupRef, where("member_emails", "array-contains", email))),
             getDocs(query(groupRef, where("viewerEmails", "array-contains", email))),
+            getDocs(query(groupRef, where("viewer_emails", "array-contains", email))),
           ]);
 
-          [memberSnap, viewerSnap].forEach((result) => {
-            if (result.status !== "fulfilled") return;
-            result.value.docs.forEach((docSnap) => familyIdsToWatch.add(docSnap.id));
-          });
+          uniqueFirestoreDocsFromSnapshots(
+            groupResults
+              .filter((result) => result.status === "fulfilled")
+              .map((result) => result.value)
+          ).forEach((docSnap) => familyIdsToWatch.add(docSnap.id));
         } catch (error) {
           console.warn("Could not load custody spaces for audit log:", error);
         }

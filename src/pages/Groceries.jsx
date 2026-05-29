@@ -5,11 +5,8 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 
 import {
@@ -39,6 +36,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
@@ -1117,14 +1115,14 @@ export default function Groceries() {
     setLoading(true);
 
     try {
-      const [listSnap, itemSnap, taskSnap, pantrySnap] = await Promise.all([
-        getDocs(query(collection(db, LIST_COLLECTION), where("familyId", "==", familyId))),
-        getDocs(query(collection(db, ITEM_COLLECTION), where("familyId", "==", familyId))),
-        getDocs(query(collection(db, TASK_COLLECTIONS.tasks), where("familyId", "==", familyId))),
-        getDocs(query(collection(db, PANTRY_COLLECTION), where("familyId", "==", familyId))),
+      const [listDocs, itemDocs, taskDocs, pantryDocs] = await Promise.all([
+        getFamilyScopedDocSnaps(LIST_COLLECTION, familyId),
+        getFamilyScopedDocSnaps(ITEM_COLLECTION, familyId),
+        getFamilyScopedDocSnaps(TASK_COLLECTIONS.tasks, familyId),
+        getFamilyScopedDocSnaps(PANTRY_COLLECTION, familyId),
       ]);
 
-      const nextLists = listSnap.docs
+      const nextLists = listDocs
         .map(normalizeList)
         .sort((a, b) => {
           const aDate = a.created_date || "";
@@ -1132,7 +1130,7 @@ export default function Groceries() {
           return bDate.localeCompare(aDate);
         });
 
-      const nextItems = itemSnap.docs
+      const nextItems = itemDocs
         .map(normalizeItem)
         .filter((item) => item.status !== "archived")
         .sort((a, b) => {
@@ -1141,7 +1139,7 @@ export default function Groceries() {
           return bDate.localeCompare(aDate);
         });
 
-      const nextLinkedTasks = taskSnap.docs
+      const nextLinkedTasks = taskDocs
         .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
         .filter((task) => {
           const status = String(task.status || "").toLowerCase();
@@ -1155,7 +1153,7 @@ export default function Groceries() {
           );
         });
 
-      const nextPantryItems = pantrySnap.docs
+      const nextPantryItems = pantryDocs
         .map(normalizePantryItem)
         .filter((item) => item.status !== "archived")
         .sort((a, b) => {

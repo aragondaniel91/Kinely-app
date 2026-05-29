@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  collection,
   deleteDoc,
   doc,
-  getDocs,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
   isDemoTask,
@@ -32,19 +29,8 @@ export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profi
     setLoading(true);
 
     try {
-      let snap;
-
-      try {
-        const q = query(collection(db, TASK_COLLECTIONS.tasks), where("familyId", "==", familyId));
-        snap = await getDocs(q);
-      } catch (error) {
-        console.warn("Fallback to family_id query:", error);
-
-        const q = query(collection(db, TASK_COLLECTIONS.tasks), where("family_id", "==", familyId));
-        snap = await getDocs(q);
-      }
-
-      const data = snap.docs.map(normalizeTask);
+      const taskDocs = await getFamilyScopedDocSnaps(TASK_COLLECTIONS.tasks, familyId);
+      const data = taskDocs.map(normalizeTask);
       setTasks(data);
     } catch (error) {
       console.error("Error loading tasks:", error);

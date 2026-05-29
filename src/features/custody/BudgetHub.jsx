@@ -4,11 +4,8 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 import {
   BadgeDollarSign,
@@ -25,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { currency, getBudgetSummary, getExpenseLedger, initialCustodyExpenses, validateExpenseLedger } from "@/data/custodyBudget";
 import BudgetExpenseCard from "./components/budget/BudgetExpenseCard";
@@ -287,10 +285,9 @@ export default function BudgetHub() {
       setLoading(true);
 
       try {
-        const q = query(collection(db, "custodyExpenses"), where("familyId", "==", familyId));
-        const snap = await getDocs(q);
+        const docs = await getFamilyScopedDocSnaps("custodyExpenses", familyId);
 
-        if (snap.empty) {
+        if (!docs.length) {
           const createdExpenses = await Promise.all(
             initialCustodyExpenses.map(async (expense, index) => {
               const ledger = getExpenseLedger(expense);
@@ -319,7 +316,7 @@ export default function BudgetHub() {
           return;
         }
 
-        const data = snap.docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+        const data = docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         if (!cancelled) setExpenses(data);
       } catch (error) {
         console.error("Error loading custody expenses:", error);

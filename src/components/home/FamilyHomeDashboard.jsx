@@ -116,49 +116,6 @@ function getPersonColorClasses(person, index = 0) {
   return getColorClasses(normalizeColorId(rawColor, fallback), fallback);
 }
 
-function getPersonColorId(person, fallback = "") {
-  return normalizeColorId(
-    person?.colorId ||
-      person?.color_id ||
-      person?.color ||
-      person?.familyColor ||
-      person?.family_color ||
-      person?.calendarColor ||
-      person?.calendar_color ||
-      fallback,
-    fallback || "blue"
-  );
-}
-
-function getEventColorId(event, fallback = "") {
-  return normalizeColorId(
-    event?.colorId ||
-      event?.color_id ||
-      event?.color ||
-      event?.eventColor ||
-      event?.event_color ||
-      event?.calendarColor ||
-      event?.calendar_color ||
-      event?.personColor ||
-      event?.person_color ||
-      fallback,
-    fallback || "violet"
-  );
-}
-
-function matchesPersonByColor(item, person) {
-  const itemColor = getEventColorId(item, "");
-  const personColor = getPersonColorId(person, "");
-
-  if (!itemColor || !personColor) return false;
-
-  return itemColor === personColor;
-}
-
-function matchesEventPerson(event, person) {
-  return matchesPerson(event, person) || matchesPersonByColor(event, person);
-}
-
 function getEventColorClasses(event, assignedPerson, index = 0) {
   const fallbackColors = ["violet", "blue", "amber", "emerald", "rose", "teal"];
   const fallback = fallbackColors[index % fallbackColors.length];
