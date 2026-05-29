@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 
@@ -803,6 +804,31 @@ export default function ExchangeHub() {
         onChange={setExchangeForm}
         onClose={closeExchangeModal}
         onSubmit={saveExchange}
+      />
+
+      <AppDialog
+        open={Boolean(confirmDialog)}
+        tone={confirmDialog?.tone}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        cancelLabel="Cancel"
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          action?.();
+        }}
+      />
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onCancel={() => setNoticeDialog(null)}
+        onConfirm={() => setNoticeDialog(null)}
       />
     </div>
   );

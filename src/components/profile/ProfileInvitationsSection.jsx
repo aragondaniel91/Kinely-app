@@ -123,6 +123,14 @@ async function readInvitationDocs(collectionName, email) {
     getDocs(query(invitationRef, where("recipient_email", "==", email))),
   ]);
 
+  if (camelSnap.status === "rejected" && snakeSnap.status === "rejected") {
+    const message =
+      camelSnap.reason?.message ||
+      snakeSnap.reason?.message ||
+      `Could not load ${collectionName}.`;
+    throw new Error(`${collectionName}: ${message}`);
+  }
+
   const camelDocs = camelSnap.status === "fulfilled"
     ? camelSnap.value.docs.map((docSnap) => ({ id: docSnap.id, collectionName, ...docSnap.data() }))
     : [];
@@ -222,11 +230,20 @@ export default function ProfileInvitationsSection() {
     setError("");
 
     try {
-      const [familyDocs, custodyDocs] = await Promise.all([
+      const [familyResult, custodyResult] = await Promise.allSettled([
         readInvitationDocs(INVITATION_COLLECTIONS.FAMILY, email),
         readInvitationDocs(INVITATION_COLLECTIONS.CUSTODY, email),
       ]);
+
+      const familyDocs = familyResult.status === "fulfilled" ? familyResult.value : [];
+      const custodyDocs = custodyResult.status === "fulfilled" ? custodyResult.value : [];
+      const loadErrors = [familyResult, custodyResult]
+        .filter((result) => result.status === "rejected")
+        .map((result) => result.reason?.message)
+        .filter(Boolean);
+
       setInvitations(mergeInvitationDocs(familyDocs, custodyDocs));
+      if (loadErrors.length) setError(loadErrors.join("\n"));
     } catch (loadError) {
       console.error("Error loading invitations:", loadError);
       setError(loadError?.message || "Could not load invitations.");

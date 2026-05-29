@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import AppDialog from "@/components/app/AppDialog";
 
 const EMPTY_FORM = {
   name: "",
@@ -619,6 +620,13 @@ export default function CustodyGroupsManager() {
 
       resetForm();
       await loadGroups();
+      showNotice({
+        tone: "success",
+        title: editingGroupId ? "Custody group updated" : "Custody group created",
+        message: invitations.length
+          ? `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending. The invited person must sign in with that email and open Profile > Invites.`
+          : "No new invitations were needed because every listed email already has access or belongs to you.",
+      });
     } catch (error) {
       console.error("Error saving custody group:", error);
       showNotice({
@@ -844,6 +852,31 @@ export default function CustodyGroupsManager() {
           />
         ))}
       </div>
+
+      <AppDialog
+        open={Boolean(confirmDialog)}
+        tone={confirmDialog?.tone}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        cancelLabel="Cancel"
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          action?.();
+        }}
+      />
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onCancel={() => setNoticeDialog(null)}
+        onConfirm={() => setNoticeDialog(null)}
+      />
     </Card>
   );
 }

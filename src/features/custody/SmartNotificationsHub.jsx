@@ -19,6 +19,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
@@ -478,6 +479,7 @@ function AlertCard({ alert }) {
           </p>
         </div>
       </div>
+
     </div>
   );
 }
@@ -716,6 +718,16 @@ export default function SmartNotificationsHub() {
           </div>
         </div>
       </div>
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onCancel={() => setNoticeDialog(null)}
+        onConfirm={() => setNoticeDialog(null)}
+      />
     </div>
   );
 }

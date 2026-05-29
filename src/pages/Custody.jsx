@@ -16,6 +16,7 @@ import { collection, getDocs, onSnapshot, query, where } from "firebase/firestor
 import CustodyCalendarView from "@/features/custody/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import AppDialog from "@/components/app/AppDialog";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
@@ -387,6 +388,36 @@ export default function Custody() {
     }
   };
 
+  const dialogs = (
+    <>
+      <AppDialog
+        open={Boolean(confirmDialog)}
+        tone={confirmDialog?.tone}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
+        cancelLabel="Cancel"
+        loading={isResetting}
+        onCancel={() => setConfirmDialog(null)}
+        onConfirm={() => {
+          const action = confirmDialog?.onConfirm;
+          setConfirmDialog(null);
+          action?.();
+        }}
+      />
+
+      <AppDialog
+        open={Boolean(noticeDialog)}
+        tone={noticeDialog?.tone}
+        title={noticeDialog?.title}
+        message={noticeDialog?.message}
+        confirmLabel="Got it"
+        onCancel={() => setNoticeDialog(null)}
+        onConfirm={() => setNoticeDialog(null)}
+      />
+    </>
+  );
+
   if (activeModule === "hub") {
     return (
       <div className="min-h-full bg-[#F8F7F4] px-4 pb-28 pt-5 md:px-8 md:pb-8">
@@ -419,6 +450,7 @@ export default function Custody() {
             onReset={handleResetCustody}
           />
         </div>
+        {dialogs}
       </div>
     );
   }
@@ -508,6 +540,8 @@ export default function Custody() {
           ]}
         />
       )}
+
+      {dialogs}
     </div>
   );
 }
