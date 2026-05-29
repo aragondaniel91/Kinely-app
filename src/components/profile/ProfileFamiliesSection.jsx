@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
+import { doc, setDoc } from "firebase/firestore";
 import { Check, Plus, Save, Trash2, Users, X } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
+import { db } from "@/lib/firebase";
+import {
+  buildFamilyInvitation,
+  familyInvitationId,
+  withPendingFamilyInvitation,
+} from "@/lib/invitationUtils";
 import { PERSON_COLOR_OPTIONS, colorClasses, getColorMeta, normalizeChildren } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -34,6 +41,12 @@ function getFamilyMemberCount(family) {
   if (Array.isArray(family?.member_emails)) return family.member_emails.length;
   if (Array.isArray(family?.members)) return family.members.length + 1;
   return 1;
+}
+
+function getFamilyMemberEmails(family) {
+  if (Array.isArray(family?.memberEmails)) return family.memberEmails;
+  if (Array.isArray(family?.member_emails)) return family.member_emails;
+  return [];
 }
 
 function ColorPicker({ value, onChange, label = "Color", disabled = false }) {
@@ -202,6 +215,7 @@ export default function ProfileFamiliesSection() {
     setSaving(true);
 
     try {
+      const cleanParent2Email = normalizeEmail(parent2Email);
       const cleanChildren = children
         .map((child) => ({
           ...child,
@@ -215,7 +229,21 @@ export default function ProfileFamiliesSection() {
         }))
         .filter((child) => child.name);
 
-      await updateActiveFamily({
+      const currentMemberEmails = getFamilyMemberEmails(profile).map(normalizeEmail);
+      const shouldInviteParent2 = Boolean(cleanParent2Email && !currentMemberEmails.includes(cleanParent2Email));
+      const pendingInvite = shouldInviteParent2
+        ? buildFamilyInvitation({
+            familyId,
+            familyName: familyName.trim() || "My Family",
+            recipientName: parent2Name,
+            recipientEmail: cleanParent2Email,
+            role: parent2Role,
+            createdBy: user?.uid,
+            createdByEmail: user?.email,
+          })
+        : null;
+
+      const baseUpdates = {
         familyName: familyName.trim() || "My Family",
         family_name: familyName.trim() || "My Family",
         children: cleanChildren,
@@ -227,16 +255,37 @@ export default function ProfileFamiliesSection() {
         parent1_color: parent1Color,
         parent2Name: parent2Name.trim(),
         parent2_name: parent2Name.trim(),
-        parent2Email: normalizeEmail(parent2Email),
-        parent2_email: normalizeEmail(parent2Email),
+        parent2Email: cleanParent2Email,
+        parent2_email: cleanParent2Email,
         parent2Role,
         parent2_role: parent2Role,
         parent2Color,
         parent2_color: parent2Color,
-      });
+      };
+      const updates = pendingInvite
+        ? {
+            ...baseUpdates,
+            ...withPendingFamilyInvitation({
+              pendingMemberEmails: profile?.pendingMemberEmails,
+              pending_member_emails: profile?.pending_member_emails,
+              pendingInvites: profile?.pendingInvites,
+              pending_invites: profile?.pending_invites,
+            }, pendingInvite),
+          }
+        : baseUpdates;
+
+      await updateActiveFamily(updates);
+
+      if (pendingInvite) {
+        await setDoc(
+          doc(db, "familyInvitations", familyInvitationId(familyId, cleanParent2Email)),
+          pendingInvite,
+          { merge: true }
+        );
+      }
 
       await refreshFamilies?.();
-      setMessage("Family changes saved.");
+      setMessage(pendingInvite ? "Family saved and invitation marked pending." : "Family changes saved.");
     } catch (err) {
       console.error("Error saving family", err);
       setError(err?.message || "Error saving family.");

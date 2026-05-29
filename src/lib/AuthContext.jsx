@@ -8,6 +8,11 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, collection } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import {
+  buildFamilyInvitation,
+  familyInvitationId,
+  withPendingFamilyInvitation,
+} from "@/lib/invitationUtils";
 
 const AuthContext = createContext(null);
 
@@ -192,9 +197,21 @@ export function AuthProvider({ children }) {
     const familyRef = doc(collection(db, "families"));
     const resolvedFamilyName = String(familyName || "").trim() || `${cleanName || "My"} Family`;
     const cleanChildren = onboardingMode === "create" ? normalizeChildren(children) : [];
-    const memberEmails = [cleanEmail, cleanParent2Email].filter(Boolean);
+    const memberEmails = [cleanEmail].filter(Boolean);
+    const pendingInvite = cleanParent2Email
+      ? buildFamilyInvitation({
+          familyId: familyRef.id,
+          familyName: resolvedFamilyName,
+          recipientName: parent2Name,
+          recipientEmail: cleanParent2Email,
+          role: oppositeParentRole(cleanRole),
+          createdBy: result.user.uid,
+          createdByEmail: cleanEmail,
+          now,
+        })
+      : null;
 
-    await setDoc(familyRef, {
+    await setDoc(familyRef, withPendingFamilyInvitation({
       familyName: resolvedFamilyName,
       family_name: resolvedFamilyName,
       type: "household",
@@ -232,7 +249,14 @@ export function AuthProvider({ children }) {
       member_emails: memberEmails,
       createdAt: now,
       updatedAt: now,
-    });
+    }, pendingInvite));
+
+    if (pendingInvite) {
+      await setDoc(
+        doc(db, "familyInvitations", familyInvitationId(familyRef.id, cleanParent2Email)),
+        pendingInvite
+      );
+    }
 
     await setDoc(doc(db, "users", result.user.uid), {
       uid: result.user.uid,

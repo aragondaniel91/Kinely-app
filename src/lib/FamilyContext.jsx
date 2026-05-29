@@ -22,6 +22,12 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/AuthContext";
 import { buildFamilyModel } from "@/core/family/familyCore";
+import {
+  buildFamilyInvitation,
+  familyInvitationId,
+  normalizeInviteEmail,
+  withPendingFamilyInvitation,
+} from "@/lib/invitationUtils";
 
 export const FamilyContext = createContext(null);
 
@@ -533,9 +539,21 @@ export function FamilyProvider({ children }) {
     const familyRef = doc(collection(db, "families"));
     const userRef = doc(db, "users", user.uid);
     const parent1PersonId = `user_${user.uid}`;
-    const parent2PersonId = parent2Email.trim().toLowerCase() ? `email_${slugify(parent2Email.trim().toLowerCase())}` : "";
+    const cleanParent2Email = normalizeInviteEmail(parent2Email);
+    const parent2PersonId = cleanParent2Email ? `email_${slugify(cleanParent2Email)}` : "";
+    const pendingInvite = cleanParent2Email
+      ? buildFamilyInvitation({
+          familyId: familyRef.id,
+          familyName: name,
+          recipientName: parent2Name,
+          recipientEmail: cleanParent2Email,
+          role: authProfile?.role === "mom" ? "dad" : "mom",
+          createdBy: user.uid,
+          createdByEmail: user.email,
+        })
+      : null;
 
-    const familyData = {
+    const familyData = withPendingFamilyInvitation({
       familyName: name,
       family_name: name,
       type: "household",
@@ -559,8 +577,8 @@ export function FamilyProvider({ children }) {
       parent2_person_id: parent2PersonId,
       parent2Name: parent2Name.trim(),
       parent2_name: parent2Name.trim(),
-      parent2Email: parent2Email.trim().toLowerCase(),
-      parent2_email: parent2Email.trim().toLowerCase(),
+      parent2Email: cleanParent2Email,
+      parent2_email: cleanParent2Email,
       parent2Role: authProfile?.role === "mom" ? "dad" : "mom",
       parent2_role: authProfile?.role === "mom" ? "dad" : "mom",
       parent2Relationship: authProfile?.role === "mom" ? "father" : "mother",
@@ -588,14 +606,21 @@ export function FamilyProvider({ children }) {
           permissions: DEFAULT_PERMS,
         },
       ],
-      memberEmails: [user.email, parent2Email.trim().toLowerCase()].filter(Boolean),
-      member_emails: [user.email, parent2Email.trim().toLowerCase()].filter(Boolean),
+      memberEmails: [user.email].filter(Boolean),
+      member_emails: [user.email].filter(Boolean),
 
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    };
+    }, pendingInvite);
 
     await setDoc(familyRef, familyData);
+
+    if (pendingInvite) {
+      await setDoc(
+        doc(db, "familyInvitations", familyInvitationId(familyRef.id, cleanParent2Email)),
+        pendingInvite
+      );
+    }
     await setDoc(
       userRef,
       {

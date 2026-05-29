@@ -1,7 +1,15 @@
 import { useMemo, useState } from "react";
+import { doc, setDoc } from "firebase/firestore";
 import { Palette, Pencil, Plus, Shield, Trash2 } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
+import { db } from "@/lib/firebase";
+import {
+  INVITATION_TYPES,
+  buildFamilyInvitation,
+  familyInvitationId,
+  withPendingFamilyInvitation,
+} from "@/lib/invitationUtils";
 import { getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import AppDialog from "@/components/app/AppDialog";
@@ -27,9 +35,17 @@ function getFamilyMemberEmails(profile) {
   return [];
 }
 
+function getPendingMemberEmails(profile) {
+  if (Array.isArray(profile?.pendingMemberEmails)) return profile.pendingMemberEmails;
+  if (Array.isArray(profile?.pending_member_emails)) return profile.pending_member_emails;
+  return [];
+}
+
 function getMembers(profile, user, myEmail) {
   const seen = new Set();
   const result = [];
+  const memberEmails = getFamilyMemberEmails(profile).map(normalizeEmail);
+  const pendingMemberEmails = getPendingMemberEmails(profile).map(normalizeEmail);
 
   function add(member) {
     const key = normalizeEmail(member.email) || `${member.source}-${member.name}`.toLowerCase();
@@ -45,31 +61,44 @@ function getMembers(profile, user, myEmail) {
     role: normalizeMemberRole(profile?.parent1_role || profile?.parent1Role, "parent"),
     color: profile?.parent1_color || profile?.parent1Color || "blue",
     admin: true,
+    status: "active",
     locked: true,
   });
 
   if (profile?.parent2_name || profile?.parent2Name || profile?.parent2_email || profile?.parent2Email) {
+    const parent2Email = normalizeEmail(profile?.parent2_email || profile?.parent2Email);
     add({
       source: "parent2",
       name: profile?.parent2_name || profile?.parent2Name || "Co-parent / caregiver",
-      email: profile?.parent2_email || profile?.parent2Email || "",
+      email: parent2Email,
       role: normalizeMemberRole(profile?.parent2_role || profile?.parent2Role, "parent"),
       color: profile?.parent2_color || profile?.parent2Color || "amber",
       admin: false,
+      status: memberEmails.includes(parent2Email)
+        ? "active"
+        : pendingMemberEmails.includes(parent2Email)
+        ? "pending"
+        : "profile_only",
       locked: false,
     });
   }
 
   (profile?.members || []).forEach((member, index) => {
+    const email = normalizeEmail(member.email);
     add({
       source: "member",
       index,
       name: member.name || member.displayName || member.email || "Member",
-      email: member.email || "",
+      email,
       role: normalizeMemberRole(member.role, "family"),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.isAdmin === true || member.is_admin === true,
       permissions: member.permissions || defaultPermissions,
+      status: member.status || member.invitationStatus || member.invitation_status || (
+        email && !memberEmails.includes(email) && pendingMemberEmails.includes(email)
+          ? "pending"
+          : "active"
+      ),
       locked: false,
     });
   });
@@ -91,6 +120,16 @@ function MemberCard({ member, onEdit, onDelete }) {
         <p className="mt-1 truncate text-xs font-semibold text-slate-400">{member.email || "No email"}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <Badge variant={member.admin ? "secondary" : "outline"}>{member.admin ? "Admin" : member.role}</Badge>
+          {member.status === "pending" && (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">
+              Invitation pending
+            </span>
+          )}
+          {member.status === "profile_only" && (
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black text-slate-500">
+              Not invited
+            </span>
+          )}
           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${color.bg} ${color.text} ${color.border}`}>
             Family color: {color.label}
           </span>
@@ -216,6 +255,10 @@ export default function ProfileMembersSection() {
       const existingMembers = Array.isArray(profile?.members) ? profile.members : [];
       let updatedMembers = [...existingMembers];
       let updates = {};
+      const existingMemberEmails = getFamilyMemberEmails(profile).map(normalizeEmail);
+      const originalEmail = normalizeEmail(nextEditor.originalEmail);
+      const wasAccepted = existingMemberEmails.includes(originalEmail) || existingMemberEmails.includes(email);
+      let pendingInvite = null;
 
       if (nextEditor.source === "owner") {
         updates = {
@@ -247,6 +290,8 @@ export default function ProfileMembersSection() {
           isAdmin: nextEditor.admin === true,
           modules,
           permissions: defaultPermissions,
+          invitationStatus: email ? "pending" : "active",
+          invitation_status: email ? "pending" : "active",
         });
         updates = { members: updatedMembers };
       } else {
@@ -254,25 +299,70 @@ export default function ProfileMembersSection() {
           const matchesByEmail = normalizeEmail(member.email) && normalizeEmail(member.email) === normalizeEmail(nextEditor.originalEmail);
           const matchesByIndex = Number.isInteger(nextEditor.index) && index === nextEditor.index;
           return matchesByEmail || matchesByIndex
-            ? { ...member, name, email, role, color, familyColor: color, isAdmin: nextEditor.admin === true, modules }
+            ? {
+                ...member,
+                name,
+                email,
+                role,
+                color,
+                familyColor: color,
+                isAdmin: nextEditor.admin === true,
+                modules,
+                invitationStatus: wasAccepted ? "active" : "pending",
+                invitation_status: wasAccepted ? "active" : "pending",
+              }
             : member;
         });
         updates = { members: updatedMembers };
       }
 
-      const memberEmails = Array.from(
-        new Set([
-          myEmail,
-          normalizeEmail(profile?.parent2_email || profile?.parent2Email),
-          email,
-          ...updatedMembers.map((member) => normalizeEmail(member.email)),
-        ].filter(Boolean))
-      );
+      let memberEmails = existingMemberEmails.length ? existingMemberEmails : [normalizeEmail(myEmail)].filter(Boolean);
+
+      if (wasAccepted && email) {
+        memberEmails = memberEmails.map((item) => (item === originalEmail ? email : item));
+        if (!memberEmails.includes(email)) memberEmails.push(email);
+      }
+
+      const shouldInvite = Boolean(email && nextEditor.source !== "owner" && !wasAccepted);
+
+      if (shouldInvite) {
+        pendingInvite = buildFamilyInvitation({
+          familyId,
+          familyName: profile?.familyName || profile?.family_name || "",
+          recipientName: name,
+          recipientEmail: email,
+          role,
+          type: nextEditor.source === "parent2"
+            ? INVITATION_TYPES.FAMILY_COPARENT
+            : INVITATION_TYPES.FAMILY_MEMBER,
+          permissions: defaultPermissions,
+          createdBy: user?.uid,
+          createdByEmail: myEmail || user?.email,
+        });
+        updates = {
+          ...updates,
+          ...withPendingFamilyInvitation({
+            pendingMemberEmails: profile?.pendingMemberEmails,
+            pending_member_emails: profile?.pending_member_emails,
+            pendingInvites: profile?.pendingInvites,
+            pending_invites: profile?.pending_invites,
+          }, pendingInvite),
+        };
+      }
 
       await updateActiveFamily({ ...updates, memberEmails, member_emails: memberEmails });
+
+      if (pendingInvite) {
+        await setDoc(
+          doc(db, "familyInvitations", familyInvitationId(familyId, email)),
+          pendingInvite,
+          { merge: true }
+        );
+      }
+
       await refreshFamilies?.();
       setEditor(null);
-      setMessage("Member saved.");
+      setMessage(pendingInvite ? "Invitation created. Access stays pending until accepted." : "Member saved.");
     } catch (err) {
       console.error("Error saving member", err);
       setError(err?.message || "Error saving member.");
@@ -291,6 +381,10 @@ export default function ProfileMembersSection() {
       const existingMembers = Array.isArray(profile?.members) ? profile.members : [];
       const updatedMembers = existingMembers.filter((item) => normalizeEmail(item.email) !== email);
       const memberEmails = getFamilyMemberEmails(profile).filter((item) => normalizeEmail(item) !== email);
+      const pendingMemberEmails = getPendingMemberEmails(profile).filter((item) => normalizeEmail(item) !== email);
+      const pendingInvites = (profile?.pendingInvites || profile?.pending_invites || []).filter((item) => {
+        return normalizeEmail(item.recipientEmail || item.recipient_email) !== email;
+      });
       const updates = member.source === "parent2"
         ? {
             parent2Name: "",
@@ -304,8 +398,20 @@ export default function ProfileMembersSection() {
             members: updatedMembers,
             memberEmails,
             member_emails: memberEmails,
+            pendingMemberEmails,
+            pending_member_emails: pendingMemberEmails,
+            pendingInvites,
+            pending_invites: pendingInvites,
           }
-        : { members: updatedMembers, memberEmails, member_emails: memberEmails };
+        : {
+            members: updatedMembers,
+            memberEmails,
+            member_emails: memberEmails,
+            pendingMemberEmails,
+            pending_member_emails: pendingMemberEmails,
+            pendingInvites,
+            pending_invites: pendingInvites,
+          };
 
       await updateActiveFamily(updates);
       await refreshFamilies?.();

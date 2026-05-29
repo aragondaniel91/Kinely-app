@@ -254,6 +254,35 @@ service cloud.firestore {
       allow delete: if canDeleteScopedFamilyDoc();
     }
 
+    match /familyInvitations/{docId} {
+      allow read: if canReadScopedFamilyDoc()
+        || (
+          signedIn()
+          && (
+            userEmail() == resource.data.recipientEmail
+            || userEmail() == resource.data.recipient_email
+          )
+        );
+      allow create: if canCreateScopedFamilyDoc()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if canUpdateScopedFamilyDoc()
+        || (
+          signedIn()
+          && hasExistingFamilyId()
+          && hasRequestFamilyId()
+          && requestFamilyId() == existingFamilyId()
+          && (
+            userEmail() == resource.data.recipientEmail
+            || userEmail() == resource.data.recipient_email
+          )
+          && (
+            request.resource.data.recipientEmail == resource.data.recipientEmail
+            || request.resource.data.recipient_email == resource.data.recipient_email
+          )
+        );
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
     match /familyLists/{docId} {
       allow read: if canReadScopedFamilyDoc();
       allow create: if canCreateScopedFamilyDoc();
