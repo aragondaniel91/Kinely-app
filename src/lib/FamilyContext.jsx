@@ -328,6 +328,24 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
     }
   }
 
+  if (userData?.onboardingMode === "join" || authProfile?.onboardingMode === "join") {
+    await setDoc(
+      userRef,
+      {
+        uid: firebaseUser.uid,
+        name: firebaseUser.displayName || userData?.name || "",
+        email: firebaseUser.email || userData?.email || "",
+        onboardingMode: "join",
+        onboardingComplete: true,
+        familyId: "",
+        familyIds: [],
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return null;
+  }
+
   const familyRef = doc(collection(db, "families"));
   const parent1PersonId = `user_${firebaseUser.uid}`;
 

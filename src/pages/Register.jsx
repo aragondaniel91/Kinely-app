@@ -208,7 +208,7 @@ export default function Register() {
         parent2Email,
         children,
       });
-      navigate("/");
+      navigate(onboardingMode === "join" ? "/profile?tab=invitations" : "/");
     } catch (err) {
       console.error(err);
       setError(err?.message || "Could not create the account. Check the email/password and try again.");

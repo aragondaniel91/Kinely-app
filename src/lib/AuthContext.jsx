@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -74,6 +74,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const registrationInProgressRef = useRef(false);
 
   const loadProfile = async (firebaseUser) => {
     if (!firebaseUser) {
@@ -121,6 +122,30 @@ export function AuthProvider({ children }) {
         setProfile({ id: firebaseUser.uid, ...updatedProfile });
         return;
       }
+    }
+
+    if (data.onboardingMode === "join") {
+      const joinProfile = {
+        ...data,
+        uid: firebaseUser.uid,
+        name: data.name || firebaseUser.displayName || "",
+        email: data.email || normalizeEmail(firebaseUser.email),
+        familyId: "",
+        familyIds: [],
+        onboardingMode: "join",
+        onboardingComplete: true,
+      };
+
+      await setDoc(
+        userRef,
+        {
+          ...joinProfile,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      setProfile({ id: firebaseUser.uid, ...joinProfile });
+      return;
     }
 
     const familyRef = doc(collection(db, "families"));
@@ -201,6 +226,10 @@ export function AuthProvider({ children }) {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
+      if (registrationInProgressRef.current) {
+        return;
+      }
+
       if (firebaseUser) {
         await loadProfile(firebaseUser);
       } else {
@@ -229,102 +258,132 @@ export function AuthProvider({ children }) {
     const cleanName = String(name || "").trim();
     const cleanRole = role || "parent";
     const now = new Date().toISOString();
-    const result = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+    registrationInProgressRef.current = true;
+    setLoading(true);
 
-    await updateProfile(result.user, {
-      displayName: cleanName,
-    });
+    try {
+      const result = await createUserWithEmailAndPassword(auth, cleanEmail, password);
 
-    const familyRef = doc(collection(db, "families"));
-    const resolvedFamilyName = String(familyName || "").trim() || `${cleanName || "My"} Family`;
-    const ownerPersonId = `user_${result.user.uid}`;
-    const cleanChildren = onboardingMode === "create" ? normalizeChildren(children) : [];
-    const memberEmails = [cleanEmail].filter(Boolean);
-    const pendingInvite = cleanParent2Email
-      ? buildFamilyInvitation({
-          familyId: familyRef.id,
-          familyName: resolvedFamilyName,
-          recipientName: parent2Name,
-          recipientEmail: cleanParent2Email,
-          role: oppositeParentRole(cleanRole),
-          createdBy: result.user.uid,
-          createdByEmail: cleanEmail,
-          now,
-        })
-      : null;
+      await updateProfile(result.user, {
+        displayName: cleanName,
+      });
 
-    await setDoc(familyRef, withPendingFamilyInvitation({
-      familyId: familyRef.id,
-      familyName: resolvedFamilyName,
-      family_name: resolvedFamilyName,
-      type: "household",
-      ownerId: result.user.uid,
-      ownerEmail: cleanEmail,
-      owner_email: cleanEmail,
-      createdBy: result.user.uid,
-      createdByEmail: cleanEmail,
-      parent1PersonId: ownerPersonId,
-      parent1Name: cleanName,
-      parent1_name: cleanName,
-      parent1Role: cleanRole,
-      parent1_role: cleanRole,
-      parent1Color: cleanRole === "mom" ? "amber" : "blue",
-      parent1_color: cleanRole === "mom" ? "amber" : "blue",
-      parent2PersonId: cleanParent2Email ? `email_${cleanParent2Email.replace(/[^a-z0-9]+/g, "-")}` : "",
-      parent2Name: String(parent2Name || "").trim(),
-      parent2_name: String(parent2Name || "").trim(),
-      parent2Email: cleanParent2Email,
-      parent2_email: cleanParent2Email,
-      parent2Role: oppositeParentRole(cleanRole),
-      parent2_role: oppositeParentRole(cleanRole),
-      parent2Color: cleanRole === "mom" ? "blue" : "amber",
-      parent2_color: cleanRole === "mom" ? "blue" : "amber",
-      children: cleanChildren,
-      members: [
-        {
+      if (onboardingMode === "join") {
+        const joinProfile = {
           uid: result.user.uid,
-          personId: ownerPersonId,
-          email: cleanEmail,
           name: cleanName,
-          displayName: cleanName,
-          role: "owner",
-          isAdmin: true,
-          permissions: DEFAULT_PERMISSIONS,
-        },
-      ],
-      memberIds: [result.user.uid],
-      memberEmails,
-      adminIds: [result.user.uid],
-      adminEmails: memberEmails,
-      viewerIds: [],
-      viewerEmails: [],
-      member_emails: memberEmails,
-      createdAt: now,
-      updatedAt: now,
-    }, pendingInvite));
+          email: cleanEmail,
+          familyId: "",
+          familyIds: [],
+          role: cleanRole,
+          onboardingMode: "join",
+          onboardingComplete: true,
+          createdAt: now,
+          updatedAt: now,
+        };
 
-    if (pendingInvite) {
-      await setDoc(
-        doc(db, "familyInvitations", familyInvitationId(familyRef.id, cleanParent2Email)),
-        pendingInvite
-      );
+        await setDoc(doc(db, "users", result.user.uid), joinProfile);
+        setUser(result.user);
+        setProfile({ id: result.user.uid, ...joinProfile });
+        return result.user;
+      }
+
+      const familyRef = doc(collection(db, "families"));
+      const resolvedFamilyName = String(familyName || "").trim() || `${cleanName || "My"} Family`;
+      const ownerPersonId = `user_${result.user.uid}`;
+      const cleanChildren = normalizeChildren(children);
+      const memberEmails = [cleanEmail].filter(Boolean);
+      const pendingInvite = cleanParent2Email
+        ? buildFamilyInvitation({
+            familyId: familyRef.id,
+            familyName: resolvedFamilyName,
+            recipientName: parent2Name,
+            recipientEmail: cleanParent2Email,
+            role: oppositeParentRole(cleanRole),
+            createdBy: result.user.uid,
+            createdByEmail: cleanEmail,
+            now,
+          })
+        : null;
+
+      await setDoc(familyRef, withPendingFamilyInvitation({
+        familyId: familyRef.id,
+        familyName: resolvedFamilyName,
+        family_name: resolvedFamilyName,
+        type: "household",
+        ownerId: result.user.uid,
+        ownerEmail: cleanEmail,
+        owner_email: cleanEmail,
+        createdBy: result.user.uid,
+        createdByEmail: cleanEmail,
+        parent1PersonId: ownerPersonId,
+        parent1Name: cleanName,
+        parent1_name: cleanName,
+        parent1Role: cleanRole,
+        parent1_role: cleanRole,
+        parent1Color: cleanRole === "mom" ? "amber" : "blue",
+        parent1_color: cleanRole === "mom" ? "amber" : "blue",
+        parent2PersonId: cleanParent2Email ? `email_${cleanParent2Email.replace(/[^a-z0-9]+/g, "-")}` : "",
+        parent2Name: String(parent2Name || "").trim(),
+        parent2_name: String(parent2Name || "").trim(),
+        parent2Email: cleanParent2Email,
+        parent2_email: cleanParent2Email,
+        parent2Role: oppositeParentRole(cleanRole),
+        parent2_role: oppositeParentRole(cleanRole),
+        parent2Color: cleanRole === "mom" ? "blue" : "amber",
+        parent2_color: cleanRole === "mom" ? "blue" : "amber",
+        children: cleanChildren,
+        members: [
+          {
+            uid: result.user.uid,
+            personId: ownerPersonId,
+            email: cleanEmail,
+            name: cleanName,
+            displayName: cleanName,
+            role: "owner",
+            isAdmin: true,
+            permissions: DEFAULT_PERMISSIONS,
+          },
+        ],
+        memberIds: [result.user.uid],
+        memberEmails,
+        adminIds: [result.user.uid],
+        adminEmails: memberEmails,
+        viewerIds: [],
+        viewerEmails: [],
+        member_emails: memberEmails,
+        createdAt: now,
+        updatedAt: now,
+      }, pendingInvite));
+
+      if (pendingInvite) {
+        await setDoc(
+          doc(db, "familyInvitations", familyInvitationId(familyRef.id, cleanParent2Email)),
+          pendingInvite
+        );
+      }
+
+      const createdProfile = {
+        uid: result.user.uid,
+        name: cleanName,
+        email: cleanEmail,
+        familyId: familyRef.id,
+        familyIds: [familyRef.id],
+        role: cleanRole,
+        onboardingMode,
+        onboardingComplete: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await setDoc(doc(db, "users", result.user.uid), createdProfile);
+      setUser(result.user);
+      setProfile({ id: result.user.uid, ...createdProfile });
+      return result.user;
+    } finally {
+      registrationInProgressRef.current = false;
+      setLoading(false);
     }
-
-    await setDoc(doc(db, "users", result.user.uid), {
-      uid: result.user.uid,
-      name: cleanName,
-      email: cleanEmail,
-      familyId: familyRef.id,
-      familyIds: [familyRef.id],
-      role: cleanRole,
-      onboardingMode,
-      onboardingComplete: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await loadProfile(result.user);
-    return result.user;
   };
 
   const login = async ({ email, password }) => {

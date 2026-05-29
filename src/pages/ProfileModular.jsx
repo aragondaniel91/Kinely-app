@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Baby,
   Bell,
@@ -62,7 +62,11 @@ export default function ProfileModular() {
   const { logout } = useAuth();
   const { profile, familyId, isOwner, isAdmin } = useFamily();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const requestedTab = searchParams.get("tab");
+    return tabs.some((tab) => tab.id === requestedTab) ? requestedTab : "overview";
+  });
 
   async function handleLogout() {
     await logout();
