@@ -3,7 +3,7 @@ import { doc, setDoc } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 
 function arraysEqual(a = [], b = []) {
   if (a.length !== b.length) return false;
@@ -54,7 +54,7 @@ export default function CustodyScopeMetadataBackfill({ children }) {
       };
 
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyDays", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyDays", custodyGroupId);
 
         if (cancelled) return;
 

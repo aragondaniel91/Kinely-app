@@ -16,7 +16,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
@@ -368,6 +368,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const {
     user,
     familyId,
+    custodyGroupId,
     dadName,
     momName,
     dadColor,
@@ -378,6 +379,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     perms,
     custodyChildren,
   } = useFamily();
+  const custodyScopeId = custodyGroupId || familyId;
   const custodyChildDisplayName = getCustodyChildDisplayName(custodyChildren);
   const dashboardDadColor = custodyParentOverride?.dadColor || custodyDadColor || dadColor || "blue";
   const dashboardMomColor = custodyParentOverride?.momColor || custodyMomColor || momColor || "amber";
@@ -398,7 +400,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     let cancelled = false;
 
     async function loadCustodyDays() {
-      if (!user || !familyId || !canRead) {
+      if (!user || !custodyScopeId || !canRead) {
         setCustodyDays([]);
         setLoading(false);
         return;
@@ -406,7 +408,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoading(true);
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyDays", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyDays", custodyScopeId);
         const data = docs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
         if (!cancelled) setCustodyDays(data);
       } catch (error) {
@@ -419,13 +421,13 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     loadCustodyDays();
     return () => { cancelled = true; };
-  }, [user?.uid, familyId, canRead]);
+  }, [user?.uid, custodyScopeId, canRead]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadPackingItems() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setPackingItems(initialCustodyPackingItems);
         setLoadingPacking(false);
         return;
@@ -433,7 +435,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoadingPacking(true);
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyPackingItems", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyPackingItems", custodyScopeId);
         const data = !docs.length
           ? initialCustodyPackingItems
           : docs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
@@ -448,13 +450,13 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     loadPackingItems();
     return () => { cancelled = true; };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadBudgetExpenses() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setExpenses(initialCustodyExpenses);
         setLoadingBudget(false);
         return;
@@ -462,7 +464,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoadingBudget(true);
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyExpenses", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyExpenses", custodyScopeId);
         const data = !docs.length
           ? initialCustodyExpenses
           : docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
@@ -477,13 +479,13 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     loadBudgetExpenses();
     return () => { cancelled = true; };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadExchanges() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setExchanges([]);
         setLoadingExchanges(false);
         return;
@@ -491,7 +493,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
       setLoadingExchanges(true);
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyExchanges", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyExchanges", custodyScopeId);
         const data = docs
           .map(normalizeExchangeDoc)
           .sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`));
@@ -506,7 +508,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     loadExchanges();
     return () => { cancelled = true; };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeId]);
 
   const dashboard = useMemo(() => {
     const today = new Date();

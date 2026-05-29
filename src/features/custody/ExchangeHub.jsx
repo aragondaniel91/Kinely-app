@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 
 const emptyExchange = {
   date: "",
@@ -450,7 +450,26 @@ function ExchangeModal({ open, mode, value, saving, onChange, onClose, onSubmit 
 }
 
 export default function ExchangeHub() {
-  const { user, familyId, dadName, momName } = useFamily();
+  const {
+    user,
+    familyId,
+    actualFamilyId,
+    householdFamilyId,
+    custodyGroupId,
+    selectedCustodyGroup,
+    dadName,
+    momName,
+  } = useFamily();
+  const custodyScopeId = custodyGroupId || familyId;
+  const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
+  const custodyScopeFields = useMemo(() => ({
+    familyId: householdScopeId || custodyScopeId,
+    custodyGroupId: custodyScopeId,
+    householdFamilyId: householdScopeId || "",
+    custodyGroupName: selectedCustodyGroup?.name || "",
+    module: "custody",
+    visibility: "custody",
+  }), [custodyScopeId, householdScopeId, selectedCustodyGroup?.name]);
   const [exchanges, setExchanges] = useState([]);
   const [custodyDays, setCustodyDays] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -474,7 +493,7 @@ export default function ExchangeHub() {
     let cancelled = false;
 
     async function loadExchanges() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setExchanges([]);
         setLoading(false);
         return;
@@ -483,7 +502,7 @@ export default function ExchangeHub() {
       setLoading(true);
 
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyExchanges", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyExchanges", custodyScopeId);
         const data = docs
           .map(normalizeExchangeDoc)
           .sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`));
@@ -502,19 +521,19 @@ export default function ExchangeHub() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadCustodyDays() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setCustodyDays([]);
         return;
       }
 
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyDays", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyDays", custodyScopeId);
         const data = docs
           .map(normalizeCustodyDay)
           .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
@@ -531,7 +550,7 @@ export default function ExchangeHub() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeId]);
 
   const suggestedExchange = useMemo(() => {
     const candidate = findNextExchangeFromCalendar(custodyDays, getTodayKey());
@@ -592,7 +611,7 @@ export default function ExchangeHub() {
   const saveExchange = async (event) => {
     event.preventDefault();
 
-    if (!exchangeForm.date || !exchangeForm.time || !exchangeForm.location.trim() || !user || !familyId || savingExchange) return;
+    if (!exchangeForm.date || !exchangeForm.time || !exchangeForm.location.trim() || !user || !custodyScopeId || savingExchange) return;
 
     setSavingExchange(true);
 
@@ -607,6 +626,7 @@ export default function ExchangeHub() {
         notes: exchangeForm.notes.trim(),
         status: exchangeForm.status,
         source: exchangeForm.source || "manual",
+        ...custodyScopeFields,
         updatedAt: serverTimestamp(),
       };
 
@@ -618,7 +638,6 @@ export default function ExchangeHub() {
       } else {
         const createPayload = {
           ...payload,
-          familyId,
           createdBy: user.uid,
           order: exchanges.length,
           createdAt: serverTimestamp(),

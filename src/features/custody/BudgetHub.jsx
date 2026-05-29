@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { currency, getBudgetSummary, getExpenseLedger, initialCustodyExpenses, validateExpenseLedger } from "@/data/custodyBudget";
 import BudgetExpenseCard from "./components/budget/BudgetExpenseCard";
@@ -246,6 +246,10 @@ export default function BudgetHub() {
   const {
     user,
     familyId,
+    actualFamilyId,
+    householdFamilyId,
+    custodyGroupId,
+    selectedCustodyGroup,
     dadName,
     momName,
     dadColor,
@@ -259,6 +263,19 @@ export default function BudgetHub() {
   const parent2Name = custodyParentOverride?.momName || momName || "Parent 2";
   const parent1Color = custodyParentOverride?.dadColor || custodyDadColor || dadColor || "blue";
   const parent2Color = custodyParentOverride?.momColor || custodyMomColor || momColor || "amber";
+  const custodyScopeId = custodyGroupId || familyId;
+  const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
+  const custodyScopeFields = useMemo(() => ({
+    familyId: householdScopeId || custodyScopeId,
+    custodyGroupId: custodyScopeId,
+    householdFamilyId: householdScopeId || "",
+    custodyGroupName:
+      selectedCustodyGroup?.name ||
+      custodyParentOverride?.custodyGroupName ||
+      "",
+    module: "budget",
+    visibility: "custody_budget",
+  }), [custodyScopeId, custodyParentOverride?.custodyGroupName, householdScopeId, selectedCustodyGroup?.name]);
 
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -276,7 +293,7 @@ export default function BudgetHub() {
     let cancelled = false;
 
     async function loadExpenses() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setExpenses([]);
         setLoading(false);
         return;
@@ -285,7 +302,7 @@ export default function BudgetHub() {
       setLoading(true);
 
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyExpenses", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyExpenses", custodyScopeId);
 
         if (!docs.length) {
           const createdExpenses = await Promise.all(
@@ -300,7 +317,7 @@ export default function BudgetHub() {
                 parent1PaidAmount: ledger.parent1PaidAmount,
                 parent2PaidAmount: ledger.parent2PaidAmount,
                 status: ledger.status,
-                familyId,
+                ...custodyScopeFields,
                 createdBy: user.uid,
                 order: index,
                 createdAt: serverTimestamp(),
@@ -333,7 +350,7 @@ export default function BudgetHub() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeFields, custodyScopeId]);
 
   const summary = useMemo(() => getBudgetSummary(expenses), [expenses]);
 
@@ -373,7 +390,7 @@ export default function BudgetHub() {
   };
 
   const saveExpense = async (draftExpense) => {
-    if (!user || !familyId || savingExpense) return;
+    if (!user || !custodyScopeId || savingExpense) return;
 
     if (!draftExpense.title) {
       showNotice({
@@ -407,6 +424,7 @@ export default function BudgetHub() {
         parent1PaidAmount: ledger.parent1PaidAmount,
         parent2PaidAmount: ledger.parent2PaidAmount,
         status: ledger.status,
+        ...custodyScopeFields,
         updatedAt: serverTimestamp(),
       };
 
@@ -416,7 +434,6 @@ export default function BudgetHub() {
       } else {
         const createPayload = {
           ...payload,
-          familyId,
           createdBy: user.uid,
           order: expenses.length,
           createdAt: serverTimestamp(),
@@ -443,7 +460,7 @@ export default function BudgetHub() {
   };
 
   const savePayment = async ({ amount, note = "" }) => {
-    if (!detailExpense || !user || !familyId || savingPayment) return;
+    if (!detailExpense || !user || !custodyScopeId || savingPayment) return;
 
     const currentExpense = expenses.find((expense) => expense.id === detailExpense.id) || detailExpense;
     const currentLedger = currentExpense.ledger || getExpenseLedger(currentExpense);

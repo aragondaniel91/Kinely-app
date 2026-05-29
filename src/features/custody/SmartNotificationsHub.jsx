@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
 import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
 
@@ -486,7 +486,18 @@ function AlertCard({ alert }) {
 }
 
 export default function SmartNotificationsHub() {
-  const { user, familyId, dadName, momName } = useFamily();
+  const {
+    user,
+    familyId,
+    actualFamilyId,
+    householdFamilyId,
+    custodyGroupId,
+    selectedCustodyGroup,
+    dadName,
+    momName,
+  } = useFamily();
+  const custodyScopeId = custodyGroupId || familyId;
+  const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
   const [rules, setRules] = useState(initialRules);
   const [custodyDays, setCustodyDays] = useState([]);
   const [exchanges, setExchanges] = useState([]);
@@ -507,14 +518,14 @@ export default function SmartNotificationsHub() {
     async function loadPrefs() {
       setPrefsLoaded(false);
 
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setRules(initialRules);
         setPrefsLoaded(true);
         return;
       }
 
       try {
-        const prefsRef = doc(db, "custodyNotificationPrefs", familyId);
+        const prefsRef = doc(db, "custodyNotificationPrefs", custodyScopeId);
         const snap = await getDoc(prefsRef);
         const savedRules = snap.exists() ? snap.data()?.rules || {} : {};
 
@@ -537,13 +548,13 @@ export default function SmartNotificationsHub() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadSignals() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setLoading(false);
         return;
       }
@@ -552,10 +563,10 @@ export default function SmartNotificationsHub() {
 
       try {
         const [dayDocs, exchangeDocs, packingDocs, expenseDocs] = await Promise.all([
-          getFamilyScopedDocSnaps("custodyDays", familyId),
-          getFamilyScopedDocSnaps("custodyExchanges", familyId),
-          getFamilyScopedDocSnaps("custodyPackingItems", familyId),
-          getFamilyScopedDocSnaps("custodyExpenses", familyId),
+          getCustodyScopedDocSnaps("custodyDays", custodyScopeId),
+          getCustodyScopedDocSnaps("custodyExchanges", custodyScopeId),
+          getCustodyScopedDocSnaps("custodyPackingItems", custodyScopeId),
+          getCustodyScopedDocSnaps("custodyExpenses", custodyScopeId),
         ]);
 
         if (cancelled) return;
@@ -582,7 +593,7 @@ export default function SmartNotificationsHub() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeId]);
 
   const nextExchange = useMemo(
     () => getNextSmartExchange(custodyDays, exchanges),
@@ -614,13 +625,18 @@ export default function SmartNotificationsHub() {
   const highPriorityCount = generatedAlerts.filter((alert) => alert.priority === "high").length;
 
   const savePrefs = async (nextRules) => {
-    if (!user || !familyId) return;
+    if (!user || !custodyScopeId) return;
 
     setSavingPrefs(true);
 
     try {
-      await setDoc(doc(db, "custodyNotificationPrefs", familyId), {
-        familyId,
+      await setDoc(doc(db, "custodyNotificationPrefs", custodyScopeId), {
+        familyId: householdScopeId || custodyScopeId,
+        custodyGroupId: custodyScopeId,
+        householdFamilyId: householdScopeId || "",
+        custodyGroupName: selectedCustodyGroup?.name || "",
+        module: "custody",
+        visibility: "custody",
         rules: rulesToMap(nextRules),
         updatedBy: user.uid,
         updatedAt: serverTimestamp(),

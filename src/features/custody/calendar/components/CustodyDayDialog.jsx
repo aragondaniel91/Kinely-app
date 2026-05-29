@@ -34,7 +34,7 @@ import {
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import CustodySpecialEventDialog, {
   getCustodyEventCategory,
 } from "@/features/custody/calendar/components/CustodySpecialEventDialog";
@@ -212,38 +212,46 @@ function buildTravelAuditSnapshot(plan = {}) {
   };
 }
 
-async function logFamilyActivity({ familyId, user, profile, type, title, description = "", entityType = "", entityId = "", date = "", metadata = {} }) {
-  if (!familyId || !user || !type || !title) return;
+async function logFamilyActivity({
+  familyId,
+  custodyScopeFields = {},
+  user,
+  profile,
+  type,
+  title,
+  description = "",
+  entityType = "",
+  entityId = "",
+  date = "",
+  metadata = {},
+}) {
+  const activityFamilyId = familyId || custodyScopeFields.custodyGroupId || custodyScopeFields.familyId || "";
+  if (!activityFamilyId || !user || !type || !title) return;
 
   try {
-    const activityId = `${familyId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const custodyGroupId = custodyScopeFields.custodyGroupId || activityFamilyId;
+    const activityId = `${custodyGroupId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     await setDoc(doc(db, "familyActivity", activityId), {
       id: activityId,
-      familyId,
-      family_id: familyId,
+      familyId: activityFamilyId,
+      custodyGroupId,
+      householdFamilyId: custodyScopeFields.householdFamilyId || "",
+      custodyGroupName: custodyScopeFields.custodyGroupName || "",
       module: "custody",
-      module_name: "custody",
-      visibility: "parents",
+      visibility: "custody",
       scope: "audit",
       type,
       title,
       description,
       entityType,
-      entity_type: entityType,
       entityId,
-      entity_id: entityId,
       date,
       metadata,
       actorId: user.uid,
-      actor_id: user.uid,
       actorEmail: user.email || null,
-      actor_email: user.email || null,
       actorName: activityLabel(profile, user),
-      actor_name: activityLabel(profile, user),
       createdAt: serverTimestamp(),
-      created_at: new Date().toISOString(),
       readBy: [],
-      read_by: [],
     });
   } catch (error) {
     console.warn("Could not log family activity:", error);
@@ -280,7 +288,15 @@ export default function CustodyDayDialog({
   dadLabel = "Dad",
   momLabel = "Mom",
 }) {
-  const { user, profile, familyId: activeFamilyId } = useFamily();
+  const {
+    user,
+    profile,
+    familyId: activeFamilyId,
+    actualFamilyId,
+    householdFamilyId,
+    custodyGroupId,
+    selectedCustodyGroup,
+  } = useFamily();
 
   const [isSplit, setIsSplit] = useState(
     existingData?.is_split || existingData?.isSplit || false
@@ -314,7 +330,17 @@ export default function CustodyDayDialog({
 
   const dateKey = normalizeDate(date);
   const bulkRunId = getBulkRunId(existingData || {});
-  const familyId = getFamilyId(existingData || {}) || activeFamilyId;
+  const custodyScopeId = custodyGroupId || existingData?.custodyGroupId || getFamilyId(existingData || {}) || activeFamilyId;
+  const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : activeFamilyId);
+  const custodyScopeFields = {
+    familyId: householdScopeId || custodyScopeId,
+    custodyGroupId: custodyScopeId,
+    householdFamilyId: householdScopeId || "",
+    custodyGroupName: selectedCustodyGroup?.name || "",
+    module: "custody",
+    visibility: "custody",
+  };
+  const familyId = custodyScopeId;
   const isBulkDay = Boolean(bulkRunId && familyId);
   const formattedDate = date instanceof Date && !Number.isNaN(date.getTime())
     ? format(date, "EEEE, MMMM d, yyyy")
@@ -348,7 +374,7 @@ export default function CustodyDayDialog({
     setLoadingEvents(true);
 
     try {
-      const docs = (await getFamilyScopedDocSnaps("custodySpecialEvents", familyId))
+      const docs = (await getCustodyScopedDocSnaps("custodySpecialEvents", custodyScopeId))
         .map(normalizeSpecialEvent)
         .filter((event) => event.date === dateKey);
 
@@ -370,7 +396,7 @@ export default function CustodyDayDialog({
     setLoadingTravelPlans(true);
 
     try {
-      const docs = (await getFamilyScopedDocSnaps("custodyTravelPlans", familyId)).map(normalizeTravelPlan);
+      const docs = (await getCustodyScopedDocSnaps("custodyTravelPlans", custodyScopeId)).map(normalizeTravelPlan);
 
       const plansForDay = docs.filter((plan) => plan.startDate <= dateKey && plan.endDate >= dateKey);
       setTravelPlans(sortTravelPlans(plansForDay));
@@ -385,7 +411,7 @@ export default function CustodyDayDialog({
   useEffect(() => {
     loadSpecialEvents();
     loadTravelPlans();
-  }, [familyId, dateKey]);
+  }, [custodyScopeId, dateKey]);
 
   const handleSave = async () => {
     const payload = {
@@ -403,6 +429,7 @@ export default function CustodyDayDialog({
     await onSave(payload);
     await logFamilyActivity({
       familyId,
+      custodyScopeFields,
       user,
       profile,
       type: existingData ? "custody_day_updated" : "custody_day_created",
@@ -435,23 +462,20 @@ export default function CustodyDayDialog({
 
     try {
       const editing = Boolean(payload.id);
-      const eventId = payload.id || `${familyId}_${payload.date}_${Date.now()}`;
+      const eventId = payload.id || `${custodyScopeId}_${payload.date}_${Date.now()}`;
       const { id: _ignoredPayloadId, ...safePayload } = payload;
       const data = {
         ...safePayload,
         id: eventId,
         date: normalizeDate(payload.date),
-        familyId,
-        family_id: familyId,
+        ...custodyScopeFields,
         familyName: profile?.family_name || profile?.familyName || "",
         userId: user.uid,
         createdBy: selectedSpecialEvent?.createdBy || user.uid,
         createdByEmail: selectedSpecialEvent?.createdByEmail || user.email || null,
         createdAt: selectedSpecialEvent?.createdAt || serverTimestamp(),
-        created_at: selectedSpecialEvent?.created_at || new Date().toISOString(),
         updatedBy: user.uid,
         updatedAt: serverTimestamp(),
-        updated_date: new Date().toISOString(),
       };
 
       const before = editing ? buildSpecialEventAuditSnapshot(selectedSpecialEvent) : null;
@@ -460,6 +484,7 @@ export default function CustodyDayDialog({
       await setDoc(doc(db, "custodySpecialEvents", eventId), data, { merge: true });
       await logFamilyActivity({
         familyId,
+        custodyScopeFields,
         user,
         profile,
         type: editing ? "special_event_updated" : "special_event_created",
@@ -517,6 +542,7 @@ export default function CustodyDayDialog({
       await deleteDoc(doc(db, "custodySpecialEvents", event.id));
       await logFamilyActivity({
         familyId,
+        custodyScopeFields,
         user,
         profile,
         type: "special_event_deleted",
@@ -560,28 +586,22 @@ export default function CustodyDayDialog({
 
     try {
       const editing = Boolean(payload.id);
-      const travelId = payload.id || `${familyId}_travel_${payload.startDate}_${Date.now()}`;
+      const travelId = payload.id || `${custodyScopeId}_travel_${payload.startDate}_${Date.now()}`;
       const { id: _ignoredPayloadId, ...safePayload } = payload;
       const data = {
         ...safePayload,
         id: travelId,
         startDate: normalizeDate(payload.startDate),
-        start_date: normalizeDate(payload.startDate),
         endDate: normalizeDate(payload.endDate),
-        end_date: normalizeDate(payload.endDate),
         travelingParent: payload.travelingParent,
-        traveling_parent: payload.travelingParent,
-        familyId,
-        family_id: familyId,
+        ...custodyScopeFields,
         familyName: profile?.family_name || profile?.familyName || "",
         userId: user.uid,
         createdBy: selectedTravelPlan?.createdBy || user.uid,
         createdByEmail: selectedTravelPlan?.createdByEmail || user.email || null,
         createdAt: selectedTravelPlan?.createdAt || serverTimestamp(),
-        created_at: selectedTravelPlan?.created_at || new Date().toISOString(),
         updatedBy: user.uid,
         updatedAt: serverTimestamp(),
-        updated_date: new Date().toISOString(),
       };
 
       const before = editing ? buildTravelAuditSnapshot(selectedTravelPlan) : null;
@@ -590,6 +610,7 @@ export default function CustodyDayDialog({
       await setDoc(doc(db, "custodyTravelPlans", travelId), data, { merge: true });
       await logFamilyActivity({
         familyId,
+        custodyScopeFields,
         user,
         profile,
         type: editing ? "travel_plan_updated" : "travel_plan_created",
@@ -649,6 +670,7 @@ export default function CustodyDayDialog({
       await deleteDoc(doc(db, "custodyTravelPlans", plan.id));
       await logFamilyActivity({
         familyId,
+        custodyScopeFields,
         user,
         profile,
         type: "travel_plan_deleted",
@@ -699,6 +721,7 @@ export default function CustodyDayDialog({
     await onDelete(dateKey);
     await logFamilyActivity({
       familyId,
+      custodyScopeFields,
       user,
       profile,
       type: "custody_day_deleted",
@@ -728,16 +751,18 @@ export default function CustodyDayDialog({
 
     try {
       const collectionRef = collection(db, "custodyDays");
-      const docsByCamel = await getDocs(
-        query(collectionRef, where("familyId", "==", familyId), where("bulkRunId", "==", bulkRunId))
-      );
-      const docsBySnake = await getDocs(
-        query(collectionRef, where("family_id", "==", familyId), where("bulk_run_id", "==", bulkRunId))
-      );
+      const queryResults = await Promise.allSettled([
+        getDocs(query(collectionRef, where("custodyGroupId", "==", custodyScopeId), where("bulkRunId", "==", bulkRunId))),
+        getDocs(query(collectionRef, where("familyId", "==", familyId), where("bulkRunId", "==", bulkRunId))),
+        getDocs(query(collectionRef, where("family_id", "==", familyId), where("bulk_run_id", "==", bulkRunId))),
+      ]);
 
       const refs = new Map();
-      docsByCamel.docs.forEach((docSnap) => refs.set(docSnap.id, docSnap.ref));
-      docsBySnake.docs.forEach((docSnap) => refs.set(docSnap.id, docSnap.ref));
+      queryResults
+        .filter((result) => result.status === "fulfilled")
+        .forEach((result) => {
+          result.value.docs.forEach((docSnap) => refs.set(docSnap.id, docSnap.ref));
+        });
 
       if (!refs.size) {
         showNotice({
@@ -751,6 +776,7 @@ export default function CustodyDayDialog({
       await Promise.all(Array.from(refs.values()).map((ref) => deleteDoc(ref)));
       await logFamilyActivity({
         familyId,
+        custodyScopeFields,
         user,
         profile,
         type: "bulk_custody_schedule_deleted",

@@ -86,12 +86,15 @@ export function buildBulkDayPayload({
   blockEnd,
   payload,
   familyId,
+  custodyScopeId,
+  custodyScopeFields = {},
   profile,
   user,
   bulkRunId,
   getOtherParent,
 }) {
   const dateKey = format(day, "yyyy-MM-dd");
+  const scopeId = custodyScopeId || familyId;
   const blockStartKey = format(blockStart, "yyyy-MM-dd");
   const blockEndKey = format(blockEnd, "yyyy-MM-dd");
   const generatedDay = payload.generatedDayMap?.[dateKey] || null;
@@ -135,7 +138,7 @@ export function buildBulkDayPayload({
   }
 
   return {
-    id: `${familyId}_${dateKey}`,
+    id: `${scopeId}_${dateKey}`,
     date: dateKey,
     is_split: isSplit,
     isSplit,
@@ -144,19 +147,19 @@ export function buildBulkDayPayload({
     morning: isSplit ? morning : null,
     afternoon: isSplit ? afternoon : null,
     notes: payload.notes || "",
-    familyId,
-    family_id: familyId,
+    familyId: custodyScopeFields.familyId || familyId,
+    custodyGroupId: custodyScopeFields.custodyGroupId || scopeId,
+    householdFamilyId: custodyScopeFields.householdFamilyId || "",
+    custodyGroupName: custodyScopeFields.custodyGroupName || "",
+    module: "custody",
+    visibility: "custody",
     familyName: profile?.family_name || profile?.familyName || "",
     userId: user.uid,
     createdBy: user.uid,
     createdByEmail: user.email || null,
     bulkRunId,
-    bulk_run_id: bulkRunId,
     bulkTemplateId: payload.templateId || "custom",
-    bulk_template_id: payload.templateId || "custom",
     smartPatternId: payload.smartPatternId || null,
-    smart_pattern_id: payload.smartPatternId || null,
     updatedAt: serverTimestamp(),
-    updated_date: new Date().toISOString(),
   };
 }

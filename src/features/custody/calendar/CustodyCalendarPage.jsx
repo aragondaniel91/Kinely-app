@@ -14,14 +14,10 @@ import {
 } from "date-fns";
 
 import {
-  collection,
   doc,
   getDoc,
-  getDocs,
   setDoc,
   deleteDoc,
-  query,
-  where,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -38,7 +34,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 
 import CustodyDayDialog from "@/features/custody/calendar/components/CustodyDayDialog";
 import BulkCustodyDialog from "@/features/custody/calendar/components/BulkCustodyDialog";
@@ -152,7 +148,30 @@ function calendarParentTheme(colorId, fallback) {
 }
 
 export default function CustodyCalendar({ viewMode = "month", setViewMode, showFilters = true, setShowFilters }) {
-  const { user, profile, familyId, perms, dadName, momName, dadColor, momColor } = useFamily();
+  const {
+    user,
+    profile,
+    familyId,
+    actualFamilyId,
+    householdFamilyId,
+    custodyGroupId,
+    selectedCustodyGroup,
+    perms,
+    dadName,
+    momName,
+    dadColor,
+    momColor,
+  } = useFamily();
+  const custodyScopeId = custodyGroupId || familyId;
+  const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
+  const custodyScopeFields = useMemo(() => ({
+    familyId: householdScopeId || custodyScopeId,
+    custodyGroupId: custodyScopeId,
+    householdFamilyId: householdScopeId || "",
+    custodyGroupName: selectedCustodyGroup?.name || "",
+    module: "custody",
+    visibility: "custody",
+  }), [custodyScopeId, householdScopeId, selectedCustodyGroup?.name]);
 
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -180,7 +199,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const momTheme = calendarParentTheme(momColor, "amber");
 
   const loadCustodyDays = async () => {
-    if (!user || !familyId || !canRead) {
+    if (!user || !custodyScopeId || !canRead) {
       setCustodyDays([]);
       setSpecialEvents([]);
       setTravelPlans([]);
@@ -191,23 +210,13 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     setLoading(true);
 
     try {
-      let custodyDayDocs = await getFamilyScopedDocSnaps("custodyDays", familyId);
-      if (!custodyDayDocs.length) {
-        try {
-          const q = query(collection(db, "custodyDays"), where("userId", "==", user.uid));
-          const snap = await getDocs(q);
-          custodyDayDocs = snap.docs;
-        } catch (legacyError) {
-          console.warn("Fallback custody query by userId failed:", legacyError);
-        }
-      }
-
+      const custodyDayDocs = await getCustodyScopedDocSnaps("custodyDays", custodyScopeId);
       const data = custodyDayDocs.map(normalizeCustodyDay);
       data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       setCustodyDays(data);
 
       try {
-        const specialEventDocs = await getFamilyScopedDocSnaps("custodySpecialEvents", familyId);
+        const specialEventDocs = await getCustodyScopedDocSnaps("custodySpecialEvents", custodyScopeId);
         setSpecialEvents(specialEventDocs.map(normalizeSpecialEvent));
       } catch (eventError) {
         console.warn("Could not load custody special events:", eventError);
@@ -215,7 +224,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       }
 
       try {
-        const travelPlanDocs = await getFamilyScopedDocSnaps("custodyTravelPlans", familyId);
+        const travelPlanDocs = await getCustodyScopedDocSnaps("custodyTravelPlans", custodyScopeId);
         setTravelPlans(travelPlanDocs.map(normalizeTravelPlan));
       } catch (travelError) {
         console.warn("Could not load custody travel plans:", travelError);
@@ -233,15 +242,15 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
   useEffect(() => {
     loadCustodyDays();
-  }, [user?.uid, familyId, canRead]);
+  }, [user?.uid, custodyScopeId, canRead]);
 
   const saveCustodyDay = async (payload) => {
-    if (!user || !familyId || !canWrite) return;
+    if (!user || !custodyScopeId || !canWrite) return;
     setIsSaving(true);
 
     try {
       const dateKey = normalizeDate(payload.date);
-      const docId = `${familyId}_${dateKey}`;
+      const docId = `${custodyScopeId}_${dateKey}`;
       const data = {
         id: docId,
         date: dateKey,
@@ -252,14 +261,12 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         morning: payload.is_split ? payload.morning : null,
         afternoon: payload.is_split ? payload.afternoon : null,
         notes: payload.notes || "",
-        familyId,
-        family_id: familyId,
+        ...custodyScopeFields,
         familyName: profile?.family_name || profile?.familyName || "",
         userId: user.uid,
         createdBy: user.uid,
         createdByEmail: user.email || null,
         updatedAt: serverTimestamp(),
-        updated_date: new Date().toISOString(),
       };
 
       await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
@@ -285,7 +292,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   };
 
   const saveBulkCustodyDays = async (payload, confirmed = false) => {
-    if (!user || !familyId || !canWrite) return;
+    if (!user || !custodyScopeId || !canWrite) return;
 
     const baseStart = parseISO(`${payload.startDate}T12:00:00`);
     const baseEnd = parseISO(`${payload.endDate}T12:00:00`);
@@ -340,7 +347,19 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         const blockDays = eachDayOfInterval({ start: blockStart, end: blockEnd });
 
         for (const day of blockDays) {
-          const data = buildBulkDayPayload({ day, blockStart, blockEnd, payload, familyId, profile, user, bulkRunId, getOtherParent });
+          const data = buildBulkDayPayload({
+            day,
+            blockStart,
+            blockEnd,
+            payload,
+            familyId: custodyScopeFields.familyId,
+            custodyScopeId,
+            custodyScopeFields,
+            profile,
+            user,
+            bulkRunId,
+            getOtherParent,
+          });
           const ref = doc(db, "custodyDays", data.id);
 
           if (!undoMap.has(data.id)) {
@@ -404,9 +423,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
           await setDoc(ref, {
             ...entry.before,
             restoredFromBulkRunId: lastBulkUndo.bulkRunId,
-            restored_from_bulk_run_id: lastBulkUndo.bulkRunId,
             updatedAt: serverTimestamp(),
-            updated_date: new Date().toISOString(),
           });
         } else {
           await deleteDoc(ref);
@@ -442,12 +459,12 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   };
 
   const deleteCustodyDay = async (date) => {
-    if (!user || !familyId || !date || !canWrite) return;
+    if (!user || !custodyScopeId || !date || !canWrite) return;
     setIsSaving(true);
 
     try {
       const dateKey = normalizeDate(date);
-      const newDocId = `${familyId}_${dateKey}`;
+      const newDocId = `${custodyScopeId}_${dateKey}`;
 
       await deleteDoc(doc(db, "custodyDays", newDocId));
 

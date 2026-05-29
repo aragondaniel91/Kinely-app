@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import {
   custodyPackingTemplates,
   getPackingSummary,
@@ -340,7 +340,24 @@ function normalizePackingDoc(docSnap) {
 }
 
 export default function PackingHub() {
-  const { user, familyId } = useFamily();
+  const {
+    user,
+    familyId,
+    actualFamilyId,
+    householdFamilyId,
+    custodyGroupId,
+    selectedCustodyGroup,
+  } = useFamily();
+  const custodyScopeId = custodyGroupId || familyId;
+  const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
+  const custodyScopeFields = useMemo(() => ({
+    familyId: householdScopeId || custodyScopeId,
+    custodyGroupId: custodyScopeId,
+    householdFamilyId: householdScopeId || "",
+    custodyGroupName: selectedCustodyGroup?.name || "",
+    module: "custody",
+    visibility: "custody",
+  }), [custodyScopeId, householdScopeId, selectedCustodyGroup?.name]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [noticeDialog, setNoticeDialog] = useState(null);
@@ -363,7 +380,7 @@ export default function PackingHub() {
     let cancelled = false;
 
     async function loadPackingItems() {
-      if (!user || !familyId) {
+      if (!user || !custodyScopeId) {
         setItems([]);
         setLoading(false);
         return;
@@ -372,14 +389,14 @@ export default function PackingHub() {
       setLoading(true);
 
       try {
-        const docs = await getFamilyScopedDocSnaps("custodyPackingItems", familyId);
+        const docs = await getCustodyScopedDocSnaps("custodyPackingItems", custodyScopeId);
 
         if (!docs.length) {
           const createdItems = await Promise.all(
             initialCustodyPackingItems.map(async (item, index) => {
               const docRef = await addDoc(collection(db, "custodyPackingItems"), {
                 ...item,
-                familyId,
+                ...custodyScopeFields,
                 createdBy: user.uid,
                 order: index,
                 createdAt: serverTimestamp(),
@@ -412,7 +429,7 @@ export default function PackingHub() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, familyId]);
+  }, [user?.uid, custodyScopeFields, custodyScopeId]);
 
   const summary = useMemo(() => getPackingSummary(items), [items]);
 
@@ -471,7 +488,7 @@ export default function PackingHub() {
     event.preventDefault();
 
     const cleanName = itemForm.name.trim();
-    if (!cleanName || !user || !familyId || savingItem) return;
+    if (!cleanName || !user || !custodyScopeId || savingItem) return;
 
     setSavingItem(true);
 
@@ -482,6 +499,7 @@ export default function PackingHub() {
         owner: itemForm.owner,
         status: itemForm.status,
         important: Boolean(itemForm.important),
+        ...custodyScopeFields,
         updatedAt: serverTimestamp(),
       };
 
@@ -496,7 +514,6 @@ export default function PackingHub() {
         const order = items.length;
         const createPayload = {
           ...payload,
-          familyId,
           createdBy: user.uid,
           order,
           createdAt: serverTimestamp(),

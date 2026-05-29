@@ -138,6 +138,14 @@ service cloud.firestore {
         || resource.data.familyId is string;
     }
 
+    function hasRequestExplicitCustodyGroupId() {
+      return request.resource.data.custodyGroupId is string;
+    }
+
+    function hasExistingExplicitCustodyGroupId() {
+      return resource.data.custodyGroupId is string;
+    }
+
     function requestCustodyScopeId() {
       return request.resource.data.custodyGroupId is string
         ? request.resource.data.custodyGroupId
@@ -173,36 +181,66 @@ service cloud.firestore {
     }
 
     function canReadAnyScopedDoc() {
-      return hasExistingFamilyId()
-        && (
-          canReadFamily(existingFamilyId())
-          || canReadCustody(existingFamilyId())
+      return (
+          hasExistingExplicitCustodyGroupId()
+          && canReadCustody(existingCustodyScopeId())
+        )
+        || (
+          !hasExistingExplicitCustodyGroupId()
+          && hasExistingFamilyId()
+          && (
+            canReadFamily(existingFamilyId())
+            || canReadCustody(existingFamilyId())
+          )
         );
     }
 
     function canCreateAnyScopedDoc() {
-      return hasRequestFamilyId()
-        && (
-          canWriteFamilyContent(requestFamilyId())
-          || canWriteCustody(requestFamilyId())
+      return (
+          hasRequestExplicitCustodyGroupId()
+          && canWriteCustody(requestCustodyScopeId())
+        )
+        || (
+          !hasRequestExplicitCustodyGroupId()
+          && hasRequestFamilyId()
+          && (
+            canWriteFamilyContent(requestFamilyId())
+            || canWriteCustody(requestFamilyId())
+          )
         );
     }
 
     function canUpdateAnyScopedDoc() {
-      return hasRequestFamilyId()
-        && hasExistingFamilyId()
-        && requestFamilyId() == existingFamilyId()
-        && (
-          canWriteFamilyContent(existingFamilyId())
-          || canWriteCustody(existingFamilyId())
+      return (
+          hasExistingExplicitCustodyGroupId()
+          && hasRequestCustodyScopeId()
+          && requestCustodyScopeId() == existingCustodyScopeId()
+          && canWriteCustody(existingCustodyScopeId())
+        )
+        || (
+          !hasExistingExplicitCustodyGroupId()
+          && hasRequestFamilyId()
+          && hasExistingFamilyId()
+          && requestFamilyId() == existingFamilyId()
+          && (
+            canWriteFamilyContent(existingFamilyId())
+            || canWriteCustody(existingFamilyId())
+          )
         );
     }
 
     function canDeleteAnyScopedDoc() {
-      return hasExistingFamilyId()
-        && (
-          canWriteFamilyContent(existingFamilyId())
-          || canWriteCustody(existingFamilyId())
+      return (
+          hasExistingExplicitCustodyGroupId()
+          && canWriteCustody(existingCustodyScopeId())
+        )
+        || (
+          !hasExistingExplicitCustodyGroupId()
+          && hasExistingFamilyId()
+          && (
+            canWriteFamilyContent(existingFamilyId())
+            || canWriteCustody(existingFamilyId())
+          )
         );
     }
 
@@ -614,11 +652,12 @@ service cloud.firestore {
     }
 
     match /custodyNotificationPrefs/{scopeId} {
-      allow read: if canReadFamily(scopeId) || canReadCustody(scopeId);
-      allow create, update: if hasRequestFamilyId()
-        && requestFamilyId() == scopeId
-        && (canWriteFamilyContent(scopeId) || canWriteCustody(scopeId));
-      allow delete: if canWriteFamilyContent(scopeId) || canWriteCustody(scopeId);
+      allow read: if canReadCustodyDoc();
+      allow create: if canCreateCustodyDoc()
+        && requestCustodyScopeId() == scopeId;
+      allow update: if canUpdateCustodyDoc()
+        && requestCustodyScopeId() == scopeId;
+      allow delete: if canDeleteCustodyDoc();
     }
 
     match /groceries/{docId} {
