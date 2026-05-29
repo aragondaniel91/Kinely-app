@@ -537,54 +537,68 @@ export function resolveEventPersonFromRecord(record = {}, people = []) {
   if (!record || !people.length) return null;
 
   // Production rule:
-  // Event creator is NOT the assigned person.
-  // Do not use createdBy / createdByEmail / actor fields for "Today by person".
+  // Event ownership/assignment is ID-only.
+  //
+  // DO NOT infer event ownership from:
+  // - colorId
+  // - createdBy
+  // - createdByEmail
+  // - ownerName
+  // - actorName
+  // - display name
+  //
+  // Color is visual only. Names are display only.
 
-  const explicitEventRecord = {
-    assignedToPersonId: record.assignedToPersonId || record.assigned_to_person_id,
-    assignedPersonId: record.assignedPersonId || record.assigned_person_id,
-    assignedPersonIds: record.assignedPersonIds || record.assigned_person_ids,
-    assignedToPersonIds: record.assignedToPersonIds || record.assigned_to_person_ids,
+  const snapshot =
+    record.assignedPersonSnapshot ||
+    record.assigned_person_snapshot ||
+    record.personSnapshot ||
+    record.person_snapshot ||
+    null;
 
-    assignedToPersonName: record.assignedToPersonName || record.assigned_to_person_name,
-    assignedPersonName: record.assignedPersonName || record.assigned_person_name,
-    assignedPersonNames: record.assignedPersonNames || record.assigned_person_names,
+  const rawIds = [
+    record.assignedPersonId,
+    record.assigned_person_id,
+    record.assignedToPersonId,
+    record.assigned_to_person_id,
+    record.personId,
+    record.person_id,
+    snapshot?.id,
+    snapshot?.personId,
+    snapshot?.person_id,
+    snapshot?.uid,
+    ...(Array.isArray(record.assignedPersonIds) ? record.assignedPersonIds : []),
+    ...(Array.isArray(record.assigned_person_ids) ? record.assigned_person_ids : []),
+    ...(Array.isArray(record.assignedToPersonIds) ? record.assignedToPersonIds : []),
+    ...(Array.isArray(record.assigned_to_person_ids) ? record.assigned_to_person_ids : []),
+    ...(Array.isArray(record.personIds) ? record.personIds : []),
+    ...(Array.isArray(record.person_ids) ? record.person_ids : []),
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
 
-    personId: record.personId || record.person_id,
-    personIds: record.personIds || record.person_ids,
-    personName: record.personName || record.person_name,
+  if (!rawIds.length) return null;
 
-    assignedPersonSnapshot: record.assignedPersonSnapshot || record.assigned_person_snapshot,
-    assignedPersonSnapshots: record.assignedPersonSnapshots || record.assigned_person_snapshots,
-    personSnapshot: record.personSnapshot || record.person_snapshot,
-  };
+  const assignedIds = new Set(rawIds);
 
-  const resolved = resolveAssignedPersonFromRecord(explicitEventRecord, people);
-  if (resolved) return resolved;
+  return (
+    people.find((person) => {
+      const personIds = [
+        person.id,
+        person.personId,
+        person.person_id,
+        person.uid,
+        person.userId,
+        person.user_id,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).trim())
+        .filter(Boolean);
 
-  // Color is a visual fallback only. Use it only when it uniquely matches one person.
-  // If multiple people share the color, or the event has no explicit assignment,
-  // do not force it under Daniel or any other creator.
-  const recordColorId = getRecordColorId(record);
-  if (!recordColorId) return null;
-
-  const colorMatches = people.filter((person) => {
-    const personColorId = normalizeColorId(
-      person.colorId ||
-        person.color_id ||
-        person.color ||
-        person.familyColor ||
-        person.family_color ||
-        person.calendarColor ||
-        person.calendar_color ||
-        "",
-      ""
-    );
-
-    return personColorId && personColorId === recordColorId;
-  });
-
-  return colorMatches.length === 1 ? colorMatches[0] : null;
+      return personIds.some((id) => assignedIds.has(id));
+    }) || null
+  );
 }
 
 // -----------------------------------------------------------------------------
