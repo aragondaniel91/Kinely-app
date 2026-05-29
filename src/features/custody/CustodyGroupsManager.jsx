@@ -459,9 +459,17 @@ export default function CustodyGroupsManager() {
         ...(editingGroupId ? getCustodyGroupMemberEmails(existingGroup) : []),
         activeEmail,
       ]);
+      const acceptedMemberIds = [
+        ...new Set([
+          ...(Array.isArray(existingGroup?.memberIds) ? existingGroup.memberIds : []),
+          user.uid,
+        ].filter(Boolean)),
+      ];
       const acceptedViewerEmails = normalizeEmailList(
         editingGroupId ? getCustodyGroupViewerEmails(existingGroup) : []
       ).filter((email) => !acceptedMemberEmails.includes(email));
+      const acceptedViewerIds = (Array.isArray(existingGroup?.viewerIds) ? existingGroup.viewerIds : [])
+        .filter((uid) => !acceptedMemberIds.includes(uid));
       const pendingMemberEmails = getPendingMemberEmails(existingGroup);
       const pendingViewerEmails = getPendingViewerEmails(existingGroup);
       const payload = buildCustodyGroupPayload({
@@ -483,9 +491,12 @@ export default function CustodyGroupsManager() {
 
       let finalPayload = {
         ...payload,
+        custodyGroupId: groupId,
         relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
+        memberIds: acceptedMemberIds,
         memberEmails: acceptedMemberEmails,
         member_emails: acceptedMemberEmails,
+        viewerIds: acceptedViewerIds,
         viewerEmails: acceptedViewerEmails,
         viewer_emails: acceptedViewerEmails,
         pendingMemberEmails,

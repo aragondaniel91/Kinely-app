@@ -41,6 +41,38 @@ function getPendingMemberEmails(profile) {
   return [];
 }
 
+function uniqueClean(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function buildAccessArrayUpdates({ profile, members = [], memberEmails = [], user, myEmail }) {
+  const ownerId = profile?.ownerId || profile?.owner_id || user?.uid || "";
+  const ownerEmail = normalizeEmail(profile?.ownerEmail || profile?.owner_email || myEmail || user?.email);
+  const acceptedEmailSet = new Set(memberEmails.map(normalizeEmail).filter(Boolean));
+  const activeMembers = members.filter((member) => {
+    const email = normalizeEmail(member.email);
+    return member.uid || (email && acceptedEmailSet.has(email));
+  });
+  const adminMembers = activeMembers.filter((member) => member.isAdmin === true || member.is_admin === true);
+
+  return {
+    memberIds: uniqueClean([
+      ownerId,
+      ...activeMembers.map((member) => member.uid),
+    ]),
+    adminIds: uniqueClean([
+      ownerId,
+      ...adminMembers.map((member) => member.uid),
+    ]),
+    adminEmails: uniqueClean([
+      ownerEmail,
+      ...adminMembers
+        .map((member) => normalizeEmail(member.email))
+        .filter((email) => email && acceptedEmailSet.has(email)),
+    ]),
+  };
+}
+
 function getMembers(profile, user, myEmail) {
   const seen = new Set();
   const result = [];
@@ -350,7 +382,18 @@ export default function ProfileMembersSection() {
         };
       }
 
-      await updateActiveFamily({ ...updates, memberEmails, member_emails: memberEmails });
+      await updateActiveFamily({
+        ...updates,
+        memberEmails,
+        member_emails: memberEmails,
+        ...buildAccessArrayUpdates({
+          profile,
+          members: updatedMembers,
+          memberEmails,
+          user,
+          myEmail,
+        }),
+      });
 
       if (pendingInvite) {
         await setDoc(
@@ -398,6 +441,13 @@ export default function ProfileMembersSection() {
             members: updatedMembers,
             memberEmails,
             member_emails: memberEmails,
+            ...buildAccessArrayUpdates({
+              profile,
+              members: updatedMembers,
+              memberEmails,
+              user,
+              myEmail,
+            }),
             pendingMemberEmails,
             pending_member_emails: pendingMemberEmails,
             pendingInvites,
@@ -407,6 +457,13 @@ export default function ProfileMembersSection() {
             members: updatedMembers,
             memberEmails,
             member_emails: memberEmails,
+            ...buildAccessArrayUpdates({
+              profile,
+              members: updatedMembers,
+              memberEmails,
+              user,
+              myEmail,
+            }),
             pendingMemberEmails,
             pending_member_emails: pendingMemberEmails,
             pendingInvites,

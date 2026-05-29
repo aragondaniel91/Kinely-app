@@ -101,6 +101,7 @@ function buildAcceptedMember({ invitation, user, email }) {
   const role = invitationRole(invitation);
 
   return {
+    personId: `user_${user.uid}`,
     uid: user.uid,
     email,
     name,
@@ -294,11 +295,13 @@ export default function ProfileInvitationsSection() {
       };
 
       if (access === "viewer") {
+        groupUpdate.viewerIds = arrayUnion(user.uid);
         groupUpdate.viewerEmails = arrayUnion(recipientEmail);
         groupUpdate.viewer_emails = arrayUnion(recipientEmail);
         groupUpdate.pendingViewerEmails = arrayRemove(recipientEmail);
         groupUpdate.pending_viewer_emails = arrayRemove(recipientEmail);
       } else {
+        groupUpdate.memberIds = arrayUnion(user.uid);
         groupUpdate.memberEmails = arrayUnion(recipientEmail);
         groupUpdate.member_emails = arrayUnion(recipientEmail);
         groupUpdate.pendingMemberEmails = arrayRemove(recipientEmail);
@@ -353,6 +356,7 @@ export default function ProfileInvitationsSection() {
       });
 
       batch.update(familyRef, {
+        memberIds: arrayUnion(user.uid),
         memberEmails: arrayUnion(recipientEmail),
         member_emails: arrayUnion(recipientEmail),
         pendingMemberEmails: arrayRemove(recipientEmail),

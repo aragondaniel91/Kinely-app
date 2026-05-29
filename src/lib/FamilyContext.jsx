@@ -294,6 +294,7 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
   const parent1PersonId = `user_${firebaseUser.uid}`;
 
   const familyData = {
+    familyId: familyRef.id,
     familyName: `${firebaseUser.displayName || userData?.name || "Family"}'s Family`,
     family_name: `${firebaseUser.displayName || userData?.name || "Family"}'s Family`,
     ownerId: firebaseUser.uid,
@@ -346,7 +347,12 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
       },
     ],
 
+    memberIds: [firebaseUser.uid],
     memberEmails: [firebaseUser.email],
+    adminIds: [firebaseUser.uid],
+    adminEmails: [firebaseUser.email].filter(Boolean),
+    viewerIds: [],
+    viewerEmails: [],
     member_emails: [firebaseUser.email],
 
     createdAt: serverTimestamp(),
@@ -551,6 +557,7 @@ export function FamilyProvider({ children }) {
     const familyRef = doc(collection(db, "families"));
     const userRef = doc(db, "users", user.uid);
     const parent1PersonId = `user_${user.uid}`;
+    const ownerEmail = normalizeInviteEmail(user.email);
     const cleanParent2Email = normalizeInviteEmail(parent2Email);
     const parent2PersonId = cleanParent2Email ? `email_${slugify(cleanParent2Email)}` : "";
     const pendingInvite = cleanParent2Email
@@ -561,18 +568,19 @@ export function FamilyProvider({ children }) {
           recipientEmail: cleanParent2Email,
           role: authProfile?.role === "mom" ? "dad" : "mom",
           createdBy: user.uid,
-          createdByEmail: user.email,
+          createdByEmail: ownerEmail,
         })
       : null;
 
     const familyData = withPendingFamilyInvitation({
+      familyId: familyRef.id,
       familyName: name,
       family_name: name,
       type: "household",
       ownerId: user.uid,
-      ownerEmail: user.email,
+      ownerEmail,
       createdBy: user.uid,
-      createdByEmail: user.email,
+      createdByEmail: ownerEmail,
 
       parent1PersonId,
       parent1_person_id: parent1PersonId,
@@ -605,7 +613,7 @@ export function FamilyProvider({ children }) {
           personId: parent1PersonId,
           person_id: parent1PersonId,
           uid: user.uid,
-          email: user.email,
+          email: ownerEmail,
           name: user.displayName || authProfile?.name || "",
           displayName: user.displayName || authProfile?.name || "",
           display_name: user.displayName || authProfile?.name || "",
@@ -618,8 +626,13 @@ export function FamilyProvider({ children }) {
           permissions: DEFAULT_PERMS,
         },
       ],
-      memberEmails: [user.email].filter(Boolean),
-      member_emails: [user.email].filter(Boolean),
+      memberIds: [user.uid],
+      memberEmails: [ownerEmail].filter(Boolean),
+      adminIds: [user.uid],
+      adminEmails: [ownerEmail].filter(Boolean),
+      viewerIds: [],
+      viewerEmails: [],
+      member_emails: [ownerEmail].filter(Boolean),
 
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -638,7 +651,7 @@ export function FamilyProvider({ children }) {
       {
         uid: user.uid,
         name: user.displayName || authProfile?.name || "",
-        email: user.email,
+        email: ownerEmail,
         familyId: familyRef.id,
         familyIds: arrayUnion(familyRef.id),
         updatedAt: serverTimestamp(),

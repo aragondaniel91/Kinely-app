@@ -97,9 +97,11 @@ export function AuthProvider({ children }) {
       const ownerName = data.name || firebaseUser.displayName || "Family";
       const familyName = `${ownerName}'s Family`;
       const parentRole = data.role || "dad";
+      const ownerPersonId = `user_${firebaseUser.uid}`;
       const now = new Date().toISOString();
 
       await setDoc(familyRef, {
+        familyId: familyRef.id,
         familyName,
         family_name: familyName,
         type: "household",
@@ -108,12 +110,14 @@ export function AuthProvider({ children }) {
         owner_email: ownerEmail,
         createdBy: firebaseUser.uid,
         createdByEmail: ownerEmail,
+        parent1PersonId: ownerPersonId,
         parent1Name: ownerName,
         parent1_name: ownerName,
         parent1Role: parentRole,
         parent1_role: parentRole,
         parent1Color: parentRole === "mom" ? "amber" : "blue",
         parent1_color: parentRole === "mom" ? "amber" : "blue",
+        parent2PersonId: "",
         parent2Name: "",
         parent2_name: "",
         parent2Email: "",
@@ -126,14 +130,21 @@ export function AuthProvider({ children }) {
         members: [
           {
             uid: firebaseUser.uid,
+            personId: ownerPersonId,
             email: ownerEmail,
             name: ownerName,
+            displayName: ownerName,
             role: "owner",
             isAdmin: true,
             permissions: DEFAULT_PERMISSIONS,
           },
         ],
+        memberIds: [firebaseUser.uid],
         memberEmails: [ownerEmail],
+        adminIds: [firebaseUser.uid],
+        adminEmails: [ownerEmail],
+        viewerIds: [],
+        viewerEmails: [],
         member_emails: [ownerEmail],
         createdAt: now,
         updatedAt: now,
@@ -196,6 +207,7 @@ export function AuthProvider({ children }) {
 
     const familyRef = doc(collection(db, "families"));
     const resolvedFamilyName = String(familyName || "").trim() || `${cleanName || "My"} Family`;
+    const ownerPersonId = `user_${result.user.uid}`;
     const cleanChildren = onboardingMode === "create" ? normalizeChildren(children) : [];
     const memberEmails = [cleanEmail].filter(Boolean);
     const pendingInvite = cleanParent2Email
@@ -212,6 +224,7 @@ export function AuthProvider({ children }) {
       : null;
 
     await setDoc(familyRef, withPendingFamilyInvitation({
+      familyId: familyRef.id,
       familyName: resolvedFamilyName,
       family_name: resolvedFamilyName,
       type: "household",
@@ -220,12 +233,14 @@ export function AuthProvider({ children }) {
       owner_email: cleanEmail,
       createdBy: result.user.uid,
       createdByEmail: cleanEmail,
+      parent1PersonId: ownerPersonId,
       parent1Name: cleanName,
       parent1_name: cleanName,
       parent1Role: cleanRole,
       parent1_role: cleanRole,
       parent1Color: cleanRole === "mom" ? "amber" : "blue",
       parent1_color: cleanRole === "mom" ? "amber" : "blue",
+      parent2PersonId: cleanParent2Email ? `email_${cleanParent2Email.replace(/[^a-z0-9]+/g, "-")}` : "",
       parent2Name: String(parent2Name || "").trim(),
       parent2_name: String(parent2Name || "").trim(),
       parent2Email: cleanParent2Email,
@@ -238,14 +253,21 @@ export function AuthProvider({ children }) {
       members: [
         {
           uid: result.user.uid,
+          personId: ownerPersonId,
           email: cleanEmail,
           name: cleanName,
+          displayName: cleanName,
           role: "owner",
           isAdmin: true,
           permissions: DEFAULT_PERMISSIONS,
         },
       ],
+      memberIds: [result.user.uid],
       memberEmails,
+      adminIds: [result.user.uid],
+      adminEmails: memberEmails,
+      viewerIds: [],
+      viewerEmails: [],
       member_emails: memberEmails,
       createdAt: now,
       updatedAt: now,

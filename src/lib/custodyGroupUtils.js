@@ -180,6 +180,7 @@ export function buildCustodyGroupPayload({
   ].filter((parent) => parent.email);
 
   const memberEmails = normalizeEmailList([activeOwnerEmail]);
+  const memberIds = [currentUser?.uid].filter(Boolean);
   const name = String(groupName || `${cleanChildren[0] || "Child"} Custody`).trim();
 
   return {
@@ -202,8 +203,10 @@ export function buildCustodyGroupPayload({
     relationshipType: CHILD_RELATIONSHIP_TYPES.EXTERNAL_CUSTODY,
     parents,
     coParents: parents,
+    memberIds,
     memberEmails,
     member_emails: memberEmails,
+    viewerIds: [],
     viewerEmails: [],
     viewer_emails: [],
     ownerId: currentUser?.uid || null,
