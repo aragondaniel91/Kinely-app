@@ -324,15 +324,23 @@ service cloud.firestore {
         .hasAll(listOrEmpty(resource.data.memberEmails));
     }
 
+    function familyMemberIdsPreserved() {
+      return listOrEmpty(request.resource.data.memberIds)
+        .hasAll(listOrEmpty(resource.data.memberIds));
+    }
+
     function canAcceptFamilyInvitationUpdate(familyId) {
       return signedIn()
         && familyExists(familyId)
         && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
+        && request.auth.uid in listOrEmpty(request.resource.data.memberIds)
         && userEmail() in listOrEmpty(request.resource.data.memberEmails)
         && !(userEmail() in listOrEmpty(request.resource.data.pendingMemberEmails))
         && familyMemberEmailsPreserved()
+        && familyMemberIdsPreserved()
         && currentUserFamilyInvitationAfterStatus(familyId, "accepted")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "memberIds",
           "memberEmails",
           "member_emails",
           "pendingMemberEmails",
@@ -360,20 +368,33 @@ service cloud.firestore {
         .hasAll(listOrEmpty(resource.data.memberEmails));
     }
 
+    function custodyMemberIdsPreserved() {
+      return listOrEmpty(request.resource.data.memberIds)
+        .hasAll(listOrEmpty(resource.data.memberIds));
+    }
+
     function custodyViewerEmailsPreserved() {
       return listOrEmpty(request.resource.data.viewerEmails)
         .hasAll(listOrEmpty(resource.data.viewerEmails));
+    }
+
+    function custodyViewerIdsPreserved() {
+      return listOrEmpty(request.resource.data.viewerIds)
+        .hasAll(listOrEmpty(resource.data.viewerIds));
     }
 
     function canAcceptCustodyMemberInvitationUpdate(groupId) {
       return signedIn()
         && custodyGroupExists(groupId)
         && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
+        && request.auth.uid in listOrEmpty(request.resource.data.memberIds)
         && userEmail() in listOrEmpty(request.resource.data.memberEmails)
         && !(userEmail() in listOrEmpty(request.resource.data.pendingMemberEmails))
         && custodyMemberEmailsPreserved()
+        && custodyMemberIdsPreserved()
         && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "memberIds",
           "memberEmails",
           "member_emails",
           "pendingMemberEmails",
@@ -386,11 +407,14 @@ service cloud.firestore {
       return signedIn()
         && custodyGroupExists(groupId)
         && userEmail() in listOrEmpty(resource.data.pendingViewerEmails)
+        && request.auth.uid in listOrEmpty(request.resource.data.viewerIds)
         && userEmail() in listOrEmpty(request.resource.data.viewerEmails)
         && !(userEmail() in listOrEmpty(request.resource.data.pendingViewerEmails))
         && custodyViewerEmailsPreserved()
+        && custodyViewerIdsPreserved()
         && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "viewerIds",
           "viewerEmails",
           "viewer_emails",
           "pendingViewerEmails",
