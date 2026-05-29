@@ -28,6 +28,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/custodyGroups/$(groupId));
     }
 
+    function currentUserFamilyInvitationId(familyId) {
+      return "family_" + familyId + "_" + userEmail();
+    }
+
+    function currentUserFamilyInvitationPath(familyId) {
+      return /databases/$(database)/documents/familyInvitations/$(currentUserFamilyInvitationId(familyId));
+    }
+
     function familyExists(familyId) {
       return exists(/databases/$(database)/documents/families/$(familyId));
     }
@@ -68,6 +76,64 @@ service cloud.firestore {
 
     function canWriteFamily(familyId) {
       return isFamilyMember(familyId);
+    }
+
+    function currentUserFamilyInvitationExists(familyId) {
+      return signedIn()
+        && exists(currentUserFamilyInvitationPath(familyId));
+    }
+
+    function currentUserFamilyInvitationAfterStatus(familyId, status) {
+      return signedIn()
+        && currentUserFamilyInvitationExists(familyId)
+        && getAfter(currentUserFamilyInvitationPath(familyId)).data.status == status
+        && (
+          getAfter(currentUserFamilyInvitationPath(familyId)).data.recipientEmail == userEmail()
+          || getAfter(currentUserFamilyInvitationPath(familyId)).data.recipient_email == userEmail()
+        );
+    }
+
+    function familyMemberEmailsPreserved() {
+      return listOrEmpty(request.resource.data.memberEmails)
+          .hasAll(listOrEmpty(resource.data.memberEmails))
+        && listOrEmpty(request.resource.data.member_emails)
+          .hasAll(listOrEmpty(resource.data.member_emails));
+    }
+
+    function canAcceptFamilyInvitationUpdate(familyId) {
+      return signedIn()
+        && familyExists(familyId)
+        && (
+          userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
+          || userEmail() in listOrEmpty(resource.data.pending_member_emails)
+        )
+        && userEmail() in listOrEmpty(request.resource.data.memberEmails)
+        && userEmail() in listOrEmpty(request.resource.data.member_emails)
+        && familyMemberEmailsPreserved()
+        && currentUserFamilyInvitationAfterStatus(familyId, "accepted")
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "memberEmails",
+          "member_emails",
+          "pendingMemberEmails",
+          "pending_member_emails",
+          "members",
+          "updatedAt"
+        ]);
+    }
+
+    function canDeclineFamilyInvitationUpdate(familyId) {
+      return signedIn()
+        && familyExists(familyId)
+        && (
+          userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
+          || userEmail() in listOrEmpty(resource.data.pending_member_emails)
+        )
+        && currentUserFamilyInvitationAfterStatus(familyId, "declined")
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "pendingMemberEmails",
+          "pending_member_emails",
+          "updatedAt"
+        ]);
     }
 
     function isCustodyMember(groupId) {
@@ -156,7 +222,9 @@ service cloud.firestore {
       allow read: if canReadFamily(familyId);
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid;
-      allow update: if canWriteFamily(familyId);
+      allow update: if canWriteFamily(familyId)
+        || canAcceptFamilyInvitationUpdate(familyId)
+        || canDeclineFamilyInvitationUpdate(familyId);
       allow delete: if signedIn()
         && (
           request.auth.uid == resource.data.ownerId
@@ -275,10 +343,24 @@ service cloud.firestore {
             userEmail() == resource.data.recipientEmail
             || userEmail() == resource.data.recipient_email
           )
-          && (
-            request.resource.data.recipientEmail == resource.data.recipientEmail
-            || request.resource.data.recipient_email == resource.data.recipient_email
-          )
+          && request.resource.data.familyId == resource.data.familyId
+          && request.resource.data.family_id == resource.data.family_id
+          && request.resource.data.recipientEmail == resource.data.recipientEmail
+          && request.resource.data.recipient_email == resource.data.recipient_email
+          && request.resource.data.status in ["accepted", "declined"]
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "status",
+            "acceptedBy",
+            "accepted_by",
+            "acceptedAt",
+            "accepted_at",
+            "declinedBy",
+            "declined_by",
+            "declinedAt",
+            "declined_at",
+            "updatedAt",
+            "updated_at"
+          ])
         );
       allow delete: if canDeleteScopedFamilyDoc();
     }

@@ -6,6 +6,7 @@ import {
   CalendarHeart,
   Home,
   LogOut,
+  Mail,
   Settings,
   Shield,
   Users,
@@ -19,6 +20,7 @@ import ProfileOverview from "@/components/profile/ProfileOverview";
 import ProfileFamiliesSection from "@/components/profile/ProfileFamiliesSection";
 import ProfileMembersSection from "@/components/profile/ProfileMembersSection";
 import ProfileCustodySection from "@/components/profile/ProfileCustodySection";
+import ProfileInvitationsSection from "@/components/profile/ProfileInvitationsSection";
 import ProfileSettingsSection from "@/components/profile/ProfileSettingsSection";
 import ChildProfiles from "@/pages/ChildProfiles";
 import NotificationPreferences from "@/pages/NotificationPreferences";
@@ -28,6 +30,7 @@ const tabs = [
   { id: "families", label: "Families", icon: Users },
   { id: "children", label: "Children", icon: Baby },
   { id: "members", label: "Members", icon: Shield },
+  { id: "invitations", label: "Invites", icon: Mail },
   { id: "custody", label: "Custody", icon: CalendarHeart },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "settings", label: "Settings", icon: Settings },
@@ -102,6 +105,7 @@ export default function ProfileModular() {
         {activeTab === "families" && <ProfileFamiliesSection />}
         {activeTab === "children" && <ChildProfiles />}
         {activeTab === "members" && <ProfileMembersSection />}
+        {activeTab === "invitations" && <ProfileInvitationsSection />}
         {activeTab === "custody" && <ProfileCustodySection />}
         {activeTab === "notifications" && <NotificationPreferences />}
         {activeTab === "settings" && <ProfileSettingsSection />}

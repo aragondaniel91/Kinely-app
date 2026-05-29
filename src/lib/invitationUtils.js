@@ -26,7 +26,7 @@ export function inviteKey(value) {
 }
 
 export function familyInvitationId(familyId, email) {
-  return `family_${familyId}_${inviteKey(email)}`;
+  return `family_${familyId}_${normalizeInviteEmail(email)}`;
 }
 
 export function buildFamilyInvitation({
