@@ -1,9 +1,13 @@
 export const FAMILY_MODULES = {
+  home: "home",
   calendar: "calendar",
-  custody: "custody",
   tasks: "tasks",
   meals: "meals",
+  lists: "lists",
   groceries: "groceries",
+  custody: "custody",
+  budget: "budget",
+  notifications: "notifications",
 };
 
 export const DEFAULT_MEMBER_MODULE_ACCESS = {
@@ -112,7 +116,7 @@ export function canAssignTasksToMember(member = {}) {
   return access.assignable === true;
 }
 
-export function buildDefaultTasksModuleAccess({
+export function buildDefaultModuleAccess({
   visible = false,
   read = false,
   write = false,
@@ -125,3 +129,5 @@ export function buildDefaultTasksModuleAccess({
     assignable,
   };
 }
+
+export const buildDefaultTasksModuleAccess = buildDefaultModuleAccess;

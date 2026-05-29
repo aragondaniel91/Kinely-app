@@ -16,21 +16,47 @@ import AppDialog from "@/components/app/AppDialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ProfileMemberEditorDialog, { normalizeMemberRole } from "@/components/profile/ProfileMemberEditorDialog";
-import { getMemberModuleAccess } from "@/features/tasks/utils/memberModuleVisibility";
+import {
+  buildDefaultModuleAccess,
+  getMemberModuleAccess,
+} from "@/features/tasks/utils/memberModuleVisibility";
 
-const defaultPermissions = {
-  calendar: { read: true, write: true },
-  tasks: { read: true, write: true },
-  meals: { read: true, write: true },
-  groceries: { read: true, write: true },
+const editableModuleNames = [
+  "home",
+  "calendar",
+  "tasks",
+  "meals",
+  "lists",
+  "custody",
+  "budget",
+  "notifications",
+];
+
+const permissionModuleNames = [...editableModuleNames, "groceries"];
+
+const moduleLabels = {
+  home: "Home",
+  calendar: "Calendar",
+  tasks: "Tasks",
+  meals: "Meals",
+  lists: "Lists",
+  custody: "Custody",
+  budget: "Budget",
+  notifications: "Notifications",
 };
 
-const limitedPermissions = {
-  calendar: { read: false, write: false },
-  tasks: { read: false, write: false },
-  meals: { read: false, write: false },
-  groceries: { read: false, write: false },
-};
+function buildPermissionSet(read, write) {
+  return permissionModuleNames.reduce(
+    (permissions, moduleName) => ({
+      ...permissions,
+      [moduleName]: { read, write },
+    }),
+    {}
+  );
+}
+
+const defaultPermissions = buildPermissionSet(true, true);
+const limitedPermissions = buildPermissionSet(false, false);
 
 const parentRoles = new Set(["parent", "dad", "mom"]);
 
@@ -64,9 +90,35 @@ function modulePermissionFromAccess(access = {}, fallback = { read: false, write
 function buildPermissionsForMember({ role, admin = false, modules = {} }) {
   if (admin || parentRoles.has(role)) return defaultPermissions;
 
+  const permissions = editableModuleNames.reduce(
+    (nextPermissions, moduleName) => ({
+      ...nextPermissions,
+      [moduleName]: modulePermissionFromAccess(
+        modules[moduleName],
+        limitedPermissions[moduleName]
+      ),
+    }),
+    {}
+  );
+
   return {
-    ...limitedPermissions,
-    tasks: modulePermissionFromAccess(modules.tasks, limitedPermissions.tasks),
+    ...permissions,
+    groceries: permissions.lists || limitedPermissions.groceries,
+  };
+}
+
+function buildBlankModuleAccess() {
+  const modules = editableModuleNames.reduce(
+    (nextModules, moduleName) => ({
+      ...nextModules,
+      [moduleName]: buildDefaultModuleAccess(),
+    }),
+    {}
+  );
+
+  return {
+    ...modules,
+    groceries: modules.lists,
   };
 }
 
@@ -150,6 +202,7 @@ function getMembers(profile, user, myEmail) {
       role: normalizeMemberRole(member.role, "family"),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.isAdmin === true || member.is_admin === true,
+      modules: member.modules || {},
       permissions: member.permissions || defaultPermissions,
       status: member.status || member.invitationStatus || member.invitation_status || (
         email && !memberEmails.includes(email) && pendingMemberEmails.includes(email)
@@ -165,7 +218,28 @@ function getMembers(profile, user, myEmail) {
 
 function MemberCard({ member, onEdit, onDelete }) {
   const color = getColorMeta(member.color);
-  const tasksAccess = getMemberModuleAccess(member, "tasks");
+  const hasFullAccess = member.admin || parentRoles.has(member.role);
+  const moduleBadges = editableModuleNames
+    .map((moduleName) => {
+      const access = getMemberModuleAccess(member, moduleName);
+      const hasAccess =
+        access.write === true ||
+        access.read === true ||
+        (moduleName === "tasks" && (access.visible === true || access.assignable === true));
+
+      if (!hasAccess) return null;
+
+      const suffix = access.write
+        ? "edit"
+        : access.read
+        ? "view"
+        : access.assignable
+        ? "assign"
+        : "show";
+
+      return `${moduleLabels[moduleName]}: ${suffix}`;
+    })
+    .filter(Boolean);
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -191,23 +265,21 @@ function MemberCard({ member, onEdit, onDelete }) {
             Family color: {color.label}
           </span>
 
-          {tasksAccess.visible && (
+          {hasFullAccess && (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
-              Shows in Tasks
+              Full family access
             </span>
           )}
 
-          {tasksAccess.assignable && (
-            <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700">
-              Assignable
-            </span>
-          )}
-
-          {tasksAccess.write && (
-            <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-black text-violet-700">
-              Can edit tasks
-            </span>
-          )}
+          {!hasFullAccess &&
+            moduleBadges.map((label) => (
+              <span
+                key={label}
+                className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-700"
+              >
+                {label}
+              </span>
+            ))}
         </div>
       </div>
 
@@ -263,14 +335,7 @@ export default function ProfileMembersSection() {
       role: "caregiver",
       color: "teal",
       admin: false,
-      modules: {
-        tasks: {
-          visible: false,
-          read: false,
-          write: false,
-          assignable: false,
-        },
-      },
+      modules: buildBlankModuleAccess(),
     });
   }
 

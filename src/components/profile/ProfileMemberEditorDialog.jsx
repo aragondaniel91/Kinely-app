@@ -1,4 +1,14 @@
-import { X } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  CheckSquare,
+  CreditCard,
+  HeartHandshake,
+  Home,
+  ListChecks,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +23,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { PERSON_COLOR_OPTIONS } from "@/lib/personColorUtils";
 import {
-  buildDefaultTasksModuleAccess,
+  buildDefaultModuleAccess,
   getMemberModuleAccess,
 } from "@/features/tasks/utils/memberModuleVisibility";
 
@@ -29,6 +39,59 @@ export const roleOptions = [
 ];
 
 const roleValues = new Set(roleOptions.map((role) => role.value));
+const fullAccessRoleValues = new Set(["parent", "dad", "mom"]);
+
+const MODULE_ACCESS_CONFIGS = [
+  {
+    id: "home",
+    label: "Home",
+    description: "Family wall dashboard and today view.",
+    icon: Home,
+  },
+  {
+    id: "calendar",
+    label: "Calendar",
+    description: "Family events and shared schedule.",
+    icon: CalendarDays,
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    description: "Task board, assignments, and routines.",
+    icon: CheckSquare,
+    taskControls: true,
+  },
+  {
+    id: "meals",
+    label: "Meals",
+    description: "Meal plans, templates, and food planning.",
+    icon: UtensilsCrossed,
+  },
+  {
+    id: "lists",
+    label: "Lists",
+    description: "Groceries, packing, and shared checklists.",
+    icon: ListChecks,
+  },
+  {
+    id: "custody",
+    label: "Custody",
+    description: "Custody calendar, exchanges, and packing.",
+    icon: HeartHandshake,
+  },
+  {
+    id: "budget",
+    label: "Budget",
+    description: "Sensitive custody expenses and reimbursements.",
+    icon: CreditCard,
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    description: "Family and custody reminders.",
+    icon: Bell,
+  },
+];
 
 export function normalizeMemberRole(role, fallback = "caregiver") {
   const value = String(role || "").trim().toLowerCase();
@@ -68,9 +131,40 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-function TasksModuleAccessEditor({ value, onChange, disabled }) {
+function normalizeEditorModules(editor = {}) {
+  const currentModules = editor.modules || {};
+
+  const modules = MODULE_ACCESS_CONFIGS.reduce(
+    (modules, config) => {
+      const fallbackModules =
+        config.id === "lists" && !currentModules.lists && currentModules.groceries
+          ? { ...currentModules, lists: currentModules.groceries }
+          : currentModules;
+      const access = getMemberModuleAccess(
+        { ...editor, modules: fallbackModules },
+        config.id
+      );
+
+      modules[config.id] = {
+        ...buildDefaultModuleAccess(),
+        ...access,
+        ...(fallbackModules[config.id] || {}),
+      };
+
+      return modules;
+    },
+    { ...currentModules }
+  );
+
+  return {
+    ...modules,
+    groceries: modules.lists || modules.groceries || buildDefaultModuleAccess(),
+  };
+}
+
+function ModuleAccessEditor({ value, onChange, disabled }) {
   const access = {
-    ...buildDefaultTasksModuleAccess(),
+    ...buildDefaultModuleAccess(),
     ...value,
   };
 
@@ -80,8 +174,90 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
       [field]: nextValue,
     };
 
+    if (field === "read" && nextValue === false) {
+      nextAccess.write = false;
+      nextAccess.assignable = false;
+    }
+
     if (field === "visible" && nextValue === false) {
       nextAccess.assignable = false;
+    }
+
+    if (field === "visible" && nextValue === true) {
+      nextAccess.read = true;
+    }
+
+    if (field === "assignable" && nextValue === true) {
+      nextAccess.visible = true;
+      nextAccess.read = true;
+    }
+
+    if (field === "write" && nextValue === true) {
+      nextAccess.read = true;
+    }
+
+    onChange?.(nextAccess);
+  }
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <Switch
+          checked={access.read === true}
+          disabled={disabled}
+          onCheckedChange={(checked) => patch("read", checked)}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-black text-slate-950">View</span>
+          <span className="block text-xs font-semibold text-slate-500">
+            Let this member open this module.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <Switch
+          checked={access.write === true}
+          disabled={disabled}
+          onCheckedChange={(checked) => patch("write", checked)}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-black text-slate-950">Edit</span>
+          <span className="block text-xs font-semibold text-slate-500">
+            Allow creating or changing records.
+          </span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
+function TasksModuleAccessEditor({ value, onChange, disabled }) {
+  const access = {
+    ...buildDefaultModuleAccess(),
+    ...value,
+  };
+
+  function patch(field, nextValue) {
+    const nextAccess = {
+      ...access,
+      [field]: nextValue,
+    };
+
+    if (field === "read" && nextValue === false) {
+      nextAccess.write = false;
+      nextAccess.visible = false;
+      nextAccess.assignable = false;
+    }
+
+    if (field === "visible" && nextValue === false) {
+      nextAccess.assignable = false;
+    }
+
+    if (field === "visible" && nextValue === true) {
+      nextAccess.read = true;
     }
 
     if (field === "assignable" && nextValue === true) {
@@ -98,74 +274,115 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
   }
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
+    <div className="grid gap-2 sm:grid-cols-2">
+      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <Switch
+          checked={access.visible === true}
+          disabled={disabled}
+          onCheckedChange={(checked) => patch("visible", checked)}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-black text-slate-950">Show</span>
+          <span className="block text-xs font-semibold text-slate-500">
+            Display this member on task boards.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <Switch
+          checked={access.assignable === true}
+          disabled={disabled}
+          onCheckedChange={(checked) => patch("assignable", checked)}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-black text-slate-950">Assign</span>
+          <span className="block text-xs font-semibold text-slate-500">
+            Allow tasks to target this person.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <Switch
+          checked={access.read === true}
+          disabled={disabled}
+          onCheckedChange={(checked) => patch("read", checked)}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-black text-slate-950">View</span>
+          <span className="block text-xs font-semibold text-slate-500">
+            Let this member open tasks.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <Switch
+          checked={access.write === true}
+          disabled={disabled}
+          onCheckedChange={(checked) => patch("write", checked)}
+          className="mt-1"
+        />
+        <span>
+          <span className="block font-black text-slate-950">Edit</span>
+          <span className="block text-xs font-semibold text-slate-500">
+            Allow creating and completing tasks.
+          </span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
+function ModulePermissionsPanel({ modules, onChange, disabled }) {
+  return (
+    <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
       <div className="mb-3">
-        <p className="text-sm font-black text-slate-950">Tasks module</p>
+        <p className="text-sm font-black text-slate-950">Module permissions</p>
         <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-          Control whether this member appears in Family Tasks, can be assigned tasks, or can edit tasks.
+          Control exactly which family areas this member can open or edit.
         </p>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <Switch
-            checked={access.visible === true}
-            disabled={disabled}
-            onCheckedChange={(checked) => patch("visible", checked)}
-            className="mt-1"
-          />
-          <span>
-            <span className="block font-black text-slate-950">Show in Tasks</span>
-            <span className="block text-xs font-semibold text-slate-500">
-              Display this member on the Family Tasks board.
-            </span>
-          </span>
-        </label>
+      <div className="space-y-3">
+        {MODULE_ACCESS_CONFIGS.map((config) => {
+          const Icon = config.icon;
+          const value = modules?.[config.id] || buildDefaultModuleAccess();
 
-        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <Switch
-            checked={access.assignable === true}
-            disabled={disabled}
-            onCheckedChange={(checked) => patch("assignable", checked)}
-            className="mt-1"
-          />
-          <span>
-            <span className="block font-black text-slate-950">Can be assigned tasks</span>
-            <span className="block text-xs font-semibold text-slate-500">
-              Allow tasks to be assigned to this member.
-            </span>
-          </span>
-        </label>
+          return (
+            <div key={config.id} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+              <div className="mb-3 flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-slate-950">{config.label}</span>
+                  <span className="block text-xs font-semibold leading-5 text-slate-500">
+                    {config.description}
+                  </span>
+                </span>
+              </div>
 
-        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <Switch
-            checked={access.read === true}
-            disabled={disabled}
-            onCheckedChange={(checked) => patch("read", checked)}
-            className="mt-1"
-          />
-          <span>
-            <span className="block font-black text-slate-950">Can view tasks</span>
-            <span className="block text-xs font-semibold text-slate-500">
-              Give this member read access to tasks.
-            </span>
-          </span>
-        </label>
-
-        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
-          <Switch
-            checked={access.write === true}
-            disabled={disabled}
-            onCheckedChange={(checked) => patch("write", checked)}
-            className="mt-1"
-          />
-          <span>
-            <span className="block font-black text-slate-950">Can edit tasks</span>
-            <span className="block text-xs font-semibold text-slate-500">
-              Allow creating, editing, and completing tasks.
-            </span>
-          </span>
-        </label>
+              {config.taskControls ? (
+                <TasksModuleAccessEditor
+                  value={value}
+                  onChange={(nextAccess) => onChange?.(config.id, nextAccess)}
+                  disabled={disabled}
+                />
+              ) : (
+                <ModuleAccessEditor
+                  value={value}
+                  onChange={(nextAccess) => onChange?.(config.id, nextAccess)}
+                  disabled={disabled}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -182,8 +399,7 @@ export default function ProfileMemberEditorDialog({
 
   const isAdd = editor.mode === "add";
   const isOwner = editor.source === "owner";
-
-  const existingTasksAccess = getMemberModuleAccess(editor, "tasks");
+  const normalizedModules = normalizeEditorModules(editor);
 
   const safeEditor = {
     ...editor,
@@ -192,25 +408,26 @@ export default function ProfileMemberEditorDialog({
     role: normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver"),
     color: editor.color || "teal",
     admin: editor.admin === true,
-    modules: {
-      ...(editor.modules || {}),
-      tasks: {
-        ...existingTasksAccess,
-        ...(editor.modules?.tasks || {}),
-      },
-    },
+    modules: normalizedModules,
   };
+  const receivesFullAccess = safeEditor.admin || fullAccessRoleValues.has(safeEditor.role);
 
   function patch(updates) {
     onChange?.({ ...safeEditor, ...updates });
   }
 
-  function patchTasksAccess(nextTasksAccess) {
+  function patchModuleAccess(moduleName, nextAccess) {
+    const nextModules = {
+      ...(safeEditor.modules || {}),
+      [moduleName]: nextAccess,
+    };
+
+    if (moduleName === "lists") {
+      nextModules.groceries = nextAccess;
+    }
+
     patch({
-      modules: {
-        ...(safeEditor.modules || {}),
-        tasks: nextTasksAccess,
-      },
+      modules: nextModules,
     });
   }
 
@@ -292,12 +509,18 @@ export default function ProfileMemberEditorDialog({
             />
           </div>
 
-          {!isOwner && (
-            <TasksModuleAccessEditor
-              value={safeEditor.modules?.tasks}
-              onChange={patchTasksAccess}
+          {!isOwner && !receivesFullAccess && (
+            <ModulePermissionsPanel
+              modules={safeEditor.modules}
+              onChange={patchModuleAccess}
               disabled={saving}
             />
+          )}
+
+          {!isOwner && receivesFullAccess && (
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 md:col-span-2">
+              Parents and admins receive full access to this family space.
+            </div>
           )}
         </div>
 
