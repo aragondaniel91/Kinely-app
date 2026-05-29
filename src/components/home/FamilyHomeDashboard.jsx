@@ -343,6 +343,9 @@ function recordBelongsToPerson(record, person, people = [], options = {}) {
 
 function permissionAllowsHome(value) {
   if (value === true) return true;
+  if (typeof value === "object" && value !== null) {
+    return value.read === true || value.write === true || value.visible === true;
+  }
 
   const normalized = String(value || "").trim().toLowerCase();
   return ["read", "write", "admin", "editor", "viewer", "show", "visible", "yes"].includes(normalized);

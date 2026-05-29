@@ -23,10 +23,15 @@ import {
 } from "@/lib/invitationUtils";
 
 const DEFAULT_MEMBER_PERMISSIONS = {
+  home: { read: true, write: true },
   calendar: { read: true, write: true },
   tasks: { read: true, write: true },
   meals: { read: true, write: true },
+  lists: { read: true, write: true },
   groceries: { read: true, write: true },
+  custody: { read: false, write: false },
+  budget: { read: false, write: false },
+  notifications: { read: true, write: false },
 };
 
 const INVITATION_COLLECTIONS = {
@@ -99,15 +104,41 @@ function buildAcceptedMember({ invitation, user, email }) {
     user?.displayName ||
     email;
   const role = invitationRole(invitation);
+  const relationship =
+    invitation?.relationship ||
+    invitation?.memberRelationship ||
+    invitation?.member_relationship ||
+    role;
+  const livesHere = invitation?.livesHere === true || invitation?.lives_here === true;
+  const showOnHomeDashboard =
+    invitation?.showOnHomeDashboard === true ||
+    invitation?.show_on_home_dashboard === true ||
+    invitation?.homeDashboard === true ||
+    invitation?.home_dashboard === true ||
+    livesHere;
 
   return {
+    id: `user_${user.uid}`,
     personId: `user_${user.uid}`,
+    person_id: `user_${user.uid}`,
     uid: user.uid,
     email,
     name,
     displayName: name,
     display_name: name,
+    type: invitation?.personType || invitation?.person_type || "adult",
+    personType: invitation?.personType || invitation?.person_type || "adult",
+    person_type: invitation?.person_type || invitation?.personType || "adult",
     role,
+    relationship,
+    memberRelationship: relationship,
+    member_relationship: relationship,
+    livesHere,
+    lives_here: livesHere,
+    showOnHomeDashboard,
+    show_on_home_dashboard: showOnHomeDashboard,
+    homeDashboard: showOnHomeDashboard,
+    home_dashboard: showOnHomeDashboard,
     isAdmin: false,
     invitationStatus: "accepted",
     invitation_status: "accepted",

@@ -75,6 +75,10 @@ export function normalizeRole(value, fallback = PERSON_ROLES.VIEWER) {
   return Object.values(PERSON_ROLES).includes(role) ? role : fallback;
 }
 
+function booleanOrFalse(value) {
+  return value === true;
+}
+
 export function buildPersonId({ familyId = "family", type = PERSON_TYPES.ADULT, uid = "", email = "", displayName = "", legacyId = "" } = {}) {
   if (legacyId) return String(legacyId);
   if (uid) return `user_${uid}`;
@@ -104,6 +108,14 @@ export function normalizePerson(raw = {}, context = {}) {
     type === PERSON_TYPES.CHILD ? PERSON_RELATIONSHIPS.CHILD : context.relationship || PERSON_RELATIONSHIPS.FAMILY_MEMBER
   );
   const colorId = normalizeColorId(raw.colorId || raw.color_id || raw.color || raw.familyColor || raw.family_color || raw.calendarColor || raw.calendar_color || context.colorId || "teal");
+  const livesHere = booleanOrFalse(raw.livesHere ?? raw.lives_here ?? raw.household ?? raw.isHousehold ?? raw.is_household);
+  const showOnHomeDashboard = booleanOrFalse(
+    raw.showOnHomeDashboard ??
+      raw.show_on_home_dashboard ??
+      raw.homeDashboard ??
+      raw.home_dashboard ??
+      livesHere
+  );
 
   return {
     id: buildPersonId({
@@ -126,7 +138,13 @@ export function normalizePerson(raw = {}, context = {}) {
     relationship,
     colorId,
     color: colorId,
+    modules: raw.modules || raw.modulePermissions || raw.module_permissions || context.modules || null,
     permissions: raw.permissions || context.permissions || null,
+    livesHere,
+    lives_here: livesHere,
+    showOnHomeDashboard,
+    show_on_home_dashboard: showOnHomeDashboard,
+    household: livesHere,
     status: raw.status || "active",
     source: raw.source || context.source || "normalized",
     raw,

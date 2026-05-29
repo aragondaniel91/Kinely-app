@@ -28,18 +28,32 @@ import {
 } from "@/features/tasks/utils/memberModuleVisibility";
 
 export const roleOptions = [
-  { value: "parent", label: "Parent" },
-  { value: "dad", label: "Dad" },
-  { value: "mom", label: "Mom" },
-  { value: "grandmother", label: "Grandmother" },
-  { value: "grandfather", label: "Grandfather" },
-  { value: "babysitter", label: "Babysitter" },
-  { value: "caregiver", label: "Caregiver" },
-  { value: "family", label: "Family member" },
+  { value: "parent", label: "Parent", relationship: "parent", fullAccess: true, livesHere: true },
+  { value: "dad", label: "Dad", relationship: "father", fullAccess: true, livesHere: true },
+  { value: "mom", label: "Mom", relationship: "mother", fullAccess: true, livesHere: true },
+  { value: "child", label: "Child / teen", relationship: "child", livesHere: true },
+  { value: "grandmother", label: "Grandmother", relationship: "grandmother", livesHere: false },
+  { value: "grandfather", label: "Grandfather", relationship: "grandfather", livesHere: false },
+  { value: "babysitter", label: "Babysitter", relationship: "babysitter", livesHere: false },
+  { value: "caregiver", label: "Caregiver", relationship: "caregiver", livesHere: false },
+  { value: "family", label: "Family member", relationship: "family_member", livesHere: true },
 ];
 
 const roleValues = new Set(roleOptions.map((role) => role.value));
-const fullAccessRoleValues = new Set(["parent", "dad", "mom"]);
+const roleMetaByValue = new Map(roleOptions.map((role) => [role.value, role]));
+
+export function getMemberRoleMeta(role) {
+  const normalizedRole = normalizeMemberRole(role, "family");
+  return roleMetaByValue.get(normalizedRole) || roleMetaByValue.get("family");
+}
+
+export function roleImpliesFullAccess(role) {
+  return getMemberRoleMeta(role)?.fullAccess === true;
+}
+
+export function roleToRelationship(role) {
+  return getMemberRoleMeta(role)?.relationship || "family_member";
+}
 
 const MODULE_ACCESS_CONFIGS = [
   {
@@ -100,6 +114,10 @@ export function normalizeMemberRole(role, fallback = "caregiver") {
   return fallback;
 }
 
+function booleanOrFallback(value, fallback = false) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function ColorPicker({ value, onChange }) {
   const selected = value || "teal";
 
@@ -126,6 +144,64 @@ function ColorPicker({ value, onChange }) {
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function HouseholdPresenceEditor({
+  livesHere,
+  showOnHomeDashboard,
+  onChange,
+  disabled,
+}) {
+  function patch(field, nextValue) {
+    const next = {
+      livesHere,
+      showOnHomeDashboard,
+      [field]: nextValue,
+    };
+
+    if (field === "livesHere" && nextValue === true) {
+      next.showOnHomeDashboard = true;
+    }
+
+    onChange?.(next);
+  }
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
+      <p className="text-sm font-black text-slate-950">Home presence</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+          <Switch
+            checked={livesHere === true}
+            disabled={disabled}
+            onCheckedChange={(checked) => patch("livesHere", checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-black text-slate-950">Lives here</span>
+            <span className="block text-xs font-semibold text-slate-500">
+              Part of the household day to day.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+          <Switch
+            checked={showOnHomeDashboard === true}
+            disabled={disabled}
+            onCheckedChange={(checked) => patch("showOnHomeDashboard", checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block font-black text-slate-950">Show on Home</span>
+            <span className="block text-xs font-semibold text-slate-500">
+              Include in Today by person.
+            </span>
+          </span>
+        </label>
       </div>
     </div>
   );
@@ -400,17 +476,27 @@ export default function ProfileMemberEditorDialog({
   const isAdd = editor.mode === "add";
   const isOwner = editor.source === "owner";
   const normalizedModules = normalizeEditorModules(editor);
+  const normalizedRole = normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver");
+  const roleMeta = getMemberRoleMeta(normalizedRole);
+  const defaultLivesHere = isOwner || roleMeta?.livesHere === true;
 
   const safeEditor = {
     ...editor,
     name: editor.name || "",
     email: editor.email || "",
-    role: normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver"),
+    role: normalizedRole,
+    relationship: editor.relationship || editor.memberRelationship || editor.member_relationship || roleToRelationship(normalizedRole),
+    type: editor.type || editor.personType || editor.person_type || "adult",
     color: editor.color || "teal",
     admin: editor.admin === true,
+    livesHere: booleanOrFallback(editor.livesHere ?? editor.lives_here, defaultLivesHere),
+    showOnHomeDashboard: booleanOrFallback(
+      editor.showOnHomeDashboard ?? editor.show_on_home_dashboard ?? editor.homeDashboard ?? editor.home_dashboard,
+      defaultLivesHere || roleImpliesFullAccess(normalizedRole)
+    ),
     modules: normalizedModules,
   };
-  const receivesFullAccess = safeEditor.admin || fullAccessRoleValues.has(safeEditor.role);
+  const receivesFullAccess = safeEditor.admin || roleImpliesFullAccess(safeEditor.role);
 
   function patch(updates) {
     onChange?.({ ...safeEditor, ...updates });
@@ -428,6 +514,40 @@ export default function ProfileMemberEditorDialog({
 
     patch({
       modules: nextModules,
+    });
+  }
+
+  function patchHomePresence(nextPresence) {
+    const nextModules = { ...(safeEditor.modules || {}) };
+
+    if (nextPresence.showOnHomeDashboard === true) {
+      nextModules.home = {
+        ...buildDefaultModuleAccess(),
+        ...(nextModules.home || {}),
+        read: true,
+      };
+    }
+
+    patch({
+      ...nextPresence,
+      lives_here: nextPresence.livesHere,
+      show_on_home_dashboard: nextPresence.showOnHomeDashboard,
+      modules: nextModules,
+    });
+  }
+
+  function patchRole(nextRole) {
+    const nextMeta = getMemberRoleMeta(nextRole);
+    const nextLivesHere = nextMeta?.livesHere === true ? true : safeEditor.livesHere;
+
+    patch({
+      role: nextRole,
+      relationship: roleToRelationship(nextRole),
+      type: nextRole === "child" ? "child" : "adult",
+      livesHere: nextLivesHere,
+      lives_here: nextLivesHere,
+      showOnHomeDashboard: nextLivesHere ? true : safeEditor.showOnHomeDashboard,
+      show_on_home_dashboard: nextLivesHere ? true : safeEditor.showOnHomeDashboard,
     });
   }
 
@@ -477,7 +597,7 @@ export default function ProfileMemberEditorDialog({
 
           <div>
             <Label>Role</Label>
-            <Select value={safeEditor.role} onValueChange={(nextRole) => patch({ role: nextRole })}>
+            <Select value={safeEditor.role} onValueChange={patchRole}>
               <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
@@ -508,6 +628,15 @@ export default function ProfileMemberEditorDialog({
               onChange={(color) => patch({ color })}
             />
           </div>
+
+          {!isOwner && (
+            <HouseholdPresenceEditor
+              livesHere={safeEditor.livesHere}
+              showOnHomeDashboard={safeEditor.showOnHomeDashboard}
+              onChange={patchHomePresence}
+              disabled={saving}
+            />
+          )}
 
           {!isOwner && !receivesFullAccess && (
             <ModulePermissionsPanel

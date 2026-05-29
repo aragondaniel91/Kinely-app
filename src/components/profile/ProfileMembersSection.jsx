@@ -15,7 +15,11 @@ import { Button } from "@/components/ui/button";
 import AppDialog from "@/components/app/AppDialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import ProfileMemberEditorDialog, { normalizeMemberRole } from "@/components/profile/ProfileMemberEditorDialog";
+import ProfileMemberEditorDialog, {
+  normalizeMemberRole,
+  roleImpliesFullAccess,
+  roleToRelationship,
+} from "@/components/profile/ProfileMemberEditorDialog";
 import {
   buildDefaultModuleAccess,
   getMemberModuleAccess,
@@ -58,10 +62,38 @@ function buildPermissionSet(read, write) {
 const defaultPermissions = buildPermissionSet(true, true);
 const limitedPermissions = buildPermissionSet(false, false);
 
-const parentRoles = new Set(["parent", "dad", "mom"]);
-
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildLocalMemberPersonId({ email = "", name = "", fallback = "member" } = {}) {
+  const cleanEmail = normalizeEmail(email);
+  if (cleanEmail) return `email_${slugify(cleanEmail)}`;
+  return `${fallback}_${slugify(name) || Date.now()}`;
+}
+
+function memberHasWriteAccess(permissions = {}) {
+  return Object.values(permissions || {}).some((permission) => permission?.write === true);
+}
+
+function appRoleForMember({ role, admin, permissions }) {
+  if (admin || roleImpliesFullAccess(role)) return "admin";
+  if (memberHasWriteAccess(permissions)) return "editor";
+  return "viewer";
+}
+
+function booleanOrFallback(value, fallback = false) {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function getFamilyMemberEmails(profile) {
@@ -88,7 +120,7 @@ function modulePermissionFromAccess(access = {}, fallback = { read: false, write
 }
 
 function buildPermissionsForMember({ role, admin = false, modules = {} }) {
-  if (admin || parentRoles.has(role)) return defaultPermissions;
+  if (admin || roleImpliesFullAccess(role)) return defaultPermissions;
 
   const permissions = editableModuleNames.reduce(
     (nextPermissions, moduleName) => ({
@@ -165,11 +197,15 @@ function getMembers(profile, user, myEmail) {
 
   add({
     source: "owner",
+    personId: profile?.parent1PersonId || profile?.parent1_person_id || user?.uid || "",
     name: profile?.parent1_name || profile?.parent1Name || user?.displayName || "Me",
     email: profile?.owner_email || profile?.ownerEmail || myEmail || user?.email || "",
     role: normalizeMemberRole(profile?.parent1_role || profile?.parent1Role, "parent"),
+    relationship: profile?.parent1Relationship || profile?.parent1_relationship || roleToRelationship(profile?.parent1_role || profile?.parent1Role || "parent"),
     color: profile?.parent1_color || profile?.parent1Color || "blue",
     admin: true,
+    livesHere: true,
+    showOnHomeDashboard: true,
     status: "active",
     locked: true,
   });
@@ -178,11 +214,15 @@ function getMembers(profile, user, myEmail) {
     const parent2Email = normalizeEmail(profile?.parent2_email || profile?.parent2Email);
     add({
       source: "parent2",
+      personId: profile?.parent2PersonId || profile?.parent2_person_id || parent2Email || "",
       name: profile?.parent2_name || profile?.parent2Name || "Co-parent / caregiver",
       email: parent2Email,
       role: normalizeMemberRole(profile?.parent2_role || profile?.parent2Role, "parent"),
+      relationship: profile?.parent2Relationship || profile?.parent2_relationship || roleToRelationship(profile?.parent2_role || profile?.parent2Role || "parent"),
       color: profile?.parent2_color || profile?.parent2Color || "amber",
       admin: false,
+      livesHere: booleanOrFallback(profile?.parent2LivesHere ?? profile?.parent2_lives_here, true),
+      showOnHomeDashboard: booleanOrFallback(profile?.parent2ShowOnHomeDashboard ?? profile?.parent2_show_on_home_dashboard, true),
       status: memberEmails.includes(parent2Email)
         ? "active"
         : pendingMemberEmails.includes(parent2Email)
@@ -197,11 +237,16 @@ function getMembers(profile, user, myEmail) {
     add({
       source: "member",
       index,
+      personId: member.personId || member.person_id || member.id || "",
       name: member.name || member.displayName || member.email || "Member",
       email,
       role: normalizeMemberRole(member.role, "family"),
+      relationship: member.relationship || member.memberRelationship || member.member_relationship || roleToRelationship(member.role || "family"),
+      type: member.type || member.personType || member.person_type || (member.role === "child" ? "child" : "adult"),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.isAdmin === true || member.is_admin === true,
+      livesHere: booleanOrFallback(member.livesHere ?? member.lives_here, false),
+      showOnHomeDashboard: booleanOrFallback(member.showOnHomeDashboard ?? member.show_on_home_dashboard ?? member.homeDashboard ?? member.home_dashboard, false),
       modules: member.modules || {},
       permissions: member.permissions || defaultPermissions,
       status: member.status || member.invitationStatus || member.invitation_status || (
@@ -218,7 +263,7 @@ function getMembers(profile, user, myEmail) {
 
 function MemberCard({ member, onEdit, onDelete }) {
   const color = getColorMeta(member.color);
-  const hasFullAccess = member.admin || parentRoles.has(member.role);
+  const hasFullAccess = member.admin || roleImpliesFullAccess(member.role);
   const moduleBadges = editableModuleNames
     .map((moduleName) => {
       const access = getMemberModuleAccess(member, moduleName);
@@ -264,6 +309,18 @@ function MemberCard({ member, onEdit, onDelete }) {
           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${color.bg} ${color.text} ${color.border}`}>
             Family color: {color.label}
           </span>
+
+          {member.livesHere && (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+              Lives here
+            </span>
+          )}
+
+          {member.showOnHomeDashboard && !member.livesHere && (
+            <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700">
+              Home visible
+            </span>
+          )}
 
           {hasFullAccess && (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
@@ -333,8 +390,12 @@ export default function ProfileMembersSection() {
       name: "",
       email: "",
       role: "caregiver",
+      relationship: "caregiver",
+      type: "adult",
       color: "teal",
       admin: false,
+      livesHere: false,
+      showOnHomeDashboard: false,
       modules: buildBlankModuleAccess(),
     });
   }
@@ -345,12 +406,17 @@ export default function ProfileMembersSection() {
       mode: "edit",
       source: member.source || "member",
       index: member.index,
+      personId: member.personId || member.person_id || member.id || "",
       originalEmail: member.email || "",
       name: member.name || member.displayName || member.email || "",
       email: member.email || "",
       role: normalizeMemberRole(member.role, member.source === "owner" ? "parent" : "caregiver"),
+      relationship: member.relationship || member.memberRelationship || member.member_relationship || roleToRelationship(member.role),
+      type: member.type || member.personType || member.person_type || (member.role === "child" ? "child" : "adult"),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.admin === true || member.isAdmin === true || member.is_admin === true,
+      livesHere: booleanOrFallback(member.livesHere ?? member.lives_here, false),
+      showOnHomeDashboard: booleanOrFallback(member.showOnHomeDashboard ?? member.show_on_home_dashboard ?? member.homeDashboard ?? member.home_dashboard, false),
       modules: member.modules || {},
       locked: member.locked === true,
     });
@@ -369,6 +435,43 @@ export default function ProfileMembersSection() {
       admin: nextEditor.admin === true,
       modules,
     });
+    const relationship = nextEditor.relationship || roleToRelationship(role);
+    const type = nextEditor.type || (role === "child" ? "child" : "adult");
+    const personId = nextEditor.personId || buildLocalMemberPersonId({
+      email,
+      name,
+      fallback: nextEditor.source === "parent2" ? "parent2" : "member",
+    });
+    const livesHere = nextEditor.livesHere === true || nextEditor.lives_here === true;
+    const showOnHomeDashboard =
+      nextEditor.showOnHomeDashboard === true ||
+      nextEditor.show_on_home_dashboard === true ||
+      livesHere ||
+      roleImpliesFullAccess(role);
+    const appRole = appRoleForMember({
+      role,
+      admin: nextEditor.admin === true,
+      permissions,
+    });
+    const memberIdentityPayload = {
+      id: personId,
+      personId,
+      person_id: personId,
+      type,
+      personType: type,
+      person_type: type,
+      relationship,
+      memberRelationship: relationship,
+      member_relationship: relationship,
+      appRole,
+      app_role: appRole,
+      livesHere,
+      lives_here: livesHere,
+      showOnHomeDashboard,
+      show_on_home_dashboard: showOnHomeDashboard,
+      homeDashboard: showOnHomeDashboard,
+      home_dashboard: showOnHomeDashboard,
+    };
 
     if (!name && !email) {
       setError("Please enter a name or email for this member.");
@@ -393,23 +496,40 @@ export default function ProfileMembersSection() {
           parent1_name: name,
           parent1Role: role,
           parent1_role: role,
+          parent1Relationship: relationship,
+          parent1_relationship: relationship,
+          parent1LivesHere: livesHere,
+          parent1_lives_here: livesHere,
+          parent1ShowOnHomeDashboard: showOnHomeDashboard,
+          parent1_show_on_home_dashboard: showOnHomeDashboard,
           parent1Color: color,
           parent1_color: color,
         };
       } else if (nextEditor.source === "parent2") {
         updates = {
+          parent2PersonId: personId,
+          parent2_person_id: personId,
           parent2Name: name,
           parent2_name: name,
           parent2Email: email,
           parent2_email: email,
           parent2Role: role,
           parent2_role: role,
+          parent2Relationship: relationship,
+          parent2_relationship: relationship,
+          parent2LivesHere: livesHere,
+          parent2_lives_here: livesHere,
+          parent2ShowOnHomeDashboard: showOnHomeDashboard,
+          parent2_show_on_home_dashboard: showOnHomeDashboard,
           parent2Color: color,
           parent2_color: color,
         };
       } else if (nextEditor.mode === "add") {
         updatedMembers.push({
+          ...memberIdentityPayload,
           name,
+          displayName: name,
+          display_name: name,
           email,
           role,
           color,
@@ -424,11 +544,15 @@ export default function ProfileMembersSection() {
       } else {
         updatedMembers = updatedMembers.map((member, index) => {
           const matchesByEmail = normalizeEmail(member.email) && normalizeEmail(member.email) === normalizeEmail(nextEditor.originalEmail);
+          const matchesByPersonId = personId && (member.personId === personId || member.person_id === personId || member.id === personId);
           const matchesByIndex = Number.isInteger(nextEditor.index) && index === nextEditor.index;
-          return matchesByEmail || matchesByIndex
+          return matchesByEmail || matchesByPersonId || matchesByIndex
             ? {
                 ...member,
+                ...memberIdentityPayload,
                 name,
+                displayName: name,
+                display_name: name,
                 email,
                 role,
                 color,
@@ -463,6 +587,10 @@ export default function ProfileMembersSection() {
           type: nextEditor.source === "parent2"
             ? INVITATION_TYPES.FAMILY_COPARENT
             : INVITATION_TYPES.FAMILY_MEMBER,
+          relationship,
+          personType: type,
+          livesHere,
+          showOnHomeDashboard,
           modules,
           permissions,
           createdBy: user?.uid,
@@ -518,8 +646,19 @@ export default function ProfileMembersSection() {
 
     try {
       const email = normalizeEmail(member.email);
+      const targetPersonId = member.personId || member.person_id || member.id || "";
       const existingMembers = Array.isArray(profile?.members) ? profile.members : [];
-      const updatedMembers = existingMembers.filter((item) => normalizeEmail(item.email) !== email);
+      const updatedMembers = existingMembers.filter((item, index) => {
+        if (targetPersonId) {
+          return item.personId !== targetPersonId && item.person_id !== targetPersonId && item.id !== targetPersonId;
+        }
+
+        if (email) return normalizeEmail(item.email) !== email;
+
+        if (Number.isInteger(member.index)) return index !== member.index;
+
+        return true;
+      });
       const memberEmails = getFamilyMemberEmails(profile).filter((item) => normalizeEmail(item) !== email);
       const pendingMemberEmails = getPendingMemberEmails(profile).filter((item) => normalizeEmail(item) !== email);
       const pendingInvites = (profile?.pendingInvites || profile?.pending_invites || []).filter((item) => {
