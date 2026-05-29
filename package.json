@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "firebase:deploy:rules": "npx firebase-tools deploy --only firestore:rules",
     "firebase:deploy:indexes": "npx firebase-tools deploy --only firestore:indexes",
-    "firebase:deploy:firestore": "npx firebase-tools deploy --only firestore"
+    "firebase:deploy:firestore": "npx firebase-tools deploy --only firestore",
+    "firebase:wipe:app-data": "node scripts/wipe-firestore-app-data.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
