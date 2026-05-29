@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, collection } from "firebase/firestore";
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import {
   buildFamilyInvitation,
@@ -83,88 +83,118 @@ export function AuthProvider({ children }) {
 
     const userRef = doc(db, "users", firebaseUser.uid);
     const snap = await getDoc(userRef);
+    const data = snap.exists()
+      ? snap.data()
+      : {
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || "",
+          email: normalizeEmail(firebaseUser.email),
+          role: "dad",
+          onboardingComplete: false,
+        };
+    const familyIds = [
+      data.familyId,
+      ...(Array.isArray(data.familyIds) ? data.familyIds : []),
+    ].filter(Boolean);
 
-    if (!snap.exists()) {
-      setProfile(null);
-      return;
+    for (const familyId of [...new Set(familyIds)]) {
+      const familySnap = await getDoc(doc(db, "families", familyId));
+      if (familySnap.exists()) {
+        const updatedProfile = {
+          ...data,
+          familyId,
+          familyIds: [...new Set([...familyIds, familyId])],
+        };
+
+        if (data.familyId !== familyId) {
+          await setDoc(
+            userRef,
+            {
+              familyId,
+              familyIds: updatedProfile.familyIds,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+
+        setProfile({ id: firebaseUser.uid, ...updatedProfile });
+        return;
+      }
     }
 
-    const data = snap.data();
+    const familyRef = doc(collection(db, "families"));
+    const ownerEmail = normalizeEmail(firebaseUser.email);
+    const ownerName = data.name || firebaseUser.displayName || "Family";
+    const familyName = `${ownerName}'s Family`;
+    const parentRole = data.role || "dad";
+    const ownerPersonId = `user_${firebaseUser.uid}`;
+    const now = new Date().toISOString();
 
-    if (!data.familyId) {
-      const familyRef = doc(collection(db, "families"));
-      const ownerEmail = normalizeEmail(firebaseUser.email);
-      const ownerName = data.name || firebaseUser.displayName || "Family";
-      const familyName = `${ownerName}'s Family`;
-      const parentRole = data.role || "dad";
-      const ownerPersonId = `user_${firebaseUser.uid}`;
-      const now = new Date().toISOString();
+    await setDoc(familyRef, {
+      familyId: familyRef.id,
+      familyName,
+      family_name: familyName,
+      type: "household",
+      ownerId: firebaseUser.uid,
+      ownerEmail,
+      owner_email: ownerEmail,
+      createdBy: firebaseUser.uid,
+      createdByEmail: ownerEmail,
+      parent1PersonId: ownerPersonId,
+      parent1Name: ownerName,
+      parent1_name: ownerName,
+      parent1Role: parentRole,
+      parent1_role: parentRole,
+      parent1Color: parentRole === "mom" ? "amber" : "blue",
+      parent1_color: parentRole === "mom" ? "amber" : "blue",
+      parent2PersonId: "",
+      parent2Name: "",
+      parent2_name: "",
+      parent2Email: "",
+      parent2_email: "",
+      parent2Role: oppositeParentRole(parentRole),
+      parent2_role: oppositeParentRole(parentRole),
+      parent2Color: parentRole === "mom" ? "blue" : "amber",
+      parent2_color: parentRole === "mom" ? "blue" : "amber",
+      children: [],
+      members: [
+        {
+          uid: firebaseUser.uid,
+          personId: ownerPersonId,
+          email: ownerEmail,
+          name: ownerName,
+          displayName: ownerName,
+          role: "owner",
+          isAdmin: true,
+          permissions: DEFAULT_PERMISSIONS,
+        },
+      ],
+      memberIds: [firebaseUser.uid],
+      memberEmails: [ownerEmail],
+      adminIds: [firebaseUser.uid],
+      adminEmails: [ownerEmail],
+      viewerIds: [],
+      viewerEmails: [],
+      member_emails: [ownerEmail],
+      createdAt: now,
+      updatedAt: now,
+    });
 
-      await setDoc(familyRef, {
-        familyId: familyRef.id,
-        familyName,
-        family_name: familyName,
-        type: "household",
-        ownerId: firebaseUser.uid,
-        ownerEmail,
-        owner_email: ownerEmail,
-        createdBy: firebaseUser.uid,
-        createdByEmail: ownerEmail,
-        parent1PersonId: ownerPersonId,
-        parent1Name: ownerName,
-        parent1_name: ownerName,
-        parent1Role: parentRole,
-        parent1_role: parentRole,
-        parent1Color: parentRole === "mom" ? "amber" : "blue",
-        parent1_color: parentRole === "mom" ? "amber" : "blue",
-        parent2PersonId: "",
-        parent2Name: "",
-        parent2_name: "",
-        parent2Email: "",
-        parent2_email: "",
-        parent2Role: oppositeParentRole(parentRole),
-        parent2_role: oppositeParentRole(parentRole),
-        parent2Color: parentRole === "mom" ? "blue" : "amber",
-        parent2_color: parentRole === "mom" ? "blue" : "amber",
-        children: [],
-        members: [
-          {
-            uid: firebaseUser.uid,
-            personId: ownerPersonId,
-            email: ownerEmail,
-            name: ownerName,
-            displayName: ownerName,
-            role: "owner",
-            isAdmin: true,
-            permissions: DEFAULT_PERMISSIONS,
-          },
-        ],
-        memberIds: [firebaseUser.uid],
-        memberEmails: [ownerEmail],
-        adminIds: [firebaseUser.uid],
-        adminEmails: [ownerEmail],
-        viewerIds: [],
-        viewerEmails: [],
-        member_emails: [ownerEmail],
-        createdAt: now,
-        updatedAt: now,
-      });
+    const updatedProfile = {
+      ...data,
+      uid: firebaseUser.uid,
+      name: ownerName,
+      email: ownerEmail,
+      familyId: familyRef.id,
+      familyIds: [familyRef.id],
+      role: parentRole,
+      onboardingComplete: data.onboardingComplete ?? false,
+      updatedAt: now,
+    };
 
-      const updatedProfile = {
-        ...data,
-        familyId: familyRef.id,
-        familyIds: [familyRef.id],
-        role: parentRole,
-        onboardingComplete: data.onboardingComplete ?? false,
-        updatedAt: now,
-      };
-
-      await setDoc(userRef, updatedProfile, { merge: true });
-      setProfile({ id: snap.id, ...updatedProfile });
-      return;
-    }
-
-    setProfile({ id: snap.id, ...data });
+    await setDoc(userRef, updatedProfile, { merge: true });
+    setProfile({ id: firebaseUser.uid, ...updatedProfile });
   };
 
   useEffect(() => {
