@@ -25,6 +25,15 @@ const defaultPermissions = {
   groceries: { read: true, write: true },
 };
 
+const limitedPermissions = {
+  calendar: { read: false, write: false },
+  tasks: { read: false, write: false },
+  meals: { read: false, write: false },
+  groceries: { read: false, write: false },
+};
+
+const parentRoles = new Set(["parent", "dad", "mom"]);
+
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
@@ -43,6 +52,22 @@ function getPendingMemberEmails(profile) {
 
 function uniqueClean(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function modulePermissionFromAccess(access = {}, fallback = { read: false, write: false }) {
+  return {
+    read: typeof access.read === "boolean" ? access.read : fallback.read === true,
+    write: typeof access.write === "boolean" ? access.write : fallback.write === true,
+  };
+}
+
+function buildPermissionsForMember({ role, admin = false, modules = {} }) {
+  if (admin || parentRoles.has(role)) return defaultPermissions;
+
+  return {
+    ...limitedPermissions,
+    tasks: modulePermissionFromAccess(modules.tasks, limitedPermissions.tasks),
+  };
 }
 
 function buildAccessArrayUpdates({ profile, members = [], memberEmails = [], user, myEmail }) {
@@ -274,6 +299,11 @@ export default function ProfileMembersSection() {
     const role = normalizeMemberRole(nextEditor.role, nextEditor.source === "owner" ? "parent" : "caregiver");
     const color = nextEditor.color || "teal";
     const modules = nextEditor.modules || {};
+    const permissions = buildPermissionsForMember({
+      role,
+      admin: nextEditor.admin === true,
+      modules,
+    });
 
     if (!name && !email) {
       setError("Please enter a name or email for this member.");
@@ -321,7 +351,7 @@ export default function ProfileMembersSection() {
           familyColor: color,
           isAdmin: nextEditor.admin === true,
           modules,
-          permissions: defaultPermissions,
+          permissions,
           invitationStatus: email ? "pending" : "active",
           invitation_status: email ? "pending" : "active",
         });
@@ -340,6 +370,7 @@ export default function ProfileMembersSection() {
                 familyColor: color,
                 isAdmin: nextEditor.admin === true,
                 modules,
+                permissions,
                 invitationStatus: wasAccepted ? "active" : "pending",
                 invitation_status: wasAccepted ? "active" : "pending",
               }
@@ -367,7 +398,8 @@ export default function ProfileMembersSection() {
           type: nextEditor.source === "parent2"
             ? INVITATION_TYPES.FAMILY_COPARENT
             : INVITATION_TYPES.FAMILY_MEMBER,
-          permissions: defaultPermissions,
+          modules,
+          permissions,
           createdBy: user?.uid,
           createdByEmail: myEmail || user?.email,
         });

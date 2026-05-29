@@ -113,6 +113,7 @@ function buildAcceptedMember({ invitation, user, email }) {
     invitation_status: "accepted",
     invitationId: invitation.id,
     invitation_id: invitation.id,
+    modules: invitation?.modules || {},
     permissions: invitation?.permissions || DEFAULT_MEMBER_PERMISSIONS,
   };
 }

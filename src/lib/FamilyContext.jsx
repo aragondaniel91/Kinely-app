@@ -136,6 +136,34 @@ function normalizeFamilyChildren(children = []) {
   return children.map(normalizeFamilyChild).filter(Boolean);
 }
 
+function booleanOrUndefined(value) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function hasModulePermissions(modules = {}) {
+  return Object.values(modules || {}).some((moduleAccess) =>
+    Object.values(moduleAccess || {}).some((value) => typeof value === "boolean")
+  );
+}
+
+function moduleAccessToPermission(moduleAccess = {}, fallback = { read: false, write: false }) {
+  return {
+    read: booleanOrUndefined(moduleAccess.read) ?? fallback.read === true,
+    write: booleanOrUndefined(moduleAccess.write) ?? fallback.write === true,
+  };
+}
+
+function applyModulePermissions(permissions, modules = {}) {
+  if (!hasModulePermissions(modules)) return permissions;
+
+  return {
+    calendar: moduleAccessToPermission(modules.calendar, permissions.calendar),
+    tasks: moduleAccessToPermission(modules.tasks, permissions.tasks),
+    meals: moduleAccessToPermission(modules.meals, permissions.meals),
+    groceries: moduleAccessToPermission(modules.groceries, permissions.groceries),
+  };
+}
+
 function normalizePermissions(member) {
   if (!member) return READ_ONLY_PERMS;
 
@@ -162,9 +190,9 @@ function normalizePermissions(member) {
     },
   };
 
-  if (!member.permissions) return legacy;
+  if (!member.permissions) return applyModulePermissions(legacy, member.modules);
 
-  return {
+  return applyModulePermissions({
     calendar: {
       read: member.permissions.calendar?.read !== false,
       write: member.permissions.calendar?.write === true,
@@ -181,7 +209,7 @@ function normalizePermissions(member) {
       read: member.permissions.groceries?.read !== false,
       write: member.permissions.groceries?.write === true,
     },
-  };
+  }, member.modules);
 }
 
 function normalizeFamilyProfile(family, user) {
