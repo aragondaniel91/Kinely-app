@@ -9,4 +9,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+
+          if (id.includes("date-fns")) return "vendor-date";
+          if (id.includes("firebase")) return "vendor-firebase";
+          if (id.includes("recharts") || id.includes("d3-")) return "vendor-charts";
+
+          return "vendor";
+        },
+      },
+    },
+  },
 });
