@@ -13,14 +13,23 @@ import {
   familyInvitationId,
   withPendingFamilyInvitation,
 } from "@/lib/invitationUtils";
+import {
+  bootstrapFamilyIdForUser,
+  findExistingFamilyIdForUser,
+} from "@/lib/familyBootstrap";
 
 const AuthContext = createContext(null);
 
 const DEFAULT_PERMISSIONS = {
+  home: { read: true, write: true },
   calendar: { read: true, write: true },
   tasks: { read: true, write: true },
   meals: { read: true, write: true },
   groceries: { read: true, write: true },
+  lists: { read: true, write: true },
+  custody: { read: true, write: true },
+  budget: { read: true, write: true },
+  notifications: { read: true, write: true },
 };
 
 function normalizeEmail(email) {
@@ -75,6 +84,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const registrationInProgressRef = useRef(false);
+  const loadProfilePromisesRef = useRef(new Map());
 
   const loadProfile = async (firebaseUser) => {
     if (!firebaseUser) {
@@ -82,6 +92,10 @@ export function AuthProvider({ children }) {
       return;
     }
 
+    const existingLoad = loadProfilePromisesRef.current.get(firebaseUser.uid);
+    if (existingLoad) return existingLoad;
+
+    const loadPromise = (async () => {
     const userRef = doc(db, "users", firebaseUser.uid);
     const snap = await getDoc(userRef);
     const data = snap.exists()
@@ -99,8 +113,15 @@ export function AuthProvider({ children }) {
     ].filter(Boolean);
 
     for (const familyId of [...new Set(familyIds)]) {
-      const familySnap = await getDoc(doc(db, "families", familyId));
-      if (familySnap.exists()) {
+      let familySnap = null;
+
+      try {
+        familySnap = await getDoc(doc(db, "families", familyId));
+      } catch {
+        familySnap = null;
+      }
+
+      if (familySnap?.exists()) {
         const updatedProfile = {
           ...data,
           familyId,
@@ -148,7 +169,30 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    const familyRef = doc(collection(db, "families"));
+    const existingFamilyId = await findExistingFamilyIdForUser(db, firebaseUser, data);
+    if (existingFamilyId) {
+      const updatedProfile = {
+        ...data,
+        uid: firebaseUser.uid,
+        name: data.name || firebaseUser.displayName || "",
+        email: data.email || normalizeEmail(firebaseUser.email),
+        familyId: existingFamilyId,
+        familyIds: [...new Set([...familyIds, existingFamilyId])],
+      };
+
+      await setDoc(
+        userRef,
+        {
+          ...updatedProfile,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      setProfile({ id: firebaseUser.uid, ...updatedProfile });
+      return;
+    }
+
+    const familyRef = doc(db, "families", bootstrapFamilyIdForUser(firebaseUser.uid));
     const ownerEmail = normalizeEmail(firebaseUser.email);
     const ownerName = data.name || firebaseUser.displayName || "Family";
     const familyName = `${ownerName}'s Family`;
@@ -156,55 +200,59 @@ export function AuthProvider({ children }) {
     const ownerPersonId = `user_${firebaseUser.uid}`;
     const now = new Date().toISOString();
 
-    await setDoc(familyRef, {
-      familyId: familyRef.id,
-      familyName,
-      family_name: familyName,
-      type: "household",
-      ownerId: firebaseUser.uid,
-      ownerEmail,
-      owner_email: ownerEmail,
-      createdBy: firebaseUser.uid,
-      createdByEmail: ownerEmail,
-      parent1PersonId: ownerPersonId,
-      parent1Name: ownerName,
-      parent1_name: ownerName,
-      parent1Role: parentRole,
-      parent1_role: parentRole,
-      parent1Color: parentRole === "mom" ? "amber" : "blue",
-      parent1_color: parentRole === "mom" ? "amber" : "blue",
-      parent2PersonId: "",
-      parent2Name: "",
-      parent2_name: "",
-      parent2Email: "",
-      parent2_email: "",
-      parent2Role: oppositeParentRole(parentRole),
-      parent2_role: oppositeParentRole(parentRole),
-      parent2Color: parentRole === "mom" ? "blue" : "amber",
-      parent2_color: parentRole === "mom" ? "blue" : "amber",
-      children: [],
-      members: [
-        {
-          uid: firebaseUser.uid,
-          personId: ownerPersonId,
-          email: ownerEmail,
-          name: ownerName,
-          displayName: ownerName,
-          role: "owner",
-          isAdmin: true,
-          permissions: DEFAULT_PERMISSIONS,
-        },
-      ],
-      memberIds: [firebaseUser.uid],
-      memberEmails: [ownerEmail],
-      adminIds: [firebaseUser.uid],
-      adminEmails: [ownerEmail],
-      viewerIds: [],
-      viewerEmails: [],
-      member_emails: [ownerEmail],
-      createdAt: now,
-      updatedAt: now,
-    });
+    const existingBootstrapFamily = await getDoc(familyRef);
+
+    if (!existingBootstrapFamily.exists()) {
+      await setDoc(familyRef, {
+        familyId: familyRef.id,
+        familyName,
+        family_name: familyName,
+        type: "household",
+        ownerId: firebaseUser.uid,
+        ownerEmail,
+        owner_email: ownerEmail,
+        createdBy: firebaseUser.uid,
+        createdByEmail: ownerEmail,
+        parent1PersonId: ownerPersonId,
+        parent1Name: ownerName,
+        parent1_name: ownerName,
+        parent1Role: parentRole,
+        parent1_role: parentRole,
+        parent1Color: parentRole === "mom" ? "amber" : "blue",
+        parent1_color: parentRole === "mom" ? "amber" : "blue",
+        parent2PersonId: "",
+        parent2Name: "",
+        parent2_name: "",
+        parent2Email: "",
+        parent2_email: "",
+        parent2Role: oppositeParentRole(parentRole),
+        parent2_role: oppositeParentRole(parentRole),
+        parent2Color: parentRole === "mom" ? "blue" : "amber",
+        parent2_color: parentRole === "mom" ? "blue" : "amber",
+        children: [],
+        members: [
+          {
+            uid: firebaseUser.uid,
+            personId: ownerPersonId,
+            email: ownerEmail,
+            name: ownerName,
+            displayName: ownerName,
+            role: "owner",
+            isAdmin: true,
+            permissions: DEFAULT_PERMISSIONS,
+          },
+        ],
+        memberIds: [firebaseUser.uid],
+        memberEmails: [ownerEmail],
+        adminIds: [firebaseUser.uid],
+        adminEmails: [ownerEmail],
+        viewerIds: [],
+        viewerEmails: [],
+        member_emails: [ownerEmail],
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     const updatedProfile = {
       ...data,
@@ -220,6 +268,15 @@ export function AuthProvider({ children }) {
 
     await setDoc(userRef, updatedProfile, { merge: true });
     setProfile({ id: firebaseUser.uid, ...updatedProfile });
+    })();
+
+    loadProfilePromisesRef.current.set(firebaseUser.uid, loadPromise);
+
+    try {
+      return await loadPromise;
+    } finally {
+      loadProfilePromisesRef.current.delete(firebaseUser.uid);
+    }
   };
 
   useEffect(() => {

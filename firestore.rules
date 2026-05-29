@@ -71,6 +71,11 @@ service cloud.firestore {
       return isFamilyViewer(familyId);
     }
 
+    function canReadBootstrapFamily(familyId) {
+      return signedIn()
+        && familyId == "family_" + request.auth.uid;
+    }
+
     function canWriteFamilyContent(familyId) {
       return isFamilyMember(familyId);
     }
@@ -523,7 +528,8 @@ service cloud.firestore {
     }
 
     match /families/{familyId} {
-      allow read: if canReadFamily(familyId);
+      allow read: if canReadFamily(familyId)
+        || canReadBootstrapFamily(familyId);
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid;
       allow update: if canManageFamily(familyId)

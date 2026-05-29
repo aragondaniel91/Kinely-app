@@ -29,6 +29,10 @@ import {
   normalizeInviteEmail,
   withPendingFamilyInvitation,
 } from "@/lib/invitationUtils";
+import {
+  bootstrapFamilyIdForUser,
+  findExistingFamilyIdForUser,
+} from "@/lib/familyBootstrap";
 
 export const FamilyContext = createContext(null);
 
@@ -366,8 +370,15 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
   ].filter(Boolean);
 
   for (const candidateFamilyId of [...new Set(candidateFamilyIds)]) {
-    const familySnap = await getDoc(doc(db, "families", candidateFamilyId));
-    if (familySnap.exists()) {
+    let familySnap = null;
+
+    try {
+      familySnap = await getDoc(doc(db, "families", candidateFamilyId));
+    } catch {
+      familySnap = null;
+    }
+
+    if (familySnap?.exists()) {
       return candidateFamilyId;
     }
   }
@@ -390,7 +401,24 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
     return null;
   }
 
-  const familyRef = doc(collection(db, "families"));
+  const existingFamilyId = await findExistingFamilyIdForUser(db, firebaseUser, userData);
+  if (existingFamilyId) {
+    await setDoc(
+      userRef,
+      {
+        uid: firebaseUser.uid,
+        name: firebaseUser.displayName || userData?.name || "",
+        email: firebaseUser.email || userData?.email || "",
+        familyId: existingFamilyId,
+        familyIds: [existingFamilyId],
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return existingFamilyId;
+  }
+
+  const familyRef = doc(db, "families", bootstrapFamilyIdForUser(firebaseUser.uid));
   const parent1PersonId = `user_${firebaseUser.uid}`;
 
   const familyData = {
@@ -459,7 +487,11 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
     updatedAt: serverTimestamp(),
   };
 
-  await setDoc(familyRef, familyData);
+  const existingBootstrapFamily = await getDoc(familyRef);
+
+  if (!existingBootstrapFamily.exists()) {
+    await setDoc(familyRef, familyData);
+  }
 
   await setDoc(
     userRef,
