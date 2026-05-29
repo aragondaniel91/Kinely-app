@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, Pencil, Plane, Plus, Trash2, X } from "lucide-react";
+import { CalendarDays, Pencil, Plane, Plus, Trash2 } from "lucide-react";
 import {
   collection,
   deleteDoc,
@@ -414,7 +414,6 @@ export default function CustodyDayDialog({
   useEffect(() => {
     loadSpecialEvents();
     loadTravelPlans();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, dateKey]);
 
   const handleSave = async () => {

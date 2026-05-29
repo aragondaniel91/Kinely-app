@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Baby, HeartPulse, Pill, Ruler, Save, Shirt, ShieldAlert, Stethoscope } from "lucide-react";
+import { AlertTriangle, Baby, HeartPulse, Pill, Save, Shirt, ShieldAlert, Stethoscope } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { Button } from "@/components/ui/button";

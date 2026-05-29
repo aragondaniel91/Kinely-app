@@ -10,7 +10,6 @@ import {
   School,
   Sparkles,
   Sun,
-  UserRound,
   Users,
 } from "lucide-react";
 import {

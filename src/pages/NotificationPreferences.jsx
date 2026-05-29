@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarDays, CheckSquare, HeartPulse, Home, Mail, MessageSquare, Save, Shield, ShoppingCart, UtensilsCrossed, Users } from "lucide-react";
+import { Bell, CalendarDays, CheckSquare, HeartPulse, Home, Mail, MessageSquare, Save, Shield, UtensilsCrossed, Users } from "lucide-react";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";

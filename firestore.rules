@@ -16,6 +16,10 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function listOrEmpty(value) {
+      return value is list ? value : [];
+    }
+
     function familyDoc(familyId) {
       return get(/databases/$(database)/documents/families/$(familyId));
     }
@@ -36,10 +40,14 @@ service cloud.firestore {
       return signedIn()
         && familyExists(familyId)
         && (
-          request.auth.uid in familyDoc(familyId).data.memberIds
-          || userEmail() in familyDoc(familyId).data.memberEmails
+          request.auth.uid in listOrEmpty(familyDoc(familyId).data.memberIds)
+          || request.auth.uid in listOrEmpty(familyDoc(familyId).data.member_ids)
+          || userEmail() in listOrEmpty(familyDoc(familyId).data.memberEmails)
+          || userEmail() in listOrEmpty(familyDoc(familyId).data.member_emails)
           || request.auth.uid == familyDoc(familyId).data.ownerId
+          || request.auth.uid == familyDoc(familyId).data.owner_id
           || request.auth.uid == familyDoc(familyId).data.adminId
+          || request.auth.uid == familyDoc(familyId).data.admin_id
         );
     }
 
@@ -47,8 +55,10 @@ service cloud.firestore {
       return signedIn()
         && familyExists(familyId)
         && (
-          userEmail() in familyDoc(familyId).data.viewerEmails
-          || request.auth.uid in familyDoc(familyId).data.viewerIds
+          userEmail() in listOrEmpty(familyDoc(familyId).data.viewerEmails)
+          || userEmail() in listOrEmpty(familyDoc(familyId).data.viewer_emails)
+          || request.auth.uid in listOrEmpty(familyDoc(familyId).data.viewerIds)
+          || request.auth.uid in listOrEmpty(familyDoc(familyId).data.viewer_ids)
         );
     }
 
@@ -64,10 +74,14 @@ service cloud.firestore {
       return signedIn()
         && custodyGroupExists(groupId)
         && (
-          userEmail() in custodyGroupDoc(groupId).data.memberEmails
-          || request.auth.uid in custodyGroupDoc(groupId).data.memberIds
+          userEmail() in listOrEmpty(custodyGroupDoc(groupId).data.memberEmails)
+          || userEmail() in listOrEmpty(custodyGroupDoc(groupId).data.member_emails)
+          || request.auth.uid in listOrEmpty(custodyGroupDoc(groupId).data.memberIds)
+          || request.auth.uid in listOrEmpty(custodyGroupDoc(groupId).data.member_ids)
           || request.auth.uid == custodyGroupDoc(groupId).data.ownerId
+          || request.auth.uid == custodyGroupDoc(groupId).data.owner_id
           || request.auth.uid == custodyGroupDoc(groupId).data.adminId
+          || request.auth.uid == custodyGroupDoc(groupId).data.admin_id
         );
     }
 
@@ -75,8 +89,10 @@ service cloud.firestore {
       return signedIn()
         && custodyGroupExists(groupId)
         && (
-          userEmail() in custodyGroupDoc(groupId).data.viewerEmails
-          || request.auth.uid in custodyGroupDoc(groupId).data.viewerIds
+          userEmail() in listOrEmpty(custodyGroupDoc(groupId).data.viewerEmails)
+          || userEmail() in listOrEmpty(custodyGroupDoc(groupId).data.viewer_emails)
+          || request.auth.uid in listOrEmpty(custodyGroupDoc(groupId).data.viewerIds)
+          || request.auth.uid in listOrEmpty(custodyGroupDoc(groupId).data.viewer_ids)
         );
     }
 
@@ -88,25 +104,42 @@ service cloud.firestore {
       return isCustodyMember(groupId);
     }
 
+    function hasRequestFamilyId() {
+      return request.resource.data.familyId is string
+        || request.resource.data.family_id is string;
+    }
+
+    function hasExistingFamilyId() {
+      return resource.data.familyId is string
+        || resource.data.family_id is string;
+    }
+
     function requestFamilyId() {
-      return request.resource.data.familyId;
+      return request.resource.data.familyId is string
+        ? request.resource.data.familyId
+        : request.resource.data.family_id;
     }
 
     function existingFamilyId() {
-      return resource.data.familyId;
+      return resource.data.familyId is string
+        ? resource.data.familyId
+        : resource.data.family_id;
     }
 
     function canReadScopedFamilyDoc() {
-      return canReadFamily(existingFamilyId()) || canReadCustody(existingFamilyId());
+      return hasExistingFamilyId()
+        && (canReadFamily(existingFamilyId()) || canReadCustody(existingFamilyId()));
     }
 
     function canCreateScopedFamilyDoc() {
-      return request.resource.data.familyId is string
+      return hasRequestFamilyId()
         && (canWriteFamily(requestFamilyId()) || canWriteCustody(requestFamilyId()));
     }
 
     function canUpdateScopedFamilyDoc() {
-      return request.resource.data.familyId == resource.data.familyId
+      return hasRequestFamilyId()
+        && hasExistingFamilyId()
+        && requestFamilyId() == existingFamilyId()
         && (canWriteFamily(existingFamilyId()) || canWriteCustody(existingFamilyId()));
     }
 
@@ -125,7 +158,10 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid;
       allow update: if canWriteFamily(familyId);
       allow delete: if signedIn()
-        && request.auth.uid == resource.data.ownerId;
+        && (
+          request.auth.uid == resource.data.ownerId
+          || request.auth.uid == resource.data.owner_id
+        );
     }
 
     match /custodyGroups/{groupId} {
@@ -133,16 +169,37 @@ service cloud.firestore {
       allow create: if signedIn()
         && (
           request.auth.uid == request.resource.data.ownerId
-          || userEmail() in request.resource.data.memberEmails
+          || request.auth.uid == request.resource.data.owner_id
+          || userEmail() in listOrEmpty(request.resource.data.memberEmails)
+          || userEmail() in listOrEmpty(request.resource.data.member_emails)
         );
       allow update: if canWriteCustody(groupId);
       allow delete: if signedIn()
-        && request.auth.uid == resource.data.ownerId;
+        && (
+          request.auth.uid == resource.data.ownerId
+          || request.auth.uid == resource.data.owner_id
+        );
     }
 
     match /custodyDays/{docId} {
       allow read: if canReadScopedFamilyDoc();
       allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /custodySpecialEvents/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /custodyTravelPlans/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc()
+        && request.resource.data.createdBy == request.auth.uid;
       allow update: if canUpdateScopedFamilyDoc();
       allow delete: if canDeleteScopedFamilyDoc();
     }
@@ -173,12 +230,94 @@ service cloud.firestore {
 
     match /custodyNotificationPrefs/{scopeId} {
       allow read: if canReadFamily(scopeId) || canReadCustody(scopeId);
-      allow create, update: if request.resource.data.familyId == scopeId
+      allow create, update: if hasRequestFamilyId()
+        && requestFamilyId() == scopeId
         && (canWriteFamily(scopeId) || canWriteCustody(scopeId));
       allow delete: if canWriteFamily(scopeId) || canWriteCustody(scopeId);
     }
 
+    match /familyEvents/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /familyActivity/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc()
+        && (
+          request.resource.data.createdBy == request.auth.uid
+          || request.resource.data.actorId == request.auth.uid
+        );
+      allow update: if false;
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /familyLists/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /familyListItems/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /familyPantryItems/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /mealTemplates/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
     match /tasks/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /taskTemplates/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /routineRuns/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /rewards/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /children/{docId} {
+      allow read: if canReadScopedFamilyDoc();
+      allow create: if canCreateScopedFamilyDoc();
+      allow update: if canUpdateScopedFamilyDoc();
+      allow delete: if canDeleteScopedFamilyDoc();
+    }
+
+    match /familyMembers/{docId} {
       allow read: if canReadScopedFamilyDoc();
       allow create: if canCreateScopedFamilyDoc();
       allow update: if canUpdateScopedFamilyDoc();

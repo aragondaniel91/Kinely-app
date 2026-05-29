@@ -6,9 +6,7 @@ import {
   CreditCard,
   LayoutDashboard,
   MessageCircle,
-  Plane,
   Shirt,
-  Sparkles,
   Sun,
   Trash2,
   Truck,
@@ -18,7 +16,6 @@ import { collection, getDocs, onSnapshot, query, where } from "firebase/firestor
 import CustodyCalendarView from "@/features/custody/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import AppDialog from "@/components/app/AppDialog";
 import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";

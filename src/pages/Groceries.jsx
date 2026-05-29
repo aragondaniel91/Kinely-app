@@ -16,9 +16,7 @@ import {
   AlertTriangle,
   Apple,
   ArchiveRestore,
-  Beef,
   CalendarDays,
-  Carrot,
   Check,
   CheckSquare,
   CircleDot,
@@ -26,7 +24,6 @@ import {
   Croissant,
   GraduationCap,
   Milk,
-  Home,
   ListChecks,
   Package,
   ShoppingCart,
@@ -1195,7 +1192,6 @@ export default function Groceries() {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, canRead]);
 
   const tasksByListId = useMemo(() => {

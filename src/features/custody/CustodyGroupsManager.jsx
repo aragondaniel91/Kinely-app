@@ -29,7 +29,6 @@ import {
 } from "@/lib/custodyGroupUtils";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
-import AppDialog from "@/components/app/AppDialog";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -289,7 +288,6 @@ export default function CustodyGroupsManager() {
 
   useEffect(() => {
     loadGroups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myEmail, familyId]);
 
   const updateForm = (field, value) => {
@@ -406,7 +404,7 @@ export default function CustodyGroupsManager() {
     }
 
     if (!children.length) {
-      window.showNotice({
+      showNotice({
         tone: "warning",
         title: "Child required",
         message: "Please add at least one child.",
@@ -481,7 +479,7 @@ export default function CustodyGroupsManager() {
       await loadGroups();
     } catch (error) {
       console.error("Error saving custody group:", error);
-      window.showNotice({
+      showNotice({
         tone: "danger",
         title: "Could not save custody group",
         message: error.message,
@@ -491,7 +489,7 @@ export default function CustodyGroupsManager() {
     }
   };
 
-  const deleteGroup = async (group) => {
+  const deleteGroup = async (group, { skipConfirm = false } = {}) => {
     if (!canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId })) {
       showNotice({
         tone: "warning",
@@ -507,7 +505,7 @@ export default function CustodyGroupsManager() {
         title: "Delete custody group?",
         message: "This will not delete existing custody days, but it will remove the shared group access.",
         confirmLabel: "Delete group",
-        onConfirm: () => deleteCustodyGroup(group, { skipConfirm: true }),
+        onConfirm: () => deleteGroup(group, { skipConfirm: true }),
       });
       return;
     }
@@ -519,7 +517,7 @@ export default function CustodyGroupsManager() {
       await loadGroups();
     } catch (error) {
       console.error("Error deleting custody group:", error);
-      window.showNotice({
+      showNotice({
         tone: "danger",
         title: "Could not delete custody group",
         message: error.message,

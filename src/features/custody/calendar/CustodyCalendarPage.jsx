@@ -25,7 +25,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +35,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
@@ -57,9 +55,7 @@ import {
 } from "@/features/custody/calendar/utils/custodyMappers";
 import {
   buildTravelOverrideCustody,
-  getCustodyParent,
   getOtherParent,
-  getParentEmoji,
   getParentLabel,
 } from "@/features/custody/calendar/utils/custodyCalculations";
 import {
@@ -261,7 +257,6 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
   useEffect(() => {
     loadCustodyDays();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, familyId, canRead]);
 
   const saveCustodyDay = async (payload) => {

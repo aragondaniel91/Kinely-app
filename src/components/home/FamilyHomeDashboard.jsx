@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -7,13 +7,11 @@ import {
   ChevronRight,
   Heart,
   History,
-  Home,
   ListChecks,
   ShoppingCart,
   Sparkles,
   Sun,
   UtensilsCrossed,
-  Users,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";

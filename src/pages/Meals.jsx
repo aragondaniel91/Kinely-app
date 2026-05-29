@@ -28,7 +28,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Coffee,
-  Cookie,
   ListChecks,
   Moon,
   Pencil,
@@ -1697,7 +1696,6 @@ export default function Meals() {
 
   useEffect(() => {
     loadMeals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [familyId, canRead, weekStart]);
 
   useEffect(() => {
