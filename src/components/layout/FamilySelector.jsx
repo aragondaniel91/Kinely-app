@@ -101,10 +101,10 @@ export default function FamilySelector() {
   if (!profile) {
     return (
       <Link
-        to="/profile"
+        to="/profile?tab=invitations"
         className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-xl"
       >
-        Crear familia
+        Invitations
       </Link>
     );
   }

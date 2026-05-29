@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import {
   BrowserRouter as Router,
+  Link,
   Route,
   Routes,
   Navigate,
@@ -11,7 +12,7 @@ import PageNotFound from "./lib/PageNotFound";
 import AppShell from "@/components/layout/AppShell";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
-import { FamilyProvider } from "@/lib/FamilyContext";
+import { FamilyProvider, useFamily } from "@/lib/FamilyContext";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
@@ -60,6 +61,61 @@ function PublicRoute({ children }) {
   return children;
 }
 
+function AccessDenied({ moduleName = "this area" }) {
+  return (
+    <div className="kinly-gradient-bg flex min-h-[calc(100dvh-8rem)] items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-[2rem] border border-white/80 bg-white p-6 text-center shadow-xl">
+        <h1 className="text-2xl font-black tracking-tight text-slate-950">Access limited</h1>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+          Your current family role does not include access to {moduleName}. A family admin can update this from Profile.
+        </p>
+        <Link
+          to="/profile"
+          className="mt-5 inline-flex rounded-full bg-indigo-600 px-5 py-2 text-sm font-black text-white transition hover:bg-indigo-700"
+        >
+          Open profile
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function RequireFamilySpace({ children, moduleName = "", label = "this area" }) {
+  const { isLoading, profile, familyId, perms } = useFamily();
+
+  if (isLoading) {
+    return <RouteLoader />;
+  }
+
+  if (!profile || !familyId) {
+    return <Navigate to="/profile?tab=invitations" replace />;
+  }
+
+  if (moduleName && perms?.[moduleName]?.read === false) {
+    return <AccessDenied moduleName={label} />;
+  }
+
+  return children;
+}
+
+function RequireModuleAccess({ children, moduleName = "", label = "this area" }) {
+  const { isLoading, profile, familyId, perms } = useFamily();
+
+  if (isLoading) {
+    return <RouteLoader />;
+  }
+
+  if (moduleName === "custody" && (!profile || !familyId)) {
+    return children;
+  }
+
+  if (moduleName && perms?.[moduleName]?.read === false) {
+    return <AccessDenied moduleName={label} />;
+  }
+
+  return children;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<RouteLoader />}>
@@ -90,13 +146,13 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/custody" element={<Custody />} />
-          <Route path="/children" element={<ChildProfiles />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/meals" element={<Meals />} />
-          <Route path="/lists" element={<Lists />} />
+          <Route path="/" element={<RequireFamilySpace moduleName="home" label="Home"><Dashboard /></RequireFamilySpace>} />
+          <Route path="/calendar" element={<RequireFamilySpace moduleName="calendar" label="Calendar"><Calendar /></RequireFamilySpace>} />
+          <Route path="/custody" element={<RequireModuleAccess moduleName="custody" label="Custody"><Custody /></RequireModuleAccess>} />
+          <Route path="/children" element={<RequireFamilySpace><ChildProfiles /></RequireFamilySpace>} />
+          <Route path="/tasks" element={<RequireFamilySpace moduleName="tasks" label="Tasks"><Tasks /></RequireFamilySpace>} />
+          <Route path="/meals" element={<RequireFamilySpace moduleName="meals" label="Meals"><Meals /></RequireFamilySpace>} />
+          <Route path="/lists" element={<RequireFamilySpace moduleName="lists" label="Lists"><Lists /></RequireFamilySpace>} />
           <Route path="/groceries" element={<Navigate to="/lists" replace />} />
           <Route path="/profile" element={<Profile />} />
         </Route>

@@ -15,12 +15,12 @@ import KinlyLogo from "@/components/brand/KinlyLogo";
 import { useFamily } from "@/lib/FamilyContext";
 
 const navItems = [
-  { icon: Home, label: "Home", path: "/" },
-  { icon: Calendar, label: "Calendar", path: "/calendar" },
-  { icon: HeartHandshake, label: "Custody", path: "/custody" },
-  { icon: CheckSquare, label: "Tasks", path: "/tasks" },
-  { icon: UtensilsCrossed, label: "Meals", path: "/meals" },
-  { icon: ListChecks, label: "Lists", path: "/groceries" },
+  { icon: Home, label: "Home", path: "/", module: "home", requiresFamily: true },
+  { icon: Calendar, label: "Calendar", path: "/calendar", module: "calendar", requiresFamily: true },
+  { icon: HeartHandshake, label: "Custody", path: "/custody", module: "custody" },
+  { icon: CheckSquare, label: "Tasks", path: "/tasks", module: "tasks", requiresFamily: true },
+  { icon: UtensilsCrossed, label: "Meals", path: "/meals", module: "meals", requiresFamily: true },
+  { icon: ListChecks, label: "Lists", path: "/lists", module: "lists", requiresFamily: true },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 
@@ -46,11 +46,19 @@ function AppShellLoader() {
 
 export default function AppShell() {
   const location = useLocation();
-  const { isLoading, profile, familyId } = useFamily();
+  const { isLoading, profile, familyId, perms } = useFamily();
 
-  if (isLoading || !profile || !familyId) {
+  if (isLoading) {
     return <AppShellLoader />;
   }
+
+  const hasFamilySpace = Boolean(profile && familyId);
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.requiresFamily && !hasFamilySpace) return false;
+    if (!hasFamilySpace && item.module === "custody") return true;
+    if (item.module && perms?.[item.module]?.read === false) return false;
+    return true;
+  });
 
   return (
     <div className="kinly-gradient-bg flex min-h-dvh flex-col overflow-x-hidden">
@@ -70,8 +78,8 @@ export default function AppShell() {
       <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
         <div className="pointer-events-auto mx-auto max-w-3xl rounded-[1.85rem] border border-white/80 bg-white/78 p-1.5 shadow-[0_20px_52px_rgba(15,23,42,0.15)] backdrop-blur-2xl transition hover:bg-white/86">
           <div className="flex items-center justify-around gap-1 overflow-x-auto">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+            {visibleNavItems.map((item) => {
+              const isActive = location.pathname === item.path || (item.path === "/lists" && location.pathname === "/groceries");
               const Icon = item.icon;
 
               return (

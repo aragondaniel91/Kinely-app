@@ -65,7 +65,8 @@ export default function ProfileModular() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
     const requestedTab = searchParams.get("tab");
-    return tabs.some((tab) => tab.id === requestedTab) ? requestedTab : "overview";
+    if (tabs.some((tab) => tab.id === requestedTab)) return requestedTab;
+    return profile ? "overview" : "invitations";
   });
 
   async function handleLogout() {

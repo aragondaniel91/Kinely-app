@@ -33,19 +33,40 @@ import {
 export const FamilyContext = createContext(null);
 
 const STORAGE_KEY = "familywall_active_family_id";
+const FAMILY_MODULE_NAMES = [
+  "home",
+  "calendar",
+  "tasks",
+  "meals",
+  "groceries",
+  "lists",
+  "custody",
+  "budget",
+  "notifications",
+];
 
 const DEFAULT_PERMS = {
+  home: { read: true, write: true },
   calendar: { read: true, write: true },
   tasks: { read: true, write: true },
   meals: { read: true, write: true },
   groceries: { read: true, write: true },
+  lists: { read: true, write: true },
+  custody: { read: true, write: true },
+  budget: { read: true, write: true },
+  notifications: { read: true, write: true },
 };
 
 const READ_ONLY_PERMS = {
+  home: { read: true, write: false },
   calendar: { read: true, write: false },
   tasks: { read: true, write: false },
   meals: { read: true, write: false },
   groceries: { read: true, write: false },
+  lists: { read: true, write: false },
+  custody: { read: false, write: false },
+  budget: { read: false, write: false },
+  notifications: { read: true, write: false },
 };
 
 function pushUniqueFamily(target, family) {
@@ -156,11 +177,22 @@ function moduleAccessToPermission(moduleAccess = {}, fallback = { read: false, w
 function applyModulePermissions(permissions, modules = {}) {
   if (!hasModulePermissions(modules)) return permissions;
 
+  return FAMILY_MODULE_NAMES.reduce(
+    (nextPermissions, moduleName) => ({
+      ...nextPermissions,
+      [moduleName]: moduleAccessToPermission(
+        modules[moduleName],
+        permissions[moduleName] || { read: false, write: false }
+      ),
+    }),
+    { ...permissions }
+  );
+}
+
+function permissionFrom(value = {}, fallback = { read: false, write: false }) {
   return {
-    calendar: moduleAccessToPermission(modules.calendar, permissions.calendar),
-    tasks: moduleAccessToPermission(modules.tasks, permissions.tasks),
-    meals: moduleAccessToPermission(modules.meals, permissions.meals),
-    groceries: moduleAccessToPermission(modules.groceries, permissions.groceries),
+    read: booleanOrUndefined(value.read) ?? fallback.read === true,
+    write: booleanOrUndefined(value.write) ?? fallback.write === true,
   };
 }
 
@@ -172,6 +204,10 @@ function normalizePermissions(member) {
   }
 
   const legacy = {
+    home: {
+      read: member.share_home !== false,
+      write: member.home_write === true,
+    },
     calendar: {
       read: member.share_calendar !== false,
       write: member.calendar_write === true,
@@ -188,28 +224,36 @@ function normalizePermissions(member) {
       read: member.share_groceries !== false && member.share_meals !== false,
       write: member.groceries_write === true || member.meals_write === true,
     },
+    lists: {
+      read: member.share_lists !== false && member.share_groceries !== false,
+      write: member.lists_write === true || member.groceries_write === true,
+    },
+    custody: {
+      read: member.share_custody === true || member.custody_read === true,
+      write: member.custody_write === true,
+    },
+    budget: {
+      read: member.share_budget === true || member.budget_read === true,
+      write: member.budget_write === true,
+    },
+    notifications: {
+      read: member.share_notifications !== false,
+      write: member.notifications_write === true,
+    },
   };
 
   if (!member.permissions) return applyModulePermissions(legacy, member.modules);
 
-  return applyModulePermissions({
-    calendar: {
-      read: member.permissions.calendar?.read !== false,
-      write: member.permissions.calendar?.write === true,
-    },
-    tasks: {
-      read: member.permissions.tasks?.read !== false,
-      write: member.permissions.tasks?.write === true,
-    },
-    meals: {
-      read: member.permissions.meals?.read !== false,
-      write: member.permissions.meals?.write === true,
-    },
-    groceries: {
-      read: member.permissions.groceries?.read !== false,
-      write: member.permissions.groceries?.write === true,
-    },
-  }, member.modules);
+  return applyModulePermissions(
+    FAMILY_MODULE_NAMES.reduce(
+      (permissions, moduleName) => ({
+        ...permissions,
+        [moduleName]: permissionFrom(member.permissions[moduleName], legacy[moduleName]),
+      }),
+      {}
+    ),
+    member.modules
+  );
 }
 
 function normalizeFamilyProfile(family, user) {
