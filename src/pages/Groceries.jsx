@@ -244,6 +244,13 @@ const quickListTemplates = [
   },
 ];
 
+function timestampKey(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (value?.toDate) return value.toDate().toISOString();
+  return "";
+}
+
 function normalizeList(docSnap) {
   const data = docSnap.data();
 
@@ -266,7 +273,7 @@ function normalizeList(docSnap) {
       data.createdByEmail ||
       data.created_by_email ||
       "",
-    created_date: data.created_date || "",
+    created_date: data.created_date || timestampKey(data.createdAt),
   };
 }
 
@@ -282,7 +289,7 @@ function normalizeItem(docSnap) {
     status: data.status || "needed",
     checked: data.checked === true || data.status === "done",
     listId: data.listId || data.list_id || "",
-    created_date: data.created_date || "",
+    created_date: data.created_date || timestampKey(data.createdAt),
   };
 }
 
@@ -296,7 +303,7 @@ function normalizePantryItem(docSnap) {
     category: data.category || "household",
     status: data.status || "in_stock",
     note: data.note || "",
-    created_date: data.created_date || "",
+    created_date: data.created_date || timestampKey(data.createdAt),
   };
 }
 
@@ -1348,23 +1355,16 @@ export default function Groceries() {
         status: "active",
 
         assignedToPersonId: selectedAssignee.id || "family",
-        assigned_to_person_id: selectedAssignee.id || "family",
         assignedToPersonName: normalizePersonName(selectedAssignee.name, "Family"),
-        assigned_to_person_name: normalizePersonName(selectedAssignee.name, "Family"),
 
         familyId,
-        family_id: familyId,
 
         linkedEventId: "",
-        linked_event_id: "",
         linkedMealId: "",
-        linked_meal_id: "",
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
         createdByName: getProfileDisplayName(profile, user) || "Unknown member",
-        created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
-        created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -1402,23 +1402,16 @@ export default function Groceries() {
         checked: false,
 
         listId: activeList.id,
-        list_id: activeList.id,
         listTitle: activeList.title,
-        list_title: activeList.title,
         listType: activeList.type,
-        list_type: activeList.type,
 
         familyId,
-        family_id: familyId,
 
         assignedToPersonId: "",
-        assigned_to_person_id: "",
         requestedByPersonId: "",
-        requested_by_person_id: "",
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
-        created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -1567,9 +1560,7 @@ export default function Groceries() {
         description: editListDescription.trim(),
 
         assignedToPersonId: selectedAssignee.id || "family",
-        assigned_to_person_id: selectedAssignee.id || "family",
         assignedToPersonName: normalizePersonName(selectedAssignee.name, "Family"),
-        assigned_to_person_name: normalizePersonName(selectedAssignee.name, "Family"),
 
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid || null,
@@ -1797,14 +1788,11 @@ export default function Groceries() {
             note: "",
 
             familyId,
-            family_id: familyId,
 
             createdBy: user?.uid || null,
             createdByEmail: user?.email || null,
             createdByName: getProfileDisplayName(profile, user) || "Unknown member",
-            created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
 
-            created_date: new Date().toISOString(),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           })
@@ -1918,14 +1906,11 @@ export default function Groceries() {
         note: newPantryNote.trim(),
 
         familyId,
-        family_id: familyId,
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
         createdByName: getProfileDisplayName(profile, user) || "Unknown member",
-        created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
 
-        created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -2136,30 +2121,20 @@ export default function Groceries() {
               checked: false,
 
               listId: existing.id,
-              list_id: existing.id,
               listTitle: existing.title || "Pantry refill",
-              list_title: existing.title || "Pantry refill",
               listType: existing.type || "groceries",
-              list_type: existing.type || "groceries",
 
               familyId,
-              family_id: familyId,
 
               source: "pantry",
-              source_type: "pantry",
               pantryCategory: item.category,
-              pantry_category: item.category,
               pantryStatus: item.status,
-              pantry_status: item.status,
 
               assignedToPersonId: "",
-              assigned_to_person_id: "",
               requestedByPersonId: "",
-              requested_by_person_id: "",
 
               createdBy: user?.uid || null,
               createdByEmail: user?.email || null,
-              created_date: new Date().toISOString(),
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             })
@@ -2202,27 +2177,19 @@ export default function Groceries() {
         status: "active",
 
         assignedToPersonId: "family",
-        assigned_to_person_id: "family",
         assignedToPersonName: "Family",
-        assigned_to_person_name: "Family",
 
         familyId,
-        family_id: familyId,
 
         linkedEventId: "",
-        linked_event_id: "",
         linkedMealId: "",
-        linked_meal_id: "",
 
         source: "pantry",
-        source_type: "pantry",
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
         createdByName: getProfileDisplayName(profile, user) || "Unknown member",
-        created_by_name: getProfileDisplayName(profile, user) || "Unknown member",
 
-        created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -2243,32 +2210,21 @@ export default function Groceries() {
             checked: false,
 
             listId: listRef.id,
-            list_id: listRef.id,
             listTitle: "Pantry refill",
-            list_title: "Pantry refill",
             listType: "groceries",
-            list_type: "groceries",
 
             familyId,
-            family_id: familyId,
 
             source: "pantry",
-            source_type: "pantry",
             pantryCategory: item.category,
-            pantry_category: item.category,
             pantryStatus: item.status,
-            pantry_status: item.status,
             pantryKey: normalizeItemKey(item.title),
-            pantry_key: normalizeItemKey(item.title),
 
             assignedToPersonId: "",
-            assigned_to_person_id: "",
             requestedByPersonId: "",
-            requested_by_person_id: "",
 
             createdBy: user?.uid || null,
             createdByEmail: user?.email || null,
-            created_date: new Date().toISOString(),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           })

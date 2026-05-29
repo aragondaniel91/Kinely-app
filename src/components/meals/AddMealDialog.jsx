@@ -411,27 +411,19 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       status: "active",
 
       familyId,
-      family_id: familyId,
 
       linkedMealId: mealId,
-      linked_meal_id: mealId,
       linkedMealTitle: mealTitle || "",
-      linked_meal_title: mealTitle || "",
 
       source: "meal",
-      source_type: "meal",
 
       assignedToPersonId: "family",
-      assigned_to_person_id: "family",
       assignedToPersonName: "Family",
-      assigned_to_person_name: "Family",
 
       createdBy: user?.uid || null,
       createdByEmail: user?.email || null,
       createdByName: getCreatorName(profile, user),
-      created_by_name: getCreatorName(profile, user),
 
-      created_date: new Date().toISOString(),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -450,25 +442,17 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
           checked: false,
 
           listId: listRef.id,
-          list_id: listRef.id,
           listTitle: `${mealTitle || "Meal"} ingredients`,
-          list_title: `${mealTitle || "Meal"} ingredients`,
           listType: "meal",
-          list_type: "meal",
 
           familyId,
-          family_id: familyId,
 
           source: "mealTemplate",
-          source_type: "mealTemplate",
           linkedMealId: mealId,
-          linked_meal_id: mealId,
           linkedMealTitle: mealTitle || "",
-          linked_meal_title: mealTitle || "",
 
           createdBy: user?.uid || null,
           createdByEmail: user?.email || null,
-          created_date: new Date().toISOString(),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -500,27 +484,21 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       const mealRef = await addDoc(collection(db, "meals"), {
         date: format(date, "yyyy-MM-dd"),
 
-        meal_type: selectedType,
         mealType: selectedType,
 
         name: template.name || "Meal",
         notes: template.notes || "",
-        image_url: "",
         imageUrl: "",
 
         templateId: template.id,
-        template_id: template.id,
 
         familyId,
-        family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
         createdByName: getCreatorName(profile, user),
-        created_by_name: getCreatorName(profile, user),
 
-        created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -594,24 +572,19 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       const mealRef = await addDoc(collection(db, "meals"), {
         date: format(date, "yyyy-MM-dd"),
 
-        meal_type: mealType,
         mealType,
 
         name: name.trim(),
         notes: notes.trim() || "",
-        image_url: imageUrl.trim() || "",
         imageUrl: imageUrl.trim() || "",
 
         familyId,
-        family_id: familyId,
         familyName: profile?.family_name || profile?.familyName || "",
 
         createdBy: user?.uid || null,
         createdByEmail: user?.email || null,
         createdByName: getCreatorName(profile, user),
-        created_by_name: getCreatorName(profile, user),
 
-        created_date: new Date().toISOString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
