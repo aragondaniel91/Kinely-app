@@ -15,11 +15,13 @@ import { Button } from "@/components/ui/button";
 import AppDialog from "@/components/app/AppDialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import ProfileMemberEditorDialog, {
+import ProfileMemberEditorDialog from "@/components/profile/ProfileMemberEditorDialog";
+import {
   normalizeMemberRole,
   roleImpliesFullAccess,
+  roleToPersonType,
   roleToRelationship,
-} from "@/components/profile/ProfileMemberEditorDialog";
+} from "@/lib/memberRoles";
 import {
   buildDefaultModuleAccess,
   getMemberModuleAccess,
@@ -242,7 +244,7 @@ function getMembers(profile, user, myEmail) {
       email,
       role: normalizeMemberRole(member.role, "family"),
       relationship: member.relationship || member.memberRelationship || member.member_relationship || roleToRelationship(member.role || "family"),
-      type: member.type || member.personType || member.person_type || (member.role === "child" ? "child" : "adult"),
+      type: member.type || member.personType || member.person_type || roleToPersonType(member.role),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.isAdmin === true || member.is_admin === true,
       livesHere: booleanOrFallback(member.livesHere ?? member.lives_here, false),
@@ -412,7 +414,7 @@ export default function ProfileMembersSection() {
       email: member.email || "",
       role: normalizeMemberRole(member.role, member.source === "owner" ? "parent" : "caregiver"),
       relationship: member.relationship || member.memberRelationship || member.member_relationship || roleToRelationship(member.role),
-      type: member.type || member.personType || member.person_type || (member.role === "child" ? "child" : "adult"),
+      type: member.type || member.personType || member.person_type || roleToPersonType(member.role),
       color: member.color || member.familyColor || member.family_color || "teal",
       admin: member.admin === true || member.isAdmin === true || member.is_admin === true,
       livesHere: booleanOrFallback(member.livesHere ?? member.lives_here, false),
@@ -436,7 +438,7 @@ export default function ProfileMembersSection() {
       modules,
     });
     const relationship = nextEditor.relationship || roleToRelationship(role);
-    const type = nextEditor.type || (role === "child" ? "child" : "adult");
+    const type = nextEditor.type || roleToPersonType(role);
     const personId = nextEditor.personId || buildLocalMemberPersonId({
       email,
       name,

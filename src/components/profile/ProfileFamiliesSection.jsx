@@ -10,6 +10,14 @@ import {
   familyInvitationId,
   withPendingFamilyInvitation,
 } from "@/lib/invitationUtils";
+import {
+  FAMILY_ROLE_OPTIONS,
+  normalizeMemberRole,
+  roleDefaultLivesHere,
+  roleDefaultShowOnHomeDashboard,
+  roleToPersonType,
+  roleToRelationship,
+} from "@/lib/memberRoles";
 import { PERSON_COLOR_OPTIONS, colorClasses, getColorMeta, normalizeChildren } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,11 +32,9 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
-const roleOptions = [
-  { value: "parent", label: "Parent" },
-  { value: "dad", label: "Dad" },
-  { value: "mom", label: "Mom" },
-];
+const roleOptions = FAMILY_ROLE_OPTIONS
+  .filter((role) => role.personType !== "child")
+  .map((role) => ({ value: role.value, label: role.label }));
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -173,11 +179,11 @@ export default function ProfileFamiliesSection() {
     setFamilyName(profile.family_name || profile.familyName || "");
     setChildren(normalizeChildren(profile.children || []));
     setParent1Name(profile.parent1_name || profile.parent1Name || user?.displayName || "");
-    setParent1Role(profile.parent1_role || profile.parent1Role || "dad");
+    setParent1Role(normalizeMemberRole(profile.parent1_role || profile.parent1Role, "dad"));
     setParent1Color(profile.parent1_color || profile.parent1Color || "blue");
     setParent2Name(profile.parent2_name || profile.parent2Name || "");
     setParent2Email(profile.parent2_email || profile.parent2Email || "");
-    setParent2Role(profile.parent2_role || profile.parent2Role || "mom");
+    setParent2Role(normalizeMemberRole(profile.parent2_role || profile.parent2Role, "mom"));
     setParent2Color(profile.parent2_color || profile.parent2Color || "amber");
   }, [profile, user]);
 
@@ -242,6 +248,10 @@ export default function ProfileFamiliesSection() {
             recipientName: parent2Name,
             recipientEmail: cleanParent2Email,
             role: parent2Role,
+            relationship: roleToRelationship(parent2Role),
+            personType: roleToPersonType(parent2Role),
+            livesHere: roleDefaultLivesHere(parent2Role),
+            showOnHomeDashboard: roleDefaultShowOnHomeDashboard(parent2Role),
             createdBy: user?.uid,
             createdByEmail: user?.email,
           })
@@ -255,6 +265,10 @@ export default function ProfileFamiliesSection() {
         parent1_name: parent1Name.trim(),
         parent1Role,
         parent1_role: parent1Role,
+        parent1Relationship: roleToRelationship(parent1Role),
+        parent1_relationship: roleToRelationship(parent1Role),
+        parent1PersonType: roleToPersonType(parent1Role),
+        parent1_person_type: roleToPersonType(parent1Role),
         parent1Color,
         parent1_color: parent1Color,
         parent2Name: parent2Name.trim(),
@@ -263,6 +277,10 @@ export default function ProfileFamiliesSection() {
         parent2_email: cleanParent2Email,
         parent2Role,
         parent2_role: parent2Role,
+        parent2Relationship: roleToRelationship(parent2Role),
+        parent2_relationship: roleToRelationship(parent2Role),
+        parent2PersonType: roleToPersonType(parent2Role),
+        parent2_person_type: roleToPersonType(parent2Role),
         parent2Color,
         parent2_color: parent2Color,
       };
@@ -431,7 +449,7 @@ export default function ProfileFamiliesSection() {
               <div><Label>Family name</Label><Input value={familyName} onChange={(event) => setFamilyName(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
               <div><Label>Parent 1 name</Label><Input value={parent1Name} onChange={(event) => setParent1Name(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
               <div>
-                <Label>Parent 1 role</Label>
+                <Label>Adult 1 role</Label>
                 <Select value={parent1Role} onValueChange={setParent1Role} disabled={!canEdit}>
                   <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
                     <SelectValue />
@@ -449,7 +467,7 @@ export default function ProfileFamiliesSection() {
               <div><Label>Parent 2 name</Label><Input value={parent2Name} onChange={(event) => setParent2Name(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
               <div><Label>Parent 2 email</Label><Input value={parent2Email} onChange={(event) => setParent2Email(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
               <div>
-                <Label>Parent 2 role</Label>
+                <Label>Adult 2 role</Label>
                 <Select value={parent2Role} onValueChange={setParent2Role} disabled={!canEdit}>
                   <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
                     <SelectValue />

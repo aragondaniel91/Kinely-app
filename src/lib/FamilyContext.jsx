@@ -33,6 +33,14 @@ import {
   bootstrapFamilyIdForUser,
   findExistingFamilyIdForUser,
 } from "@/lib/familyBootstrap";
+import {
+  normalizeMemberRole,
+  oppositeParentRole,
+  roleDefaultLivesHere,
+  roleDefaultShowOnHomeDashboard,
+  roleToPersonType,
+  roleToRelationship,
+} from "@/lib/memberRoles";
 
 export const FamilyContext = createContext(null);
 
@@ -263,12 +271,13 @@ function normalizePermissions(member) {
 function normalizeFamilyProfile(family, user) {
   if (!family) return null;
 
-  const parent1Role = family.parent1Role || family.parent1_role || "dad";
+  const parent1Role = normalizeMemberRole(family.parent1Role || family.parent1_role, "dad");
 
   const parent2Role =
-    family.parent2Role ||
-    family.parent2_role ||
-    (parent1Role === "dad" ? "mom" : "dad");
+    normalizeMemberRole(
+      family.parent2Role || family.parent2_role,
+      oppositeParentRole(parent1Role)
+    );
 
   const familyName =
     family.familyName ||
@@ -420,6 +429,22 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
 
   const familyRef = doc(db, "families", bootstrapFamilyIdForUser(firebaseUser.uid));
   const parent1PersonId = `user_${firebaseUser.uid}`;
+  const parent1Role = normalizeMemberRole(userData?.role, "dad");
+  const parent1Relationship = userData?.relationship || userData?.memberRelationship || userData?.member_relationship || roleToRelationship(parent1Role);
+  const parent1PersonType = userData?.personType || userData?.person_type || roleToPersonType(parent1Role);
+  const parent1LivesHere =
+    typeof userData?.livesHere === "boolean"
+      ? userData.livesHere
+      : roleDefaultLivesHere(parent1Role);
+  const parent1ShowOnHomeDashboard =
+    typeof userData?.showOnHomeDashboard === "boolean"
+      ? userData.showOnHomeDashboard
+      : roleDefaultShowOnHomeDashboard(parent1Role);
+  const parent2Role = oppositeParentRole(parent1Role);
+  const parent2Relationship = roleToRelationship(parent2Role);
+  const parent2PersonType = roleToPersonType(parent2Role);
+  const parent2LivesHere = roleDefaultLivesHere(parent2Role);
+  const parent2ShowOnHomeDashboard = roleDefaultShowOnHomeDashboard(parent2Role);
 
   const familyData = {
     familyId: familyRef.id,
@@ -434,10 +459,16 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
     parent1_person_id: parent1PersonId,
     parent1Name: firebaseUser.displayName || userData?.name || "",
     parent1_name: firebaseUser.displayName || userData?.name || "",
-    parent1Role: userData?.role === "mom" ? "mom" : "dad",
-    parent1_role: userData?.role === "mom" ? "mom" : "dad",
-    parent1Relationship: userData?.role === "mom" ? "mother" : "father",
-    parent1_relationship: userData?.role === "mom" ? "mother" : "father",
+    parent1Role,
+    parent1_role: parent1Role,
+    parent1Relationship,
+    parent1_relationship: parent1Relationship,
+    parent1PersonType,
+    parent1_person_type: parent1PersonType,
+    parent1LivesHere,
+    parent1_lives_here: parent1LivesHere,
+    parent1ShowOnHomeDashboard,
+    parent1_show_on_home_dashboard: parent1ShowOnHomeDashboard,
     parent1Color: "blue",
     parent1_color: "blue",
 
@@ -447,10 +478,16 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
     parent2_name: "",
     parent2Email: "",
     parent2_email: "",
-    parent2Role: userData?.role === "mom" ? "dad" : "mom",
-    parent2_role: userData?.role === "mom" ? "dad" : "mom",
-    parent2Relationship: userData?.role === "mom" ? "father" : "mother",
-    parent2_relationship: userData?.role === "mom" ? "father" : "mother",
+    parent2Role,
+    parent2_role: parent2Role,
+    parent2Relationship,
+    parent2_relationship: parent2Relationship,
+    parent2PersonType,
+    parent2_person_type: parent2PersonType,
+    parent2LivesHere,
+    parent2_lives_here: parent2LivesHere,
+    parent2ShowOnHomeDashboard,
+    parent2_show_on_home_dashboard: parent2ShowOnHomeDashboard,
     parent2Color: "amber",
     parent2_color: "amber",
 
@@ -458,6 +495,7 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
 
     members: [
       {
+        id: parent1PersonId,
         personId: parent1PersonId,
         person_id: parent1PersonId,
         uid: firebaseUser.uid,
@@ -465,13 +503,27 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
         name: firebaseUser.displayName || userData?.name || "",
         displayName: firebaseUser.displayName || userData?.name || "",
         display_name: firebaseUser.displayName || userData?.name || "",
-        role: "owner",
-        relationship: userData?.role === "mom" ? "mother" : "father",
+        role: parent1Role,
+        type: parent1PersonType,
+        personType: parent1PersonType,
+        person_type: parent1PersonType,
+        relationship: parent1Relationship,
+        memberRelationship: parent1Relationship,
+        member_relationship: parent1Relationship,
+        appRole: "owner",
+        app_role: "owner",
+        livesHere: parent1LivesHere,
+        lives_here: parent1LivesHere,
+        showOnHomeDashboard: parent1ShowOnHomeDashboard,
+        show_on_home_dashboard: parent1ShowOnHomeDashboard,
+        homeDashboard: parent1ShowOnHomeDashboard,
+        home_dashboard: parent1ShowOnHomeDashboard,
         colorId: "blue",
         color_id: "blue",
         color: "blue",
         isAdmin: true,
         permissions: DEFAULT_PERMS,
+        modules: DEFAULT_PERMS,
       },
     ],
 
@@ -690,6 +742,26 @@ export function FamilyProvider({ children }) {
     const userRef = doc(db, "users", user.uid);
     const parent1PersonId = `user_${user.uid}`;
     const ownerEmail = normalizeInviteEmail(user.email);
+    const parent1Role = normalizeMemberRole(authProfile?.role, "dad");
+    const parent1Relationship =
+      authProfile?.relationship ||
+      authProfile?.memberRelationship ||
+      authProfile?.member_relationship ||
+      roleToRelationship(parent1Role);
+    const parent1PersonType = authProfile?.personType || authProfile?.person_type || roleToPersonType(parent1Role);
+    const parent1LivesHere =
+      typeof authProfile?.livesHere === "boolean"
+        ? authProfile.livesHere
+        : roleDefaultLivesHere(parent1Role);
+    const parent1ShowOnHomeDashboard =
+      typeof authProfile?.showOnHomeDashboard === "boolean"
+        ? authProfile.showOnHomeDashboard
+        : roleDefaultShowOnHomeDashboard(parent1Role);
+    const parent2Role = oppositeParentRole(parent1Role);
+    const parent2Relationship = roleToRelationship(parent2Role);
+    const parent2PersonType = roleToPersonType(parent2Role);
+    const parent2LivesHere = roleDefaultLivesHere(parent2Role);
+    const parent2ShowOnHomeDashboard = roleDefaultShowOnHomeDashboard(parent2Role);
     const cleanParent2Email = normalizeInviteEmail(parent2Email);
     const parent2PersonId = cleanParent2Email ? `email_${slugify(cleanParent2Email)}` : "";
     const pendingInvite = cleanParent2Email
@@ -698,7 +770,11 @@ export function FamilyProvider({ children }) {
           familyName: name,
           recipientName: parent2Name,
           recipientEmail: cleanParent2Email,
-          role: authProfile?.role === "mom" ? "dad" : "mom",
+          role: parent2Role,
+          relationship: parent2Relationship,
+          personType: parent2PersonType,
+          livesHere: parent2LivesHere,
+          showOnHomeDashboard: parent2ShowOnHomeDashboard,
           createdBy: user.uid,
           createdByEmail: ownerEmail,
         })
@@ -718,10 +794,16 @@ export function FamilyProvider({ children }) {
       parent1_person_id: parent1PersonId,
       parent1Name: user.displayName || authProfile?.name || "",
       parent1_name: user.displayName || authProfile?.name || "",
-      parent1Role: authProfile?.role === "mom" ? "mom" : "dad",
-      parent1_role: authProfile?.role === "mom" ? "mom" : "dad",
-      parent1Relationship: authProfile?.role === "mom" ? "mother" : "father",
-      parent1_relationship: authProfile?.role === "mom" ? "mother" : "father",
+      parent1Role,
+      parent1_role: parent1Role,
+      parent1Relationship,
+      parent1_relationship: parent1Relationship,
+      parent1PersonType,
+      parent1_person_type: parent1PersonType,
+      parent1LivesHere,
+      parent1_lives_here: parent1LivesHere,
+      parent1ShowOnHomeDashboard,
+      parent1_show_on_home_dashboard: parent1ShowOnHomeDashboard,
       parent1Color: "blue",
       parent1_color: "blue",
 
@@ -731,10 +813,16 @@ export function FamilyProvider({ children }) {
       parent2_name: parent2Name.trim(),
       parent2Email: cleanParent2Email,
       parent2_email: cleanParent2Email,
-      parent2Role: authProfile?.role === "mom" ? "dad" : "mom",
-      parent2_role: authProfile?.role === "mom" ? "dad" : "mom",
-      parent2Relationship: authProfile?.role === "mom" ? "father" : "mother",
-      parent2_relationship: authProfile?.role === "mom" ? "father" : "mother",
+      parent2Role,
+      parent2_role: parent2Role,
+      parent2Relationship,
+      parent2_relationship: parent2Relationship,
+      parent2PersonType,
+      parent2_person_type: parent2PersonType,
+      parent2LivesHere,
+      parent2_lives_here: parent2LivesHere,
+      parent2ShowOnHomeDashboard,
+      parent2_show_on_home_dashboard: parent2ShowOnHomeDashboard,
       parent2Color: "amber",
       parent2_color: "amber",
 
@@ -742,6 +830,7 @@ export function FamilyProvider({ children }) {
 
       members: [
         {
+          id: parent1PersonId,
           personId: parent1PersonId,
           person_id: parent1PersonId,
           uid: user.uid,
@@ -749,13 +838,27 @@ export function FamilyProvider({ children }) {
           name: user.displayName || authProfile?.name || "",
           displayName: user.displayName || authProfile?.name || "",
           display_name: user.displayName || authProfile?.name || "",
-          role: "owner",
-          relationship: authProfile?.role === "mom" ? "mother" : "father",
+          role: parent1Role,
+          type: parent1PersonType,
+          personType: parent1PersonType,
+          person_type: parent1PersonType,
+          relationship: parent1Relationship,
+          memberRelationship: parent1Relationship,
+          member_relationship: parent1Relationship,
+          appRole: "owner",
+          app_role: "owner",
+          livesHere: parent1LivesHere,
+          lives_here: parent1LivesHere,
+          showOnHomeDashboard: parent1ShowOnHomeDashboard,
+          show_on_home_dashboard: parent1ShowOnHomeDashboard,
+          homeDashboard: parent1ShowOnHomeDashboard,
+          home_dashboard: parent1ShowOnHomeDashboard,
           colorId: "blue",
           color_id: "blue",
           color: "blue",
           isAdmin: true,
           permissions: DEFAULT_PERMS,
+          modules: DEFAULT_PERMS,
         },
       ],
       memberIds: [user.uid],

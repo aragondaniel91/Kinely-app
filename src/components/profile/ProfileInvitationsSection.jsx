@@ -21,6 +21,10 @@ import {
   INVITATION_STATUS,
   normalizeInviteEmail,
 } from "@/lib/invitationUtils";
+import {
+  roleToPersonType,
+  roleToRelationship,
+} from "@/lib/memberRoles";
 
 const DEFAULT_MEMBER_PERMISSIONS = {
   home: { read: true, write: true },
@@ -108,7 +112,7 @@ function buildAcceptedMember({ invitation, user, email }) {
     invitation?.relationship ||
     invitation?.memberRelationship ||
     invitation?.member_relationship ||
-    role;
+    roleToRelationship(role);
   const livesHere = invitation?.livesHere === true || invitation?.lives_here === true;
   const showOnHomeDashboard =
     invitation?.showOnHomeDashboard === true ||
@@ -126,9 +130,9 @@ function buildAcceptedMember({ invitation, user, email }) {
     name,
     displayName: name,
     display_name: name,
-    type: invitation?.personType || invitation?.person_type || "adult",
-    personType: invitation?.personType || invitation?.person_type || "adult",
-    person_type: invitation?.person_type || invitation?.personType || "adult",
+    type: invitation?.personType || invitation?.person_type || roleToPersonType(role),
+    personType: invitation?.personType || invitation?.person_type || roleToPersonType(role),
+    person_type: invitation?.person_type || invitation?.personType || roleToPersonType(role),
     role,
     relationship,
     memberRelationship: relationship,

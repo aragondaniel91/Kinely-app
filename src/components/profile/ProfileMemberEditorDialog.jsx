@@ -23,37 +23,19 @@ import {
 import { Label } from "@/components/ui/label";
 import { PERSON_COLOR_OPTIONS } from "@/lib/personColorUtils";
 import {
+  FAMILY_ROLE_OPTIONS,
+  getMemberRoleMeta,
+  normalizeMemberRole,
+  roleImpliesFullAccess,
+  roleToPersonType,
+  roleToRelationship,
+} from "@/lib/memberRoles";
+import {
   buildDefaultModuleAccess,
   getMemberModuleAccess,
 } from "@/features/tasks/utils/memberModuleVisibility";
 
-export const roleOptions = [
-  { value: "parent", label: "Parent", relationship: "parent", fullAccess: true, livesHere: true },
-  { value: "dad", label: "Dad", relationship: "father", fullAccess: true, livesHere: true },
-  { value: "mom", label: "Mom", relationship: "mother", fullAccess: true, livesHere: true },
-  { value: "child", label: "Child / teen", relationship: "child", livesHere: true },
-  { value: "grandmother", label: "Grandmother", relationship: "grandmother", livesHere: false },
-  { value: "grandfather", label: "Grandfather", relationship: "grandfather", livesHere: false },
-  { value: "babysitter", label: "Babysitter", relationship: "babysitter", livesHere: false },
-  { value: "caregiver", label: "Caregiver", relationship: "caregiver", livesHere: false },
-  { value: "family", label: "Family member", relationship: "family_member", livesHere: true },
-];
-
-const roleValues = new Set(roleOptions.map((role) => role.value));
-const roleMetaByValue = new Map(roleOptions.map((role) => [role.value, role]));
-
-export function getMemberRoleMeta(role) {
-  const normalizedRole = normalizeMemberRole(role, "family");
-  return roleMetaByValue.get(normalizedRole) || roleMetaByValue.get("family");
-}
-
-export function roleImpliesFullAccess(role) {
-  return getMemberRoleMeta(role)?.fullAccess === true;
-}
-
-export function roleToRelationship(role) {
-  return getMemberRoleMeta(role)?.relationship || "family_member";
-}
+export const roleOptions = FAMILY_ROLE_OPTIONS;
 
 const MODULE_ACCESS_CONFIGS = [
   {
@@ -106,13 +88,6 @@ const MODULE_ACCESS_CONFIGS = [
     icon: Bell,
   },
 ];
-
-export function normalizeMemberRole(role, fallback = "caregiver") {
-  const value = String(role || "").trim().toLowerCase();
-  if (value === "member") return "family";
-  if (roleValues.has(value)) return value;
-  return fallback;
-}
 
 function booleanOrFallback(value, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
@@ -543,7 +518,7 @@ export default function ProfileMemberEditorDialog({
     patch({
       role: nextRole,
       relationship: roleToRelationship(nextRole),
-      type: nextRole === "child" ? "child" : "adult",
+      type: roleToPersonType(nextRole),
       livesHere: nextLivesHere,
       lives_here: nextLivesHere,
       showOnHomeDashboard: nextLivesHere ? true : safeEditor.showOnHomeDashboard,

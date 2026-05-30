@@ -17,6 +17,14 @@ import {
   bootstrapFamilyIdForUser,
   findExistingFamilyIdForUser,
 } from "@/lib/familyBootstrap";
+import {
+  normalizeMemberRole,
+  oppositeParentRole,
+  roleDefaultLivesHere,
+  roleDefaultShowOnHomeDashboard,
+  roleToPersonType,
+  roleToRelationship,
+} from "@/lib/memberRoles";
 
 const AuthContext = createContext(null);
 
@@ -67,12 +75,6 @@ function normalizeChild(child, index = 0) {
 function normalizeChildren(children = []) {
   if (!Array.isArray(children)) return [];
   return children.map(normalizeChild).filter(Boolean);
-}
-
-function oppositeParentRole(role) {
-  if (role === "mom") return "dad";
-  if (role === "dad") return "mom";
-  return "parent";
 }
 
 export function useAuth() {
@@ -196,7 +198,16 @@ export function AuthProvider({ children }) {
     const ownerEmail = normalizeEmail(firebaseUser.email);
     const ownerName = data.name || firebaseUser.displayName || "Family";
     const familyName = `${ownerName}'s Family`;
-    const parentRole = data.role || "dad";
+    const parentRole = normalizeMemberRole(data.role, "dad");
+    const parentRelationship = data.relationship || data.memberRelationship || data.member_relationship || roleToRelationship(parentRole);
+    const parentPersonType = data.personType || data.person_type || roleToPersonType(parentRole);
+    const parentLivesHere = typeof data.livesHere === "boolean" ? data.livesHere : roleDefaultLivesHere(parentRole);
+    const parentShowOnHomeDashboard =
+      typeof data.showOnHomeDashboard === "boolean"
+        ? data.showOnHomeDashboard
+        : roleDefaultShowOnHomeDashboard(parentRole);
+    const parent2Role = oppositeParentRole(parentRole);
+    const parent2Relationship = roleToRelationship(parent2Role);
     const ownerPersonId = `user_${firebaseUser.uid}`;
     const now = new Date().toISOString();
 
@@ -218,6 +229,14 @@ export function AuthProvider({ children }) {
         parent1_name: ownerName,
         parent1Role: parentRole,
         parent1_role: parentRole,
+        parent1Relationship: parentRelationship,
+        parent1_relationship: parentRelationship,
+        parent1PersonType: parentPersonType,
+        parent1_person_type: parentPersonType,
+        parent1LivesHere: parentLivesHere,
+        parent1_lives_here: parentLivesHere,
+        parent1ShowOnHomeDashboard: parentShowOnHomeDashboard,
+        parent1_show_on_home_dashboard: parentShowOnHomeDashboard,
         parent1Color: parentRole === "mom" ? "amber" : "blue",
         parent1_color: parentRole === "mom" ? "amber" : "blue",
         parent2PersonId: "",
@@ -225,21 +244,47 @@ export function AuthProvider({ children }) {
         parent2_name: "",
         parent2Email: "",
         parent2_email: "",
-        parent2Role: oppositeParentRole(parentRole),
-        parent2_role: oppositeParentRole(parentRole),
+        parent2Role,
+        parent2_role: parent2Role,
+        parent2Relationship,
+        parent2_relationship: parent2Relationship,
+        parent2PersonType: roleToPersonType(parent2Role),
+        parent2_person_type: roleToPersonType(parent2Role),
+        parent2LivesHere: roleDefaultLivesHere(parent2Role),
+        parent2_lives_here: roleDefaultLivesHere(parent2Role),
+        parent2ShowOnHomeDashboard: roleDefaultShowOnHomeDashboard(parent2Role),
+        parent2_show_on_home_dashboard: roleDefaultShowOnHomeDashboard(parent2Role),
         parent2Color: parentRole === "mom" ? "blue" : "amber",
         parent2_color: parentRole === "mom" ? "blue" : "amber",
         children: [],
         members: [
           {
+            id: ownerPersonId,
             uid: firebaseUser.uid,
             personId: ownerPersonId,
+            person_id: ownerPersonId,
             email: ownerEmail,
             name: ownerName,
             displayName: ownerName,
-            role: "owner",
+            display_name: ownerName,
+            role: parentRole,
+            type: parentPersonType,
+            personType: parentPersonType,
+            person_type: parentPersonType,
+            relationship: parentRelationship,
+            memberRelationship: parentRelationship,
+            member_relationship: parentRelationship,
+            appRole: "owner",
+            app_role: "owner",
+            livesHere: parentLivesHere,
+            lives_here: parentLivesHere,
+            showOnHomeDashboard: parentShowOnHomeDashboard,
+            show_on_home_dashboard: parentShowOnHomeDashboard,
+            homeDashboard: parentShowOnHomeDashboard,
+            home_dashboard: parentShowOnHomeDashboard,
             isAdmin: true,
             permissions: DEFAULT_PERMISSIONS,
+            modules: DEFAULT_PERMISSIONS,
           },
         ],
         memberIds: [firebaseUser.uid],
@@ -262,6 +307,10 @@ export function AuthProvider({ children }) {
       familyId: familyRef.id,
       familyIds: [familyRef.id],
       role: parentRole,
+      relationship: parentRelationship,
+      personType: parentPersonType,
+      livesHere: parentLivesHere,
+      showOnHomeDashboard: parentShowOnHomeDashboard,
       onboardingComplete: data.onboardingComplete ?? false,
       updatedAt: now,
     };
@@ -309,11 +358,27 @@ export function AuthProvider({ children }) {
     parent2Name = "",
     parent2Email = "",
     children = [],
+    relationship = "",
+    personType = "",
+    livesHere,
+    showOnHomeDashboard,
   }) => {
     const cleanEmail = normalizeEmail(email);
     const cleanParent2Email = normalizeEmail(parent2Email);
     const cleanName = String(name || "").trim();
-    const cleanRole = role || "parent";
+    const cleanRole = normalizeMemberRole(role, "parent");
+    const cleanRelationship = relationship || roleToRelationship(cleanRole);
+    const cleanPersonType = personType || roleToPersonType(cleanRole);
+    const cleanLivesHere = typeof livesHere === "boolean" ? livesHere : roleDefaultLivesHere(cleanRole);
+    const cleanShowOnHomeDashboard =
+      typeof showOnHomeDashboard === "boolean"
+        ? showOnHomeDashboard
+        : roleDefaultShowOnHomeDashboard(cleanRole);
+    const parent2Role = oppositeParentRole(cleanRole);
+    const parent2Relationship = roleToRelationship(parent2Role);
+    const parent2PersonType = roleToPersonType(parent2Role);
+    const parent2LivesHere = roleDefaultLivesHere(parent2Role);
+    const parent2ShowOnHomeDashboard = roleDefaultShowOnHomeDashboard(parent2Role);
     const now = new Date().toISOString();
     registrationInProgressRef.current = true;
     setLoading(true);
@@ -333,6 +398,10 @@ export function AuthProvider({ children }) {
           familyId: "",
           familyIds: [],
           role: cleanRole,
+          relationship: cleanRelationship,
+          personType: cleanPersonType,
+          livesHere: cleanLivesHere,
+          showOnHomeDashboard: cleanShowOnHomeDashboard,
           onboardingMode: "join",
           onboardingComplete: true,
           createdAt: now,
@@ -356,7 +425,11 @@ export function AuthProvider({ children }) {
             familyName: resolvedFamilyName,
             recipientName: parent2Name,
             recipientEmail: cleanParent2Email,
-            role: oppositeParentRole(cleanRole),
+            role: parent2Role,
+            relationship: parent2Relationship,
+            personType: parent2PersonType,
+            livesHere: parent2LivesHere,
+            showOnHomeDashboard: parent2ShowOnHomeDashboard,
             createdBy: result.user.uid,
             createdByEmail: cleanEmail,
             now,
@@ -378,6 +451,14 @@ export function AuthProvider({ children }) {
         parent1_name: cleanName,
         parent1Role: cleanRole,
         parent1_role: cleanRole,
+        parent1Relationship: cleanRelationship,
+        parent1_relationship: cleanRelationship,
+        parent1PersonType: cleanPersonType,
+        parent1_person_type: cleanPersonType,
+        parent1LivesHere: cleanLivesHere,
+        parent1_lives_here: cleanLivesHere,
+        parent1ShowOnHomeDashboard: cleanShowOnHomeDashboard,
+        parent1_show_on_home_dashboard: cleanShowOnHomeDashboard,
         parent1Color: cleanRole === "mom" ? "amber" : "blue",
         parent1_color: cleanRole === "mom" ? "amber" : "blue",
         parent2PersonId: cleanParent2Email ? `email_${cleanParent2Email.replace(/[^a-z0-9]+/g, "-")}` : "",
@@ -385,21 +466,47 @@ export function AuthProvider({ children }) {
         parent2_name: String(parent2Name || "").trim(),
         parent2Email: cleanParent2Email,
         parent2_email: cleanParent2Email,
-        parent2Role: oppositeParentRole(cleanRole),
-        parent2_role: oppositeParentRole(cleanRole),
+        parent2Role,
+        parent2_role: parent2Role,
+        parent2Relationship,
+        parent2_relationship: parent2Relationship,
+        parent2PersonType,
+        parent2_person_type: parent2PersonType,
+        parent2LivesHere,
+        parent2_lives_here: parent2LivesHere,
+        parent2ShowOnHomeDashboard,
+        parent2_show_on_home_dashboard: parent2ShowOnHomeDashboard,
         parent2Color: cleanRole === "mom" ? "blue" : "amber",
         parent2_color: cleanRole === "mom" ? "blue" : "amber",
         children: cleanChildren,
         members: [
           {
+            id: ownerPersonId,
             uid: result.user.uid,
             personId: ownerPersonId,
+            person_id: ownerPersonId,
             email: cleanEmail,
             name: cleanName,
             displayName: cleanName,
-            role: "owner",
+            display_name: cleanName,
+            role: cleanRole,
+            type: cleanPersonType,
+            personType: cleanPersonType,
+            person_type: cleanPersonType,
+            relationship: cleanRelationship,
+            memberRelationship: cleanRelationship,
+            member_relationship: cleanRelationship,
+            appRole: "owner",
+            app_role: "owner",
+            livesHere: cleanLivesHere,
+            lives_here: cleanLivesHere,
+            showOnHomeDashboard: cleanShowOnHomeDashboard,
+            show_on_home_dashboard: cleanShowOnHomeDashboard,
+            homeDashboard: cleanShowOnHomeDashboard,
+            home_dashboard: cleanShowOnHomeDashboard,
             isAdmin: true,
             permissions: DEFAULT_PERMISSIONS,
+            modules: DEFAULT_PERMISSIONS,
           },
         ],
         memberIds: [result.user.uid],
@@ -427,6 +534,10 @@ export function AuthProvider({ children }) {
         familyId: familyRef.id,
         familyIds: [familyRef.id],
         role: cleanRole,
+        relationship: cleanRelationship,
+        personType: cleanPersonType,
+        livesHere: cleanLivesHere,
+        showOnHomeDashboard: cleanShowOnHomeDashboard,
         onboardingMode,
         onboardingComplete: true,
         createdAt: now,

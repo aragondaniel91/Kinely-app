@@ -1,8 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Baby, Check, HeartHandshake, Home, Lock, Mail, Shield, Sparkles, UserRound, Users } from "lucide-react";
 
 import { useAuth } from "@/lib/AuthContext";
+import {
+  FAMILY_ROLE_OPTIONS,
+  getMemberRoleMeta,
+  roleDefaultLivesHere,
+  roleDefaultShowOnHomeDashboard,
+  roleToPersonType,
+  roleToRelationship,
+} from "@/lib/memberRoles";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,12 +24,24 @@ const steps = [
   { id: "review", label: "Review" },
 ];
 
-const roleOptions = [
-  { id: "dad", label: "Dad", description: "I am a father or dad figure.", icon: UserRound },
-  { id: "mom", label: "Mom", description: "I am a mother or mom figure.", icon: UserRound },
-  { id: "parent", label: "Parent", description: "I am a parent or legal guardian.", icon: HeartHandshake },
-  { id: "caregiver", label: "Caregiver", description: "I help care for the child or family.", icon: Users },
-];
+const roleIconMap = {
+  parent: HeartHandshake,
+  dad: UserRound,
+  mom: UserRound,
+  child: Baby,
+  grandmother: Users,
+  grandfather: Users,
+  babysitter: Users,
+  caregiver: HeartHandshake,
+  family: Users,
+};
+
+const roleOptions = FAMILY_ROLE_OPTIONS.map((roleOption) => ({
+  ...roleOption,
+  id: roleOption.value,
+  icon: roleIconMap[roleOption.value] || Users,
+  note: roleOption.inviteRecommended ? "Best with a family invitation" : "",
+}));
 
 const modeOptions = [
   {
@@ -61,15 +81,56 @@ function Progress({ currentStep }) {
   );
 }
 
-function OptionCard({ option, active, onClick }) {
+function OptionCard({ option, active, onClick, disabled = false }) {
   const Icon = option.icon;
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`rounded-3xl border p-4 text-left transition ${
+        disabled
+          ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60"
+          : active
+          ? "border-indigo-300 bg-indigo-50 shadow-sm"
+          : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+          active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500"
+        }`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-black text-slate-950">{option.label}</h3>
+            {active && <Check className="h-4 w-4 text-indigo-600" />}
+          </div>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{option.description}</p>
+          {option.note && (
+            <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-600">
+              {option.note}
+            </p>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function SetupOptionCard({ option, active, onClick, disabled = false }) {
+  const Icon = option.icon;
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       className={`rounded-3xl border p-4 text-left transition ${
         active
           ? "border-indigo-300 bg-indigo-50 shadow-sm"
+          : disabled
+          ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60"
           : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
       }`}
     >
@@ -138,6 +199,8 @@ export default function Register() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const selectedRoleMeta = getMemberRoleMeta(role);
+  const shouldJoinByInvite = selectedRoleMeta?.inviteRecommended === true;
 
   const children = useMemo(
     () => childrenText.split(",").map((childName, index) => ({
@@ -149,6 +212,12 @@ export default function Register() {
   );
 
   const resolvedFamilyName = familyName.trim() || `${name.trim() || "My"} Family`;
+
+  useEffect(() => {
+    if (shouldJoinByInvite && onboardingMode === "create") {
+      setOnboardingMode("join");
+    }
+  }, [onboardingMode, shouldJoinByInvite]);
 
   function validateCurrentStep() {
     setError("");
@@ -162,6 +231,10 @@ export default function Register() {
 
     if (step === 2 && onboardingMode === "join" && !normalizeEmail(inviteEmail || email)) {
       return "Please enter the email address used for the invitation.";
+    }
+
+    if (step === 2 && onboardingMode === "create" && shouldJoinByInvite) {
+      return `${selectedRoleMeta?.label || "This role"} accounts should join with an invitation from a family admin.`;
     }
 
     if (step === 3 && onboardingMode === "create" && !resolvedFamilyName.trim()) {
@@ -207,6 +280,10 @@ export default function Register() {
         parent2Name,
         parent2Email,
         children,
+        relationship: roleToRelationship(role),
+        personType: roleToPersonType(role),
+        livesHere: roleDefaultLivesHere(role),
+        showOnHomeDashboard: roleDefaultShowOnHomeDashboard(role),
       });
       navigate(onboardingMode === "join" ? "/profile?tab=invitations" : "/");
     } catch (err) {
@@ -295,10 +372,17 @@ export default function Register() {
             )}
 
             {step === 1 && (
-              <div className="grid gap-3 md:grid-cols-2">
-                {roleOptions.map((option) => (
-                  <OptionCard key={option.id} option={option} active={role === option.id} onClick={() => setRole(option.id)} />
-                ))}
+              <div className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {roleOptions.map((option) => (
+                    <OptionCard key={option.id} option={option} active={role === option.id} onClick={() => setRole(option.id)} />
+                  ))}
+                </div>
+                {selectedRoleMeta?.inviteRecommended && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
+                    {selectedRoleMeta.label} accounts are usually added by a family admin so permissions can be limited correctly.
+                  </div>
+                )}
               </div>
             )}
 
@@ -306,7 +390,19 @@ export default function Register() {
               <div className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2">
                   {modeOptions.map((option) => (
-                    <OptionCard key={option.id} option={option} active={onboardingMode === option.id} onClick={() => setOnboardingMode(option.id)} />
+                    <SetupOptionCard
+                      key={option.id}
+                      option={{
+                        ...option,
+                        description:
+                          option.id === "create" && shouldJoinByInvite
+                            ? "This role should be invited by a family admin so access can be scoped safely."
+                            : option.description,
+                      }}
+                      active={onboardingMode === option.id}
+                      disabled={option.id === "create" && shouldJoinByInvite}
+                      onClick={() => setOnboardingMode(option.id)}
+                    />
                   ))}
                 </div>
                 {onboardingMode === "join" && (
