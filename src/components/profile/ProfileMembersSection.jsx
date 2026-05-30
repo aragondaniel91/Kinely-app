@@ -18,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import ProfileMemberEditorDialog from "@/components/profile/ProfileMemberEditorDialog";
 import {
   normalizeMemberRole,
-  roleImpliesFullAccess,
   roleToPersonType,
   roleToRelationship,
 } from "@/lib/memberRoles";
@@ -89,7 +88,7 @@ function memberHasWriteAccess(permissions = {}) {
 }
 
 function appRoleForMember({ role, admin, permissions }) {
-  if (admin || roleImpliesFullAccess(role)) return "admin";
+  if (admin) return "admin";
   if (memberHasWriteAccess(permissions)) return "editor";
   return "viewer";
 }
@@ -124,8 +123,7 @@ function isAdminMember(member = {}) {
     appRole === "owner" ||
     appRole === "admin" ||
     role === "owner" ||
-    role === "admin" ||
-    roleImpliesFullAccess(role)
+    role === "admin"
   );
 }
 
@@ -137,7 +135,7 @@ function modulePermissionFromAccess(access = {}, fallback = { read: false, write
 }
 
 function buildPermissionsForMember({ role, admin = false, modules = {} }) {
-  if (admin || roleImpliesFullAccess(role)) return defaultPermissions;
+  if (admin) return defaultPermissions;
 
   const permissions = editableModuleNames.reduce(
     (nextPermissions, moduleName) => ({
@@ -309,7 +307,7 @@ function getMembers(profile, user, myEmail) {
 
 function MemberCard({ member, onEdit, onDelete }) {
   const color = getColorMeta(member.color);
-  const hasFullAccess = member.admin || roleImpliesFullAccess(member.role);
+  const hasFullAccess = member.admin === true;
   const moduleBadges = editableModuleNames
     .map((moduleName) => {
       const access = getMemberModuleAccess(member, moduleName);
@@ -492,8 +490,7 @@ export default function ProfileMembersSection() {
     const showOnHomeDashboard =
       nextEditor.showOnHomeDashboard === true ||
       nextEditor.show_on_home_dashboard === true ||
-      livesHere ||
-      roleImpliesFullAccess(role);
+      livesHere;
     const appRole = appRoleForMember({
       role,
       admin: nextEditor.admin === true,
@@ -681,6 +678,8 @@ export default function ProfileMembersSection() {
           showOnHomeDashboard,
           modules,
           permissions,
+          admin: nextEditor.admin === true,
+          appRole,
           createdBy: user?.uid,
           createdByEmail: myEmail || user?.email,
         });

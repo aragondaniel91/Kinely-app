@@ -344,6 +344,17 @@ service cloud.firestore {
         && getAfter(currentUserFamilyInvitationPath(familyId)).data.recipientEmail == userEmail();
     }
 
+    function currentUserFamilyInvitationAfterGrantsAdmin(familyId) {
+      return currentUserFamilyInvitationAfterStatus(familyId, "accepted")
+        && (
+          getAfter(currentUserFamilyInvitationPath(familyId)).data.admin == true
+          || getAfter(currentUserFamilyInvitationPath(familyId)).data.isAdmin == true
+          || getAfter(currentUserFamilyInvitationPath(familyId)).data.is_admin == true
+          || getAfter(currentUserFamilyInvitationPath(familyId)).data.appRole == "admin"
+          || getAfter(currentUserFamilyInvitationPath(familyId)).data.app_role == "admin"
+        );
+    }
+
     function currentUserCustodyInvitationAfterStatus(groupId, status) {
       return signedIn()
         && exists(currentUserCustodyInvitationPath(groupId))
@@ -362,6 +373,16 @@ service cloud.firestore {
         .hasAll(listOrEmpty(resource.data.memberIds));
     }
 
+    function familyAdminEmailsPreserved() {
+      return listOrEmpty(request.resource.data.adminEmails)
+        .hasAll(listOrEmpty(resource.data.adminEmails));
+    }
+
+    function familyAdminIdsPreserved() {
+      return listOrEmpty(request.resource.data.adminIds)
+        .hasAll(listOrEmpty(resource.data.adminIds));
+    }
+
     function canAcceptFamilyInvitationUpdate(familyId) {
       return signedIn()
         && familyExists(familyId)
@@ -372,15 +393,37 @@ service cloud.firestore {
         && familyMemberEmailsPreserved()
         && familyMemberIdsPreserved()
         && currentUserFamilyInvitationAfterStatus(familyId, "accepted")
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "memberIds",
-          "memberEmails",
-          "member_emails",
-          "pendingMemberEmails",
-          "pending_member_emails",
-          "members",
-          "updatedAt"
-        ]);
+        && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "memberIds",
+            "memberEmails",
+            "member_emails",
+            "pendingMemberEmails",
+            "pending_member_emails",
+            "members",
+            "updatedAt"
+          ])
+          || (
+            currentUserFamilyInvitationAfterGrantsAdmin(familyId)
+            && request.auth.uid in listOrEmpty(request.resource.data.adminIds)
+            && userEmail() in listOrEmpty(request.resource.data.adminEmails)
+            && familyAdminEmailsPreserved()
+            && familyAdminIdsPreserved()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "memberIds",
+              "memberEmails",
+              "member_emails",
+              "pendingMemberEmails",
+              "pending_member_emails",
+              "members",
+              "adminIds",
+              "admin_ids",
+              "adminEmails",
+              "admin_emails",
+              "updatedAt"
+            ])
+          )
+        );
     }
 
     function canDeclineFamilyInvitationUpdate(familyId) {

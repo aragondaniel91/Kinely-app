@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Baby, Check, HeartHandshake, Home, Lock, Mail, Shield, Sparkles, UserRound, Users } from "lucide-react";
 
@@ -321,12 +321,6 @@ export default function Register() {
 
   const resolvedFamilyName = familyName.trim() || `${name.trim() || "My"} Family`;
 
-  useEffect(() => {
-    if (shouldJoinByInvite && onboardingMode === "create") {
-      setOnboardingMode("join");
-    }
-  }, [onboardingMode, shouldJoinByInvite]);
-
   function validateCurrentStep() {
     setError("");
 
@@ -339,10 +333,6 @@ export default function Register() {
 
     if (step === 2 && onboardingMode === "join" && !normalizeEmail(inviteEmail || email)) {
       return "Please enter the email address used for the invitation.";
-    }
-
-    if (step === 2 && onboardingMode === "create" && shouldJoinByInvite) {
-      return `${selectedRoleMeta?.label || "This role"} accounts should join with an invitation from a family admin.`;
     }
 
     if (step === 3 && onboardingMode === "create" && !resolvedFamilyName.trim()) {
@@ -497,11 +487,10 @@ export default function Register() {
                         ...option,
                         description:
                           option.id === "create" && shouldJoinByInvite
-                            ? "This role should be invited by a family admin so access can be scoped safely."
+                            ? "Create your own private family space. Invitations only affect other family spaces you join."
                             : option.description,
                       }}
                       active={onboardingMode === option.id}
-                      disabled={option.id === "create" && shouldJoinByInvite}
                       onClick={() => setOnboardingMode(option.id)}
                     />
                   ))}

@@ -26,7 +26,6 @@ import {
   FAMILY_ROLE_OPTIONS,
   getMemberRoleMeta,
   normalizeMemberRole,
-  roleImpliesFullAccess,
   roleToPersonType,
   roleToRelationship,
 } from "@/lib/memberRoles";
@@ -454,7 +453,6 @@ export default function ProfileMemberEditorDialog({
   const normalizedRole = normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver");
   const roleMeta = getMemberRoleMeta(normalizedRole);
   const defaultLivesHere = isOwner || roleMeta?.livesHere === true;
-  const roleGrantsFullAccess = roleImpliesFullAccess(normalizedRole);
 
   const safeEditor = {
     ...editor,
@@ -464,15 +462,15 @@ export default function ProfileMemberEditorDialog({
     relationship: editor.relationship || editor.memberRelationship || editor.member_relationship || roleToRelationship(normalizedRole),
     type: editor.type || editor.personType || editor.person_type || roleToPersonType(normalizedRole),
     color: editor.color || "teal",
-    admin: editor.admin === true || editor.isAdmin === true || editor.is_admin === true || roleGrantsFullAccess,
+    admin: editor.admin === true || editor.isAdmin === true || editor.is_admin === true,
     livesHere: booleanOrFallback(editor.livesHere ?? editor.lives_here, defaultLivesHere),
     showOnHomeDashboard: booleanOrFallback(
       editor.showOnHomeDashboard ?? editor.show_on_home_dashboard ?? editor.homeDashboard ?? editor.home_dashboard,
-      defaultLivesHere || roleGrantsFullAccess
+      defaultLivesHere
     ),
     modules: normalizedModules,
   };
-  const receivesFullAccess = safeEditor.admin || roleGrantsFullAccess;
+  const receivesFullAccess = safeEditor.admin;
 
   function patch(updates) {
     onChange?.({ ...safeEditor, ...updates });
@@ -614,7 +612,7 @@ export default function ProfileMemberEditorDialog({
               <Switch
                 checked={safeEditor.admin}
                 onCheckedChange={patchAdminAccess}
-                disabled={isOwner || roleGrantsFullAccess}
+                disabled={isOwner}
               />
             </label>
           </div>
@@ -645,7 +643,7 @@ export default function ProfileMemberEditorDialog({
 
           {!isOwner && receivesFullAccess && (
             <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 md:col-span-2">
-              {roleGrantsFullAccess ? "This role receives full access by default." : "Admins receive full access to this family space."}
+              Admins receive full access to this family space.
             </div>
           )}
         </div>

@@ -27,15 +27,15 @@ import {
 } from "@/lib/memberRoles";
 
 const DEFAULT_MEMBER_PERMISSIONS = {
-  home: { read: true, write: true },
-  calendar: { read: true, write: true },
-  tasks: { read: true, write: true },
-  meals: { read: true, write: true },
-  lists: { read: true, write: true },
-  groceries: { read: true, write: true },
+  home: { read: false, write: false },
+  calendar: { read: false, write: false },
+  tasks: { read: false, write: false },
+  meals: { read: false, write: false },
+  lists: { read: false, write: false },
+  groceries: { read: false, write: false },
   custody: { read: false, write: false },
   budget: { read: false, write: false },
-  notifications: { read: true, write: false },
+  notifications: { read: false, write: false },
 };
 
 const INVITATION_COLLECTIONS = {
@@ -108,6 +108,13 @@ function buildAcceptedMember({ invitation, user, email }) {
     user?.displayName ||
     email;
   const role = invitationRole(invitation);
+  const admin =
+    invitation?.admin === true ||
+    invitation?.isAdmin === true ||
+    invitation?.is_admin === true ||
+    invitation?.appRole === "admin" ||
+    invitation?.app_role === "admin";
+  const appRole = invitation?.appRole || invitation?.app_role || (admin ? "admin" : "viewer");
   const relationship =
     invitation?.relationship ||
     invitation?.memberRelationship ||
@@ -143,7 +150,11 @@ function buildAcceptedMember({ invitation, user, email }) {
     show_on_home_dashboard: showOnHomeDashboard,
     homeDashboard: showOnHomeDashboard,
     home_dashboard: showOnHomeDashboard,
-    isAdmin: false,
+    appRole,
+    app_role: appRole,
+    admin,
+    isAdmin: admin,
+    is_admin: admin,
     invitationStatus: "accepted",
     invitation_status: "accepted",
     invitationId: invitation.id,
@@ -391,7 +402,7 @@ export default function ProfileInvitationsSection() {
         updated_at: new Date().toISOString(),
       });
 
-      batch.update(familyRef, {
+      const familyUpdate = {
         memberIds: arrayUnion(user.uid),
         memberEmails: arrayUnion(recipientEmail),
         member_emails: arrayUnion(recipientEmail),
@@ -399,7 +410,16 @@ export default function ProfileInvitationsSection() {
         pending_member_emails: arrayRemove(recipientEmail),
         members: arrayUnion(member),
         updatedAt: serverTimestamp(),
-      });
+      };
+
+      if (member.isAdmin === true) {
+        familyUpdate.adminIds = arrayUnion(user.uid);
+        familyUpdate.admin_ids = arrayUnion(user.uid);
+        familyUpdate.adminEmails = arrayUnion(recipientEmail);
+        familyUpdate.admin_emails = arrayUnion(recipientEmail);
+      }
+
+      batch.update(familyRef, familyUpdate);
 
       batch.set(
         userRef,

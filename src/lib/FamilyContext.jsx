@@ -36,7 +36,6 @@ import {
 import {
   normalizeMemberRole,
   oppositeParentRole,
-  roleImpliesFullAccess,
   roleDefaultLivesHere,
   roleDefaultShowOnHomeDashboard,
   roleToPersonType,
@@ -82,6 +81,18 @@ const READ_ONLY_PERMS = {
   notifications: { read: true, write: false },
 };
 
+const NO_PERMS = {
+  home: { read: false, write: false },
+  calendar: { read: false, write: false },
+  tasks: { read: false, write: false },
+  meals: { read: false, write: false },
+  groceries: { read: false, write: false },
+  lists: { read: false, write: false },
+  custody: { read: false, write: false },
+  budget: { read: false, write: false },
+  notifications: { read: false, write: false },
+};
+
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -100,8 +111,7 @@ function memberHasAdminRole(member) {
     appRole === "owner" ||
     appRole === "admin" ||
     role === "owner" ||
-    role === "admin" ||
-    roleImpliesFullAccess(role)
+    role === "admin"
   );
 }
 
@@ -203,6 +213,31 @@ function hasModulePermissions(modules = {}) {
   );
 }
 
+function hasLegacyPermissions(member = {}) {
+  return [
+    "share_home",
+    "home_write",
+    "share_calendar",
+    "calendar_write",
+    "share_tasks",
+    "tasks_write",
+    "share_meals",
+    "meals_write",
+    "share_groceries",
+    "groceries_write",
+    "share_lists",
+    "lists_write",
+    "share_custody",
+    "custody_read",
+    "custody_write",
+    "share_budget",
+    "budget_read",
+    "budget_write",
+    "share_notifications",
+    "notifications_write",
+  ].some((key) => typeof member[key] === "boolean");
+}
+
 function moduleAccessToPermission(moduleAccess = {}, fallback = { read: false, write: false }) {
   return {
     read: booleanOrUndefined(moduleAccess.read) ?? fallback.read === true,
@@ -233,10 +268,14 @@ function permissionFrom(value = {}, fallback = { read: false, write: false }) {
 }
 
 function normalizePermissions(member) {
-  if (!member) return READ_ONLY_PERMS;
+  if (!member) return NO_PERMS;
 
   if (member.isAdmin || member.is_admin) {
     return DEFAULT_PERMS;
+  }
+
+  if (!member.permissions && !hasModulePermissions(member.modules) && !hasLegacyPermissions(member)) {
+    return NO_PERMS;
   }
 
   const legacy = {

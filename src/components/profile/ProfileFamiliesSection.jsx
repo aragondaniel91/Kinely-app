@@ -428,12 +428,10 @@ export default function ProfileFamiliesSection() {
               <p className="text-sm font-black uppercase tracking-wider text-slate-500">Active Family Details</p>
               <p className="text-sm font-semibold text-slate-400">Edit adults, children, and family-specific colors.</p>
             </div>
-            {canEdit && (
-              <Button variant="outline" onClick={() => setShowCreateFamily((current) => !current)} className="gap-2">
-                {showCreateFamily ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {showCreateFamily ? "Close" : "New Family"}
-              </Button>
-            )}
+            <Button variant="outline" onClick={() => setShowCreateFamily((current) => !current)} className="gap-2">
+              {showCreateFamily ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {showCreateFamily ? "Close" : "New Family"}
+            </Button>
           </div>
 
           {showCreateFamily ? (
