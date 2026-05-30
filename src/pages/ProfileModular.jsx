@@ -5,11 +5,11 @@ import {
   Bell,
   CalendarHeart,
   Home,
+  Layers3,
   LogOut,
   Mail,
   Settings,
   Shield,
-  Users,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/AuthContext";
@@ -27,9 +27,9 @@ import NotificationPreferences from "@/pages/NotificationPreferences";
 
 const tabs = [
   { id: "overview", label: "Overview", icon: Home },
-  { id: "families", label: "Families", icon: Users },
+  { id: "families", label: "Family Space", icon: Layers3 },
+  { id: "members", label: "Members & Access", icon: Shield },
   { id: "children", label: "Children", icon: Baby },
-  { id: "members", label: "Members", icon: Shield },
   { id: "invitations", label: "Invites", icon: Mail },
   { id: "custody", label: "Custody", icon: CalendarHeart },
   { id: "notifications", label: "Notifications", icon: Bell },
@@ -92,7 +92,7 @@ export default function ProfileModular() {
             <div>
               <h1 className="text-3xl font-black tracking-tight text-slate-950">{familyNameOf(profile)}</h1>
               <p className="text-sm font-semibold text-slate-500">
-                Manage your family space, members, children, custody settings, notifications, and app preferences.
+                Manage the active family space, members and access, children, custody, notifications, and app preferences.
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {isOwner && <Badge variant="secondary" className="gap-1"><Shield className="h-3 w-3" /> Owner</Badge>}

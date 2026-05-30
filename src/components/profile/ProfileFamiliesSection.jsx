@@ -1,28 +1,21 @@
-import { useEffect, useState } from "react";
-import { doc, setDoc } from "firebase/firestore";
-import { Check, Plus, Save, Trash2, Users, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Home, Layers3, Plus, Save, Trash2, Users, X } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
-import { db } from "@/lib/firebase";
 import { deleteFamilyCascade } from "@/services/familyAdminService";
-import {
-  buildFamilyInvitation,
-  familyInvitationId,
-  withPendingFamilyInvitation,
-} from "@/lib/invitationUtils";
-import {
-  FAMILY_ROLE_OPTIONS,
-  normalizeMemberRole,
-  roleDefaultLivesHere,
-  roleDefaultShowOnHomeDashboard,
-  roleToPersonType,
-  roleToRelationship,
-} from "@/lib/memberRoles";
-import { PERSON_COLOR_OPTIONS, colorClasses, getColorMeta, normalizeChildren } from "@/lib/personColorUtils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import AppDialog from "@/components/app/AppDialog";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -30,105 +23,112 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 
-const roleOptions = FAMILY_ROLE_OPTIONS
-  .filter((role) => role.personType !== "child")
-  .map((role) => ({ value: role.value, label: role.label }));
+const FAMILY_TYPES = [
+  {
+    value: "household",
+    label: "Household",
+    description: "Daily home wall for calendar, tasks, meals, lists, and shared routines.",
+  },
+  {
+    value: "coparenting",
+    label: "Co-parenting",
+    description: "Separated custody space with child schedules, exchanges, packing, and budget controls.",
+  },
+  {
+    value: "shared_household",
+    label: "Shared household",
+    description: "A home with partners, relatives, adult children, or roommates sharing selected modules.",
+  },
+  {
+    value: "caregiving",
+    label: "Caregiving support",
+    description: "Limited access space for grandparents, babysitters, caregivers, or trusted helpers.",
+  },
+];
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
-}
+const FAMILY_TYPE_BY_VALUE = FAMILY_TYPES.reduce((map, option) => {
+  map[option.value] = option;
+  return map;
+}, {});
 
 function familyNameOf(family) {
-  return family?.family_name || family?.familyName || "Family";
+  return family?.familyName || family?.family_name || "Untitled family";
 }
 
-function getFamilyMemberCount(family) {
-  if (Array.isArray(family?.memberEmails)) return family.memberEmails.length;
-  if (Array.isArray(family?.member_emails)) return family.member_emails.length;
-  if (Array.isArray(family?.members)) return family.members.length + 1;
-  return 1;
+function familyTypeOf(family) {
+  const type = family?.familyType || family?.family_type || family?.type || "household";
+  return FAMILY_TYPE_BY_VALUE[type] ? type : "household";
 }
 
-function getFamilyMemberEmails(family) {
-  if (Array.isArray(family?.memberEmails)) return family.memberEmails;
-  if (Array.isArray(family?.member_emails)) return family.member_emails;
-  return [];
+function familyTypeMeta(type) {
+  return FAMILY_TYPE_BY_VALUE[type] || FAMILY_TYPE_BY_VALUE.household;
 }
 
-function ColorPicker({ value, onChange, label = "Color", disabled = false }) {
-  return (
-    <div>
-      <Label>{label}</Label>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {PERSON_COLOR_OPTIONS.map((color) => {
-          const active = value === color.id;
-          return (
-            <button
-              key={color.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onChange(color.id)}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                active
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <span className={`h-3 w-3 rounded-full ${color.dot}`} />
-              {color.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+function memberCountOf(family) {
+  const memberIds = Array.isArray(family?.memberIds) ? family.memberIds.length : 0;
+  const memberEmails = Array.isArray(family?.memberEmails) ? family.memberEmails.length : 0;
+  const members = Array.isArray(family?.members) ? family.members.length : 0;
+  return Math.max(memberIds, memberEmails, members, family?.ownerEmail || family?.ownerId ? 1 : 0);
 }
 
-function FamilyCard({ family, active, onSelect }) {
-  const children = normalizeChildren(family?.children || []);
-  const memberCount = getFamilyMemberCount(family);
+function childCountOf(family) {
+  if (Array.isArray(family?.children)) return family.children.length;
+  return family?.child_name || family?.childName ? 1 : 0;
+}
+
+function FamilySpaceRow({ active, family, onSelect }) {
+  const type = familyTypeMeta(familyTypeOf(family));
+  const members = memberCountOf(family);
+  const children = childCountOf(family);
 
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-3xl border p-4 text-left transition ${
+      className={`w-full rounded-2xl border p-4 text-left transition ${
         active
-          ? "border-indigo-300 bg-indigo-50 shadow-sm"
-          : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
+          ? "border-indigo-300 bg-indigo-50 text-slate-950 shadow-sm"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-base font-black text-slate-950">{familyNameOf(family)}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">
-            {memberCount} member{memberCount === 1 ? "" : "s"} · {children.length} child{children.length === 1 ? "" : "ren"}
-          </p>
+          <p className="truncate text-sm font-black text-slate-950">{familyNameOf(family)}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{type.label}</p>
         </div>
         {active && (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white">
             <Check className="h-4 w-4" />
           </span>
         )}
       </div>
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {children.length > 0 ? (
-          children.slice(0, 4).map((child) => {
-            const color = getColorMeta(child.colorId || child.color_id || child.color);
-            return (
-              <span key={child.id || child.name} className={`rounded-full border px-2.5 py-1 text-xs font-bold ${color.bg} ${color.text} ${color.border}`}>
-                👶 {child.name}
-              </span>
-            );
-          })
-        ) : (
-          <span className="text-xs font-bold text-slate-400">No children added</span>
-        )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Badge variant="outline" className="gap-1 text-[11px]">
+          <Users className="h-3 w-3" />
+          {members} member{members === 1 ? "" : "s"}
+        </Badge>
+        <Badge variant="outline" className="text-[11px]">
+          {children} child{children === 1 ? "" : "ren"}
+        </Badge>
       </div>
     </button>
+  );
+}
+
+function StatusMessage({ error, message }) {
+  if (!error && !message) return null;
+
+  return (
+    <div
+      className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+        error
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+      }`}
+    >
+      {error || message}
+    </div>
   );
 }
 
@@ -136,422 +136,389 @@ export default function ProfileFamiliesSection() {
   const {
     user,
     profile,
-    familyId,
-    isAdmin,
-    allProfiles,
+    allProfiles = [],
     activeProfileId,
     setActiveProfileId,
     createFamily,
     updateActiveFamily,
     refreshFamilies,
+    isOwner,
+    isAdmin,
   } = useFamily();
 
+  const canManageSpace = isOwner || isAdmin;
+  const canDeleteSpace = isOwner;
+  const familyOptions = useMemo(() => {
+    const families = Array.isArray(allProfiles) ? [...allProfiles] : [];
+    return families.sort((a, b) => familyNameOf(a).localeCompare(familyNameOf(b)));
+  }, [allProfiles]);
+
   const [familyName, setFamilyName] = useState("");
-  const [children, setChildren] = useState([]);
-  const [newChild, setNewChild] = useState("");
-  const [newChildColor, setNewChildColor] = useState("green");
-  const [parent1Name, setParent1Name] = useState("");
-  const [parent1Role, setParent1Role] = useState("dad");
-  const [parent1Color, setParent1Color] = useState("blue");
-  const [parent2Name, setParent2Name] = useState("");
-  const [parent2Email, setParent2Email] = useState("");
-  const [parent2Role, setParent2Role] = useState("mom");
-  const [parent2Color, setParent2Color] = useState("amber");
-
+  const [familyType, setFamilyType] = useState("household");
   const [showCreateFamily, setShowCreateFamily] = useState(false);
-  const [creatingFamily, setCreatingFamily] = useState(false);
   const [newFamilyName, setNewFamilyName] = useState("");
-  const [newFamilyAdultName, setNewFamilyAdultName] = useState("");
-  const [newFamilyAdultEmail, setNewFamilyAdultEmail] = useState("");
-  const [newFamilyChildren, setNewFamilyChildren] = useState("");
-
-  const [saving, setSaving] = useState(false);
-  const [deletingFamily, setDeletingFamily] = useState(false);
+  const [newFamilyType, setNewFamilyType] = useState("household");
   const [confirmDeleteFamily, setConfirmDeleteFamily] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const families = allProfiles || [];
-  const canEdit = isAdmin === true;
-
   useEffect(() => {
-    if (!profile) return;
-    setFamilyName(profile.family_name || profile.familyName || "");
-    setChildren(normalizeChildren(profile.children || []));
-    setParent1Name(profile.parent1_name || profile.parent1Name || user?.displayName || "");
-    setParent1Role(normalizeMemberRole(profile.parent1_role || profile.parent1Role, "dad"));
-    setParent1Color(profile.parent1_color || profile.parent1Color || "blue");
-    setParent2Name(profile.parent2_name || profile.parent2Name || "");
-    setParent2Email(profile.parent2_email || profile.parent2Email || "");
-    setParent2Role(normalizeMemberRole(profile.parent2_role || profile.parent2Role, "mom"));
-    setParent2Color(profile.parent2_color || profile.parent2Color || "amber");
-  }, [profile, user]);
-
-  function clearStatus() {
+    setFamilyName(familyNameOf(profile));
+    setFamilyType(familyTypeOf(profile));
     setMessage("");
     setError("");
-  }
+  }, [profile?.id, profile?.familyName, profile?.family_name, profile?.type, profile?.familyType, profile?.family_type]);
 
-  function handleAddChild() {
-    const value = newChild.trim();
-    if (!value) return;
-    setChildren((current) => [
-      ...current,
-      {
-        id: `child-${Date.now()}`,
-        name: value,
-        color: newChildColor,
-        colorId: newChildColor,
-        color_id: newChildColor,
-      },
-    ]);
-    setNewChild("");
-    setNewChildColor("green");
-  }
+  const activeType = familyTypeMeta(familyType);
+  const activeFamilyId = profile?.id || activeProfileId;
 
-  function handleUpdateChild(id, updates) {
-    setChildren((current) => current.map((child) => (child.id === id ? { ...child, ...updates } : child)));
-  }
+  const clearFeedback = () => {
+    setError("");
+    setMessage("");
+  };
 
-  function handleRemoveChild(childToRemove) {
-    setChildren((current) => current.filter((child) => child.id !== childToRemove.id));
-  }
+  async function handleSaveFamily(event) {
+    event.preventDefault();
+    clearFeedback();
 
-  async function handleSaveFamily() {
-    if (!familyId) return setError("No active family found.");
-    if (!canEdit) return setError("Only a family admin can edit this family.");
+    if (!activeFamilyId) {
+      setError("Select a family space before saving.");
+      return;
+    }
 
-    clearStatus();
+    if (!canManageSpace) {
+      setError("Only the owner or an admin can update this family space.");
+      return;
+    }
+
+    const cleanName = familyName.trim();
+    if (!cleanName) {
+      setError("Family space name is required.");
+      return;
+    }
+
     setSaving(true);
-
     try {
-      const cleanParent2Email = normalizeEmail(parent2Email);
-      const cleanChildren = children
-        .map((child) => ({
-          ...child,
-          id: child.id || `child-${String(child.name || "child").toLowerCase().replace(/\s+/g, "-")}`,
-          childId: child.childId || child.id || `child-${String(child.name || "child").toLowerCase().replace(/\s+/g, "-")}`,
-          name: String(child.name || "").trim(),
-          childName: child.childName || String(child.name || "").trim(),
-          color: child.colorId || child.color_id || child.color || "green",
-          colorId: child.colorId || child.color_id || child.color || "green",
-          color_id: child.color_id || child.colorId || child.color || "green",
-        }))
-        .filter((child) => child.name);
-
-      const currentMemberEmails = getFamilyMemberEmails(profile).map(normalizeEmail);
-      const shouldInviteParent2 = Boolean(cleanParent2Email && !currentMemberEmails.includes(cleanParent2Email));
-      const pendingInvite = shouldInviteParent2
-        ? buildFamilyInvitation({
-            familyId,
-            familyName: familyName.trim() || "My Family",
-            recipientName: parent2Name,
-            recipientEmail: cleanParent2Email,
-            role: parent2Role,
-            relationship: roleToRelationship(parent2Role),
-            personType: roleToPersonType(parent2Role),
-            livesHere: roleDefaultLivesHere(parent2Role),
-            showOnHomeDashboard: roleDefaultShowOnHomeDashboard(parent2Role),
-            createdBy: user?.uid,
-            createdByEmail: user?.email,
-          })
-        : null;
-
-      const baseUpdates = {
-        familyName: familyName.trim() || "My Family",
-        family_name: familyName.trim() || "My Family",
-        children: cleanChildren,
-        parent1Name: parent1Name.trim(),
-        parent1_name: parent1Name.trim(),
-        parent1Role,
-        parent1_role: parent1Role,
-        parent1Relationship: roleToRelationship(parent1Role),
-        parent1_relationship: roleToRelationship(parent1Role),
-        parent1PersonType: roleToPersonType(parent1Role),
-        parent1_person_type: roleToPersonType(parent1Role),
-        parent1Color,
-        parent1_color: parent1Color,
-        parent2Name: parent2Name.trim(),
-        parent2_name: parent2Name.trim(),
-        parent2Email: cleanParent2Email,
-        parent2_email: cleanParent2Email,
-        parent2Role,
-        parent2_role: parent2Role,
-        parent2Relationship: roleToRelationship(parent2Role),
-        parent2_relationship: roleToRelationship(parent2Role),
-        parent2PersonType: roleToPersonType(parent2Role),
-        parent2_person_type: roleToPersonType(parent2Role),
-        parent2Color,
-        parent2_color: parent2Color,
-      };
-      const updates = pendingInvite
-        ? {
-            ...baseUpdates,
-            ...withPendingFamilyInvitation({
-              pendingMemberEmails: profile?.pendingMemberEmails,
-              pending_member_emails: profile?.pending_member_emails,
-              pendingInvites: profile?.pendingInvites,
-              pending_invites: profile?.pending_invites,
-            }, pendingInvite),
-          }
-        : baseUpdates;
-
-      await updateActiveFamily(updates);
-
-      if (pendingInvite) {
-        await setDoc(
-          doc(db, "familyInvitations", familyInvitationId(familyId, cleanParent2Email)),
-          pendingInvite,
-          { merge: true }
-        );
-      }
-
+      await updateActiveFamily({
+        familyName: cleanName,
+        family_name: cleanName,
+        type: familyType,
+        familyType,
+        family_type: familyType,
+      });
       await refreshFamilies?.();
-      setMessage(pendingInvite ? "Family saved and invitation marked pending." : "Family changes saved.");
-    } catch (err) {
-      console.error("Error saving family", err);
-      setError(err?.message || "Error saving family.");
+      setMessage("Family space saved.");
+    } catch (saveError) {
+      console.error("Error saving family space:", saveError);
+      setError(saveError?.message || "Could not save the family space.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleCreateFamily() {
-    if (!newFamilyName.trim()) return setError("Please enter a family name.");
+  async function handleCreateFamily(event) {
+    event.preventDefault();
+    clearFeedback();
 
-    clearStatus();
-    setCreatingFamily(true);
+    if (!newFamilyName.trim()) {
+      setError("Name the new family space first.");
+      return;
+    }
 
+    setCreating(true);
     try {
-      const cleanChildren = newFamilyChildren
-        .split(",")
-        .map((name, index) => ({
-          id: `child-${Date.now()}-${index}`,
-          childId: `child-${Date.now()}-${index}`,
-          name: name.trim(),
-          childName: name.trim(),
-          color: PERSON_COLOR_OPTIONS[(index + 1) % PERSON_COLOR_OPTIONS.length].id,
-          colorId: PERSON_COLOR_OPTIONS[(index + 1) % PERSON_COLOR_OPTIONS.length].id,
-          color_id: PERSON_COLOR_OPTIONS[(index + 1) % PERSON_COLOR_OPTIONS.length].id,
-        }))
-        .filter((child) => child.name);
-
       const newFamilyId = await createFamily?.({
-        familyName: newFamilyName,
-        parent2Name: newFamilyAdultName,
-        parent2Email: newFamilyAdultEmail,
-        children: cleanChildren,
+        familyName: newFamilyName.trim(),
+        familyType: newFamilyType,
+        children: [],
       });
-
-      await refreshFamilies?.();
       if (newFamilyId) setActiveProfileId?.(newFamilyId);
-      setShowCreateFamily(false);
       setNewFamilyName("");
-      setNewFamilyAdultName("");
-      setNewFamilyAdultEmail("");
-      setNewFamilyChildren("");
-      setMessage("New family space created and selected.");
-    } catch (err) {
-      console.error("Error creating family", err);
-      setError(err?.message || "Error creating family.");
+      setNewFamilyType("household");
+      setShowCreateFamily(false);
+      await refreshFamilies?.();
+      setMessage("New family space created.");
+    } catch (createError) {
+      console.error("Error creating family space:", createError);
+      setError(createError?.message || "Could not create the family space.");
     } finally {
-      setCreatingFamily(false);
+      setCreating(false);
     }
   }
 
   async function handleDeleteFamily() {
     const targetFamily = confirmDeleteFamily;
     if (!targetFamily?.id) return;
-    if (!canEdit) {
-      setError("Only a family admin can delete this family space.");
+
+    clearFeedback();
+
+    if (!canDeleteSpace) {
+      setError("Only the owner can delete this family space.");
       setConfirmDeleteFamily(null);
       return;
     }
 
-    clearStatus();
-    setDeletingFamily(true);
-
+    setDeleting(true);
     try {
-      const remainingFamilies = families.filter((family) => family.id !== targetFamily.id);
-      const result = await deleteFamilyCascade({
-        familyId: targetFamily.id,
-        userId: user?.uid,
-      });
-
+      const remainingFamilies = familyOptions.filter((family) => family.id !== targetFamily.id);
+      await deleteFamilyCascade({ familyId: targetFamily.id, userId: user?.uid });
       setConfirmDeleteFamily(null);
 
-      if (remainingFamilies[0]?.id) {
+      if (remainingFamilies.length > 0) {
         setActiveProfileId?.(remainingFamilies[0].id);
       } else {
-        await createFamily?.({
+        const fallbackFamilyId = await createFamily?.({
           familyName: `${user?.displayName || "My"} Family`,
+          familyType: "household",
           children: [],
         });
+        if (fallbackFamilyId) setActiveProfileId?.(fallbackFamilyId);
       }
 
       await refreshFamilies?.();
-      setMessage(`Family deleted. ${result.deletedRecords} related record${result.deletedRecords === 1 ? "" : "s"} removed.`);
-    } catch (err) {
-      console.error("Error deleting family", err);
-      setError(err?.message || "Error deleting family.");
+      setMessage("Family space deleted.");
+    } catch (deleteError) {
+      console.error("Error deleting family space:", deleteError);
+      setError(deleteError?.message || "Could not delete the family space.");
     } finally {
-      setDeletingFamily(false);
+      setDeleting(false);
     }
   }
 
   return (
     <div className="space-y-5">
-      {message && <Card className="border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-800">{message}</Card>}
-      {error && <Card className="border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</Card>}
-      {!canEdit && <Card className="border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">You have read access. Only a family admin can edit this family space.</Card>}
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[360px_1fr]">
-        <Card className="p-5">
-          <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-            <Users className="h-4 w-4" /> My Families
-          </h2>
-          <div className="space-y-3">
-            {families.map((family) => (
-              <FamilyCard
-                key={family.id}
-                family={family}
-                active={family.id === activeProfileId}
-                onSelect={() => setActiveProfileId?.(family.id)}
-              />
-            ))}
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-white">
+                <Layers3 className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-slate-950">Family Space</h2>
+                <p className="text-sm font-semibold text-slate-500">
+                  Spaces are the containers. People, roles, invitations, and module permissions live in Members & Access.
+                </p>
+              </div>
+            </div>
           </div>
+          <Button onClick={() => setShowCreateFamily((value) => !value)} className="gap-2 rounded-xl">
+            {showCreateFamily ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {showCreateFamily ? "Cancel" : "New space"}
+          </Button>
+        </div>
+      </div>
+
+      <StatusMessage error={error} message={message} />
+
+      <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <Card className="rounded-[2rem] border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg font-black">
+              <Home className="h-5 w-5 text-indigo-600" />
+              Your spaces
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {familyOptions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-sm font-semibold text-slate-500">
+                No family spaces yet.
+              </div>
+            ) : (
+              familyOptions.map((family) => (
+                <FamilySpaceRow
+                  key={family.id}
+                  family={family}
+                  active={family.id === activeFamilyId}
+                  onSelect={() => setActiveProfileId?.(family.id)}
+                />
+              ))
+            )}
+          </CardContent>
         </Card>
 
-        <Card className="p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-black uppercase tracking-wider text-slate-500">Active Family Details</p>
-              <p className="text-sm font-semibold text-slate-400">Edit adults, children, and family-specific colors.</p>
-            </div>
-            <Button variant="outline" onClick={() => setShowCreateFamily((current) => !current)} className="gap-2">
-              {showCreateFamily ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {showCreateFamily ? "Close" : "New Family"}
-            </Button>
-          </div>
-
-          {showCreateFamily ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div><Label>Family name</Label><Input value={newFamilyName} onChange={(event) => setNewFamilyName(event.target.value)} placeholder="Household name" className="mt-1" /></div>
-              <div><Label>Second adult name</Label><Input value={newFamilyAdultName} onChange={(event) => setNewFamilyAdultName(event.target.value)} placeholder="Optional adult name" className="mt-1" /></div>
-              <div><Label>Second adult email</Label><Input type="email" value={newFamilyAdultEmail} onChange={(event) => setNewFamilyAdultEmail(event.target.value)} placeholder="email@example.com" className="mt-1" /></div>
-              <div><Label>Children</Label><Input value={newFamilyChildren} onChange={(event) => setNewFamilyChildren(event.target.value)} placeholder="Child names, separated by commas" className="mt-1" /><p className="mt-1 text-xs font-semibold text-slate-400">Separate children by commas.</p></div>
-              <div className="md:col-span-2"><Button onClick={handleCreateFamily} disabled={creatingFamily || !newFamilyName.trim()} className="w-full bg-indigo-600 hover:bg-indigo-700">{creatingFamily ? "Creating..." : "Create and switch"}</Button></div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div><Label>Family name</Label><Input value={familyName} onChange={(event) => setFamilyName(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
-              <div><Label>Parent 1 name</Label><Input value={parent1Name} onChange={(event) => setParent1Name(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
-              <div>
-                <Label>Adult 1 role</Label>
-                <Select value={parent1Role} onValueChange={setParent1Role} disabled={!canEdit}>
-                  <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((role) => (
-                      <SelectItem key={role.value} value={role.value}>
-                        {role.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <ColorPicker label="Parent 1 family color" value={parent1Color} onChange={setParent1Color} disabled={!canEdit} />
-              <div><Label>Parent 2 name</Label><Input value={parent2Name} onChange={(event) => setParent2Name(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
-              <div><Label>Parent 2 email</Label><Input value={parent2Email} onChange={(event) => setParent2Email(event.target.value)} disabled={!canEdit} className="mt-1" /></div>
-              <div>
-                <Label>Adult 2 role</Label>
-                <Select value={parent2Role} onValueChange={setParent2Role} disabled={!canEdit}>
-                  <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((role) => (
-                      <SelectItem key={role.value} value={role.value}>
-                        {role.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <ColorPicker label="Parent 2 family color" value={parent2Color} onChange={setParent2Color} disabled={!canEdit} />
-
-              <div className="md:col-span-2">
-                <Label>Children and colors</Label>
-                <div className="mt-3 space-y-3">
-                  {children.map((child) => {
-                    const childColor = child.colorId || child.color_id || child.color || "green";
-                    const classes = colorClasses(childColor);
-                    return (
-                      <div key={child.id} className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[1fr_220px_auto] md:items-center">
-                        <Input value={child.name} onChange={(event) => handleUpdateChild(child.id, { name: event.target.value })} disabled={!canEdit} />
-                        <div className="flex flex-wrap gap-1.5">
-                          {PERSON_COLOR_OPTIONS.map((color) => (
-                            <button key={color.id} type="button" disabled={!canEdit} onClick={() => handleUpdateChild(child.id, { color: color.id, colorId: color.id, color_id: color.id })} className={`h-7 w-7 rounded-full border-2 ${color.dot} ${childColor === color.id ? "border-slate-900" : "border-white"}`} aria-label={color.label} />
-                          ))}
-                        </div>
-                        <Button type="button" variant="outline" onClick={() => handleRemoveChild(child)} disabled={!canEdit} className={`gap-1 border-red-200 bg-red-50 text-red-700 ${classes.ring}`}><Trash2 className="h-4 w-4" /> Remove</Button>
-                      </div>
-                    );
-                  })}
+        <Card className="rounded-[2rem] border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-black">
+              {showCreateFamily ? "Create a family space" : "Active space settings"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {showCreateFamily ? (
+              <form className="space-y-5" onSubmit={handleCreateFamily}>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-family-name">Space name</Label>
+                    <Input
+                      id="new-family-name"
+                      value={newFamilyName}
+                      onChange={(event) => setNewFamilyName(event.target.value)}
+                      placeholder="Aragon Home"
+                      className="h-11 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Space type</Label>
+                    <Select value={newFamilyType} onValueChange={setNewFamilyType}>
+                      <SelectTrigger className="h-11 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FAMILY_TYPES.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                {canEdit && (
-                  <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white p-3">
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_auto] md:items-end">
-                      <div><Label>New child</Label><Input value={newChild} onChange={(event) => setNewChild(event.target.value)} placeholder="Add child" className="mt-1" /></div>
-                      <ColorPicker label="Child color" value={newChildColor} onChange={setNewChildColor} />
-                      <Button type="button" variant="outline" onClick={handleAddChild}>Add</Button>
-                    </div>
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+                  <p className="text-sm font-black text-indigo-950">{familyTypeMeta(newFamilyType).label}</p>
+                  <p className="mt-1 text-sm font-semibold text-indigo-700">
+                    {familyTypeMeta(newFamilyType).description}
+                  </p>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={creating} className="gap-2 rounded-xl">
+                    <Plus className="h-4 w-4" />
+                    {creating ? "Creating..." : "Create space"}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <form className="space-y-6" onSubmit={handleSaveFamily}>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="family-name">Space name</Label>
+                    <Input
+                      id="family-name"
+                      value={familyName}
+                      onChange={(event) => setFamilyName(event.target.value)}
+                      disabled={!canManageSpace}
+                      className="h-11 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Space type</Label>
+                    <Select value={familyType} onValueChange={setFamilyType} disabled={!canManageSpace}>
+                      <SelectTrigger className="h-11 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FAMILY_TYPES.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-black text-slate-950">{activeType.label}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-600">{activeType.description}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <Users className="h-3 w-3" />
+                      {memberCountOf(profile)} member{memberCountOf(profile) === 1 ? "" : "s"}
+                    </Badge>
+                    <Badge variant="outline">
+                      {childCountOf(profile)} child{childCountOf(profile) === 1 ? "" : "ren"}
+                    </Badge>
+                    {activeFamilyId && (
+                      <Badge variant="outline" className="text-[10px]">
+                        ID: {activeFamilyId.slice(0, 8)}...
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {!canManageSpace && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                    You can view this family space, but only the owner or an admin can edit it.
                   </div>
                 )}
-              </div>
 
-              {canEdit && <div className="md:col-span-2"><Button onClick={handleSaveFamily} disabled={saving} className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700"><Save className="h-4 w-4" /> {saving ? "Saving..." : "Save family changes"}</Button></div>}
+                <div className="flex flex-col gap-3 border-t border-slate-100 pt-5 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-slate-950">Need to change people or access?</p>
+                    <p className="text-sm font-semibold text-slate-500">
+                      Use Members & Access for roles, home presence, invitations, module permissions, and admin access.
+                    </p>
+                  </div>
+                  <Button type="submit" disabled={!canManageSpace || saving} className="gap-2 rounded-xl">
+                    <Save className="h-4 w-4" />
+                    {saving ? "Saving..." : "Save space"}
+                  </Button>
+                </div>
 
-              {canEdit && (
-                <div className="md:col-span-2 rounded-2xl border border-red-200 bg-red-50 p-4">
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <p className="text-sm font-black text-red-900">Danger zone</p>
-                      <p className="mt-1 text-sm font-semibold text-red-700">
-                        Delete this family space and all records tied to it. If it is your last family, a fresh empty family space will be created for your account.
+                      <p className="text-sm font-black text-red-950">Delete this family space</p>
+                      <p className="text-sm font-semibold text-red-700">
+                        Deletes the space and its household records. Custody groups tied to this family are included.
                       </p>
                     </div>
                     <Button
                       type="button"
-                      variant="outline"
-                      disabled={deletingFamily}
+                      variant="destructive"
+                      disabled={!canDeleteSpace || !profile?.id}
                       onClick={() => setConfirmDeleteFamily(profile)}
-                      className="shrink-0 gap-2 border-red-300 bg-white text-red-700 hover:bg-red-100 hover:text-red-800"
+                      className="gap-2 rounded-xl"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Delete family
+                      Delete
                     </Button>
                   </div>
+                  {!canDeleteSpace && (
+                    <p className="mt-3 text-xs font-bold text-red-700">Only the owner can delete this space.</p>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </form>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      <AppDialog
-        open={Boolean(confirmDeleteFamily)}
-        tone="danger"
-        title="Delete family?"
-        message={`This will permanently delete ${familyNameOf(confirmDeleteFamily)} plus its events, tasks, meals, lists, custody groups, custody calendar, packing items, exchanges, budget records, and invitations.`}
-        confirmLabel={deletingFamily ? "Deleting..." : "Delete family and records"}
-        cancelLabel="Cancel"
-        loading={deletingFamily}
-        onConfirm={handleDeleteFamily}
-        onCancel={() => setConfirmDeleteFamily(null)}
-      />
+      <Dialog open={Boolean(confirmDeleteFamily)} onOpenChange={(open) => !open && setConfirmDeleteFamily(null)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Delete {familyNameOf(confirmDeleteFamily)}?</DialogTitle>
+            <DialogDescription>
+              This removes the family space and related household data. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmDeleteFamily(null)}
+              disabled={deleting}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteFamily}
+              disabled={deleting}
+              className="gap-2 rounded-xl"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleting ? "Deleting..." : "Delete space"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -525,6 +525,9 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
     familyId: familyRef.id,
     familyName: `${firebaseUser.displayName || userData?.name || "Family"}'s Family`,
     family_name: `${firebaseUser.displayName || userData?.name || "Family"}'s Family`,
+    type: "household",
+    familyType: "household",
+    family_type: "household",
     ownerId: firebaseUser.uid,
     ownerEmail: firebaseUser.email,
     createdBy: firebaseUser.uid,
@@ -868,7 +871,13 @@ export function FamilyProvider({ children }) {
     }
   };
 
-  const createFamily = async ({ familyName, parent2Name = "", parent2Email = "", children = [] } = {}) => {
+  const createFamily = async ({
+    familyName,
+    familyType = "household",
+    parent2Name = "",
+    parent2Email = "",
+    children = [],
+  } = {}) => {
     if (!user) throw new Error("You must be logged in to create a family.");
 
     const name = familyName?.trim() || `${user.displayName || "My"} Family`;
@@ -919,7 +928,9 @@ export function FamilyProvider({ children }) {
       familyId: familyRef.id,
       familyName: name,
       family_name: name,
-      type: "household",
+      type: familyType,
+      familyType,
+      family_type: familyType,
       ownerId: user.uid,
       ownerEmail,
       createdBy: user.uid,
