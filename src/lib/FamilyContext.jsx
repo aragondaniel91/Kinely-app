@@ -36,6 +36,7 @@ import {
 import {
   normalizeMemberRole,
   oppositeParentRole,
+  roleImpliesFullAccess,
   roleDefaultLivesHere,
   roleDefaultShowOnHomeDashboard,
   roleToPersonType,
@@ -80,6 +81,29 @@ const READ_ONLY_PERMS = {
   budget: { read: false, write: false },
   notifications: { read: true, write: false },
 };
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function listOrEmpty(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function memberHasAdminRole(member) {
+  const appRole = String(member?.appRole || member?.app_role || "").trim().toLowerCase();
+  const role = String(member?.role || "").trim().toLowerCase();
+  return (
+    member?.isAdmin === true ||
+    member?.is_admin === true ||
+    member?.admin === true ||
+    appRole === "owner" ||
+    appRole === "admin" ||
+    role === "owner" ||
+    role === "admin" ||
+    roleImpliesFullAccess(role)
+  );
+}
 
 function pushUniqueFamily(target, family) {
   if (!family?.id || target.some((item) => item.id === family.id)) return;
@@ -681,19 +705,27 @@ export function FamilyProvider({ children }) {
   const memberEntry = useMemo(() => {
     if (!activeProfile || !myEmail) return null;
     return (activeProfile.members || []).find((member) => {
-      return member.uid === user?.uid || member.email?.toLowerCase() === myEmail?.toLowerCase();
+      return member.uid === user?.uid || normalizeEmail(member.email) === normalizeEmail(myEmail);
     });
   }, [activeProfile, myEmail, user?.uid]);
 
   const isOwner = activeProfile
     ? activeProfile.ownerId === user?.uid ||
       activeProfile.owner_id === user?.uid ||
-      activeProfile.ownerEmail === myEmail ||
-      activeProfile.owner_email === myEmail ||
-      activeProfile.created_by === myEmail
+      normalizeEmail(activeProfile.ownerEmail) === normalizeEmail(myEmail) ||
+      normalizeEmail(activeProfile.owner_email) === normalizeEmail(myEmail) ||
+      normalizeEmail(activeProfile.createdByEmail) === normalizeEmail(myEmail) ||
+      normalizeEmail(activeProfile.created_by_email) === normalizeEmail(myEmail) ||
+      normalizeEmail(activeProfile.created_by) === normalizeEmail(myEmail)
     : false;
 
-  const isAdmin = isOwner || memberEntry?.isAdmin === true || memberEntry?.is_admin === true;
+  const isAdmin =
+    isOwner ||
+    memberHasAdminRole(memberEntry) ||
+    listOrEmpty(activeProfile?.adminIds).includes(user?.uid) ||
+    listOrEmpty(activeProfile?.admin_ids).includes(user?.uid) ||
+    listOrEmpty(activeProfile?.adminEmails).map(normalizeEmail).includes(normalizeEmail(myEmail)) ||
+    listOrEmpty(activeProfile?.admin_emails).map(normalizeEmail).includes(normalizeEmail(myEmail));
   const perms = isAdmin ? DEFAULT_PERMS : normalizePermissions(memberEntry);
 
   const dadName = activeProfile?.parent1_role === "dad" ? activeProfile?.parent1_name : activeProfile?.parent2_name;

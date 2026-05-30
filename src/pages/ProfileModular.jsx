@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Baby,
@@ -68,6 +68,13 @@ export default function ProfileModular() {
     if (tabs.some((tab) => tab.id === requestedTab)) return requestedTab;
     return profile ? "overview" : "invitations";
   });
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (tabs.some((tab) => tab.id === requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   async function handleLogout() {
     await logout();

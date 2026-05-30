@@ -43,6 +43,29 @@ const roleOptions = FAMILY_ROLE_OPTIONS.map((roleOption) => ({
   note: roleOption.inviteRecommended ? "Best with a family invitation" : "",
 }));
 
+const roleGroups = [
+  {
+    id: "parents",
+    label: "Parents & guardians",
+    caption: "Full household control",
+    roles: ["parent", "dad", "mom"],
+  },
+  {
+    id: "children",
+    label: "Children & teens",
+    caption: "Invite-first access",
+    roles: ["child"],
+  },
+  {
+    id: "helpers",
+    label: "Trusted helpers",
+    caption: "Scoped module access",
+    roles: ["grandmother", "grandfather", "babysitter", "caregiver", "family"],
+  },
+];
+
+const roleOptionById = new Map(roleOptions.map((option) => [option.id, option]));
+
 const modeOptions = [
   {
     id: "create",
@@ -81,41 +104,126 @@ function Progress({ currentStep }) {
   );
 }
 
-function OptionCard({ option, active, onClick, disabled = false }) {
+function RoleButton({ option, active, onClick }) {
   const Icon = option.icon;
+  const accessLabel = option.fullAccess
+    ? "Full access"
+    : option.inviteRecommended
+    ? "Invitation"
+    : option.livesHere
+    ? "Household"
+    : "Limited";
+
   return (
     <button
       type="button"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className={`rounded-3xl border p-4 text-left transition ${
-        disabled
-          ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60"
-          : active
-          ? "border-indigo-300 bg-indigo-50 shadow-sm"
-          : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40"
+      onClick={onClick}
+      className={`group flex min-h-[76px] items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition ${
+        active
+          ? "border-slate-950 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)] ring-2 ring-slate-950/5"
+          : "border-slate-200 bg-white/85 hover:border-slate-300 hover:bg-white hover:shadow-sm"
       }`}
     >
-      <div className="flex items-start gap-3">
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-          active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500"
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${
+        active ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-900 group-hover:text-white"
+      }`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-sm font-black text-slate-950">{option.label}</p>
+          {active && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+        </div>
+        <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">
+          {option.description}
+        </p>
+        <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+          option.fullAccess
+            ? "bg-emerald-50 text-emerald-700"
+            : option.inviteRecommended
+            ? "bg-amber-50 text-amber-700"
+            : "bg-sky-50 text-sky-700"
         }`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-black text-slate-950">{option.label}</h3>
-            {active && <Check className="h-4 w-4 text-indigo-600" />}
-          </div>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{option.description}</p>
-          {option.note && (
-            <p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-600">
-              {option.note}
-            </p>
-          )}
-        </div>
+          {accessLabel}
+        </span>
       </div>
     </button>
+  );
+}
+
+function RoleSelection({ value, onChange, selectedRoleMeta }) {
+  const selectedOption = roleOptionById.get(value) || roleOptions[0];
+  const SelectedIcon = selectedOption.icon || Users;
+  const selectedChips = [
+    selectedRoleMeta?.fullAccess ? "Admin-ready" : "Permission scoped",
+    selectedRoleMeta?.livesHere ? "Lives here by default" : "Guest by default",
+    selectedRoleMeta?.inviteRecommended ? "Best by invitation" : "Can create space",
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 text-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
+        <div className="grid gap-4 p-4 md:grid-cols-[auto_1fr] md:items-center md:p-5">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm">
+            <SelectedIcon className="h-8 w-8" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-sky-200">
+              Selected role
+            </p>
+            <h3 className="mt-1 text-2xl font-black tracking-tight">
+              {selectedOption.label}
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-300">
+              {selectedOption.description}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedChips.map((chip) => (
+                <span key={chip} className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        {roleGroups.map((group) => (
+          <section key={group.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  {group.label}
+                </p>
+                <p className="text-xs font-semibold text-slate-400">{group.caption}</p>
+              </div>
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {group.roles.map((roleId) => {
+                const option = roleOptionById.get(roleId);
+                if (!option) return null;
+
+                return (
+                  <RoleButton
+                    key={option.id}
+                    option={option}
+                    active={value === option.id}
+                    onClick={() => onChange(option.id)}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {selectedRoleMeta?.inviteRecommended && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
+          {selectedRoleMeta.label} accounts are usually added by a family admin so permissions can be limited correctly.
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -372,18 +480,11 @@ export default function Register() {
             )}
 
             {step === 1 && (
-              <div className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {roleOptions.map((option) => (
-                    <OptionCard key={option.id} option={option} active={role === option.id} onClick={() => setRole(option.id)} />
-                  ))}
-                </div>
-                {selectedRoleMeta?.inviteRecommended && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-800">
-                    {selectedRoleMeta.label} accounts are usually added by a family admin so permissions can be limited correctly.
-                  </div>
-                )}
-              </div>
+              <RoleSelection
+                value={role}
+                onChange={setRole}
+                selectedRoleMeta={selectedRoleMeta}
+              />
             )}
 
             {step === 2 && (

@@ -454,6 +454,7 @@ export default function ProfileMemberEditorDialog({
   const normalizedRole = normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver");
   const roleMeta = getMemberRoleMeta(normalizedRole);
   const defaultLivesHere = isOwner || roleMeta?.livesHere === true;
+  const roleGrantsFullAccess = roleImpliesFullAccess(normalizedRole);
 
   const safeEditor = {
     ...editor,
@@ -461,17 +462,17 @@ export default function ProfileMemberEditorDialog({
     email: editor.email || "",
     role: normalizedRole,
     relationship: editor.relationship || editor.memberRelationship || editor.member_relationship || roleToRelationship(normalizedRole),
-    type: editor.type || editor.personType || editor.person_type || "adult",
+    type: editor.type || editor.personType || editor.person_type || roleToPersonType(normalizedRole),
     color: editor.color || "teal",
-    admin: editor.admin === true,
+    admin: editor.admin === true || editor.isAdmin === true || editor.is_admin === true || roleGrantsFullAccess,
     livesHere: booleanOrFallback(editor.livesHere ?? editor.lives_here, defaultLivesHere),
     showOnHomeDashboard: booleanOrFallback(
       editor.showOnHomeDashboard ?? editor.show_on_home_dashboard ?? editor.homeDashboard ?? editor.home_dashboard,
-      defaultLivesHere || roleImpliesFullAccess(normalizedRole)
+      defaultLivesHere || roleGrantsFullAccess
     ),
     modules: normalizedModules,
   };
-  const receivesFullAccess = safeEditor.admin || roleImpliesFullAccess(safeEditor.role);
+  const receivesFullAccess = safeEditor.admin || roleGrantsFullAccess;
 
   function patch(updates) {
     onChange?.({ ...safeEditor, ...updates });
@@ -523,6 +524,18 @@ export default function ProfileMemberEditorDialog({
       lives_here: nextLivesHere,
       showOnHomeDashboard: nextLivesHere ? true : safeEditor.showOnHomeDashboard,
       show_on_home_dashboard: nextLivesHere ? true : safeEditor.showOnHomeDashboard,
+    });
+  }
+
+  function patchAdminAccess(checked) {
+    const nextModules = checked ? normalizeEditorModules({ ...safeEditor, modules: safeEditor.modules }) : safeEditor.modules;
+    patch({
+      admin: checked,
+      isAdmin: checked,
+      is_admin: checked,
+      appRole: checked ? "admin" : undefined,
+      app_role: checked ? "admin" : undefined,
+      modules: nextModules,
     });
   }
 
@@ -587,12 +600,21 @@ export default function ProfileMemberEditorDialog({
           </div>
 
           <div className="flex items-end">
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600">
-              <span>Admin access</span>
+            <label className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-sm font-bold transition ${
+              safeEditor.admin
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            }`}>
+              <span>
+                Admin access
+                <span className="block text-[11px] font-semibold opacity-70">
+                  Full family controls
+                </span>
+              </span>
               <Switch
                 checked={safeEditor.admin}
-                onCheckedChange={(checked) => patch({ admin: checked })}
-                disabled={isOwner}
+                onCheckedChange={patchAdminAccess}
+                disabled={isOwner || roleGrantsFullAccess}
               />
             </label>
           </div>
@@ -623,7 +645,7 @@ export default function ProfileMemberEditorDialog({
 
           {!isOwner && receivesFullAccess && (
             <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 md:col-span-2">
-              Parents and admins receive full access to this family space.
+              {roleGrantsFullAccess ? "This role receives full access by default." : "Admins receive full access to this family space."}
             </div>
           )}
         </div>

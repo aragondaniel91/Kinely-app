@@ -114,6 +114,21 @@ function uniqueClean(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function isAdminMember(member = {}) {
+  const appRole = String(member.appRole || member.app_role || "").trim().toLowerCase();
+  const role = String(member.role || "").trim().toLowerCase();
+  return (
+    member.isAdmin === true ||
+    member.is_admin === true ||
+    member.admin === true ||
+    appRole === "owner" ||
+    appRole === "admin" ||
+    role === "owner" ||
+    role === "admin" ||
+    roleImpliesFullAccess(role)
+  );
+}
+
 function modulePermissionFromAccess(access = {}, fallback = { read: false, write: false }) {
   return {
     read: typeof access.read === "boolean" ? access.read : fallback.read === true,
@@ -164,23 +179,27 @@ function buildAccessArrayUpdates({ profile, members = [], memberEmails = [], use
     const email = normalizeEmail(member.email);
     return member.uid || (email && acceptedEmailSet.has(email));
   });
-  const adminMembers = activeMembers.filter((member) => member.isAdmin === true || member.is_admin === true);
+  const adminMembers = activeMembers.filter(isAdminMember);
+  const adminIds = uniqueClean([
+    ownerId,
+    ...adminMembers.map((member) => member.uid),
+  ]);
+  const adminEmails = uniqueClean([
+    ownerEmail,
+    ...adminMembers
+      .map((member) => normalizeEmail(member.email))
+      .filter((email) => email && acceptedEmailSet.has(email)),
+  ]);
 
   return {
     memberIds: uniqueClean([
       ownerId,
       ...activeMembers.map((member) => member.uid),
     ]),
-    adminIds: uniqueClean([
-      ownerId,
-      ...adminMembers.map((member) => member.uid),
-    ]),
-    adminEmails: uniqueClean([
-      ownerEmail,
-      ...adminMembers
-        .map((member) => normalizeEmail(member.email))
-        .filter((email) => email && acceptedEmailSet.has(email)),
-    ]),
+    adminIds,
+    admin_ids: adminIds,
+    adminEmails,
+    admin_emails: adminEmails,
   };
 }
 
@@ -189,6 +208,23 @@ function getMembers(profile, user, myEmail) {
   const result = [];
   const memberEmails = getFamilyMemberEmails(profile).map(normalizeEmail);
   const pendingMemberEmails = getPendingMemberEmails(profile).map(normalizeEmail);
+  const adminEmails = [
+    ...(Array.isArray(profile?.adminEmails) ? profile.adminEmails : []),
+    ...(Array.isArray(profile?.admin_emails) ? profile.admin_emails : []),
+  ].map(normalizeEmail);
+  const storedMembers = Array.isArray(profile?.members) ? profile.members : [];
+
+  function findStoredMember({ email = "", personId = "" } = {}) {
+    const cleanEmail = normalizeEmail(email);
+    return storedMembers.find((member) => {
+      const memberEmail = normalizeEmail(member.email);
+      const memberPersonId = member.personId || member.person_id || member.id || "";
+      return (
+        (cleanEmail && memberEmail === cleanEmail) ||
+        (personId && memberPersonId === personId)
+      );
+    });
+  }
 
   function add(member) {
     const key = normalizeEmail(member.email) || `${member.source}-${member.name}`.toLowerCase();
@@ -214,22 +250,30 @@ function getMembers(profile, user, myEmail) {
 
   if (profile?.parent2_name || profile?.parent2Name || profile?.parent2_email || profile?.parent2Email) {
     const parent2Email = normalizeEmail(profile?.parent2_email || profile?.parent2Email);
+    const parent2PersonId = profile?.parent2PersonId || profile?.parent2_person_id || parent2Email || "";
+    const storedParent2 = findStoredMember({ email: parent2Email, personId: parent2PersonId });
+    const parent2Role = normalizeMemberRole(profile?.parent2_role || profile?.parent2Role || storedParent2?.role, "parent");
     add({
       source: "parent2",
-      personId: profile?.parent2PersonId || profile?.parent2_person_id || parent2Email || "",
+      index: storedMembers.indexOf(storedParent2),
+      personId: parent2PersonId,
+      uid: storedParent2?.uid || "",
       name: profile?.parent2_name || profile?.parent2Name || "Co-parent / caregiver",
       email: parent2Email,
-      role: normalizeMemberRole(profile?.parent2_role || profile?.parent2Role, "parent"),
-      relationship: profile?.parent2Relationship || profile?.parent2_relationship || roleToRelationship(profile?.parent2_role || profile?.parent2Role || "parent"),
+      role: parent2Role,
+      relationship: profile?.parent2Relationship || profile?.parent2_relationship || roleToRelationship(parent2Role),
+      type: storedParent2?.type || storedParent2?.personType || storedParent2?.person_type || roleToPersonType(parent2Role),
       color: profile?.parent2_color || profile?.parent2Color || "amber",
-      admin: false,
-      livesHere: booleanOrFallback(profile?.parent2LivesHere ?? profile?.parent2_lives_here, true),
-      showOnHomeDashboard: booleanOrFallback(profile?.parent2ShowOnHomeDashboard ?? profile?.parent2_show_on_home_dashboard, true),
-      status: memberEmails.includes(parent2Email)
+      admin: isAdminMember(storedParent2) || adminEmails.includes(parent2Email),
+      livesHere: booleanOrFallback(profile?.parent2LivesHere ?? profile?.parent2_lives_here ?? storedParent2?.livesHere ?? storedParent2?.lives_here, true),
+      showOnHomeDashboard: booleanOrFallback(profile?.parent2ShowOnHomeDashboard ?? profile?.parent2_show_on_home_dashboard ?? storedParent2?.showOnHomeDashboard ?? storedParent2?.show_on_home_dashboard, true),
+      modules: storedParent2?.modules || {},
+      permissions: storedParent2?.permissions || defaultPermissions,
+      status: storedParent2?.status || storedParent2?.invitationStatus || storedParent2?.invitation_status || (memberEmails.includes(parent2Email)
         ? "active"
         : pendingMemberEmails.includes(parent2Email)
         ? "pending"
-        : "profile_only",
+        : "profile_only"),
       locked: false,
     });
   }
@@ -246,7 +290,7 @@ function getMembers(profile, user, myEmail) {
       relationship: member.relationship || member.memberRelationship || member.member_relationship || roleToRelationship(member.role || "family"),
       type: member.type || member.personType || member.person_type || roleToPersonType(member.role),
       color: member.color || member.familyColor || member.family_color || "teal",
-      admin: member.isAdmin === true || member.is_admin === true,
+      admin: isAdminMember(member),
       livesHere: booleanOrFallback(member.livesHere ?? member.lives_here, false),
       showOnHomeDashboard: booleanOrFallback(member.showOnHomeDashboard ?? member.show_on_home_dashboard ?? member.homeDashboard ?? member.home_dashboard, false),
       modules: member.modules || {},
@@ -416,7 +460,7 @@ export default function ProfileMembersSection() {
       relationship: member.relationship || member.memberRelationship || member.member_relationship || roleToRelationship(member.role),
       type: member.type || member.personType || member.person_type || roleToPersonType(member.role),
       color: member.color || member.familyColor || member.family_color || "teal",
-      admin: member.admin === true || member.isAdmin === true || member.is_admin === true,
+      admin: isAdminMember(member),
       livesHere: booleanOrFallback(member.livesHere ?? member.lives_here, false),
       showOnHomeDashboard: booleanOrFallback(member.showOnHomeDashboard ?? member.show_on_home_dashboard ?? member.homeDashboard ?? member.home_dashboard, false),
       modules: member.modules || {},
@@ -473,6 +517,9 @@ export default function ProfileMembersSection() {
       show_on_home_dashboard: showOnHomeDashboard,
       homeDashboard: showOnHomeDashboard,
       home_dashboard: showOnHomeDashboard,
+      admin: nextEditor.admin === true,
+      isAdmin: nextEditor.admin === true,
+      is_admin: nextEditor.admin === true,
     };
 
     if (!name && !email) {
@@ -508,6 +555,38 @@ export default function ProfileMembersSection() {
           parent1_color: color,
         };
       } else if (nextEditor.source === "parent2") {
+        const nextParent2Member = {
+          ...memberIdentityPayload,
+          uid: nextEditor.uid || null,
+          name,
+          displayName: name,
+          display_name: name,
+          email,
+          role,
+          color,
+          familyColor: color,
+          family_color: color,
+          modules,
+          permissions,
+          invitationStatus: wasAccepted ? "active" : email ? "pending" : "profile_only",
+          invitation_status: wasAccepted ? "active" : email ? "pending" : "profile_only",
+        };
+        const foundIndex = updatedMembers.findIndex((member, index) => {
+          const matchesByEmail = email && normalizeEmail(member.email) === email;
+          const matchesByPersonId = personId && (member.personId === personId || member.person_id === personId || member.id === personId);
+          const matchesByIndex = Number.isInteger(nextEditor.index) && index === nextEditor.index;
+          return matchesByEmail || matchesByPersonId || matchesByIndex;
+        });
+
+        if (foundIndex >= 0) {
+          updatedMembers[foundIndex] = {
+            ...updatedMembers[foundIndex],
+            ...nextParent2Member,
+          };
+        } else {
+          updatedMembers.push(nextParent2Member);
+        }
+
         updates = {
           parent2PersonId: personId,
           parent2_person_id: personId,
@@ -525,6 +604,7 @@ export default function ProfileMembersSection() {
           parent2_show_on_home_dashboard: showOnHomeDashboard,
           parent2Color: color,
           parent2_color: color,
+          members: updatedMembers,
         };
       } else if (nextEditor.mode === "add") {
         updatedMembers.push({
@@ -536,7 +616,10 @@ export default function ProfileMembersSection() {
           role,
           color,
           familyColor: color,
+          family_color: color,
+          admin: nextEditor.admin === true,
           isAdmin: nextEditor.admin === true,
+          is_admin: nextEditor.admin === true,
           modules,
           permissions,
           invitationStatus: email ? "pending" : "active",
@@ -559,7 +642,10 @@ export default function ProfileMembersSection() {
                 role,
                 color,
                 familyColor: color,
+                family_color: color,
+                admin: nextEditor.admin === true,
                 isAdmin: nextEditor.admin === true,
+                is_admin: nextEditor.admin === true,
                 modules,
                 permissions,
                 invitationStatus: wasAccepted ? "active" : "pending",

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Baby, ChevronDown, Eye, HeartPulse, Plus } from "lucide-react";
+import { Baby, CalendarHeart, Check, ChevronDown, Eye, HeartPulse, Home, Plus } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { useFamily } from "@/lib/FamilyContext";
@@ -43,8 +43,34 @@ function groupViewerEmails(group) {
   return [...new Set([...explicit, ...legacy].map(normalizeEmail).filter(Boolean))];
 }
 
+function familyIsAdmin(family, email) {
+  const cleanEmail = normalizeEmail(email);
+  const adminEmails = [
+    ...(Array.isArray(family?.adminEmails) ? family.adminEmails : []),
+    ...(Array.isArray(family?.admin_emails) ? family.admin_emails : []),
+  ].map(normalizeEmail);
+  const memberRecord = (Array.isArray(family?.members) ? family.members : []).find((member) => {
+    return normalizeEmail(member.email) === cleanEmail;
+  });
+  const memberAppRole = String(memberRecord?.appRole || memberRecord?.app_role || "").toLowerCase();
+
+  return (
+    normalizeEmail(family?.owner_email) === cleanEmail ||
+    normalizeEmail(family?.ownerEmail) === cleanEmail ||
+    normalizeEmail(family?.createdByEmail) === cleanEmail ||
+    normalizeEmail(family?.created_by_email) === cleanEmail ||
+    normalizeEmail(family?.created_by) === cleanEmail ||
+    adminEmails.includes(cleanEmail) ||
+    memberRecord?.isAdmin === true ||
+    memberRecord?.is_admin === true ||
+    memberRecord?.admin === true ||
+    memberAppRole === "owner" ||
+    memberAppRole === "admin"
+  );
+}
+
 export default function FamilySelector() {
-  const { profile, allProfiles, myEmail, setActiveProfileId, isLoading } = useFamily();
+  const { profile, allProfiles, myEmail, familyId, setActiveProfileId, isLoading } = useFamily();
   const navigate = useNavigate();
   const [custodyGroups, setCustodyGroups] = useState([]);
 
@@ -60,23 +86,37 @@ export default function FamilySelector() {
 
       try {
         const ref = collection(db, "custodyGroups");
-        const memberQuery = query(ref, where("memberEmails", "array-contains", email));
-        const legacyMemberQuery = query(ref, where("member_emails", "array-contains", email));
-        const viewerQuery = query(ref, where("viewerEmails", "array-contains", email));
-        const legacyViewerQuery = query(ref, where("viewer_emails", "array-contains", email));
+        const querySpecs = [
+          query(ref, where("memberEmails", "array-contains", email)),
+          query(ref, where("member_emails", "array-contains", email)),
+          query(ref, where("viewerEmails", "array-contains", email)),
+          query(ref, where("viewer_emails", "array-contains", email)),
+          query(ref, where("adminEmails", "array-contains", email)),
+          query(ref, where("admin_emails", "array-contains", email)),
+          query(ref, where("ownerEmail", "==", email)),
+          query(ref, where("owner_email", "==", email)),
+        ];
 
-        const results = await Promise.allSettled([
-          getDocs(memberQuery),
-          getDocs(legacyMemberQuery),
-          getDocs(viewerQuery),
-          getDocs(legacyViewerQuery),
-        ]);
+        const results = await Promise.allSettled(querySpecs.map((custodyQuery) => getDocs(custodyQuery)));
 
         if (results.every((result) => result.status === "rejected")) {
           throw results[0].reason;
         }
 
-        if (!cancelled) setCustodyGroups(mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }));
+        if (!cancelled) {
+          const groups = mapSettledFirestoreSnapshots(results, { type: "custodyGroup" });
+          setCustodyGroups(groups.filter((group) => {
+            const linkedFamilies = [
+              group.familyId,
+              group.family_id,
+              group.householdFamilyId,
+              group.household_family_id,
+              ...(Array.isArray(group.linkedFamilyIds) ? group.linkedFamilyIds : []),
+            ].filter(Boolean);
+
+            return !familyId || linkedFamilies.length === 0 || linkedFamilies.includes(familyId);
+          }));
+        }
       } catch (error) {
         console.warn("Could not load custody groups for selector:", error);
         if (!cancelled) setCustodyGroups([]);
@@ -88,7 +128,7 @@ export default function FamilySelector() {
     return () => {
       cancelled = true;
     };
-  }, [myEmail]);
+  }, [myEmail, familyId]);
 
   if (isLoading) {
     return (
@@ -102,122 +142,121 @@ export default function FamilySelector() {
     return (
       <Link
         to="/profile?tab=invitations"
-        className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-xl"
+        className="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary"
       >
         Invitations
       </Link>
     );
   }
 
-  const activeFamilyName = profile?.family_name || profile?.familyName || "Familia";
-  const hasMultipleFamilies = Array.isArray(allProfiles) && allProfiles.length > 1;
+  const activeFamilyName = profile?.family_name || profile?.familyName || "Family";
   const hasCustodyGroups = custodyGroups.length > 0;
-
-  if (!hasMultipleFamilies && !hasCustodyGroups) {
-    return (
-      <div className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-xl max-w-[180px] truncate">
-        {activeFamilyName}
-      </div>
-    );
-  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors">
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/20"
+        >
           <span className="max-w-[150px] truncate">{activeFamilyName}</span>
-          <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="center" className="min-w-[260px]">
-        <p className="px-2 py-1.5 text-[10px] text-muted-foreground font-black uppercase tracking-wider">
+      <DropdownMenuContent align="center" className="min-w-[280px] rounded-2xl border-slate-200 bg-white p-2 shadow-xl">
+        <p className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
           Family Spaces
         </p>
 
         {(allProfiles || []).map((family) => {
-          const familyName = family.family_name || family.familyName || "Familia";
+          const familyName = family.family_name || family.familyName || "Family";
           const isCurrent = family.id === profile?.id;
-
-          const isAdmin =
-            normalizeEmail(family.owner_email) === normalizeEmail(myEmail) ||
-            normalizeEmail(family.ownerEmail) === normalizeEmail(myEmail) ||
-            normalizeEmail(family.created_by) === normalizeEmail(myEmail);
+          const isAdmin = familyIsAdmin(family, myEmail);
 
           return (
             <DropdownMenuItem
               key={family.id}
               onClick={() => setActiveProfileId(family.id)}
               className={cn(
-                "flex items-center gap-2 cursor-pointer",
+                "flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2",
                 isCurrent && "bg-primary/10 text-primary font-semibold"
               )}
             >
-              <span className="text-base">🏠</span>
+              <Home className="h-4 w-4 text-indigo-600" />
 
-              <div className="flex flex-col min-w-0">
+              <div className="flex min-w-0 flex-col">
                 <span className="truncate text-sm">{familyName}</span>
                 <span className="text-[10px] text-muted-foreground">
                   {isAdmin ? "Family admin" : "Family member"}
                 </span>
               </div>
 
-              {isCurrent && <span className="ml-auto text-primary text-xs">✓</span>}
+              {isCurrent && <Check className="ml-auto h-4 w-4 text-primary" />}
             </DropdownMenuItem>
           );
         })}
 
-        {hasCustodyGroups && (
-          <>
-            <DropdownMenuSeparator />
+        <DropdownMenuSeparator />
 
-            <p className="px-2 py-1.5 text-[10px] text-muted-foreground font-black uppercase tracking-wider">
-              Custody Groups
-            </p>
+        <p className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+          Custody Groups
+        </p>
 
-            {custodyGroups.map((group) => {
-              const members = groupMemberEmails(group);
-              const viewers = groupViewerEmails(group);
-              const isMember = members.includes(normalizeEmail(myEmail));
-              const isViewer = viewers.includes(normalizeEmail(myEmail));
-              const children = groupChildNames(group);
+        {hasCustodyGroups ? (
+          custodyGroups.map((group) => {
+            const members = groupMemberEmails(group);
+            const viewers = groupViewerEmails(group);
+            const isMember = members.includes(normalizeEmail(myEmail));
+            const isViewer = viewers.includes(normalizeEmail(myEmail));
+            const children = groupChildNames(group);
 
-              return (
-                <DropdownMenuItem
-                  key={group.id}
-                  onClick={() => navigate("/custody")}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Baby className="h-4 w-4 text-blue-600" />
+            return (
+              <DropdownMenuItem
+                key={group.id}
+                onClick={() => navigate("/custody")}
+                className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2"
+              >
+                <Baby className="h-4 w-4 text-blue-600" />
 
-                  <div className="flex flex-col min-w-0">
-                    <span className="truncate text-sm">{group.name || "Custody Group"}</span>
-                    <span className="truncate text-[10px] text-muted-foreground">
-                      {children.length ? `${children.join(", ")} · ` : ""}
-                      {isMember ? "Can edit custody" : isViewer ? "View only" : "Shared custody"}
-                    </span>
-                  </div>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm">{group.name || "Custody Group"}</span>
+                  <span className="truncate text-[10px] text-muted-foreground">
+                    {children.length ? `${children.join(", ")} - ` : ""}
+                    {isMember ? "Can edit custody" : isViewer ? "View only" : "Shared custody"}
+                  </span>
+                </div>
 
-                  {!isMember && isViewer && <Eye className="ml-auto h-3.5 w-3.5 text-slate-400" />}
-                </DropdownMenuItem>
-              );
-            })}
-          </>
+                {!isMember && isViewer && <Eye className="ml-auto h-3.5 w-3.5 text-slate-400" />}
+              </DropdownMenuItem>
+            );
+          })
+        ) : (
+          <div className="rounded-xl bg-slate-50 px-2.5 py-2 text-xs font-semibold leading-5 text-slate-500">
+            No custody groups linked to this account yet.
+          </div>
         )}
 
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
-          <Link to="/children" className="flex items-center gap-2 cursor-pointer">
-            <HeartPulse className="w-3.5 h-3.5 text-indigo-600" />
+          <Link to="/children" className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2">
+            <HeartPulse className="h-3.5 w-3.5 text-indigo-600" />
             <span className="text-sm">Child care profiles</span>
           </Link>
         </DropdownMenuItem>
 
         <DropdownMenuItem asChild>
-          <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
-            <Plus className="w-3.5 h-3.5" />
+          <Link to="/profile?tab=families" className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2">
+            <Plus className="h-3.5 w-3.5" />
             <span className="text-sm">Manage family spaces</span>
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link to="/profile?tab=custody" className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2">
+            <CalendarHeart className="h-3.5 w-3.5 text-blue-600" />
+            <span className="text-sm">Manage custody groups</span>
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
