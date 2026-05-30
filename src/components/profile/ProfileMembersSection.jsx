@@ -113,6 +113,29 @@ function uniqueClean(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function permissionAllowsRead(permission = {}) {
+  return permission?.read === true || permission?.write === true || permission?.visible === true || permission?.assignable === true;
+}
+
+function permissionAllowsWrite(permission = {}) {
+  return permission?.write === true;
+}
+
+function emptyModuleAccessArrays() {
+  return permissionModuleNames.reduce((arrays, moduleName) => ({
+    ...arrays,
+    [`${moduleName}ReaderIds`]: [],
+    [`${moduleName}WriterIds`]: [],
+    [`${moduleName}ReaderEmails`]: [],
+    [`${moduleName}WriterEmails`]: [],
+  }), {});
+}
+
+function pushUnique(target, value) {
+  const cleanValue = String(value || "").trim();
+  if (cleanValue && !target.includes(cleanValue)) target.push(cleanValue);
+}
+
 function isAdminMember(member = {}) {
   const appRole = String(member.appRole || member.app_role || "").trim().toLowerCase();
   const role = String(member.role || "").trim().toLowerCase();
@@ -188,6 +211,45 @@ function buildAccessArrayUpdates({ profile, members = [], memberEmails = [], use
       .map((member) => normalizeEmail(member.email))
       .filter((email) => email && acceptedEmailSet.has(email)),
   ]);
+  const moduleArrays = emptyModuleAccessArrays();
+  const principals = [
+    {
+      uid: ownerId,
+      email: ownerEmail,
+      admin: true,
+      permissions: defaultPermissions,
+    },
+    ...activeMembers.map((member) => {
+      const admin = isAdminMember(member);
+      return {
+        uid: member.uid || "",
+        email: normalizeEmail(member.email),
+        admin,
+        permissions: admin
+          ? defaultPermissions
+          : member.permissions || buildPermissionsForMember({
+              role: member.role,
+              admin,
+              modules: member.modules || {},
+            }),
+      };
+    }),
+  ];
+
+  principals.forEach((principal) => {
+    const email = normalizeEmail(principal.email);
+    permissionModuleNames.forEach((moduleName) => {
+      const permission = principal.admin ? defaultPermissions[moduleName] : principal.permissions?.[moduleName];
+      if (permissionAllowsRead(permission)) {
+        pushUnique(moduleArrays[`${moduleName}ReaderIds`], principal.uid);
+        pushUnique(moduleArrays[`${moduleName}ReaderEmails`], email);
+      }
+      if (permissionAllowsWrite(permission)) {
+        pushUnique(moduleArrays[`${moduleName}WriterIds`], principal.uid);
+        pushUnique(moduleArrays[`${moduleName}WriterEmails`], email);
+      }
+    });
+  });
 
   return {
     memberIds: uniqueClean([
@@ -198,6 +260,7 @@ function buildAccessArrayUpdates({ profile, members = [], memberEmails = [], use
     admin_ids: adminIds,
     adminEmails,
     admin_emails: adminEmails,
+    ...moduleArrays,
   };
 }
 
@@ -266,7 +329,7 @@ function getMembers(profile, user, myEmail) {
       livesHere: booleanOrFallback(profile?.parent2LivesHere ?? profile?.parent2_lives_here ?? storedParent2?.livesHere ?? storedParent2?.lives_here, true),
       showOnHomeDashboard: booleanOrFallback(profile?.parent2ShowOnHomeDashboard ?? profile?.parent2_show_on_home_dashboard ?? storedParent2?.showOnHomeDashboard ?? storedParent2?.show_on_home_dashboard, true),
       modules: storedParent2?.modules || {},
-      permissions: storedParent2?.permissions || defaultPermissions,
+      permissions: storedParent2?.permissions || limitedPermissions,
       status: storedParent2?.status || storedParent2?.invitationStatus || storedParent2?.invitation_status || (memberEmails.includes(parent2Email)
         ? "active"
         : pendingMemberEmails.includes(parent2Email)
@@ -292,7 +355,7 @@ function getMembers(profile, user, myEmail) {
       livesHere: booleanOrFallback(member.livesHere ?? member.lives_here, false),
       showOnHomeDashboard: booleanOrFallback(member.showOnHomeDashboard ?? member.show_on_home_dashboard ?? member.homeDashboard ?? member.home_dashboard, false),
       modules: member.modules || {},
-      permissions: member.permissions || defaultPermissions,
+      permissions: member.permissions || limitedPermissions,
       status: member.status || member.invitationStatus || member.invitation_status || (
         email && !memberEmails.includes(email) && pendingMemberEmails.includes(email)
           ? "pending"
@@ -305,7 +368,7 @@ function getMembers(profile, user, myEmail) {
   return result;
 }
 
-function MemberCard({ member, onEdit, onDelete }) {
+function MemberCard({ member, canEdit, onEdit, onDelete }) {
   const color = getColorMeta(member.color);
   const hasFullAccess = member.admin === true;
   const moduleBadges = editableModuleNames
@@ -385,13 +448,19 @@ function MemberCard({ member, onEdit, onDelete }) {
       </div>
 
       <div className="mt-4 flex gap-2">
-        <Button type="button" variant="outline" onClick={() => onEdit(member)} className="flex-1 gap-1 text-xs">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!canEdit}
+          onClick={() => onEdit(member)}
+          className="flex-1 gap-1 text-xs"
+        >
           <Pencil className="h-3.5 w-3.5" /> Edit
         </Button>
         <Button
           type="button"
           variant="outline"
-          disabled={member.locked}
+          disabled={!canEdit || member.locked}
           onClick={() => onDelete(member)}
           className="flex-1 gap-1 border-red-200 bg-red-50 text-xs text-red-700 hover:bg-red-100 hover:text-red-800 disabled:opacity-40"
         >
@@ -834,6 +903,7 @@ export default function ProfileMembersSection() {
               <MemberCard
                 key={`${member.source}-${member.email || member.name}-${index}`}
                 member={member}
+                canEdit={canEdit}
                 onEdit={openMemberEditor}
                 onDelete={(item) => setConfirmDelete(item)}
               />

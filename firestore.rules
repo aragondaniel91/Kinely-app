@@ -16,6 +16,29 @@ service cloud.firestore {
       return value is list ? value : [];
     }
 
+    function mapOrEmpty(value) {
+      return value is map ? value : {};
+    }
+
+    function mapList(data, field) {
+      return listOrEmpty(mapOrEmpty(data).get(field, []));
+    }
+
+    function accessAllowsRead(access) {
+      return access is map
+        && (
+          access.read == true
+          || access.write == true
+          || access.visible == true
+          || access.assignable == true
+        );
+    }
+
+    function accessAllowsWrite(access) {
+      return access is map
+        && access.write == true;
+    }
+
     function familyPath(familyId) {
       return /databases/$(database)/documents/families/$(familyId);
     }
@@ -76,6 +99,50 @@ service cloud.firestore {
         && familyId == "family_" + request.auth.uid;
     }
 
+    function moduleReaderIds(data, moduleName) {
+      return mapList(data, moduleName + "ReaderIds");
+    }
+
+    function moduleWriterIds(data, moduleName) {
+      return mapList(data, moduleName + "WriterIds");
+    }
+
+    function moduleReaderEmails(data, moduleName) {
+      return mapList(data, moduleName + "ReaderEmails");
+    }
+
+    function moduleWriterEmails(data, moduleName) {
+      return mapList(data, moduleName + "WriterEmails");
+    }
+
+    function hasModuleReadGrant(data, moduleName) {
+      return request.auth.uid in moduleReaderIds(data, moduleName)
+        || request.auth.uid in moduleWriterIds(data, moduleName)
+        || userEmail() in moduleReaderEmails(data, moduleName)
+        || userEmail() in moduleWriterEmails(data, moduleName);
+    }
+
+    function hasModuleWriteGrant(data, moduleName) {
+      return request.auth.uid in moduleWriterIds(data, moduleName)
+        || userEmail() in moduleWriterEmails(data, moduleName);
+    }
+
+    function canReadFamilyModule(familyId, moduleName) {
+      return isFamilyAdmin(familyId)
+        || (
+          familyExists(familyId)
+          && hasModuleReadGrant(familyDoc(familyId).data, moduleName)
+        );
+    }
+
+    function canWriteFamilyModule(familyId, moduleName) {
+      return isFamilyAdmin(familyId)
+        || (
+          familyExists(familyId)
+          && hasModuleWriteGrant(familyDoc(familyId).data, moduleName)
+        );
+    }
+
     function canWriteFamilyContent(familyId) {
       return isFamilyMember(familyId);
     }
@@ -124,19 +191,35 @@ service cloud.firestore {
     }
 
     function canReadCustody(familyId) {
-      return isCustodyViewer(familyId);
+      return isCustodyAdmin(familyId)
+        || (
+          custodyGroupExists(familyId)
+          && hasModuleReadGrant(custodyGroupDoc(familyId).data, "custody")
+        );
     }
 
     function canWriteCustody(familyId) {
-      return isCustodyMember(familyId);
+      return isCustodyAdmin(familyId)
+        || (
+          custodyGroupExists(familyId)
+          && hasModuleWriteGrant(custodyGroupDoc(familyId).data, "custody")
+        );
     }
 
     function canReadCustodyBudget(familyId) {
-      return isCustodyMember(familyId);
+      return isCustodyAdmin(familyId)
+        || (
+          custodyGroupExists(familyId)
+          && hasModuleReadGrant(custodyGroupDoc(familyId).data, "budget")
+        );
     }
 
     function canWriteCustodyBudget(familyId) {
-      return isCustodyMember(familyId);
+      return isCustodyAdmin(familyId)
+        || (
+          custodyGroupExists(familyId)
+          && hasModuleWriteGrant(custodyGroupDoc(familyId).data, "budget")
+        );
     }
 
     function hasRequestFamilyId() {
@@ -190,9 +273,19 @@ service cloud.firestore {
         && canReadFamily(existingFamilyId());
     }
 
+    function canReadHouseholdModuleDoc(moduleName) {
+      return hasExistingFamilyId()
+        && canReadFamilyModule(existingFamilyId(), moduleName);
+    }
+
     function canCreateHouseholdDoc() {
       return hasRequestFamilyId()
         && canWriteFamilyContent(requestFamilyId());
+    }
+
+    function canCreateHouseholdModuleDoc(moduleName) {
+      return hasRequestFamilyId()
+        && canWriteFamilyModule(requestFamilyId(), moduleName);
     }
 
     function canUpdateHouseholdDoc() {
@@ -202,9 +295,21 @@ service cloud.firestore {
         && canWriteFamilyContent(existingFamilyId());
     }
 
+    function canUpdateHouseholdModuleDoc(moduleName) {
+      return hasRequestFamilyId()
+        && hasExistingFamilyId()
+        && requestFamilyId() == existingFamilyId()
+        && canWriteFamilyModule(existingFamilyId(), moduleName);
+    }
+
     function canDeleteHouseholdDoc() {
       return hasExistingFamilyId()
         && canWriteFamilyContent(existingFamilyId());
+    }
+
+    function canDeleteHouseholdModuleDoc(moduleName) {
+      return hasExistingFamilyId()
+        && canWriteFamilyModule(existingFamilyId(), moduleName);
     }
 
     function canReadAnyScopedDoc() {
@@ -216,7 +321,7 @@ service cloud.firestore {
           !hasExistingExplicitCustodyGroupId()
           && hasExistingFamilyId()
           && (
-            canReadFamily(existingFamilyId())
+            canReadFamilyModule(existingFamilyId(), "home")
             || canReadCustody(existingFamilyId())
           )
         );
@@ -231,7 +336,7 @@ service cloud.firestore {
           !hasRequestExplicitCustodyGroupId()
           && hasRequestFamilyId()
           && (
-            canWriteFamilyContent(requestFamilyId())
+            canWriteFamilyModule(requestFamilyId(), "home")
             || canWriteCustody(requestFamilyId())
           )
         );
@@ -250,7 +355,7 @@ service cloud.firestore {
           && hasExistingFamilyId()
           && requestFamilyId() == existingFamilyId()
           && (
-            canWriteFamilyContent(existingFamilyId())
+            canWriteFamilyModule(existingFamilyId(), "home")
             || canWriteCustody(existingFamilyId())
           )
         );
@@ -265,7 +370,7 @@ service cloud.firestore {
           !hasExistingExplicitCustodyGroupId()
           && hasExistingFamilyId()
           && (
-            canWriteFamilyContent(existingFamilyId())
+            canWriteFamilyModule(existingFamilyId(), "home")
             || canWriteCustody(existingFamilyId())
           )
         );
@@ -355,6 +460,114 @@ service cloud.firestore {
         );
     }
 
+    function invitationModuleAccess(familyId, moduleName, sourceField) {
+      return mapOrEmpty(mapOrEmpty(getAfter(currentUserFamilyInvitationPath(familyId)).data.get(sourceField, {})).get(moduleName, {}));
+    }
+
+    function currentUserFamilyInvitationModuleCanRead(familyId, moduleName) {
+      return accessAllowsRead(invitationModuleAccess(familyId, moduleName, "permissions"))
+        || accessAllowsRead(invitationModuleAccess(familyId, moduleName, "modules"));
+    }
+
+    function currentUserFamilyInvitationModuleCanWrite(familyId, moduleName) {
+      return accessAllowsWrite(invitationModuleAccess(familyId, moduleName, "permissions"))
+        || accessAllowsWrite(invitationModuleAccess(familyId, moduleName, "modules"));
+    }
+
+    function currentUserCustodyInvitationModuleCanRead(groupId, moduleName) {
+      return accessAllowsRead(mapOrEmpty(mapOrEmpty(getAfter(currentUserCustodyInvitationPath(groupId)).data.get("permissions", {})).get(moduleName, {})));
+    }
+
+    function currentUserCustodyInvitationModuleCanWrite(groupId, moduleName) {
+      return accessAllowsWrite(mapOrEmpty(mapOrEmpty(getAfter(currentUserCustodyInvitationPath(groupId)).data.get("permissions", {})).get(moduleName, {})));
+    }
+
+    function listPreserved(after, before) {
+      return listOrEmpty(after).hasAll(listOrEmpty(before))
+        && listOrEmpty(after).hasOnly(listOrEmpty(before));
+    }
+
+    function idListAddsOnlyCurrentUser(after, before) {
+      return listOrEmpty(after).hasAll(listOrEmpty(before))
+        && listOrEmpty(after).hasOnly(listOrEmpty(before).concat([request.auth.uid]));
+    }
+
+    function emailListAddsOnlyCurrentUser(after, before) {
+      return listOrEmpty(after).hasAll(listOrEmpty(before))
+        && listOrEmpty(after).hasOnly(listOrEmpty(before).concat([userEmail()]));
+    }
+
+    function moduleReadArraysAllowed(dataAfter, dataBefore, moduleName, granted) {
+      return granted
+        ? (
+          idListAddsOnlyCurrentUser(moduleReaderIds(dataAfter, moduleName), moduleReaderIds(dataBefore, moduleName))
+          && emailListAddsOnlyCurrentUser(moduleReaderEmails(dataAfter, moduleName), moduleReaderEmails(dataBefore, moduleName))
+        )
+        : (
+          listPreserved(moduleReaderIds(dataAfter, moduleName), moduleReaderIds(dataBefore, moduleName))
+          && listPreserved(moduleReaderEmails(dataAfter, moduleName), moduleReaderEmails(dataBefore, moduleName))
+        );
+    }
+
+    function moduleWriteArraysAllowed(dataAfter, dataBefore, moduleName, granted) {
+      return granted
+        ? (
+          idListAddsOnlyCurrentUser(moduleWriterIds(dataAfter, moduleName), moduleWriterIds(dataBefore, moduleName))
+          && emailListAddsOnlyCurrentUser(moduleWriterEmails(dataAfter, moduleName), moduleWriterEmails(dataBefore, moduleName))
+        )
+        : (
+          listPreserved(moduleWriterIds(dataAfter, moduleName), moduleWriterIds(dataBefore, moduleName))
+          && listPreserved(moduleWriterEmails(dataAfter, moduleName), moduleWriterEmails(dataBefore, moduleName))
+        );
+    }
+
+    function familyInvitationModuleArraysAllowed(familyId, moduleName) {
+      return moduleReadArraysAllowed(
+          request.resource.data,
+          resource.data,
+          moduleName,
+          currentUserFamilyInvitationModuleCanRead(familyId, moduleName)
+        )
+        && moduleWriteArraysAllowed(
+          request.resource.data,
+          resource.data,
+          moduleName,
+          currentUserFamilyInvitationModuleCanWrite(familyId, moduleName)
+        );
+    }
+
+    function familyInvitationAllModuleArraysAllowed(familyId) {
+      return familyInvitationModuleArraysAllowed(familyId, "home")
+        && familyInvitationModuleArraysAllowed(familyId, "calendar")
+        && familyInvitationModuleArraysAllowed(familyId, "tasks")
+        && familyInvitationModuleArraysAllowed(familyId, "meals")
+        && familyInvitationModuleArraysAllowed(familyId, "lists")
+        && familyInvitationModuleArraysAllowed(familyId, "groceries")
+        && familyInvitationModuleArraysAllowed(familyId, "custody")
+        && familyInvitationModuleArraysAllowed(familyId, "budget")
+        && familyInvitationModuleArraysAllowed(familyId, "notifications");
+    }
+
+    function custodyInvitationModuleArraysAllowed(groupId, moduleName) {
+      return moduleReadArraysAllowed(
+          request.resource.data,
+          resource.data,
+          moduleName,
+          currentUserCustodyInvitationModuleCanRead(groupId, moduleName)
+        )
+        && moduleWriteArraysAllowed(
+          request.resource.data,
+          resource.data,
+          moduleName,
+          currentUserCustodyInvitationModuleCanWrite(groupId, moduleName)
+        );
+    }
+
+    function custodyInvitationAllModuleArraysAllowed(groupId) {
+      return custodyInvitationModuleArraysAllowed(groupId, "custody")
+        && custodyInvitationModuleArraysAllowed(groupId, "budget");
+    }
+
     function currentUserCustodyInvitationAfterStatus(groupId, status) {
       return signedIn()
         && exists(currentUserCustodyInvitationPath(groupId))
@@ -394,15 +607,54 @@ service cloud.firestore {
         && familyMemberIdsPreserved()
         && currentUserFamilyInvitationAfterStatus(familyId, "accepted")
         && (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            "memberIds",
-            "memberEmails",
-            "member_emails",
-            "pendingMemberEmails",
-            "pending_member_emails",
-            "members",
-            "updatedAt"
-          ])
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "memberIds",
+              "memberEmails",
+              "member_emails",
+              "pendingMemberEmails",
+              "pending_member_emails",
+              "members",
+              "homeReaderIds",
+              "homeWriterIds",
+              "homeReaderEmails",
+              "homeWriterEmails",
+              "calendarReaderIds",
+              "calendarWriterIds",
+              "calendarReaderEmails",
+              "calendarWriterEmails",
+              "tasksReaderIds",
+              "tasksWriterIds",
+              "tasksReaderEmails",
+              "tasksWriterEmails",
+              "mealsReaderIds",
+              "mealsWriterIds",
+              "mealsReaderEmails",
+              "mealsWriterEmails",
+              "listsReaderIds",
+              "listsWriterIds",
+              "listsReaderEmails",
+              "listsWriterEmails",
+              "groceriesReaderIds",
+              "groceriesWriterIds",
+              "groceriesReaderEmails",
+              "groceriesWriterEmails",
+              "custodyReaderIds",
+              "custodyWriterIds",
+              "custodyReaderEmails",
+              "custodyWriterEmails",
+              "budgetReaderIds",
+              "budgetWriterIds",
+              "budgetReaderEmails",
+              "budgetWriterEmails",
+              "notificationsReaderIds",
+              "notificationsWriterIds",
+              "notificationsReaderEmails",
+              "notificationsWriterEmails",
+              "updatedAt"
+            ])
+            && familyInvitationAllModuleArraysAllowed(familyId)
+          )
           || (
             currentUserFamilyInvitationAfterGrantsAdmin(familyId)
             && request.auth.uid in listOrEmpty(request.resource.data.adminIds)
@@ -475,8 +727,17 @@ service cloud.firestore {
           "member_emails",
           "pendingMemberEmails",
           "pending_member_emails",
+          "custodyReaderIds",
+          "custodyWriterIds",
+          "custodyReaderEmails",
+          "custodyWriterEmails",
+          "budgetReaderIds",
+          "budgetWriterIds",
+          "budgetReaderEmails",
+          "budgetWriterEmails",
           "updatedAt"
-        ]);
+        ])
+        && custodyInvitationAllModuleArraysAllowed(groupId);
     }
 
     function canAcceptCustodyViewerInvitationUpdate(groupId) {
@@ -495,8 +756,17 @@ service cloud.firestore {
           "viewer_emails",
           "pendingViewerEmails",
           "pending_viewer_emails",
+          "custodyReaderIds",
+          "custodyWriterIds",
+          "custodyReaderEmails",
+          "custodyWriterEmails",
+          "budgetReaderIds",
+          "budgetWriterIds",
+          "budgetReaderEmails",
+          "budgetWriterEmails",
           "updatedAt"
-        ]);
+        ])
+        && custodyInvitationAllModuleArraysAllowed(groupId);
     }
 
     function canDeclineCustodyInvitationUpdate(groupId) {
@@ -596,87 +866,93 @@ service cloud.firestore {
     }
 
     match /familyEvents/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("calendar");
+      allow create: if canCreateHouseholdModuleDoc("calendar");
+      allow update: if canUpdateHouseholdModuleDoc("calendar");
+      allow delete: if canDeleteHouseholdModuleDoc("calendar");
     }
 
     match /tasks/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("tasks");
+      allow create: if canCreateHouseholdModuleDoc("tasks");
+      allow update: if canUpdateHouseholdModuleDoc("tasks");
+      allow delete: if canDeleteHouseholdModuleDoc("tasks");
     }
 
     match /taskTemplates/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("tasks");
+      allow create: if canCreateHouseholdModuleDoc("tasks");
+      allow update: if canUpdateHouseholdModuleDoc("tasks");
+      allow delete: if canDeleteHouseholdModuleDoc("tasks");
     }
 
     match /routineRuns/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("tasks");
+      allow create: if canCreateHouseholdModuleDoc("tasks");
+      allow update: if canUpdateHouseholdModuleDoc("tasks");
+      allow delete: if canDeleteHouseholdModuleDoc("tasks");
     }
 
     match /rewards/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("tasks");
+      allow create: if canCreateHouseholdModuleDoc("tasks");
+      allow update: if canUpdateHouseholdModuleDoc("tasks");
+      allow delete: if canDeleteHouseholdModuleDoc("tasks");
     }
 
     match /meals/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("meals");
+      allow create: if canCreateHouseholdModuleDoc("meals");
+      allow update: if canUpdateHouseholdModuleDoc("meals");
+      allow delete: if canDeleteHouseholdModuleDoc("meals");
     }
 
     match /mealTemplates/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("meals");
+      allow create: if canCreateHouseholdModuleDoc("meals");
+      allow update: if canUpdateHouseholdModuleDoc("meals");
+      allow delete: if canDeleteHouseholdModuleDoc("meals");
     }
 
     match /familyLists/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("lists");
+      allow create: if canCreateHouseholdModuleDoc("lists");
+      allow update: if canUpdateHouseholdModuleDoc("lists");
+      allow delete: if canDeleteHouseholdModuleDoc("lists");
     }
 
     match /familyListItems/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("lists");
+      allow create: if canCreateHouseholdModuleDoc("lists");
+      allow update: if canUpdateHouseholdModuleDoc("lists");
+      allow delete: if canDeleteHouseholdModuleDoc("lists");
     }
 
     match /familyPantryItems/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("lists");
+      allow create: if canCreateHouseholdModuleDoc("lists");
+      allow update: if canUpdateHouseholdModuleDoc("lists");
+      allow delete: if canDeleteHouseholdModuleDoc("lists");
     }
 
     match /children/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("home");
+      allow create: if hasRequestFamilyId() && canManageFamily(requestFamilyId());
+      allow update: if hasRequestFamilyId()
+        && hasExistingFamilyId()
+        && requestFamilyId() == existingFamilyId()
+        && canManageFamily(existingFamilyId());
+      allow delete: if hasExistingFamilyId() && canManageFamily(existingFamilyId());
     }
 
     match /familyMembers/{docId} {
       allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow create: if hasRequestFamilyId() && canManageFamily(requestFamilyId());
+      allow update: if hasRequestFamilyId()
+        && hasExistingFamilyId()
+        && requestFamilyId() == existingFamilyId()
+        && canManageFamily(existingFamilyId());
+      allow delete: if hasExistingFamilyId() && canManageFamily(existingFamilyId());
     }
 
     match /familyActivity/{docId} {
@@ -693,11 +969,17 @@ service cloud.firestore {
     match /familyInvitations/{docId} {
       allow read: if canReadHouseholdDoc()
         || (signedIn() && resource.data.recipientEmail == userEmail());
-      allow create: if canCreateHouseholdDoc()
+      allow create: if hasRequestFamilyId()
+        && canManageFamily(requestFamilyId())
         && request.resource.data.createdBy == request.auth.uid;
-      allow update: if canUpdateHouseholdDoc()
+      allow update: if (
+          hasRequestFamilyId()
+          && hasExistingFamilyId()
+          && requestFamilyId() == existingFamilyId()
+          && canManageFamily(existingFamilyId())
+        )
         || canRecipientUpdateFamilyInvitation();
-      allow delete: if canDeleteHouseholdDoc();
+      allow delete: if hasExistingFamilyId() && canManageFamily(existingFamilyId());
     }
 
     match /custodyInvitations/{docId} {
@@ -762,10 +1044,10 @@ service cloud.firestore {
     }
 
     match /groceries/{docId} {
-      allow read: if canReadHouseholdDoc();
-      allow create: if canCreateHouseholdDoc();
-      allow update: if canUpdateHouseholdDoc();
-      allow delete: if canDeleteHouseholdDoc();
+      allow read: if canReadHouseholdModuleDoc("lists");
+      allow create: if canCreateHouseholdModuleDoc("lists");
+      allow update: if canUpdateHouseholdModuleDoc("lists");
+      allow delete: if canDeleteHouseholdModuleDoc("lists");
     }
 
     match /{document=**} {

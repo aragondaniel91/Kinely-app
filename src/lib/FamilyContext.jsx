@@ -101,20 +101,6 @@ function listOrEmpty(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function memberHasAdminRole(member) {
-  const appRole = String(member?.appRole || member?.app_role || "").trim().toLowerCase();
-  const role = String(member?.role || "").trim().toLowerCase();
-  return (
-    member?.isAdmin === true ||
-    member?.is_admin === true ||
-    member?.admin === true ||
-    appRole === "owner" ||
-    appRole === "admin" ||
-    role === "owner" ||
-    role === "admin"
-  );
-}
-
 function pushUniqueFamily(target, family) {
   if (!family?.id || target.some((item) => item.id === family.id)) return;
   target.push(family);
@@ -760,7 +746,6 @@ export function FamilyProvider({ children }) {
 
   const isAdmin =
     isOwner ||
-    memberHasAdminRole(memberEntry) ||
     listOrEmpty(activeProfile?.adminIds).includes(user?.uid) ||
     listOrEmpty(activeProfile?.admin_ids).includes(user?.uid) ||
     listOrEmpty(activeProfile?.adminEmails).map(normalizeEmail).includes(normalizeEmail(myEmail)) ||

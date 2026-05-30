@@ -182,6 +182,16 @@ export function buildCustodyGroupPayload({
   const memberEmails = normalizeEmailList([activeOwnerEmail]);
   const memberIds = [currentUser?.uid].filter(Boolean);
   const name = String(groupName || `${cleanChildren[0] || "Child"} Custody`).trim();
+  const custodyAccessArrays = {
+    custodyReaderIds: memberIds,
+    custodyWriterIds: memberIds,
+    custodyReaderEmails: memberEmails,
+    custodyWriterEmails: memberEmails,
+    budgetReaderIds: memberIds,
+    budgetWriterIds: memberIds,
+    budgetReaderEmails: memberEmails,
+    budgetWriterEmails: memberEmails,
+  };
 
   return {
     name,
@@ -209,6 +219,7 @@ export function buildCustodyGroupPayload({
     viewerIds: [],
     viewerEmails: [],
     viewer_emails: [],
+    ...custodyAccessArrays,
     ownerId: currentUser?.uid || null,
     ownerEmail: ownerEmail || "",
     createdBy: currentUser?.uid || null,

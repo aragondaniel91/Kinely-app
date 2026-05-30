@@ -38,6 +38,28 @@ const DEFAULT_MEMBER_PERMISSIONS = {
   notifications: { read: false, write: false },
 };
 
+const FAMILY_PERMISSION_MODULES = [
+  "home",
+  "calendar",
+  "tasks",
+  "meals",
+  "lists",
+  "groceries",
+  "custody",
+  "budget",
+  "notifications",
+];
+
+const DEFAULT_CUSTODY_MEMBER_PERMISSIONS = {
+  custody: { read: true, write: true },
+  budget: { read: true, write: true },
+};
+
+const DEFAULT_CUSTODY_VIEWER_PERMISSIONS = {
+  custody: { read: true, write: false },
+  budget: { read: false, write: false },
+};
+
 const INVITATION_COLLECTIONS = {
   FAMILY: "familyInvitations",
   CUSTODY: "custodyInvitations",
@@ -82,6 +104,58 @@ function invitationAccess(invitation) {
   const type = invitation?.type || invitation?.inviteType || invitation?.invite_type || "";
   if (access === "viewer" || type.includes("viewer") || invitationRole(invitation) === "viewer") return "viewer";
   return "member";
+}
+
+function modulePermission(permission = {}) {
+  return {
+    read: permission?.read === true || permission?.write === true || permission?.visible === true || permission?.assignable === true,
+    write: permission?.write === true,
+  };
+}
+
+function addModuleArrayUnionUpdates(target, { uid, email, moduleName, permission }) {
+  const access = modulePermission(permission);
+  if (access.read) {
+    target[`${moduleName}ReaderIds`] = arrayUnion(uid);
+    target[`${moduleName}ReaderEmails`] = arrayUnion(email);
+  }
+  if (access.write) {
+    target[`${moduleName}WriterIds`] = arrayUnion(uid);
+    target[`${moduleName}WriterEmails`] = arrayUnion(email);
+  }
+}
+
+function buildFamilyModuleArrayUnionUpdates({ uid, email, permissions = {} }) {
+  return FAMILY_PERMISSION_MODULES.reduce((updates, moduleName) => {
+    addModuleArrayUnionUpdates(updates, {
+      uid,
+      email,
+      moduleName,
+      permission: permissions?.[moduleName],
+    });
+    return updates;
+  }, {});
+}
+
+function custodyPermissionsForInvite(invitation) {
+  const access = invitationAccess(invitation);
+  const defaults = access === "viewer" ? DEFAULT_CUSTODY_VIEWER_PERMISSIONS : DEFAULT_CUSTODY_MEMBER_PERMISSIONS;
+  return {
+    ...defaults,
+    ...(invitation?.permissions || {}),
+  };
+}
+
+function buildCustodyModuleArrayUnionUpdates({ uid, email, permissions = {} }) {
+  return ["custody", "budget"].reduce((updates, moduleName) => {
+    addModuleArrayUnionUpdates(updates, {
+      uid,
+      email,
+      moduleName,
+      permission: permissions?.[moduleName],
+    });
+    return updates;
+  }, {});
 }
 
 function invitationTypeLabel(invitation) {
@@ -355,6 +429,15 @@ export default function ProfileInvitationsSection() {
         groupUpdate.pending_member_emails = arrayRemove(recipientEmail);
       }
 
+      Object.assign(
+        groupUpdate,
+        buildCustodyModuleArrayUnionUpdates({
+          uid: user.uid,
+          email: recipientEmail,
+          permissions: custodyPermissionsForInvite(invitation),
+        })
+      );
+
       batch.update(groupRef, groupUpdate);
 
       await batch.commit();
@@ -417,6 +500,15 @@ export default function ProfileInvitationsSection() {
         familyUpdate.admin_ids = arrayUnion(user.uid);
         familyUpdate.adminEmails = arrayUnion(recipientEmail);
         familyUpdate.admin_emails = arrayUnion(recipientEmail);
+      } else {
+        Object.assign(
+          familyUpdate,
+          buildFamilyModuleArrayUnionUpdates({
+            uid: user.uid,
+            email: recipientEmail,
+            permissions: member.permissions || DEFAULT_MEMBER_PERMISSIONS,
+          })
+        );
       }
 
       batch.update(familyRef, familyUpdate);

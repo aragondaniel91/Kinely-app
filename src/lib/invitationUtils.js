@@ -121,6 +121,15 @@ export function buildCustodyInvitation({
   const cleanAccess = access === "viewer" ? "viewer" : "member";
   const inviteType = type || (cleanAccess === "viewer" ? INVITATION_TYPES.CUSTODY_VIEWER : INVITATION_TYPES.CUSTODY_MEMBER);
   const id = custodyInvitationId(groupId, cleanEmail);
+  const defaultPermissions = cleanAccess === "viewer"
+    ? {
+        custody: { read: true, write: false },
+        budget: { read: false, write: false },
+      }
+    : {
+        custody: { read: true, write: true },
+        budget: { read: true, write: true },
+      };
 
   return {
     id,
@@ -146,7 +155,7 @@ export function buildCustodyInvitation({
     recipientEmail: cleanEmail,
     recipient_email: cleanEmail,
     role,
-    permissions,
+    permissions: permissions || defaultPermissions,
     createdBy,
     created_by: createdBy,
     createdByEmail: normalizeInviteEmail(createdByEmail),

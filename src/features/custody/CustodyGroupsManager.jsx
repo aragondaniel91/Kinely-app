@@ -79,6 +79,28 @@ function getPendingViewerEmails(group) {
   ]);
 }
 
+function uniqueClean(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function buildCustodyModuleAccessArrays({ memberIds = [], memberEmails = [], viewerIds = [], viewerEmails = [] }) {
+  const custodyReaderIds = uniqueClean([...memberIds, ...viewerIds]);
+  const custodyReaderEmails = normalizeEmailList([...memberEmails, ...viewerEmails]);
+  const custodyWriterIds = uniqueClean(memberIds);
+  const custodyWriterEmails = normalizeEmailList(memberEmails);
+
+  return {
+    custodyReaderIds,
+    custodyWriterIds,
+    custodyReaderEmails,
+    custodyWriterEmails,
+    budgetReaderIds: custodyWriterIds,
+    budgetWriterIds: custodyWriterIds,
+    budgetReaderEmails: custodyWriterEmails,
+    budgetWriterEmails: custodyWriterEmails,
+  };
+}
+
 function childLabel(child) {
   if (!child) return "";
   if (typeof child === "string") return child;
@@ -561,6 +583,12 @@ export default function CustodyGroupsManager() {
         admin_ids: adminIds,
         adminEmails,
         admin_emails: adminEmails,
+        ...buildCustodyModuleAccessArrays({
+          memberIds: acceptedMemberIds,
+          memberEmails: acceptedMemberEmails,
+          viewerIds: acceptedViewerIds,
+          viewerEmails: acceptedViewerEmails,
+        }),
         createdBy: existingGroup?.createdBy || existingGroup?.created_by || payload.createdBy,
         created_by: existingGroup?.created_by || existingGroup?.createdBy || payload.createdBy,
         createdByEmail: existingGroup?.createdByEmail || existingGroup?.created_by_email || payload.createdByEmail,
