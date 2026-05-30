@@ -36,6 +36,16 @@ function getLegacyModuleAccess(member = {}, moduleName) {
   const legacyWriteKey = `${moduleName}_write`;
   const legacyVisibleKey = `${moduleName}_visible`;
   const legacyAssignableKey = `${moduleName}_assignable`;
+  const legacyTaskVisible =
+    moduleName === FAMILY_MODULES.tasks
+      ? booleanOrUndefined(member.visibleInTasks) ??
+        booleanOrUndefined(member.visible_in_tasks)
+      : undefined;
+  const legacyCalendarVisible =
+    moduleName === FAMILY_MODULES.calendar
+      ? booleanOrUndefined(member.visibleInCalendar) ??
+        booleanOrUndefined(member.visible_in_calendar)
+      : undefined;
 
   const read =
     booleanOrUndefined(member[legacyShareKey]) ??
@@ -49,14 +59,20 @@ function getLegacyModuleAccess(member = {}, moduleName) {
 
   const visible =
     booleanOrUndefined(member[legacyVisibleKey]) ??
-    booleanOrUndefined(member.visibleInTasks) ??
-    booleanOrUndefined(member.visible_in_tasks) ??
-    read;
+    legacyTaskVisible ??
+    legacyCalendarVisible ??
+    false;
 
   const assignable =
     booleanOrUndefined(member[legacyAssignableKey]) ??
-    booleanOrUndefined(member.taskAssignable) ??
-    booleanOrUndefined(member.task_assignable) ??
+    (moduleName === FAMILY_MODULES.tasks
+      ? booleanOrUndefined(member.taskAssignable) ??
+        booleanOrUndefined(member.task_assignable)
+      : undefined) ??
+    (moduleName === FAMILY_MODULES.calendar
+      ? booleanOrUndefined(member.calendarAssignable) ??
+        booleanOrUndefined(member.calendar_assignable)
+      : undefined) ??
     false;
 
   return {
@@ -104,16 +120,101 @@ export function getMemberModuleAccess(member = {}, moduleName = FAMILY_MODULES.t
   };
 }
 
+function hasExplicitFalse(value) {
+  return value === false;
+}
+
+function hasExplicitTrue(value) {
+  return value === true;
+}
+
+export function isAdminLikeMember(member = {}) {
+  const appRole = String(member.appRole || member.app_role || "").trim().toLowerCase();
+  const role = String(member.role || "").trim().toLowerCase();
+
+  return (
+    member.admin === true ||
+    member.isAdmin === true ||
+    member.is_admin === true ||
+    role === "owner" ||
+    role === "admin" ||
+    appRole === "owner" ||
+    appRole === "admin"
+  );
+}
+
+export function isChildMember(member = {}) {
+  const type = String(member.type || member.personType || member.person_type || "").trim().toLowerCase();
+  const relationship = String(
+    member.relationship ||
+      member.memberRelationship ||
+      member.member_relationship ||
+      member.role ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return type === "child" || relationship === "child";
+}
+
+export function shouldShowMemberOnHome(member = {}) {
+  if (hasExplicitFalse(member.showOnHomeDashboard)) return false;
+  if (hasExplicitFalse(member.show_on_home_dashboard)) return false;
+  if (hasExplicitFalse(member.homeDashboard)) return false;
+  if (hasExplicitFalse(member.home_dashboard)) return false;
+
+  if (hasExplicitTrue(member.showOnHomeDashboard)) return true;
+  if (hasExplicitTrue(member.show_on_home_dashboard)) return true;
+  if (hasExplicitTrue(member.homeDashboard)) return true;
+  if (hasExplicitTrue(member.home_dashboard)) return true;
+
+  if (isAdminLikeMember(member)) return true;
+  if (isChildMember(member)) return true;
+  if (member.livesHere === true || member.lives_here === true) return true;
+
+  return false;
+}
+
 export function shouldShowMemberInTasks(member = {}) {
   const access = getMemberModuleAccess(member, FAMILY_MODULES.tasks);
 
-  return access.visible === true || access.assignable === true;
+  return (
+    isAdminLikeMember(member) ||
+    isChildMember(member) ||
+    access.visible === true ||
+    access.assignable === true ||
+    access.write === true
+  );
 }
 
 export function canAssignTasksToMember(member = {}) {
   const access = getMemberModuleAccess(member, FAMILY_MODULES.tasks);
 
-  return access.assignable === true;
+  return isAdminLikeMember(member) || isChildMember(member) || access.assignable === true;
+}
+
+export function shouldShowMemberInCalendar(member = {}) {
+  const access = getMemberModuleAccess(member, FAMILY_MODULES.calendar);
+
+  return (
+    isAdminLikeMember(member) ||
+    isChildMember(member) ||
+    access.visible === true ||
+    access.assignable === true ||
+    access.write === true
+  );
+}
+
+export function canAssignCalendarEventsToMember(member = {}) {
+  const access = getMemberModuleAccess(member, FAMILY_MODULES.calendar);
+
+  return (
+    isAdminLikeMember(member) ||
+    isChildMember(member) ||
+    access.assignable === true ||
+    access.write === true
+  );
 }
 
 export function buildDefaultModuleAccess({

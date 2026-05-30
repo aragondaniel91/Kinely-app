@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDays, addMonths, subMonths } from "date-fns";
 import { useSearchParams } from "react-router-dom";
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
@@ -26,11 +26,15 @@ import FamilyCalendarTimelineGrid from "@/features/family-calendar/components/Fa
 import FamilyEventDetailsPopover, { buildEventPanelState } from "@/features/family-calendar/components/FamilyEventDetailsPopover";
 import FamilyEventOverflowPopover, { buildOverflowPanelState } from "@/features/family-calendar/components/FamilyEventOverflowPopover";
 import { FAMILY_CALENDAR_CATEGORIES } from "@/features/family-calendar/utils/familyCalendarUi";
-import { ALL_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/features/family-calendar/hooks/useFamilyCalendarFilters";
+import { ALL_ASSIGNMENT_ID, FAMILY_ASSIGNMENT_ID, useFamilyCalendarFilters } from "@/features/family-calendar/hooks/useFamilyCalendarFilters";
 import { useFamilyCalendarDateRange } from "@/features/family-calendar/hooks/useFamilyCalendarDateRange";
 import { useFamilyCalendarEvents } from "@/features/family-calendar/hooks/useFamilyCalendarEvents";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import { adaptFamilyEvent } from "@/core/events/familyEventAdapter";
+import {
+  canAssignCalendarEventsToMember,
+  shouldShowMemberInCalendar,
+} from "@/features/tasks/utils/memberModuleVisibility";
 
 const categoryOptions = FAMILY_CALENDAR_CATEGORIES;
 
@@ -90,6 +94,14 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const canReadTasks = perms?.tasks?.read !== false;
   const canWriteTasks = perms?.tasks?.write !== false;
   const { events, loading, loadEvents } = useFamilyCalendarEvents({ familyId, people });
+  const calendarPeople = useMemo(
+    () => people.filter((person) => shouldShowMemberInCalendar(person)),
+    [people]
+  );
+  const assignableCalendarPeople = useMemo(
+    () => people.filter((person) => canAssignCalendarEventsToMember(person)),
+    [people]
+  );
   const { filteredEvents, eventsByDay } = useFamilyCalendarFilters({
     events,
     selectedPersonId,
@@ -111,6 +123,16 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (
+      selectedPersonId !== ALL_ASSIGNMENT_ID &&
+      selectedPersonId !== FAMILY_ASSIGNMENT_ID &&
+      !calendarPeople.some((person) => person.id === selectedPersonId)
+    ) {
+      setSelectedPersonId(ALL_ASSIGNMENT_ID);
+    }
+  }, [calendarPeople, selectedPersonId]);
 
   useEffect(() => {
     const requestedEventId = searchParams.get("eventId");
@@ -337,7 +359,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         <div className="relative z-30 overflow-visible rounded-[2rem] border border-white/80 bg-white/82 shadow-[0_18px_52px_rgba(15,23,42,0.07)] backdrop-blur-xl">
           <FamilyCalendarPlannerHeader
             profile={profile}
-            people={people}
+            people={calendarPeople}
             now={now}
             anchorDate={anchorDate}
             viewMode={viewMode}
@@ -472,6 +494,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         <AddFamilyEventDialog
           date={addDate}
           editEvent={editEvent}
+          assignablePeople={assignableCalendarPeople}
           canWrite={canWriteCalendar}
           canWriteLists={canWriteLists}
           onClose={closeEventDialog}

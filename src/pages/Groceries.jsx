@@ -116,6 +116,47 @@ const pantryCategoryConfig = {
   },
 };
 
+const starterPantryItems = [
+  { title: "Milk", category: "breakfast" },
+  { title: "Eggs", category: "breakfast" },
+  { title: "Bread", category: "breakfast" },
+  { title: "Cereal", category: "breakfast" },
+  { title: "Oatmeal", category: "breakfast" },
+  { title: "Yogurt", category: "breakfast" },
+  { title: "Bananas", category: "breakfast" },
+  { title: "Pasta", category: "easy_dinners" },
+  { title: "Pasta sauce", category: "easy_dinners" },
+  { title: "Rice", category: "easy_dinners" },
+  { title: "Tortillas", category: "easy_dinners" },
+  { title: "Ground beef", category: "easy_dinners" },
+  { title: "Chicken", category: "easy_dinners" },
+  { title: "Cheese", category: "easy_dinners" },
+  { title: "Frozen vegetables", category: "easy_dinners" },
+  { title: "Mac and cheese", category: "easy_dinners" },
+  { title: "Apples", category: "kid_snacks" },
+  { title: "Crackers", category: "kid_snacks" },
+  { title: "Granola bars", category: "kid_snacks" },
+  { title: "Fruit cups", category: "kid_snacks" },
+  { title: "Popcorn", category: "kid_snacks" },
+  { title: "Yogurt pouches", category: "kid_snacks" },
+  { title: "Toilet paper", category: "household" },
+  { title: "Paper towels", category: "household" },
+  { title: "Trash bags", category: "household" },
+  { title: "Dish soap", category: "household" },
+  { title: "Laundry detergent", category: "household" },
+  { title: "Hand soap", category: "household" },
+  { title: "Wipes", category: "household" },
+  { title: "Lunch bags", category: "school" },
+  { title: "Water bottles", category: "school" },
+  { title: "Snack bags", category: "school" },
+  { title: "Juice boxes", category: "school" },
+  { title: "Chicken nuggets", category: "freezer" },
+  { title: "Frozen fruit", category: "freezer" },
+  { title: "Frozen pizza", category: "freezer" },
+  { title: "Water", category: "drinks" },
+  { title: "Juice", category: "drinks" },
+];
+
 const listTypeConfig = {
   groceries: {
     icon: Apple,
@@ -609,6 +650,7 @@ function PantryPanel({
   loading,
   canWrite,
   searchQuery,
+  creatingStarterPantry,
   newPantryTitle,
   setNewPantryTitle,
   newPantryCategory,
@@ -621,6 +663,7 @@ function PantryPanel({
   creatingRefillList,
   onAddPantryItem,
   onCreateRefillList,
+  onCreateStarterPantry,
   onStatusChange,
   onEditPantryItem,
   onArchivePantryItem,
@@ -684,9 +727,21 @@ function PantryPanel({
             </h2>
 
             <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
-              Track the essentials your family actually keeps at home: in stock,
-              low, or out.
+              Start with a guided pantry list, then customize it for your home:
+              in stock, low, or out.
             </p>
+
+            {canWrite && pantryItems.length === 0 && (
+              <Button
+                type="button"
+                onClick={onCreateStarterPantry}
+                disabled={creatingStarterPantry}
+                className="mt-4 rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {creatingStarterPantry ? "Creating..." : "Add starter pantry"}
+              </Button>
+            )}
           </div>
         </Card>
 
@@ -892,8 +947,8 @@ function PantryPanel({
             Make it yours
           </h3>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-            Add your own brands, snacks, school items, pet supplies, or anything
-            your family normally buys.
+            Starter pantry is only a shortcut. Add your own brands, snacks,
+            school items, pet supplies, or anything your family normally buys.
           </p>
         </Card>
       </aside>
@@ -943,6 +998,7 @@ export default function Groceries() {
   const [linkedTasks, setLinkedTasks] = useState([]);
   const [pantryItems, setPantryItems] = useState([]);
   const [activeListsTab, setActiveListsTab] = useState("lists");
+  const [creatingStarterPantry, setCreatingStarterPantry] = useState(false);
   const [newPantryTitle, setNewPantryTitle] = useState("");
   const [newPantryCategory, setNewPantryCategory] = useState("household");
   const [newPantryStatus, setNewPantryStatus] = useState("in_stock");
@@ -1782,6 +1838,57 @@ export default function Groceries() {
     }
   };
 
+  const createStarterPantry = async () => {
+    if (!canWrite || !familyId || creatingStarterPantry) return;
+
+    setCreatingStarterPantry(true);
+
+    try {
+      const existingTitles = new Set(
+        pantryItems.map((item) => String(item.title || "").trim().toLowerCase())
+      );
+      const itemsToCreate = starterPantryItems.filter(
+        (item) => !existingTitles.has(item.title.toLowerCase())
+      );
+
+      await Promise.all(
+        itemsToCreate.map((item) =>
+          addDoc(collection(db, PANTRY_COLLECTION), {
+            title: item.title,
+            name: item.title,
+            category: item.category,
+            status: "in_stock",
+            note: "",
+
+            familyId,
+
+            createdBy: user?.uid || null,
+            createdByEmail: user?.email || null,
+            createdByName: getProfileDisplayName(profile, user) || "Unknown member",
+
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+
+      toast({
+        title: "Starter pantry added",
+        description: itemsToCreate.length
+          ? `${itemsToCreate.length} home essentials were added.`
+          : "Your pantry already has these starter items.",
+        duration: 3500,
+      });
+
+      await loadData();
+    } catch (error) {
+      console.error("Error creating starter pantry:", error);
+      showErrorToast("Could not create pantry", error);
+    } finally {
+      setCreatingStarterPantry(false);
+    }
+  };
+
   const completePromptedRefillItemsFromPantry = async () => {
     if (
       !pantryListCompletionPrompt?.refillItems?.length ||
@@ -2346,6 +2453,7 @@ export default function Groceries() {
           loading={loading}
           canWrite={canWrite}
           searchQuery={listsSearch}
+          creatingStarterPantry={creatingStarterPantry}
           newPantryTitle={newPantryTitle}
           setNewPantryTitle={setNewPantryTitle}
           newPantryCategory={newPantryCategory}
@@ -2358,6 +2466,7 @@ export default function Groceries() {
           creatingRefillList={creatingRefillList}
           onAddPantryItem={addCustomPantryItem}
           onCreateRefillList={createPantryRefillList}
+          onCreateStarterPantry={createStarterPantry}
           onStatusChange={updatePantryStatus}
           onEditPantryItem={startEditingPantryItem}
           onArchivePantryItem={archivePantryItem}

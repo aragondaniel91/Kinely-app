@@ -80,6 +80,10 @@ function booleanOrFalse(value) {
   return value === true;
 }
 
+function booleanOrDefault(value, fallback = false) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 export function buildPersonId({ familyId = "family", type = PERSON_TYPES.ADULT, uid = "", email = "", displayName = "", legacyId = "" } = {}) {
   if (legacyId) return String(legacyId);
   if (uid) return `user_${uid}`;
@@ -204,6 +208,21 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
   const ownerEmail = normalizeEmail(profile.ownerEmail || profile.owner_email || profile.parent1Email || profile.parent1_email || currentUser?.email);
   const parent1Relationship = normalizeRelationship(profile.parent1Relationship || profile.parent1_relationship || profile.parent1Role || profile.parent1_role, PERSON_RELATIONSHIPS.PARENT);
   const parent2Relationship = normalizeRelationship(profile.parent2Relationship || profile.parent2_relationship || profile.parent2Role || profile.parent2_role, PERSON_RELATIONSHIPS.PARENT);
+  const parent2DefaultLivesHere = [
+    PERSON_RELATIONSHIPS.FATHER,
+    PERSON_RELATIONSHIPS.MOTHER,
+    PERSON_RELATIONSHIPS.PARENT,
+  ].includes(parent2Relationship);
+  const parent1LivesHere = booleanOrDefault(profile.parent1LivesHere ?? profile.parent1_lives_here, true);
+  const parent1ShowOnHomeDashboard = booleanOrDefault(
+    profile.parent1ShowOnHomeDashboard ?? profile.parent1_show_on_home_dashboard,
+    true
+  );
+  const parent2LivesHere = booleanOrDefault(profile.parent2LivesHere ?? profile.parent2_lives_here, parent2DefaultLivesHere);
+  const parent2ShowOnHomeDashboard = booleanOrDefault(
+    profile.parent2ShowOnHomeDashboard ?? profile.parent2_show_on_home_dashboard,
+    parent2LivesHere
+  );
 
   people.push(
     normalizePerson(
@@ -216,6 +235,8 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
         role: PERSON_ROLES.OWNER,
         relationship: parent1Relationship,
         colorId: profile.parent1Color || profile.parent1_color || "blue",
+        livesHere: parent1LivesHere,
+        showOnHomeDashboard: parent1ShowOnHomeDashboard,
         source: "parent1",
       },
       { familyId, source: "parent1", colorId: "blue" }
@@ -234,6 +255,8 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
           role: profile.parent2AppRole || profile.parent2_app_role || PERSON_ROLES.VIEWER,
           relationship: parent2Relationship,
           colorId: profile.parent2Color || profile.parent2_color || "amber",
+          livesHere: parent2LivesHere,
+          showOnHomeDashboard: parent2ShowOnHomeDashboard,
           source: "parent2",
         },
         { familyId, source: "parent2", colorId: "amber" }
@@ -253,6 +276,11 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
           role: PERSON_ROLES.CHILD,
           relationship: PERSON_RELATIONSHIPS.CHILD,
           colorId: child.colorId || child.color_id || child.color || child.familyColor || child.family_color || "green",
+          livesHere: booleanOrDefault(child.livesHere ?? child.lives_here, true),
+          showOnHomeDashboard: booleanOrDefault(
+            child.showOnHomeDashboard ?? child.show_on_home_dashboard,
+            true
+          ),
           source: "children",
         },
         { familyId, source: "children", type: PERSON_TYPES.CHILD, role: PERSON_ROLES.CHILD, relationship: PERSON_RELATIONSHIPS.CHILD, colorId: "green" }

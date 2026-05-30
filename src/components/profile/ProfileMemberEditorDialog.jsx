@@ -48,13 +48,32 @@ const MODULE_ACCESS_CONFIGS = [
     label: "Calendar",
     description: "Family events and shared schedule.",
     icon: CalendarDays,
+    assignmentControls: {
+      visibleLabel: "Show in filters",
+      visibleDescription: "Include this person in calendar legend and filters.",
+      assignableLabel: "Assign events",
+      assignableDescription: "Allow events to target this person.",
+      readLabel: "View calendar",
+      readDescription: "Let this member open calendar events.",
+      writeLabel: "Create / edit",
+      writeDescription: "Allow creating and changing events.",
+    },
   },
   {
     id: "tasks",
     label: "Tasks",
     description: "Task board, assignments, and routines.",
     icon: CheckSquare,
-    taskControls: true,
+    assignmentControls: {
+      visibleLabel: "Show on board",
+      visibleDescription: "Display this member on task boards.",
+      assignableLabel: "Assign tasks",
+      assignableDescription: "Allow tasks to target this person.",
+      readLabel: "View tasks",
+      readDescription: "Let this member open tasks.",
+      writeLabel: "Edit tasks",
+      writeDescription: "Allow creating and completing tasks.",
+    },
   },
   {
     id: "meals",
@@ -130,17 +149,11 @@ function HouseholdPresenceEditor({
   disabled,
 }) {
   function patch(field, nextValue) {
-    const next = {
+    onChange?.({
       livesHere,
       showOnHomeDashboard,
       [field]: nextValue,
-    };
-
-    if (field === "livesHere" && nextValue === true) {
-      next.showOnHomeDashboard = true;
-    }
-
-    onChange?.(next);
+    });
   }
 
   return (
@@ -157,7 +170,7 @@ function HouseholdPresenceEditor({
           <span>
             <span className="block font-black text-slate-950">Lives here</span>
             <span className="block text-xs font-semibold text-slate-500">
-              Part of the household day to day.
+              Household context only. It does not force Home visibility.
             </span>
           </span>
         </label>
@@ -172,7 +185,7 @@ function HouseholdPresenceEditor({
           <span>
             <span className="block font-black text-slate-950">Show on Home</span>
             <span className="block text-xs font-semibold text-slate-500">
-              Include in Today by person.
+              Include this person in Today by person.
             </span>
           </span>
         </label>
@@ -284,10 +297,21 @@ function ModuleAccessEditor({ value, onChange, disabled }) {
   );
 }
 
-function TasksModuleAccessEditor({ value, onChange, disabled }) {
+function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }) {
   const access = {
     ...buildDefaultModuleAccess(),
     ...value,
+  };
+  const copy = {
+    visibleLabel: "Show",
+    visibleDescription: "Display this member in module people views.",
+    assignableLabel: "Assign",
+    assignableDescription: "Allow records to target this person.",
+    readLabel: "View",
+    readDescription: "Let this member open this module.",
+    writeLabel: "Edit",
+    writeDescription: "Allow creating and changing records.",
+    ...labels,
   };
 
   function patch(field, nextValue) {
@@ -317,6 +341,7 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
 
     if (field === "write" && nextValue === true) {
       nextAccess.visible = true;
+      nextAccess.assignable = true;
       nextAccess.read = true;
     }
 
@@ -333,9 +358,9 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
           className="mt-1"
         />
         <span>
-          <span className="block font-black text-slate-950">Show</span>
+          <span className="block font-black text-slate-950">{copy.visibleLabel}</span>
           <span className="block text-xs font-semibold text-slate-500">
-            Display this member on task boards.
+            {copy.visibleDescription}
           </span>
         </span>
       </label>
@@ -348,9 +373,9 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
           className="mt-1"
         />
         <span>
-          <span className="block font-black text-slate-950">Assign</span>
+          <span className="block font-black text-slate-950">{copy.assignableLabel}</span>
           <span className="block text-xs font-semibold text-slate-500">
-            Allow tasks to target this person.
+            {copy.assignableDescription}
           </span>
         </span>
       </label>
@@ -363,9 +388,9 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
           className="mt-1"
         />
         <span>
-          <span className="block font-black text-slate-950">View</span>
+          <span className="block font-black text-slate-950">{copy.readLabel}</span>
           <span className="block text-xs font-semibold text-slate-500">
-            Let this member open tasks.
+            {copy.readDescription}
           </span>
         </span>
       </label>
@@ -378,9 +403,9 @@ function TasksModuleAccessEditor({ value, onChange, disabled }) {
           className="mt-1"
         />
         <span>
-          <span className="block font-black text-slate-950">Edit</span>
+          <span className="block font-black text-slate-950">{copy.writeLabel}</span>
           <span className="block text-xs font-semibold text-slate-500">
-            Allow creating and completing tasks.
+            {copy.writeDescription}
           </span>
         </span>
       </label>
@@ -417,11 +442,12 @@ function ModulePermissionsPanel({ modules, onChange, disabled }) {
                 </span>
               </div>
 
-              {config.taskControls ? (
-                <TasksModuleAccessEditor
+              {config.assignmentControls ? (
+                <AssignableModuleAccessEditor
                   value={value}
                   onChange={(nextAccess) => onChange?.(config.id, nextAccess)}
                   disabled={disabled}
+                  labels={config.assignmentControls}
                 />
               ) : (
                 <ModuleAccessEditor

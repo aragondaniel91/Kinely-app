@@ -343,13 +343,33 @@ export default function AddFamilyEventDialog({
   onClose,
   onSuccess,
   editEvent = null,
+  assignablePeople = null,
   canWrite = false,
   canWriteLists = false,
 }) {
   const { user, familyId, profile, familyPeople } = useFamily();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const people = familyPeople || [];
+  const eventPeople = familyPeople || [];
+  const assignmentPeople = useMemo(() => {
+    const sourcePeople = Array.isArray(assignablePeople) ? assignablePeople : eventPeople;
+    const byId = new Map(sourcePeople.map((person) => [person.id, person]));
+    const assignedId =
+      editEvent?.assignedPersonIds?.[0] ||
+      editEvent?.assigned_person_ids?.[0] ||
+      editEvent?.assignedPersonId ||
+      editEvent?.assigned_person_id ||
+      editEvent?.assignedPersonSnapshot?.id ||
+      editEvent?.assigned_person_snapshot?.id ||
+      "";
+
+    const assignedPerson = eventPeople.find((person) => person.id === assignedId);
+    if (assignedPerson && !byId.has(assignedPerson.id)) {
+      byId.set(assignedPerson.id, assignedPerson);
+    }
+
+    return Array.from(byId.values());
+  }, [assignablePeople, editEvent, eventPeople]);
 
   const initialStartParts = useMemo(() => timeToParts(editEvent?.startTime, "09:00"), [editEvent?.startTime]);
   const initialEndParts = useMemo(() => timeToParts(editEvent?.endTime, "10:00"), [editEvent?.endTime]);
@@ -367,17 +387,17 @@ export default function AddFamilyEventDialog({
   const [startParts, setStartParts] = useState(initialStartParts);
   const [endParts, setEndParts] = useState(initialEndParts);
   const [category, setCategory] = useState(editEvent?.category || "family");
-  const [assignedPersonId, setAssignedPersonId] = useState(() => initialAssignedPersonId(editEvent, people));
+  const [assignedPersonId, setAssignedPersonId] = useState(() => initialAssignedPersonId(editEvent, assignmentPeople));
   const [location, setLocation] = useState(editEvent?.location || "");
   const [audiencePayload, setAudiencePayload] = useState(() => defaultAudience(editEvent, user, profile));
   const [createLinkedListWithEvent, setCreateLinkedListWithEvent] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (assignedPersonId !== FAMILY_ASSIGNMENT_ID && !people.some((person) => person.id === assignedPersonId)) {
+    if (assignedPersonId !== FAMILY_ASSIGNMENT_ID && !assignmentPeople.some((person) => person.id === assignedPersonId)) {
       setAssignedPersonId(FAMILY_ASSIGNMENT_ID);
     }
-  }, [assignedPersonId, people]);
+  }, [assignedPersonId, assignmentPeople]);
 
   const documentId = familyEventDocumentId(editEvent || {});
   const isEditing = Boolean(documentId);
@@ -455,14 +475,14 @@ export default function AddFamilyEventDialog({
         },
         {
           familyId,
-          people,
+          people: eventPeople,
           createdByUid: user?.uid || null,
           createdByEmail: user?.email || null,
         }
       );
 
-      const assignedPerson = getEventAssignedPerson(corePayload, people);
-      const resolvedColorId = resolveEventColorId(corePayload, people, "family");
+      const assignedPerson = getEventAssignedPerson(corePayload, eventPeople);
+      const resolvedColorId = resolveEventColorId(corePayload, eventPeople, "family");
 
       const payload = {
         ...corePayload,
@@ -628,7 +648,7 @@ export default function AddFamilyEventDialog({
               </SelectTrigger>
               <SelectContent className="z-[220]">
                 <SelectItem value={FAMILY_ASSIGNMENT_ID}>👨‍👩‍👧‍👦 Family / General</SelectItem>
-                {people.map((person) => (
+                {assignmentPeople.map((person) => (
                   <SelectItem key={person.id} value={person.id}>
                     {personEmoji(person)} {person.displayName}
                   </SelectItem>

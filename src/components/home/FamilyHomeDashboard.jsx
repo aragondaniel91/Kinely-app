@@ -17,6 +17,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { resolveAssignedPersonFromRecord, resolveEventPersonFromRecord, resolvePersonFromRecord, samePerson } from "@/core/people/peopleCore";
+import { shouldShowMemberOnHome } from "@/features/tasks/utils/memberModuleVisibility";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -341,56 +342,6 @@ function recordBelongsToPerson(record, person, people = [], options = {}) {
   return Boolean(resolvedPerson && samePerson(resolvedPerson, person));
 }
 
-function permissionAllowsHome(value) {
-  if (value === true) return true;
-  if (typeof value === "object" && value !== null) {
-    return value.read === true || value.write === true || value.visible === true;
-  }
-
-  const normalized = String(value || "").trim().toLowerCase();
-  return ["read", "write", "admin", "editor", "viewer", "show", "visible", "yes"].includes(normalized);
-}
-
-function hasHomeDashboardPermission(person = {}) {
-  const modules =
-    person.modules ||
-    person.modulePermissions ||
-    person.module_permissions ||
-    person.permissions ||
-    {};
-
-  return (
-    permissionAllowsHome(modules.home) ||
-    permissionAllowsHome(modules.dashboard) ||
-    permissionAllowsHome(modules.homeDashboard) ||
-    permissionAllowsHome(modules.home_dashboard) ||
-    permissionAllowsHome(modules.familyDashboard) ||
-    permissionAllowsHome(modules.family_dashboard)
-  );
-}
-
-function isCoreWallPerson(person) {
-  const type = String(person?.type || "").toLowerCase();
-  const role = String(person?.role || "").toLowerCase();
-  const relationship = String(person?.relationship || person?.memberRelationship || person?.member_relationship || "").toLowerCase();
-  const source = String(person?.source || "").toLowerCase();
-
-  // Always show the primary household structure.
-  if (["parent1", "parent2", "children"].includes(source)) return true;
-  if (["child", "kid"].includes(type)) return true;
-  if (["owner"].includes(role)) return true;
-  if (["father", "mother", "parent", "partner", "spouse", "child"].includes(relationship)) return true;
-
-  // Caregivers / grandparents / babysitters must be explicitly enabled.
-  if (person?.showOnHomeDashboard === true || person?.show_on_home_dashboard === true) return true;
-  if (person?.homeDashboard === true || person?.home_dashboard === true) return true;
-  if (person?.livesHere === true || person?.lives_here === true) return true;
-  if (person?.household === true || person?.isHousehold === true || person?.is_household === true) return true;
-  if (hasHomeDashboardPermission(person)) return true;
-
-  return false;
-}
-
 function getMealTone(meal) {
   const type = String(meal?.meal_type || meal?.mealType || meal?.type || "").toLowerCase();
 
@@ -712,7 +663,7 @@ function ModulesGrid({ tasksToday, mealsToday, calendarEventsToday, openLists })
 }
 
 function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToday }) {
-  const visiblePeople = people.filter((person) => isCoreWallPerson(person));
+  const visiblePeople = people.filter((person) => shouldShowMemberOnHome(person));
 
   if (!visiblePeople.length) return null;
 

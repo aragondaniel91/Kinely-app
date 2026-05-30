@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import ProfileMemberEditorDialog from "@/components/profile/ProfileMemberEditorDialog";
 import {
   normalizeMemberRole,
+  roleDefaultLivesHere,
   roleToPersonType,
   roleToRelationship,
 } from "@/lib/memberRoles";
@@ -314,6 +315,7 @@ function getMembers(profile, user, myEmail) {
     const parent2PersonId = profile?.parent2PersonId || profile?.parent2_person_id || parent2Email || "";
     const storedParent2 = findStoredMember({ email: parent2Email, personId: parent2PersonId });
     const parent2Role = normalizeMemberRole(profile?.parent2_role || profile?.parent2Role || storedParent2?.role, "parent");
+    const parent2LivesHereDefault = roleDefaultLivesHere(parent2Role);
     add({
       source: "parent2",
       index: storedMembers.indexOf(storedParent2),
@@ -326,8 +328,8 @@ function getMembers(profile, user, myEmail) {
       type: storedParent2?.type || storedParent2?.personType || storedParent2?.person_type || roleToPersonType(parent2Role),
       color: profile?.parent2_color || profile?.parent2Color || "amber",
       admin: isAdminMember(storedParent2) || adminEmails.includes(parent2Email),
-      livesHere: booleanOrFallback(profile?.parent2LivesHere ?? profile?.parent2_lives_here ?? storedParent2?.livesHere ?? storedParent2?.lives_here, true),
-      showOnHomeDashboard: booleanOrFallback(profile?.parent2ShowOnHomeDashboard ?? profile?.parent2_show_on_home_dashboard ?? storedParent2?.showOnHomeDashboard ?? storedParent2?.show_on_home_dashboard, true),
+      livesHere: booleanOrFallback(profile?.parent2LivesHere ?? profile?.parent2_lives_here ?? storedParent2?.livesHere ?? storedParent2?.lives_here, parent2LivesHereDefault),
+      showOnHomeDashboard: booleanOrFallback(profile?.parent2ShowOnHomeDashboard ?? profile?.parent2_show_on_home_dashboard ?? storedParent2?.showOnHomeDashboard ?? storedParent2?.show_on_home_dashboard, parent2LivesHereDefault),
       modules: storedParent2?.modules || {},
       permissions: storedParent2?.permissions || limitedPermissions,
       status: storedParent2?.status || storedParent2?.invitationStatus || storedParent2?.invitation_status || (memberEmails.includes(parent2Email)
@@ -377,17 +379,18 @@ function MemberCard({ member, canEdit, onEdit, onDelete }) {
       const hasAccess =
         access.write === true ||
         access.read === true ||
-        (moduleName === "tasks" && (access.visible === true || access.assignable === true));
+        (["calendar", "tasks"].includes(moduleName) &&
+          (access.visible === true || access.assignable === true));
 
       if (!hasAccess) return null;
 
       const suffix = access.write
         ? "edit"
-        : access.read
-        ? "view"
         : access.assignable
         ? "assign"
-        : "show";
+        : access.visible
+        ? "show"
+        : "view";
 
       return `${moduleLabels[moduleName]}: ${suffix}`;
     })
@@ -558,8 +561,7 @@ export default function ProfileMembersSection() {
     const livesHere = nextEditor.livesHere === true || nextEditor.lives_here === true;
     const showOnHomeDashboard =
       nextEditor.showOnHomeDashboard === true ||
-      nextEditor.show_on_home_dashboard === true ||
-      livesHere;
+      nextEditor.show_on_home_dashboard === true;
     const appRole = appRoleForMember({
       role,
       admin: nextEditor.admin === true,
