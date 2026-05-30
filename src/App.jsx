@@ -8,6 +8,7 @@ import {
 
 import PageNotFound from "./lib/PageNotFound";
 import AppShell from "@/components/layout/AppShell";
+import KinelyHomePrototype from "@/prototype/KinelyHomePrototype";
 
 import Dashboard from "@/pages/Dashboard";
 import Calendar from "@/pages/Calendar";
@@ -62,6 +63,9 @@ function PublicRoute({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+
+      {/* Public UI prototype — no auth, mock data only. */}
+      <Route path="/prototype" element={<KinelyHomePrototype />} />
 
       <Route
         path="/login"
