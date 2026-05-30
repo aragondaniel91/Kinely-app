@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { doc, setDoc } from "firebase/firestore";
-import { Palette, Pencil, Plus, Shield, Trash2 } from "lucide-react";
+import { Baby, Palette, Pencil, Plus, Shield, Trash2 } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
@@ -193,6 +193,14 @@ function buildBlankModuleAccess() {
   };
 }
 
+function buildChildModuleAccess() {
+  return {
+    ...buildBlankModuleAccess(),
+    calendar: buildDefaultModuleAccess({ visible: true, assignable: true }),
+    tasks: buildDefaultModuleAccess({ visible: true, assignable: true }),
+  };
+}
+
 function buildAccessArrayUpdates({ profile, members = [], memberEmails = [], user, myEmail }) {
   const ownerId = profile?.ownerId || profile?.owner_id || user?.uid || "";
   const ownerEmail = normalizeEmail(profile?.ownerEmail || profile?.owner_email || myEmail || user?.email);
@@ -289,7 +297,7 @@ function getMembers(profile, user, myEmail) {
   }
 
   function add(member) {
-    const key = normalizeEmail(member.email) || `${member.source}-${member.name}`.toLowerCase();
+    const key = member.personId || member.childId || normalizeEmail(member.email) || `${member.source}-${member.name}`.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
     result.push(member);
@@ -341,6 +349,33 @@ function getMembers(profile, user, myEmail) {
     });
   }
 
+  (profile?.children || []).forEach((child, index) => {
+    const personId = child.personId || child.person_id || child.id || child.childId || child.child_id || "";
+    const name = child.name || child.displayName || child.display_name || child.childName || child.child_name || `Child ${index + 1}`;
+    add({
+      source: "child",
+      index,
+      personId,
+      childId: child.childId || child.child_id || personId,
+      name,
+      email: normalizeEmail(child.email),
+      role: "child",
+      relationship: "child",
+      type: "child",
+      color: child.color || child.colorId || child.color_id || child.familyColor || child.family_color || "green",
+      admin: false,
+      livesHere: booleanOrFallback(child.livesHere ?? child.lives_here, true),
+      showOnHomeDashboard: booleanOrFallback(
+        child.showOnHomeDashboard ?? child.show_on_home_dashboard ?? child.homeDashboard ?? child.home_dashboard,
+        true
+      ),
+      modules: child.modules || buildChildModuleAccess(),
+      permissions: child.permissions || limitedPermissions,
+      status: "active",
+      locked: false,
+    });
+  });
+
   (profile?.members || []).forEach((member, index) => {
     const email = normalizeEmail(member.email);
     add({
@@ -373,6 +408,7 @@ function getMembers(profile, user, myEmail) {
 function MemberCard({ member, canEdit, onEdit, onDelete }) {
   const color = getColorMeta(member.color);
   const hasFullAccess = member.admin === true;
+  const isChild = member.source === "child" || member.type === "child" || member.role === "child";
   const moduleBadges = editableModuleNames
     .map((moduleName) => {
       const access = getMemberModuleAccess(member, moduleName);
@@ -403,9 +439,11 @@ function MemberCard({ member, canEdit, onEdit, onDelete }) {
           <span className={`h-3 w-3 rounded-full ${color.dot}`} />
           <p className="truncate font-black text-slate-950">{member.name || member.email || "Member"}</p>
         </div>
-        <p className="mt-1 truncate text-xs font-semibold text-slate-400">{member.email || "No email"}</p>
+        <p className="mt-1 truncate text-xs font-semibold text-slate-400">
+          {member.email || (isChild ? "Child profile" : "No email")}
+        </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge variant={member.admin ? "secondary" : "outline"}>{member.admin ? "Admin" : member.role}</Badge>
+          <Badge variant={member.admin ? "secondary" : "outline"}>{member.admin ? "Admin" : isChild ? "Child" : member.role}</Badge>
           {member.status === "pending" && (
             <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">
               Invitation pending
@@ -516,6 +554,23 @@ export default function ProfileMembersSection() {
     });
   }
 
+  function openAddChildEditor() {
+    setEditor({
+      mode: "add",
+      source: "child",
+      name: "",
+      email: "",
+      role: "child",
+      relationship: "child",
+      type: "child",
+      color: "green",
+      admin: false,
+      livesHere: true,
+      showOnHomeDashboard: true,
+      modules: buildChildModuleAccess(),
+    });
+  }
+
   function openMemberEditor(member = {}) {
     setEditor({
       ...member,
@@ -590,6 +645,11 @@ export default function ProfileMembersSection() {
       is_admin: nextEditor.admin === true,
     };
 
+    if (nextEditor.source === "child" && !name) {
+      setError("Please enter a name for this child.");
+      return;
+    }
+
     if (!name && !email) {
       setError("Please enter a name or email for this member.");
       return;
@@ -599,6 +659,64 @@ export default function ProfileMembersSection() {
     setSaving(true);
 
     try {
+      if (nextEditor.source === "child") {
+        const existingChildren = Array.isArray(profile?.children) ? profile.children : [];
+        const childPayload = {
+          ...(nextEditor.raw || {}),
+          id: personId,
+          personId,
+          person_id: personId,
+          childId: nextEditor.childId || nextEditor.child_id || personId,
+          child_id: nextEditor.child_id || nextEditor.childId || personId,
+          name,
+          displayName: name,
+          display_name: name,
+          childName: name,
+          child_name: name,
+          email,
+          role: "child",
+          type: "child",
+          personType: "child",
+          person_type: "child",
+          relationship: "child",
+          memberRelationship: "child",
+          member_relationship: "child",
+          color,
+          colorId: color,
+          color_id: color,
+          familyColor: color,
+          family_color: color,
+          livesHere,
+          lives_here: livesHere,
+          showOnHomeDashboard,
+          show_on_home_dashboard: showOnHomeDashboard,
+          homeDashboard: showOnHomeDashboard,
+          home_dashboard: showOnHomeDashboard,
+          modules: {
+            ...buildChildModuleAccess(),
+            ...modules,
+            groceries: modules.lists || modules.groceries || buildDefaultModuleAccess(),
+          },
+          permissions,
+          status: "active",
+        };
+        const updatedChildren =
+          nextEditor.mode === "add"
+            ? [...existingChildren, childPayload]
+            : existingChildren.map((child, index) => {
+                const childPersonId = child.personId || child.person_id || child.id || child.childId || child.child_id || "";
+                const matchesByPersonId = personId && childPersonId === personId;
+                const matchesByIndex = Number.isInteger(nextEditor.index) && index === nextEditor.index;
+                return matchesByPersonId || matchesByIndex ? { ...child, ...childPayload } : child;
+              });
+
+        await updateActiveFamily({ children: updatedChildren });
+        await refreshFamilies?.();
+        setEditor(null);
+        setMessage("Child saved. Care details live in the Children tab.");
+        return;
+      }
+
       const existingMembers = Array.isArray(profile?.members) ? profile.members : [];
       let updatedMembers = [...existingMembers];
       let updates = {};
@@ -805,6 +923,22 @@ export default function ProfileMembersSection() {
     try {
       const email = normalizeEmail(member.email);
       const targetPersonId = member.personId || member.person_id || member.id || "";
+
+      if (member.source === "child") {
+        const updatedChildren = (profile?.children || []).filter((child, index) => {
+          const childPersonId = child.personId || child.person_id || child.id || child.childId || child.child_id || "";
+          if (targetPersonId) return childPersonId !== targetPersonId;
+          if (Number.isInteger(member.index)) return index !== member.index;
+          return true;
+        });
+
+        await updateActiveFamily({ children: updatedChildren });
+        await refreshFamilies?.();
+        setMessage("Child removed.");
+        setConfirmDelete(null);
+        return;
+      }
+
       const existingMembers = Array.isArray(profile?.members) ? profile.members : [];
       const updatedMembers = existingMembers.filter((item, index) => {
         if (targetPersonId) {
@@ -894,9 +1028,14 @@ export default function ProfileMembersSection() {
               <Shield className="h-4 w-4" /> Members & Permissions
             </h2>
             {canEdit && (
-              <Button type="button" onClick={openAddMemberEditor} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-                <Plus className="h-4 w-4" /> Add member
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={openAddChildEditor} className="gap-2">
+                  <Baby className="h-4 w-4" /> Add child
+                </Button>
+                <Button type="button" onClick={openAddMemberEditor} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+                  <Plus className="h-4 w-4" /> Add member
+                </Button>
+              </div>
             )}
           </div>
 

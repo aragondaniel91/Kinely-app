@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Baby, HeartPulse, Pill, Save, Shirt, ShieldAlert, Stethoscope } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
@@ -100,6 +100,15 @@ export default function ChildProfiles() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setDraftChildren(children);
+    setSelectedChildId((currentId) => {
+      const stillExists = children.some((child) => (child.id || child.childId) === currentId);
+      if (stillExists) return currentId;
+      return children[0]?.id || children[0]?.childId || "";
+    });
+  }, [children, profile?.id]);
 
   const activeChildren = draftChildren.length ? draftChildren : children;
   const selectedChild = useMemo(() => {
@@ -267,7 +276,7 @@ export default function ChildProfiles() {
           <Baby className="mx-auto h-10 w-10 text-indigo-500" />
           <h1 className="mt-3 text-2xl font-black text-slate-950">No children yet</h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-            Add a child from Profile &gt; Families first. Then their care profile will appear here.
+            Add a child from Profile &gt; Members & Access first. Then their care profile will appear here.
           </p>
         </Card>
       </div>

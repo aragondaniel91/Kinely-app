@@ -507,6 +507,61 @@ function ModulePermissionsPanel({ modules, onChange, disabled }) {
   );
 }
 
+function ChildAssignmentPanel({ modules, onChange, disabled }) {
+  return (
+    <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
+      <div>
+        <p className="text-sm font-black text-slate-950">Assignments</p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+          Children do not need app permissions unless they receive a login later. These controls decide whether they show up as assignable people.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {["calendar", "tasks"].map((moduleId) => {
+          const config = MODULE_ACCESS_CONFIG_BY_ID.get(moduleId);
+          const Icon = config.icon;
+          const value = modules?.[moduleId] || buildDefaultModuleAccess({ visible: true, assignable: true });
+
+          return (
+            <div key={moduleId} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+              <div className="mb-3 flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-slate-950">{config.label}</span>
+                  <span className="block text-xs font-semibold leading-5 text-slate-500">
+                    {moduleId === "calendar"
+                      ? "Show this child in calendar filters and allow event assignment."
+                      : "Show this child on task boards and allow task assignment."}
+                  </span>
+                </span>
+              </div>
+
+              <AssignableModuleAccessEditor
+                value={{
+                  ...buildDefaultModuleAccess({ visible: true, assignable: true }),
+                  ...value,
+                }}
+                onChange={(nextAccess) => onChange?.(moduleId, nextAccess)}
+                disabled={disabled}
+                labels={{
+                  ...(config.assignmentControls || {}),
+                  readLabel: "Open module",
+                  readDescription: "Only matters if this child gets a login later.",
+                  writeLabel: "Edit module",
+                  writeDescription: "Usually off for child profiles.",
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileMemberEditorDialog({
   editor,
   onChange,
@@ -518,10 +573,11 @@ export default function ProfileMemberEditorDialog({
 
   const isAdd = editor.mode === "add";
   const isOwner = editor.source === "owner";
+  const isChild = editor.source === "child" || editor.type === "child" || editor.role === "child";
   const normalizedModules = normalizeEditorModules(editor);
-  const normalizedRole = normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver");
+  const normalizedRole = isChild ? "child" : normalizeMemberRole(editor.role, isOwner ? "parent" : "caregiver");
   const roleMeta = getMemberRoleMeta(normalizedRole);
-  const defaultLivesHere = isOwner || roleMeta?.livesHere === true;
+  const defaultLivesHere = isOwner || isChild || roleMeta?.livesHere === true;
 
   const safeEditor = {
     ...editor,
@@ -529,9 +585,9 @@ export default function ProfileMemberEditorDialog({
     email: editor.email || "",
     role: normalizedRole,
     relationship: editor.relationship || editor.memberRelationship || editor.member_relationship || roleToRelationship(normalizedRole),
-    type: editor.type || editor.personType || editor.person_type || roleToPersonType(normalizedRole),
+    type: isChild ? "child" : editor.type || editor.personType || editor.person_type || roleToPersonType(normalizedRole),
     color: editor.color || "teal",
-    admin: editor.admin === true || editor.isAdmin === true || editor.is_admin === true,
+    admin: !isChild && (editor.admin === true || editor.isAdmin === true || editor.is_admin === true),
     livesHere: booleanOrFallback(editor.livesHere ?? editor.lives_here, defaultLivesHere),
     showOnHomeDashboard: booleanOrFallback(
       editor.showOnHomeDashboard ?? editor.show_on_home_dashboard ?? editor.homeDashboard ?? editor.home_dashboard,
@@ -580,6 +636,8 @@ export default function ProfileMemberEditorDialog({
   }
 
   function patchRole(nextRole) {
+    if (isChild) return;
+
     const nextMeta = getMemberRoleMeta(nextRole);
     const nextLivesHere = nextMeta?.livesHere === true ? true : safeEditor.livesHere;
 
@@ -612,10 +670,12 @@ export default function ProfileMemberEditorDialog({
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-950">
-              {isAdd ? "Add family member" : "Edit family member"}
+              {isChild ? (isAdd ? "Add child" : "Edit child") : isAdd ? "Add family member" : "Edit family member"}
             </h2>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Manage grandparents, babysitters, caregivers, or family members for this private family space.
+              {isChild
+                ? "Manage child identity, home visibility, color, and assignment behavior."
+                : "Manage grandparents, babysitters, caregivers, or family members for this private family space."}
             </p>
           </div>
 
@@ -640,19 +700,19 @@ export default function ProfileMemberEditorDialog({
           </div>
 
           <div>
-            <Label>Email</Label>
+            <Label>{isChild ? "Login email (optional)" : "Email"}</Label>
             <Input
               value={safeEditor.email}
               onChange={(event) => patch({ email: event.target.value })}
               disabled={isOwner}
-              placeholder="name@example.com"
+              placeholder={isChild ? "Only if this child will sign in later" : "name@example.com"}
               className="mt-1"
             />
           </div>
 
           <div>
             <Label>Role</Label>
-            <Select value={safeEditor.role} onValueChange={patchRole}>
+            <Select value={safeEditor.role} onValueChange={patchRole} disabled={isChild}>
               <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
@@ -666,6 +726,7 @@ export default function ProfileMemberEditorDialog({
             </Select>
           </div>
 
+          {!isChild && (
           <div className="flex items-end">
             <label className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-sm font-bold transition ${
               safeEditor.admin
@@ -685,6 +746,7 @@ export default function ProfileMemberEditorDialog({
               />
             </label>
           </div>
+          )}
 
           <div className="md:col-span-2">
             <ColorPicker
@@ -702,7 +764,15 @@ export default function ProfileMemberEditorDialog({
             />
           )}
 
-          {!isOwner && !receivesFullAccess && (
+          {isChild && (
+            <ChildAssignmentPanel
+              modules={safeEditor.modules}
+              onChange={patchModuleAccess}
+              disabled={saving}
+            />
+          )}
+
+          {!isOwner && !isChild && !receivesFullAccess && (
             <ModulePermissionsPanel
               modules={safeEditor.modules}
               onChange={patchModuleAccess}
@@ -710,7 +780,7 @@ export default function ProfileMemberEditorDialog({
             />
           )}
 
-          {!isOwner && receivesFullAccess && (
+          {!isOwner && !isChild && receivesFullAccess && (
             <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 md:col-span-2">
               Admins receive full access to this family space.
             </div>

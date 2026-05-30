@@ -83,6 +83,20 @@ function getLegacyModuleAccess(member = {}, moduleName) {
   };
 }
 
+function hasExplicitModuleAccess(member = {}, moduleName = FAMILY_MODULES.tasks) {
+  const modernAccess = normalizeModuleAccess(member.modules?.[moduleName]);
+  if (Object.values(modernAccess).some((value) => typeof value === "boolean")) {
+    return true;
+  }
+
+  const legacyAccess = getLegacyModuleAccess(member, moduleName);
+  return Object.values(legacyAccess).some((value) => typeof value === "boolean" && value === true);
+}
+
+function shouldUseDefaultChildAssignment(member = {}, moduleName) {
+  return isChildMember(member) && !hasExplicitModuleAccess(member, moduleName);
+}
+
 /**
  * Returns member access for a module.
  *
@@ -181,7 +195,7 @@ export function shouldShowMemberInTasks(member = {}) {
 
   return (
     isAdminLikeMember(member) ||
-    isChildMember(member) ||
+    shouldUseDefaultChildAssignment(member, FAMILY_MODULES.tasks) ||
     access.visible === true ||
     access.assignable === true ||
     access.write === true
@@ -191,7 +205,11 @@ export function shouldShowMemberInTasks(member = {}) {
 export function canAssignTasksToMember(member = {}) {
   const access = getMemberModuleAccess(member, FAMILY_MODULES.tasks);
 
-  return isAdminLikeMember(member) || isChildMember(member) || access.assignable === true;
+  return (
+    isAdminLikeMember(member) ||
+    shouldUseDefaultChildAssignment(member, FAMILY_MODULES.tasks) ||
+    access.assignable === true
+  );
 }
 
 export function shouldShowMemberInCalendar(member = {}) {
@@ -199,7 +217,7 @@ export function shouldShowMemberInCalendar(member = {}) {
 
   return (
     isAdminLikeMember(member) ||
-    isChildMember(member) ||
+    shouldUseDefaultChildAssignment(member, FAMILY_MODULES.calendar) ||
     access.visible === true ||
     access.assignable === true ||
     access.write === true
@@ -211,7 +229,7 @@ export function canAssignCalendarEventsToMember(member = {}) {
 
   return (
     isAdminLikeMember(member) ||
-    isChildMember(member) ||
+    shouldUseDefaultChildAssignment(member, FAMILY_MODULES.calendar) ||
     access.assignable === true ||
     access.write === true
   );
