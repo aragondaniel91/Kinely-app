@@ -436,10 +436,10 @@ export default function ProfileFamiliesSection() {
 
           {showCreateFamily ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div><Label>Family name</Label><Input value={newFamilyName} onChange={(event) => setNewFamilyName(event.target.value)} placeholder="Daniel & Mary Family" className="mt-1" /></div>
-              <div><Label>Second adult name</Label><Input value={newFamilyAdultName} onChange={(event) => setNewFamilyAdultName(event.target.value)} placeholder="Mary" className="mt-1" /></div>
+              <div><Label>Family name</Label><Input value={newFamilyName} onChange={(event) => setNewFamilyName(event.target.value)} placeholder="Household name" className="mt-1" /></div>
+              <div><Label>Second adult name</Label><Input value={newFamilyAdultName} onChange={(event) => setNewFamilyAdultName(event.target.value)} placeholder="Optional adult name" className="mt-1" /></div>
               <div><Label>Second adult email</Label><Input type="email" value={newFamilyAdultEmail} onChange={(event) => setNewFamilyAdultEmail(event.target.value)} placeholder="email@example.com" className="mt-1" /></div>
-              <div><Label>Children</Label><Input value={newFamilyChildren} onChange={(event) => setNewFamilyChildren(event.target.value)} placeholder="Joaquin, Mady" className="mt-1" /><p className="mt-1 text-xs font-semibold text-slate-400">Separate children by commas.</p></div>
+              <div><Label>Children</Label><Input value={newFamilyChildren} onChange={(event) => setNewFamilyChildren(event.target.value)} placeholder="Child names, separated by commas" className="mt-1" /><p className="mt-1 text-xs font-semibold text-slate-400">Separate children by commas.</p></div>
               <div className="md:col-span-2"><Button onClick={handleCreateFamily} disabled={creatingFamily || !newFamilyName.trim()} className="w-full bg-indigo-600 hover:bg-indigo-700">{creatingFamily ? "Creating..." : "Create and switch"}</Button></div>
             </div>
           ) : (

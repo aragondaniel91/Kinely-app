@@ -119,7 +119,6 @@ export function useRecurringTaskGenerator({
     if (!familyId || !canRead || !canWrite || isRunningRef.current) return;
 
     const recurringTemplates = templates.filter((template) => {
-      if (template.source === "starter") return false;
       if (template.active === false) return false;
       if (!Array.isArray(template.tasks) || template.tasks.length === 0) return false;
 

@@ -32,6 +32,7 @@ export default function FamilyCalendarTimelineGrid({
   timelineDays = [],
   eventsByDay,
   people = [],
+  canWrite = false,
   onAddDate,
   onEventSelect,
   onOverflowSelect,
@@ -102,9 +103,12 @@ export default function FamilyCalendarTimelineGrid({
                   key={key}
                   className={cn(
                     "group relative border-r border-slate-200 last:border-r-0",
+                    canWrite ? "cursor-pointer" : "cursor-default",
                     today && "bg-blue-50/30"
                   )}
-                  onClick={() => onAddDate?.(day)}
+                  onClick={() => {
+                    if (canWrite) onAddDate?.(day);
+                  }}
                 >
                   <div
                     className="space-y-1 overflow-hidden border-b border-slate-200 p-2"
@@ -127,16 +131,18 @@ export default function FamilyCalendarTimelineGrid({
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddDate?.(day);
-                    }}
-                    className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-slate-300 opacity-0 shadow-sm ring-1 ring-slate-100 transition hover:text-blue-600 group-hover:opacity-100"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
+                  {canWrite && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddDate?.(day);
+                      }}
+                      className="absolute right-2 top-2 z-10 rounded-full bg-white/90 p-1.5 text-slate-300 opacity-0 shadow-sm ring-1 ring-slate-100 transition hover:text-blue-600 group-hover:opacity-100"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  )}
 
                   {timelineHours.map((hour) => (
                     <div key={hour} className="border-b border-slate-100" style={{ height: FAMILY_CALENDAR_HOUR_HEIGHT }} />

@@ -25,50 +25,7 @@ export const custodyPackingTemplates = [
   },
 ];
 
-export const initialCustodyPackingItems = [
-  {
-    id: "backpack",
-    name: "School backpack",
-    category: "School",
-    owner: "Shared",
-    status: "packed",
-    important: true,
-  },
-  {
-    id: "medicine",
-    name: "Medicine bag",
-    category: "Medicine",
-    owner: "Dad",
-    status: "missing",
-    important: true,
-  },
-  {
-    id: "uniform",
-    name: "Soccer uniform",
-    category: "Sports",
-    owner: "Mom",
-    status: "review",
-    important: false,
-  },
-  {
-    id: "pajamas",
-    name: "Pajamas",
-    category: "Clothes",
-    owner: "Shared",
-    status: "packed",
-    important: false,
-  },
-  {
-    id: "comfort",
-    name: "Favorite blanket",
-    category: "Comfort",
-    owner: "Shared",
-    status: "review",
-    important: false,
-  },
-];
-
-export function getPackingSummary(items = initialCustodyPackingItems) {
+export function getPackingSummary(items = []) {
   const totalCount = items.length;
   const packedCount = items.filter((item) => item.status === "packed").length;
   const missingCount = items.filter((item) => item.status === "missing").length;

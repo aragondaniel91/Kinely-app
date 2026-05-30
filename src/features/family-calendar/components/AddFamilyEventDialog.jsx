@@ -338,7 +338,14 @@ function getLinkedListTypeFromCalendarCategory(category = "", title = "") {
   return "event";
 }
 
-export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEvent = null }) {
+export default function AddFamilyEventDialog({
+  date,
+  onClose,
+  onSuccess,
+  editEvent = null,
+  canWrite = false,
+  canWriteLists = false,
+}) {
   const { user, familyId, profile, familyPeople } = useFamily();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -398,6 +405,15 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
 
   const handleSave = async () => {
     if (!title.trim()) return;
+
+    if (!canWrite) {
+      showNotice({
+        tone: "warning",
+        title: "Read-only calendar access",
+        message: "Your current family role can view calendar events, but cannot create or edit them.",
+      });
+      return;
+    }
 
     if (!familyId) {
       showNotice({
@@ -487,7 +503,7 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
           updatedAt: serverTimestamp(),
         });
 
-        if (createLinkedListWithEvent) {
+        if (createLinkedListWithEvent && canWriteLists) {
           const listRef = await addDoc(collection(db, "familyLists"), {
             title: title.trim(),
             type: getLinkedListTypeFromCalendarCategory(category, title),
@@ -652,7 +668,7 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
           </div>
         </div>
 
-        {!isEditing && (
+        {!isEditing && canWriteLists && (
           <button
             type="button"
             onClick={() => setCreateLinkedListWithEvent((current) => !current)}
@@ -696,7 +712,7 @@ export default function AddFamilyEventDialog({ date, onClose, onSuccess, editEve
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!title.trim() || saving}>
+          <Button onClick={handleSave} disabled={!title.trim() || saving || !canWrite}>
             {saving
               ? "Saving..."
               : isEditing

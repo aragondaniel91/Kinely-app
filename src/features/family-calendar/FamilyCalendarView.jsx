@@ -69,7 +69,7 @@ function focusEventPanel(event, setAnchorDate, setSelectedOverflow, setSelectedE
 
 
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
-  const { familyId, profile, familyPeople } = useFamily();
+  const { familyId, profile, familyPeople, perms } = useFamily();
   const [searchParams, setSearchParams] = useSearchParams();
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [addDate, setAddDate] = useState(null);
@@ -84,6 +84,11 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [now, setNow] = useState(() => new Date());
 
   const people = familyPeople || [];
+  const canWriteCalendar = perms?.calendar?.write !== false;
+  const canReadLists = perms?.lists?.read !== false;
+  const canWriteLists = perms?.lists?.write !== false;
+  const canReadTasks = perms?.tasks?.read !== false;
+  const canWriteTasks = perms?.tasks?.write !== false;
   const { events, loading, loadEvents } = useFamilyCalendarEvents({ familyId, people });
   const { filteredEvents, eventsByDay } = useFamilyCalendarFilters({
     events,
@@ -216,6 +221,8 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   }
 
   function handleEditEvent(event) {
+    if (!canWriteCalendar) return;
+
     setSelectedEvent(null);
     setSelectedOverflow(null);
     setEditEvent(event);
@@ -223,6 +230,8 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   }
 
   function handleDeleteEvent(eventOrId) {
+    if (!canWriteCalendar) return;
+
     const documentId = typeof eventOrId === "string" ? eventOrId : getFirestoreDocumentId(eventOrId || {});
     if (!documentId) return;
 
@@ -236,24 +245,28 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   }
 
   async function unlinkDeletedEventReferences(documentId) {
-    if (!familyId || !documentId) return;
+    if (!familyId || !documentId || (!canWriteLists && !canWriteTasks)) return;
 
     try {
       const [listSnap, taskSnap] = await Promise.all([
-        getDocs(
-          query(
-            collection(db, "familyLists"),
-            where("familyId", "==", familyId),
-            where("linkedEventId", "==", documentId)
-          )
-        ),
-        getDocs(
-          query(
-            collection(db, TASK_COLLECTIONS.tasks),
-            where("familyId", "==", familyId),
-            where("linkedEventId", "==", documentId)
-          )
-        ),
+        canWriteLists
+          ? getDocs(
+              query(
+                collection(db, "familyLists"),
+                where("familyId", "==", familyId),
+                where("linkedEventId", "==", documentId)
+              )
+            )
+          : Promise.resolve({ docs: [] }),
+        canWriteTasks
+          ? getDocs(
+              query(
+                collection(db, TASK_COLLECTIONS.tasks),
+                where("familyId", "==", familyId),
+                where("linkedEventId", "==", documentId)
+              )
+            )
+          : Promise.resolve({ docs: [] }),
       ]);
 
       await Promise.all([
@@ -288,7 +301,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   }
 
   async function confirmDeleteEvent() {
-    if (!eventToDelete?.documentId) return;
+    if (!canWriteCalendar || !eventToDelete?.documentId) return;
 
     setDeletingEvent(true);
     setDeleteError("");
@@ -359,6 +372,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
                 anchorDate={anchorDate}
                 eventsByDay={eventsByDay}
                 people={people}
+                canWrite={canWriteCalendar}
                 onAddDate={setAddDate}
                 onEventSelect={handleEventSelect}
                 onOverflowSelect={handleOverflowSelect}
@@ -369,6 +383,7 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
                 timelineDays={timelineDays}
                 eventsByDay={eventsByDay}
                 people={people}
+                canWrite={canWriteCalendar}
                 onAddDate={setAddDate}
                 onEventSelect={handleEventSelect}
                 onOverflowSelect={handleOverflowSelect}
@@ -378,15 +393,17 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setAddDate(new Date(anchorDate))}
-        className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-white shadow-xl shadow-blue-600/25 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
-        aria-label="Add event"
-      >
-        <Plus className="h-6 w-6" />
-        <span className="hidden text-sm font-black md:inline">Add event</span>
-      </button>
+      {canWriteCalendar && (
+        <button
+          type="button"
+          onClick={() => setAddDate(new Date(anchorDate))}
+          className="fixed bottom-28 right-5 z-[90] flex h-14 w-14 items-center justify-center gap-2 rounded-full bg-blue-600 px-4 text-white shadow-xl shadow-blue-600/25 transition hover:scale-105 hover:bg-blue-700 active:scale-95 md:bottom-8 md:right-8 md:h-14 md:w-auto"
+          aria-label="Add event"
+        >
+          <Plus className="h-6 w-6" />
+          <span className="hidden text-sm font-black md:inline">Add event</span>
+        </button>
+      )}
 
       <FamilyEventOverflowPopover
         selected={selectedOverflow}
@@ -398,6 +415,11 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
       <FamilyEventDetailsPopover
         selected={selectedEvent}
         people={people}
+        canReadLists={canReadLists}
+        canWriteLists={canWriteLists}
+        canReadTasks={canReadTasks}
+        canWriteTasks={canWriteTasks}
+        canWriteCalendar={canWriteCalendar}
         onClose={() => setSelectedEvent(null)}
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
@@ -450,6 +472,8 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
         <AddFamilyEventDialog
           date={addDate}
           editEvent={editEvent}
+          canWrite={canWriteCalendar}
+          canWriteLists={canWriteLists}
           onClose={closeEventDialog}
           onSuccess={handleEventSaved}
         />

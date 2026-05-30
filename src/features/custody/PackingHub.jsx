@@ -35,7 +35,6 @@ import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import {
   custodyPackingTemplates,
   getPackingSummary,
-  initialCustodyPackingItems,
 } from "@/data/custodyPacking";
 
 const iconMap = {
@@ -392,22 +391,7 @@ export default function PackingHub() {
         const docs = await getCustodyScopedDocSnaps("custodyPackingItems", custodyScopeId);
 
         if (!docs.length) {
-          const createdItems = await Promise.all(
-            initialCustodyPackingItems.map(async (item, index) => {
-              const docRef = await addDoc(collection(db, "custodyPackingItems"), {
-                ...item,
-                ...custodyScopeFields,
-                createdBy: user.uid,
-                order: index,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-
-              return { ...item, id: docRef.id, order: index };
-            })
-          );
-
-          if (!cancelled) setItems(createdItems);
+          if (!cancelled) setItems([]);
           return;
         }
 
@@ -418,7 +402,7 @@ export default function PackingHub() {
         if (!cancelled) setItems(data);
       } catch (error) {
         console.error("Error loading packing items:", error);
-        if (!cancelled) setItems(initialCustodyPackingItems);
+        if (!cancelled) setItems([]);
       } finally {
         if (!cancelled) setLoading(false);
       }

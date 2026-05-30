@@ -7,7 +7,6 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { taskPeople } from "@/features/tasks/data/taskPeople";
 import {
   childColor,
   normalizeName,
@@ -348,7 +347,7 @@ function dedupePeople(people) {
  * Centralizes the people shown in the Family Rhythm Board.
  *
  * Uses the active family profile people/colors where available.
- * Falls back to static taskPeople if the family profile is not ready yet.
+ * Falls back to a family-level bucket while the family profile is not ready yet.
  */
 export function useTaskBoardPeople({
   children = [],
@@ -437,7 +436,7 @@ export function useTaskBoardPeople({
 
     if (realPeople.length > 1) return realPeople;
 
-    return taskPeople.map((person) => withBoardColor(person, person.color || "blue"));
+    return [familyPerson];
   }, [children, dadName, momName, familyPeople, profile]);
 
   return {

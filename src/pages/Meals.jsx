@@ -1133,7 +1133,7 @@ function FamilyMenuPanel({
             <Input
               value={newNotes}
               onChange={(event) => setNewNotes(event.target.value)}
-              placeholder="Easy dinner, Joaquin likes it, 20 minutes..."
+              placeholder="Easy dinner, family favorite, 20 minutes..."
               className="mt-1 h-12 rounded-2xl bg-white"
             />
           </div>

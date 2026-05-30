@@ -48,7 +48,7 @@ export default function TaskTile({ task, canWrite, onToggle, onEdit, onDelete })
               disabled && "cursor-not-allowed opacity-60"
             )}
             aria-label="Complete task"
-            title={isDemoTask(task) ? "Demo task" : "Complete task"}
+            title="Complete task"
           >
             {done ? <Check className="h-7 w-7" /> : <Circle className="h-7 w-7" />}
           </button>

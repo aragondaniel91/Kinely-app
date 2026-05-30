@@ -306,7 +306,7 @@ function getItemIdentityTokens(item = {}) {
     .map(normalizeIdentityToken)
     .filter(Boolean);
 
-  // Adult first-name alias. This helps Daniel match Daniel Aragon when old records only store display names.
+  // Adult first-name alias. This helps legacy records match a full display name.
   collected.forEach((value) => {
     const first = firstNameToken(value);
     if (first) tokens.push(`adult-first:${first}`);

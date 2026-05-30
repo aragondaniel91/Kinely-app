@@ -1,34 +1,3 @@
-export const initialCustodyExpenses = [
-  {
-    id: "daycare",
-    title: "Daycare monthly payment",
-    category: "School",
-    amount: 1000,
-    splitType: "50/50",
-    parent1ShareAmount: 500,
-    parent2ShareAmount: 500,
-    parent1PaidAmount: 500,
-    parent2PaidAmount: 0,
-    status: "partial",
-    due: "May 20",
-    recurring: true,
-  },
-  {
-    id: "soccer",
-    title: "Soccer registration",
-    category: "Activities",
-    amount: 140,
-    splitType: "50/50",
-    parent1ShareAmount: 70,
-    parent2ShareAmount: 70,
-    parent1PaidAmount: 70,
-    parent2PaidAmount: 70,
-    status: "paid",
-    due: "Paid",
-    recurring: false,
-  },
-];
-
 export function currency(value) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -155,7 +124,7 @@ export function validateExpenseLedger(expense = {}) {
   return getExpenseLedger(expense).validationErrors;
 }
 
-export function getBudgetSummary(expenses = initialCustodyExpenses) {
+export function getBudgetSummary(expenses = []) {
   const ledgers = expenses.map((expense) => getExpenseLedger(expense));
 
   const total = ledgers.reduce((sum, ledger) => sum + ledger.amount, 0);

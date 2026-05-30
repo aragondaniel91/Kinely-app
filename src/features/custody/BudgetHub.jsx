@@ -24,7 +24,7 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
-import { currency, getBudgetSummary, getExpenseLedger, initialCustodyExpenses, validateExpenseLedger } from "@/data/custodyBudget";
+import { currency, getBudgetSummary, getExpenseLedger, validateExpenseLedger } from "@/data/custodyBudget";
 import BudgetExpenseCard from "./components/budget/BudgetExpenseCard";
 import BudgetExpenseDetail from "./components/budget/BudgetExpenseDetail";
 import BudgetExpenseWizard from "./components/budget/BudgetExpenseWizard";
@@ -305,31 +305,7 @@ export default function BudgetHub() {
         const docs = await getCustodyScopedDocSnaps("custodyExpenses", custodyScopeId);
 
         if (!docs.length) {
-          const createdExpenses = await Promise.all(
-            initialCustodyExpenses.map(async (expense, index) => {
-              const ledger = getExpenseLedger(expense);
-              const payload = {
-                ...expense,
-                amount: ledger.amount,
-                splitType: ledger.splitType,
-                parent1ShareAmount: ledger.parent1ShareAmount,
-                parent2ShareAmount: ledger.parent2ShareAmount,
-                parent1PaidAmount: ledger.parent1PaidAmount,
-                parent2PaidAmount: ledger.parent2PaidAmount,
-                status: ledger.status,
-                ...custodyScopeFields,
-                createdBy: user.uid,
-                order: index,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              };
-
-              const docRef = await addDoc(collection(db, "custodyExpenses"), payload);
-              return { ...payload, id: docRef.id, ledger: getExpenseLedger(payload) };
-            })
-          );
-
-          if (!cancelled) setExpenses(createdExpenses);
+          if (!cancelled) setExpenses([]);
           return;
         }
 
@@ -338,7 +314,7 @@ export default function BudgetHub() {
       } catch (error) {
         console.error("Error loading custody expenses:", error);
         if (!cancelled) {
-          setExpenses(initialCustodyExpenses.map((expense) => ({ ...expense, ledger: getExpenseLedger(expense) })));
+          setExpenses([]);
         }
       } finally {
         if (!cancelled) setLoading(false);

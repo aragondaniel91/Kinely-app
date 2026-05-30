@@ -270,7 +270,7 @@ function ChildInputList({ childrenText, setChildrenText }) {
       <Input
         value={childrenText}
         onChange={(event) => setChildrenText(event.target.value)}
-        placeholder="Joaquin, Mady"
+        placeholder="Child names, separated by commas"
         className="mt-1"
       />
       <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -447,7 +447,7 @@ export default function Register() {
               <div className="space-y-4">
                 <div>
                   <Label>Full name</Label>
-                  <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Daniel Aragon" className="mt-1" />
+                  <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" className="mt-1" />
                 </div>
                 <div>
                   <Label>Email</Label>
@@ -512,7 +512,7 @@ export default function Register() {
                 <div>
                   <Label>Family space name</Label>
                   <Input value={familyName} onChange={(event) => setFamilyName(event.target.value)} placeholder={`${name || "My"} Family`} className="mt-1" />
-                  <p className="mt-1 text-xs font-semibold text-slate-500">Example: Daniel & Mary Family, Agustin's Family.</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Use a name your household will recognize.</p>
                 </div>
                 <ChildInputList childrenText={childrenText} setChildrenText={setChildrenText} />
                 <div className="grid gap-3 md:grid-cols-2">

@@ -21,6 +21,7 @@ export default function FamilyCalendarMonthGrid({
   anchorDate,
   eventsByDay,
   people = [],
+  canWrite = false,
   onAddDate,
   onEventSelect,
   onOverflowSelect,
@@ -48,9 +49,14 @@ export default function FamilyCalendarMonthGrid({
             <button
               key={key}
               type="button"
-              onClick={() => onAddDate?.(day)}
+              onClick={() => {
+                if (canWrite) onAddDate?.(day);
+              }}
               className={cn(
-                "group min-h-[128px] rounded-2xl border border-slate-200 bg-white p-2 text-left transition hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-sm",
+                "group min-h-[128px] rounded-2xl border border-slate-200 bg-white p-2 text-left transition",
+                canWrite
+                  ? "hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-sm"
+                  : "cursor-default",
                 today && "ring-2 ring-blue-400",
                 outsideMonth && "opacity-45"
               )}
@@ -64,7 +70,9 @@ export default function FamilyCalendarMonthGrid({
                 >
                   {format(day, "d")}
                 </span>
-                <Plus className="h-4 w-4 text-slate-300 opacity-70 transition group-hover:text-blue-400 group-hover:opacity-100" />
+                {canWrite && (
+                  <Plus className="h-4 w-4 text-slate-300 opacity-70 transition group-hover:text-blue-400 group-hover:opacity-100" />
+                )}
               </div>
 
               <div className="space-y-1">

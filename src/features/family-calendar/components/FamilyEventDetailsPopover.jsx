@@ -151,6 +151,11 @@ export function buildEventPanelState(event, anchorRect) {
 export default function FamilyEventDetailsPopover({
   selected,
   people = [],
+  canReadLists = false,
+  canWriteLists = false,
+  canReadTasks = false,
+  canWriteTasks = false,
+  canWriteCalendar = false,
   onClose,
   onEdit,
   onDelete,
@@ -189,13 +194,15 @@ export default function FamilyEventDetailsPopover({
       setCheckingLinkedList(true);
 
       try {
-        const snap = await getDocs(
-          query(
-            collection(db, "familyLists"),
-            where("familyId", "==", familyId),
-            where("linkedEventId", "==", eventId)
-          )
-        );
+        const snap = canReadLists
+          ? await getDocs(
+              query(
+                collection(db, "familyLists"),
+                where("familyId", "==", familyId),
+                where("linkedEventId", "==", eventId)
+              )
+            )
+          : { docs: [] };
 
         const match = snap.docs
           .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
@@ -203,13 +210,15 @@ export default function FamilyEventDetailsPopover({
 
         setLinkedList(match || null);
 
-        const taskSnap = await getDocs(
-          query(
-            collection(db, TASK_COLLECTIONS.tasks),
-            where("familyId", "==", familyId),
-            where("linkedEventId", "==", eventId)
-          )
-        );
+        const taskSnap = canReadTasks
+          ? await getDocs(
+              query(
+                collection(db, TASK_COLLECTIONS.tasks),
+                where("familyId", "==", familyId),
+                where("linkedEventId", "==", eventId)
+              )
+            )
+          : { docs: [] };
 
         const eventTasks = taskSnap.docs
           .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
@@ -233,7 +242,7 @@ export default function FamilyEventDetailsPopover({
     }
 
     loadLinkedList();
-  }, [familyId, eventId]);
+  }, [canReadLists, canReadTasks, familyId, eventId]);
 
   if (!event || !panel) return null;
 
@@ -265,6 +274,8 @@ export default function FamilyEventDetailsPopover({
   }
 
   function handleCreateLinkedTask() {
+    if (!canWriteTasks) return;
+
     const params = new URLSearchParams({
       action: "createTask",
       linkedEventId: eventId,
@@ -291,7 +302,7 @@ export default function FamilyEventDetailsPopover({
   }
 
   async function handleCreateLinkedList() {
-    if (!familyId || creatingLinkedList) return;
+    if (!canWriteLists || !familyId || creatingLinkedList) return;
 
     if (linkedList?.id) {
       handleViewLinkedList();
@@ -429,14 +440,16 @@ export default function FamilyEventDetailsPopover({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={handleCreateLinkedTask}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
-            >
-              <CheckSquare className="h-4 w-4" />
-              {linkedTasks.length > 0 ? "Create another task" : "Create linked task"}
-            </button>
+            {canWriteTasks && (
+              <button
+                type="button"
+                onClick={handleCreateLinkedTask}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+              >
+                <CheckSquare className="h-4 w-4" />
+                {linkedTasks.length > 0 ? "Create another task" : "Create linked task"}
+              </button>
+            )}
 
             {linkedList ? (
               <button
@@ -447,7 +460,7 @@ export default function FamilyEventDetailsPopover({
                 <ListChecks className="h-4 w-4" />
                 View linked list
               </button>
-            ) : (
+            ) : canWriteLists ? (
               <button
                 type="button"
                 onClick={handleCreateLinkedList}
@@ -461,27 +474,29 @@ export default function FamilyEventDetailsPopover({
                     ? "Creating..."
                     : "Create linked list"}
               </button>
+            ) : null}
+
+            {canWriteCalendar && (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onEdit?.(event)}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onDelete?.(event)}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-black text-red-600 transition hover:bg-red-100"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              </div>
             )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => onEdit?.(event)}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-              >
-                <Pencil className="h-4 w-4" />
-                Edit
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onDelete?.(event)}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-black text-red-600 transition hover:bg-red-100"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -615,16 +630,18 @@ export default function FamilyEventDetailsPopover({
                 Open in Tasks
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLinkedTasksPreview(false);
-                  handleCreateLinkedTask();
-                }}
-                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700"
-              >
-                Create another task
-              </button>
+              {canWriteTasks && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLinkedTasksPreview(false);
+                    handleCreateLinkedTask();
+                  }}
+                  className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700"
+                >
+                  Create another task
+                </button>
+              )}
             </div>
           </div>
         </div>

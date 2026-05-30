@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
-import { starterTaskTemplates } from "@/features/tasks/data/starterTaskTemplates";
 
 function getMillis(value) {
   if (!value) return 0;
@@ -61,7 +60,7 @@ export function useTaskTemplates({ familyId, canRead = true } = {}) {
   }, [loadTemplates]);
 
   const templates = useMemo(() => {
-    return [...familyTemplates, ...starterTaskTemplates];
+    return familyTemplates;
   }, [familyTemplates]);
 
   return {

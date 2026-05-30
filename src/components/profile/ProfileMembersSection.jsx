@@ -919,7 +919,7 @@ export default function ProfileMembersSection() {
             <p>Children, parents, and members have colors inside each private family space.</p>
             <p>Custody colors are separate and belong to each custody group.</p>
             <div className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-500">
-              Example: Daniel can be blue in Joaquin Custody but green in Daniel & Mary Family.
+              The same person can have different colors in household and custody spaces.
             </div>
           </div>
         </Card>

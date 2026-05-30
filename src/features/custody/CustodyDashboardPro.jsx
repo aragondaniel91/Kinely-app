@@ -18,8 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
-import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
-import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
+import { getPackingSummary } from "@/data/custodyPacking";
+import { currency, getBudgetSummary } from "@/data/custodyBudget";
 
 function normalizeDate(value) {
   if (!value) return "";
@@ -384,8 +384,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const dashboardDadColor = custodyParentOverride?.dadColor || custodyDadColor || dadColor || "blue";
   const dashboardMomColor = custodyParentOverride?.momColor || custodyMomColor || momColor || "amber";
   const [custodyDays, setCustodyDays] = useState([]);
-  const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
-  const [expenses, setExpenses] = useState(initialCustodyExpenses);
+  const [packingItems, setPackingItems] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [exchanges, setExchanges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingPacking, setLoadingPacking] = useState(true);
@@ -428,7 +428,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     async function loadPackingItems() {
       if (!user || !custodyScopeId) {
-        setPackingItems(initialCustodyPackingItems);
+        setPackingItems([]);
         setLoadingPacking(false);
         return;
       }
@@ -436,13 +436,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
       setLoadingPacking(true);
       try {
         const docs = await getCustodyScopedDocSnaps("custodyPackingItems", custodyScopeId);
-        const data = !docs.length
-          ? initialCustodyPackingItems
-          : docs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+        const data = docs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         if (!cancelled) setPackingItems(data);
       } catch (error) {
         console.error("Error loading packing dashboard summary:", error);
-        if (!cancelled) setPackingItems(initialCustodyPackingItems);
+        if (!cancelled) setPackingItems([]);
       } finally {
         if (!cancelled) setLoadingPacking(false);
       }
@@ -457,7 +455,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     async function loadBudgetExpenses() {
       if (!user || !custodyScopeId) {
-        setExpenses(initialCustodyExpenses);
+        setExpenses([]);
         setLoadingBudget(false);
         return;
       }
@@ -465,13 +463,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
       setLoadingBudget(true);
       try {
         const docs = await getCustodyScopedDocSnaps("custodyExpenses", custodyScopeId);
-        const data = !docs.length
-          ? initialCustodyExpenses
-          : docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+        const data = docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
         if (!cancelled) setExpenses(data);
       } catch (error) {
         console.error("Error loading budget dashboard summary:", error);
-        if (!cancelled) setExpenses(initialCustodyExpenses);
+        if (!cancelled) setExpenses([]);
       } finally {
         if (!cancelled) setLoadingBudget(false);
       }

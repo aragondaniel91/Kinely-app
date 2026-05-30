@@ -828,7 +828,7 @@ export default function CustodyGroupsManager() {
               <Input
                 value={form.name}
                 onChange={(event) => updateForm("name", event.target.value)}
-                placeholder="Joaquin custody"
+                placeholder="Child custody"
                 className="mt-1"
               />
             </div>
@@ -838,7 +838,7 @@ export default function CustodyGroupsManager() {
               <Input
                 value={form.children}
                 onChange={(event) => updateForm("children", event.target.value)}
-                placeholder={familyChildren.length ? familyChildren.join(", ") : "Joaquin"}
+                placeholder={familyChildren.length ? familyChildren.join(", ") : "Child name"}
                 className="mt-1"
               />
               <p className="mt-1 text-xs font-semibold text-slate-500">Use commas for multiple children. The app will reuse an existing child record in this household or create one with a unique childId.</p>
@@ -849,7 +849,7 @@ export default function CustodyGroupsManager() {
               <Input
                 value={form.dadName}
                 onChange={(event) => updateForm("dadName", event.target.value)}
-                placeholder={user?.displayName || "Daniel"}
+                placeholder={user?.displayName || "Your name"}
                 className="mt-1"
               />
             </div>

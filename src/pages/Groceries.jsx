@@ -116,53 +116,6 @@ const pantryCategoryConfig = {
   },
 };
 
-const starterPantryItems = [
-  { title: "Milk", category: "breakfast" },
-  { title: "Eggs", category: "breakfast" },
-  { title: "Bread", category: "breakfast" },
-  { title: "Cereal", category: "breakfast" },
-  { title: "Oatmeal", category: "breakfast" },
-  { title: "Yogurt", category: "breakfast" },
-  { title: "Bananas", category: "breakfast" },
-
-  { title: "Pasta", category: "easy_dinners" },
-  { title: "Pasta sauce", category: "easy_dinners" },
-  { title: "Rice", category: "easy_dinners" },
-  { title: "Tortillas", category: "easy_dinners" },
-  { title: "Ground beef", category: "easy_dinners" },
-  { title: "Chicken", category: "easy_dinners" },
-  { title: "Cheese", category: "easy_dinners" },
-  { title: "Frozen vegetables", category: "easy_dinners" },
-  { title: "Mac and cheese", category: "easy_dinners" },
-
-  { title: "Apples", category: "kid_snacks" },
-  { title: "Crackers", category: "kid_snacks" },
-  { title: "Granola bars", category: "kid_snacks" },
-  { title: "Fruit cups", category: "kid_snacks" },
-  { title: "Popcorn", category: "kid_snacks" },
-  { title: "Yogurt pouches", category: "kid_snacks" },
-
-  { title: "Toilet paper", category: "household" },
-  { title: "Paper towels", category: "household" },
-  { title: "Trash bags", category: "household" },
-  { title: "Dish soap", category: "household" },
-  { title: "Laundry detergent", category: "household" },
-  { title: "Hand soap", category: "household" },
-  { title: "Wipes", category: "household" },
-
-  { title: "Lunch bags", category: "school" },
-  { title: "Water bottles", category: "school" },
-  { title: "Snack bags", category: "school" },
-  { title: "Juice boxes", category: "school" },
-
-  { title: "Chicken nuggets", category: "freezer" },
-  { title: "Frozen fruit", category: "freezer" },
-  { title: "Frozen pizza", category: "freezer" },
-
-  { title: "Water", category: "drinks" },
-  { title: "Juice", category: "drinks" },
-];
-
 const listTypeConfig = {
   groceries: {
     icon: Apple,
@@ -210,39 +163,6 @@ const listTypeConfig = {
     color: "bg-slate-50 text-slate-700 ring-slate-100",
   },
 };
-
-const quickListTemplates = [
-  {
-    title: "Jeep Oil Change",
-    type: "car",
-    description: "Supplies and reminders for a car maintenance day.",
-  },
-  {
-    title: "Joaquin School Project",
-    type: "school",
-    description: "Materials and prep steps for a school deadline.",
-  },
-  {
-    title: "Taco Night",
-    type: "meal",
-    description: "Ingredients and prep items for a family meal.",
-  },
-  {
-    title: "Family Trip Packing",
-    type: "trip",
-    description: "Packing list for clothes, documents, snacks, and essentials.",
-  },
-  {
-    title: "Birthday Party",
-    type: "event",
-    description: "Supplies, gifts, food, and setup items for a family event.",
-  },
-  {
-    title: "House Supplies",
-    type: "household",
-    description: "Things needed around the house.",
-  },
-];
 
 function timestampKey(value) {
   if (!value) return "";
@@ -689,7 +609,6 @@ function PantryPanel({
   loading,
   canWrite,
   searchQuery,
-  creatingStarterPantry,
   newPantryTitle,
   setNewPantryTitle,
   newPantryCategory,
@@ -702,7 +621,6 @@ function PantryPanel({
   creatingRefillList,
   onAddPantryItem,
   onCreateRefillList,
-  onCreateStarterPantry,
   onStatusChange,
   onEditPantryItem,
   onArchivePantryItem,
@@ -766,21 +684,9 @@ function PantryPanel({
             </h2>
 
             <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
-              Start with common essentials, then customize it for your family.
-              Track what is in stock, low, or out.
+              Track the essentials your family actually keeps at home: in stock,
+              low, or out.
             </p>
-
-            {canWrite && pantryItems.length === 0 && (
-              <Button
-                type="button"
-                onClick={onCreateStarterPantry}
-                disabled={creatingStarterPantry}
-                className="mt-4 rounded-2xl bg-accent font-black text-accent-foreground hover:bg-accent/90"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {creatingStarterPantry ? "Creating..." : "Add starter pantry"}
-              </Button>
-            )}
           </div>
         </Card>
 
@@ -805,7 +711,7 @@ function PantryPanel({
               <Input
                 value={newPantryTitle}
                 onChange={(event) => setNewPantryTitle(event.target.value)}
-                placeholder="Coffee pods, Joaquin cereal, dog food..."
+                placeholder="Coffee pods, favorite cereal, pet food..."
                 className="h-11 rounded-2xl bg-white font-semibold"
                 onKeyDown={(event) => event.key === "Enter" && onAddPantryItem()}
               />
@@ -908,7 +814,7 @@ function PantryPanel({
             <p className="mt-1 text-sm font-semibold text-slate-500">
               {normalizedSearch
                 ? "Try another search or clear the search box."
-                : "Add your own items or start with a home essentials template."}
+                : "Add the items your family actually keeps at home."}
             </p>
           </Card>
         )}
@@ -986,8 +892,8 @@ function PantryPanel({
             Make it yours
           </h3>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-            Starter pantry is only a shortcut. Add your own brands, snacks,
-            school items, pet supplies, or anything your family normally buys.
+            Add your own brands, snacks, school items, pet supplies, or anything
+            your family normally buys.
           </p>
         </Card>
       </aside>
@@ -1037,7 +943,6 @@ export default function Groceries() {
   const [linkedTasks, setLinkedTasks] = useState([]);
   const [pantryItems, setPantryItems] = useState([]);
   const [activeListsTab, setActiveListsTab] = useState("lists");
-  const [creatingStarterPantry, setCreatingStarterPantry] = useState(false);
   const [newPantryTitle, setNewPantryTitle] = useState("");
   const [newPantryCategory, setNewPantryCategory] = useState("household");
   const [newPantryStatus, setNewPantryStatus] = useState("in_stock");
@@ -1327,13 +1232,6 @@ export default function Groceries() {
   }, [activeLists]);
 
 
-
-  function applyQuickTemplate(template) {
-    setNewListTitle(template.title);
-    setNewListType(template.type);
-    setNewListDescription(template.description || "");
-    setNewListAssigneePersonId("family");
-  }
 
   const createList = async () => {
     const cleanTitle = newListTitle.trim();
@@ -1761,56 +1659,6 @@ export default function Groceries() {
     } catch (error) {
       console.error("Error restoring list:", error);
       showErrorToast("Could not restore list", error);
-    }
-  };
-
-  const createStarterPantry = async () => {
-    if (!canWrite || !familyId || creatingStarterPantry) return;
-
-    setCreatingStarterPantry(true);
-
-    try {
-      const existingTitles = new Set(
-        pantryItems.map((item) => String(item.title || "").trim().toLowerCase())
-      );
-
-      const itemsToCreate = starterPantryItems.filter(
-        (item) => !existingTitles.has(item.title.toLowerCase())
-      );
-
-      await Promise.all(
-        itemsToCreate.map((item) =>
-          addDoc(collection(db, PANTRY_COLLECTION), {
-            title: item.title,
-            name: item.title,
-            category: item.category,
-            status: "in_stock",
-            note: "",
-
-            familyId,
-
-            createdBy: user?.uid || null,
-            createdByEmail: user?.email || null,
-            createdByName: getProfileDisplayName(profile, user) || "Unknown member",
-
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          })
-        )
-      );
-
-      toast({
-        title: "Starter pantry added",
-        description: `${itemsToCreate.length} home essentials were added.`,
-        duration: 3500,
-      });
-
-      await loadData();
-    } catch (error) {
-      console.error("Error creating starter pantry:", error);
-      showErrorToast("Could not create pantry", error);
-    } finally {
-      setCreatingStarterPantry(false);
     }
   };
 
@@ -2498,7 +2346,6 @@ export default function Groceries() {
           loading={loading}
           canWrite={canWrite}
           searchQuery={listsSearch}
-          creatingStarterPantry={creatingStarterPantry}
           newPantryTitle={newPantryTitle}
           setNewPantryTitle={setNewPantryTitle}
           newPantryCategory={newPantryCategory}
@@ -2511,7 +2358,6 @@ export default function Groceries() {
           creatingRefillList={creatingRefillList}
           onAddPantryItem={addCustomPantryItem}
           onCreateRefillList={createPantryRefillList}
-          onCreateStarterPantry={createStarterPantry}
           onStatusChange={updatePantryStatus}
           onEditPantryItem={startEditingPantryItem}
           onArchivePantryItem={archivePantryItem}
@@ -2528,30 +2374,9 @@ export default function Groceries() {
             <div>
               <p className="text-sm font-black text-slate-950">Create list / project</p>
               <p className="text-xs font-semibold text-slate-500">
-                Example: Jeep Oil Change, Joaquin Science Project, Taco Night.
+                Create a list for groceries, home supplies, school, events, or travel.
               </p>
             </div>
-          </div>
-
-          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-            {quickListTemplates.map((template) => {
-              const config = listTypeConfig[template.type] || listTypeConfig.other;
-              const Icon = config.icon;
-
-              return (
-                <button
-                  key={`${template.type}-${template.title}`}
-                  type="button"
-                  onClick={() => applyQuickTemplate(template)}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-500 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:bg-white hover:text-slate-900 hover:shadow-sm"
-                >
-                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-xl ring-1", config.color)}>
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  {template.title}
-                </button>
-              );
-            })}
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_170px_180px_minmax(0,1fr)_auto]">

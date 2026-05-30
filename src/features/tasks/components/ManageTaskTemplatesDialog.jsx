@@ -12,7 +12,6 @@ import {
   CheckCircle,
   Briefcase,
   Clock,
-  Copy,
   Edit3,
   Flag,
   Heart,
@@ -196,10 +195,8 @@ function RoutineCard({
   canWrite = false,
   onRequestAction,
   onEdit,
-  onCopy,
   onDelete,
 }) {
-  const isStarter = template.source === "starter";
   const routineVisual = getRoutineVisual(template.type);
   const RoutineIcon = routineVisual.icon;
   const categoryVisual = getCategoryVisual(template.category);
@@ -239,12 +236,10 @@ function RoutineCard({
             <span
               className={cn(
                 "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ring-1",
-                isStarter
-                  ? "bg-sky-50 text-sky-700 ring-sky-100"
-                  : "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                "bg-emerald-50 text-emerald-700 ring-emerald-100"
               )}
             >
-              {isStarter ? "Starter" : "Mine"}
+              Routine
             </span>
           </div>
 
@@ -335,18 +330,7 @@ function RoutineCard({
       </div>
 
       <div className="mt-3 flex flex-wrap justify-end gap-1.5 border-t border-slate-100 pt-3">
-        {isStarter ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onCopy(template)}
-            className="h-8 rounded-xl bg-white px-3 text-xs font-black"
-          >
-            <Copy className="mr-1.5 h-3.5 w-3.5" />
-            Copy
-          </Button>
-        ) : (
-          <>
+        <>
             {isRecurring && autoGenerate && !hasRunToday && (
               <>
                 <Button
@@ -426,8 +410,7 @@ function RoutineCard({
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete
             </Button>
-          </>
-        )}
+        </>
       </div>
     </div>
   );
@@ -601,15 +584,7 @@ export default function ManageTaskTemplatesDialog({
 }) {
   const { familyId, user } = useFamily();
 
-  const familyTemplates = useMemo(
-    () => templates.filter((template) => template.source !== "starter"),
-    [templates]
-  );
-
-  const starterTemplates = useMemo(
-    () => templates.filter((template) => template.source === "starter"),
-    [templates]
-  );
+  const familyTemplates = useMemo(() => templates, [templates]);
 
   const [view, setView] = useState("list");
   const [draft, setDraft] = useState(getEmptyDraft());
@@ -681,13 +656,6 @@ export default function ManageTaskTemplatesDialog({
     setError("");
     setTemplateToDelete(null);
     setDraft(buildDraftFromTemplate(template));
-    setView("editor");
-  }
-
-  function startCopyRoutine(template) {
-    setError("");
-    setTemplateToDelete(null);
-    setDraft(buildDraftFromTemplate(template, { clone: true }));
     setView("editor");
   }
 
@@ -853,7 +821,7 @@ export default function ManageTaskTemplatesDialog({
                   ? "Create or update a reusable routine for your family."
                   : isDelete
                     ? "Confirm before removing this custom routine."
-                    : "Create custom routines or copy starter routines."}
+                    : "Create and manage your family's reusable routines."}
               </p>
             </div>
           </div>
@@ -910,7 +878,6 @@ export default function ManageTaskTemplatesDialog({
                         setPendingRoutineAction({ type, template })
                       }
                       onEdit={startEditRoutine}
-                      onCopy={startCopyRoutine}
                       onDelete={requestDeleteRoutine}
                     />
                   ))}
@@ -921,50 +888,10 @@ export default function ManageTaskTemplatesDialog({
                     No custom routines yet
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
-                    Create one from scratch or copy a starter routine.
+                    Create one from scratch when your family is ready.
                   </p>
                 </div>
               )}
-
-              <div className="rounded-[1.75rem] border border-white/75 bg-white/55 p-4 shadow-[0_10px_24px_rgba(38,50,56,0.035)]">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 ring-1 ring-sky-100">
-                    <Layers className="h-5 w-5" />
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                      Starter routines
-                    </p>
-
-                    <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">
-                      Copy and customize
-                    </h3>
-
-                    <p className="mt-1 text-sm font-semibold text-slate-500">
-                      Starters are built into the app. Copy one to make it yours.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {starterTemplates.map((template) => (
-                    <RoutineCard
-                      key={template.id}
-                      template={template}
-                      runToday={runByTemplateId.get(template.id)}
-                      hasRunToday={runByTemplateId.has(template.id)}
-                      canWrite={canWrite}
-                      onRequestAction={(type, template) =>
-                        setPendingRoutineAction({ type, template })
-                      }
-                      onEdit={startEditRoutine}
-                      onCopy={startCopyRoutine}
-                      onDelete={requestDeleteRoutine}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
           )}
 

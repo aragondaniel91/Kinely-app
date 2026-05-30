@@ -23,8 +23,8 @@ import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
-import { currency, getBudgetSummary, initialCustodyExpenses } from "@/data/custodyBudget";
-import { getPackingSummary, initialCustodyPackingItems } from "@/data/custodyPacking";
+import { currency, getBudgetSummary } from "@/data/custodyBudget";
+import { getPackingSummary } from "@/data/custodyPacking";
 
 const initialRules = [
   {
@@ -501,8 +501,8 @@ export default function SmartNotificationsHub() {
   const [rules, setRules] = useState(initialRules);
   const [custodyDays, setCustodyDays] = useState([]);
   const [exchanges, setExchanges] = useState([]);
-  const [packingItems, setPackingItems] = useState(initialCustodyPackingItems);
-  const [expenses, setExpenses] = useState(initialCustodyExpenses);
+  const [packingItems, setPackingItems] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [noticeDialog, setNoticeDialog] = useState(null);
 
@@ -555,6 +555,10 @@ export default function SmartNotificationsHub() {
 
     async function loadSignals() {
       if (!user || !custodyScopeId) {
+        setCustodyDays([]);
+        setExchanges([]);
+        setPackingItems([]);
+        setExpenses([]);
         setLoading(false);
         return;
       }
@@ -573,15 +577,15 @@ export default function SmartNotificationsHub() {
 
         setCustodyDays(dayDocs.map(normalizeCustodyDay).sort((a, b) => (a.date || "").localeCompare(b.date || "")));
         setExchanges(exchangeDocs.map(normalizeExchangeDoc).sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`)));
-        setPackingItems(packingDocs.length ? packingDocs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)) : initialCustodyPackingItems);
-        setExpenses(expenseDocs.length ? expenseDocs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)) : initialCustodyExpenses);
+        setPackingItems(packingDocs.map(normalizePackingDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
+        setExpenses(expenseDocs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999)));
       } catch (error) {
         console.error("Error loading smart notification signals:", error);
         if (!cancelled) {
           setCustodyDays([]);
           setExchanges([]);
-          setPackingItems(initialCustodyPackingItems);
-          setExpenses(initialCustodyExpenses);
+          setPackingItems([]);
+          setExpenses([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
