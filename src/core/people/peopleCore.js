@@ -165,6 +165,46 @@ function sourcePriority(person = {}) {
   return 20;
 }
 
+function hasObjectValues(value) {
+  return (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).length > 0
+  );
+}
+
+function mergePersonRecords(existing = {}, incoming = {}) {
+  const incomingWins = sourcePriority(incoming) >= sourcePriority(existing);
+  const lowerPriority = incomingWins ? existing : incoming;
+  const higherPriority = incomingWins ? incoming : existing;
+  const merged = {
+    ...lowerPriority,
+    ...higherPriority,
+  };
+
+  if (!hasObjectValues(merged.modules)) {
+    merged.modules = hasObjectValues(incoming.modules)
+      ? incoming.modules
+      : hasObjectValues(existing.modules)
+      ? existing.modules
+      : null;
+  }
+
+  if (!hasObjectValues(merged.permissions)) {
+    merged.permissions = hasObjectValues(incoming.permissions)
+      ? incoming.permissions
+      : hasObjectValues(existing.permissions)
+      ? existing.permissions
+      : null;
+  }
+
+  merged.uid = merged.uid || incoming.uid || existing.uid || null;
+  merged.status = merged.status || incoming.status || existing.status || "active";
+
+  return merged;
+}
+
 export function dedupePeople(people = []) {
   const byKey = new Map();
   const order = [];
@@ -181,7 +221,7 @@ export function dedupePeople(people = []) {
     const existingKey = keys.find((key) => byKey.has(key));
     if (existingKey) {
       const existing = byKey.get(existingKey);
-      const chosen = sourcePriority(person) >= sourcePriority(existing) ? { ...existing, ...person } : { ...person, ...existing };
+      const chosen = mergePersonRecords(existing, person);
       keys.forEach((key) => byKey.set(key, chosen));
       return;
     }
@@ -204,10 +244,30 @@ export function dedupePeople(people = []) {
 export function buildFamilyPeople(profile = {}, currentUser = null) {
   const familyId = profile.id || profile.familyId || profile.family_id || "family";
   const people = [];
+  const storedMembers = Array.isArray(profile.members) ? profile.members : [];
 
   const ownerEmail = normalizeEmail(profile.ownerEmail || profile.owner_email || profile.parent1Email || profile.parent1_email || currentUser?.email);
+  const parent2Email = normalizeEmail(profile.parent2Email || profile.parent2_email);
+
+  function findStoredMember({ email = "", personId = "" } = {}) {
+    const cleanEmail = normalizeEmail(email);
+    return storedMembers.find((member) => {
+      const memberEmail = normalizeEmail(member.email);
+      const memberPersonId = member.personId || member.person_id || member.id || "";
+      return (
+        (cleanEmail && memberEmail === cleanEmail) ||
+        (personId && memberPersonId === personId)
+      );
+    });
+  }
+
+  const parent2PersonId = profile.parent2PersonId || profile.parent2_person_id || parent2Email || "parent2";
+  const storedParent2 = findStoredMember({
+    email: parent2Email,
+    personId: parent2PersonId,
+  });
   const parent1Relationship = normalizeRelationship(profile.parent1Relationship || profile.parent1_relationship || profile.parent1Role || profile.parent1_role, PERSON_RELATIONSHIPS.PARENT);
-  const parent2Relationship = normalizeRelationship(profile.parent2Relationship || profile.parent2_relationship || profile.parent2Role || profile.parent2_role, PERSON_RELATIONSHIPS.PARENT);
+  const parent2Relationship = normalizeRelationship(profile.parent2Relationship || profile.parent2_relationship || profile.parent2Role || profile.parent2_role || storedParent2?.role, PERSON_RELATIONSHIPS.PARENT);
   const parent2DefaultLivesHere = [
     PERSON_RELATIONSHIPS.FATHER,
     PERSON_RELATIONSHIPS.MOTHER,
@@ -218,9 +278,20 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
     profile.parent1ShowOnHomeDashboard ?? profile.parent1_show_on_home_dashboard,
     true
   );
-  const parent2LivesHere = booleanOrDefault(profile.parent2LivesHere ?? profile.parent2_lives_here, parent2DefaultLivesHere);
+  const parent2LivesHere = booleanOrDefault(
+    profile.parent2LivesHere ??
+      profile.parent2_lives_here ??
+      storedParent2?.livesHere ??
+      storedParent2?.lives_here,
+    parent2DefaultLivesHere
+  );
   const parent2ShowOnHomeDashboard = booleanOrDefault(
-    profile.parent2ShowOnHomeDashboard ?? profile.parent2_show_on_home_dashboard,
+    profile.parent2ShowOnHomeDashboard ??
+      profile.parent2_show_on_home_dashboard ??
+      storedParent2?.showOnHomeDashboard ??
+      storedParent2?.show_on_home_dashboard ??
+      storedParent2?.homeDashboard ??
+      storedParent2?.home_dashboard,
     parent2LivesHere
   );
 
@@ -243,20 +314,23 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
     )
   );
 
-  const parent2Email = normalizeEmail(profile.parent2Email || profile.parent2_email);
   if (profile.parent2Name || profile.parent2_name || parent2Email) {
     people.push(
       normalizePerson(
         {
-          personId: profile.parent2PersonId || profile.parent2_person_id || parent2Email || "parent2",
+          personId: parent2PersonId,
+          uid: storedParent2?.uid || storedParent2?.userId || storedParent2?.user_id || null,
           email: parent2Email,
           displayName: profile.parent2Name || profile.parent2_name || nameFromEmail(parent2Email),
           type: PERSON_TYPES.ADULT,
-          role: profile.parent2AppRole || profile.parent2_app_role || PERSON_ROLES.VIEWER,
+          role: profile.parent2AppRole || profile.parent2_app_role || storedParent2?.appRole || storedParent2?.app_role || storedParent2?.role || PERSON_ROLES.VIEWER,
           relationship: parent2Relationship,
           colorId: profile.parent2Color || profile.parent2_color || "amber",
+          modules: storedParent2?.modules || storedParent2?.modulePermissions || storedParent2?.module_permissions || null,
+          permissions: storedParent2?.permissions || null,
           livesHere: parent2LivesHere,
           showOnHomeDashboard: parent2ShowOnHomeDashboard,
+          status: storedParent2?.status || storedParent2?.invitationStatus || storedParent2?.invitation_status || "active",
           source: "parent2",
         },
         { familyId, source: "parent2", colorId: "amber" }
@@ -288,7 +362,7 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
     );
   });
 
-  (profile.members || []).forEach((member, index) => {
+  storedMembers.forEach((member, index) => {
     people.push(
       normalizePerson(
         {

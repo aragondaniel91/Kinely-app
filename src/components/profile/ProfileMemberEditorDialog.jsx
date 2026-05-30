@@ -107,6 +107,31 @@ const MODULE_ACCESS_CONFIGS = [
   },
 ];
 
+const MODULE_ACCESS_GROUPS = [
+  {
+    id: "assignments",
+    label: "Presence & assignments",
+    description: "Controls who appears in people-based views and who can receive work.",
+    moduleIds: ["calendar", "tasks"],
+  },
+  {
+    id: "household",
+    label: "Household modules",
+    description: "General shared areas for daily family organization.",
+    moduleIds: ["home", "meals", "lists", "notifications"],
+  },
+  {
+    id: "sensitive",
+    label: "Sensitive spaces",
+    description: "Coparenting and financial information need explicit access.",
+    moduleIds: ["custody", "budget"],
+  },
+];
+
+const MODULE_ACCESS_CONFIG_BY_ID = new Map(
+  MODULE_ACCESS_CONFIGS.map((config) => [config.id, config])
+);
+
 function booleanOrFallback(value, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -415,50 +440,68 @@ function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }
 
 function ModulePermissionsPanel({ modules, onChange, disabled }) {
   return (
-    <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
+    <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
       <div className="mb-3">
         <p className="text-sm font-black text-slate-950">Module permissions</p>
         <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-          Control exactly which family areas this member can open or edit.
+          Separate home presence, assignability, viewing, and editing for this family space.
         </p>
       </div>
 
-      <div className="space-y-3">
-        {MODULE_ACCESS_CONFIGS.map((config) => {
-          const Icon = config.icon;
-          const value = modules?.[config.id] || buildDefaultModuleAccess();
-
-          return (
-            <div key={config.id} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
-              <div className="mb-3 flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-black text-slate-950">{config.label}</span>
-                  <span className="block text-xs font-semibold leading-5 text-slate-500">
-                    {config.description}
-                  </span>
-                </span>
-              </div>
-
-              {config.assignmentControls ? (
-                <AssignableModuleAccessEditor
-                  value={value}
-                  onChange={(nextAccess) => onChange?.(config.id, nextAccess)}
-                  disabled={disabled}
-                  labels={config.assignmentControls}
-                />
-              ) : (
-                <ModuleAccessEditor
-                  value={value}
-                  onChange={(nextAccess) => onChange?.(config.id, nextAccess)}
-                  disabled={disabled}
-                />
-              )}
+      <div className="space-y-5">
+        {MODULE_ACCESS_GROUPS.map((group) => (
+          <section key={group.id} className="space-y-2">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                {group.label}
+              </p>
+              <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">
+                {group.description}
+              </p>
             </div>
-          );
-        })}
+
+            <div className="space-y-3">
+              {group.moduleIds.map((moduleId) => {
+                const config = MODULE_ACCESS_CONFIG_BY_ID.get(moduleId);
+                if (!config) return null;
+
+                const Icon = config.icon;
+                const value = modules?.[config.id] || buildDefaultModuleAccess();
+
+                return (
+                  <div key={config.id} className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                    <div className="mb-3 flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black text-slate-950">{config.label}</span>
+                        <span className="block text-xs font-semibold leading-5 text-slate-500">
+                          {config.description}
+                        </span>
+                      </span>
+                    </div>
+
+                    {config.assignmentControls ? (
+                      <AssignableModuleAccessEditor
+                        value={value}
+                        onChange={(nextAccess) => onChange?.(config.id, nextAccess)}
+                        disabled={disabled}
+                        labels={config.assignmentControls}
+                      />
+                    ) : (
+                      <ModuleAccessEditor
+                        value={value}
+                        onChange={(nextAccess) => onChange?.(config.id, nextAccess)}
+                        disabled={disabled}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );
@@ -546,8 +589,8 @@ export default function ProfileMemberEditorDialog({
       type: roleToPersonType(nextRole),
       livesHere: nextLivesHere,
       lives_here: nextLivesHere,
-      showOnHomeDashboard: nextLivesHere ? true : safeEditor.showOnHomeDashboard,
-      show_on_home_dashboard: nextLivesHere ? true : safeEditor.showOnHomeDashboard,
+      showOnHomeDashboard: safeEditor.showOnHomeDashboard,
+      show_on_home_dashboard: safeEditor.showOnHomeDashboard,
     });
   }
 
