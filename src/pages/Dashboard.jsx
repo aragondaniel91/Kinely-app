@@ -5,7 +5,6 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import FamilyHomeDashboard from "@/components/home/FamilyHomeDashboard";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
-import { buildFamilyPeople } from "@/core/people/peopleCore";
 
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
@@ -73,194 +72,6 @@ function getFamilyName(profile = {}) {
     profile.displayName ||
     "Family"
   );
-}
-
-function normalizePerson(person, fallback = {}) {
-  if (!person) return null;
-  if (typeof person === "string") return { name: person, ...fallback };
-
-  return {
-    ...fallback,
-    ...person,
-    name:
-      person.name ||
-      person.displayName ||
-      person.fullName ||
-      person.firstName ||
-      person.email ||
-      fallback.name,
-    colorId:
-      person.colorId ||
-      person.color_id ||
-      person.color ||
-      person.familyColor ||
-      person.family_color ||
-      fallback.colorId,
-  };
-}
-
-function firstToken(value) {
-  return String(value || "").trim().toLowerCase().split(/\s+/)[0] || "";
-}
-
-function isChildPerson(person = {}) {
-  const type = String(person.type || person.role || person.relationship || "").toLowerCase();
-  return ["child", "kid", "son", "daughter"].includes(type);
-}
-
-function personDisplayName(person = {}) {
-  return (
-    person.name ||
-    person.displayName ||
-    person.fullName ||
-    person.firstName ||
-    person.email ||
-    ""
-  );
-}
-
-function getPersonDedupeKeys(person = {}, index = 0) {
-  const name = personDisplayName(person);
-  const first = firstToken(name);
-  const type = String(person.type || person.role || person.relationship || "").toLowerCase();
-
-  // Children should not be merged with parents/adults just because they share a first name.
-  if (isChildPerson(person)) {
-    return [
-      person.id,
-      person.uid,
-      person.email,
-      `child-${person.id || person.uid || person.email || name || index}`,
-    ]
-      .filter(Boolean)
-      .map((value) => String(value).trim().toLowerCase());
-  }
-
-  // Adults can appear as parent + member/owner. Merge Daniel with Daniel Aragon.
-  return [
-    person.email,
-    person.uid,
-    person.userId,
-    person.user_id,
-    person.memberId,
-    person.member_id,
-    person.id,
-    first ? `adult-first-${first}` : "",
-    type && first ? `${type}-${first}` : "",
-  ]
-    .filter(Boolean)
-    .map((value) => String(value).trim().toLowerCase());
-}
-
-function buildPeople({ profile, user, dadName, momName, dadColor, momColor }) {
-  const children = (profile?.children || profile?.childProfiles || [])
-    .map((child, index) =>
-      normalizePerson(child, {
-        id: child?.id || child?.uid || `child-${index}`,
-        type: "child",
-        role: "child",
-        colorId: ["blue", "rose", "green", "violet"][index % 4],
-        showOnHomeDashboard: true,
-      })
-    )
-    .filter(Boolean);
-
-  const parents = [
-    dadName
-      ? {
-          id: "parent-dad",
-          name: dadName,
-          type: "parent",
-          role: "parent",
-          colorId: dadColor || "blue",
-          showOnHomeDashboard: true,
-        }
-      : null,
-    momName
-      ? {
-          id: "parent-mom",
-          name: momName,
-          type: "parent",
-          role: "parent",
-          colorId: momColor || "amber",
-          showOnHomeDashboard: true,
-        }
-      : null,
-  ].filter(Boolean);
-
-  const rawMembers = [
-    ...(profile?.members || []),
-    ...(profile?.familyMembers || []),
-    ...(profile?.caregivers || []),
-  ];
-
-  const members = rawMembers
-    .map((member, index) =>
-      normalizePerson(member, {
-        type: "member",
-        colorId: ["teal", "violet", "amber"][index % 3],
-      })
-    )
-    .filter(Boolean);
-
-  const currentUserName = user?.displayName || profile?.displayName || user?.email || "";
-  const currentUserFirst = firstToken(currentUserName);
-
-  const currentUserAlreadyRepresented =
-    Boolean(currentUserFirst) &&
-    [...parents, ...members].some((person) => {
-      const candidateFirst = firstToken(
-        person.name || person.displayName || person.fullName || person.email
-      );
-
-      const sameFirstName = candidateFirst && candidateFirst === currentUserFirst;
-      const sameEmail = user?.email && person.email === user.email;
-      const sameUid = user?.uid && (person.uid === user.uid || person.id === user.uid);
-
-      return sameFirstName || sameEmail || sameUid;
-    });
-
-  const currentUser =
-    user && !currentUserAlreadyRepresented
-      ? [
-          normalizePerson(
-            {
-              id: user.uid,
-              uid: user.uid,
-              email: user.email,
-              name: currentUserName || "Me",
-              type: "owner",
-              role: "owner",
-              colorId: profile?.colorId || profile?.color_id || "blue",
-              showOnHomeDashboard: true,
-            },
-            { type: "owner", colorId: "blue" }
-          ),
-        ]
-      : [];
-
-  // Priority matters:
-  // 1. Parents first
-  // 2. Children always visible
-  // 3. Members/caregivers only if they are not duplicates
-  // 4. Current user only if not already represented
-  const ordered = [...parents, ...children, ...members, ...currentUser];
-  const seen = new Set();
-
-  return ordered.filter((person, index) => {
-    const keys = getPersonDedupeKeys(person, index);
-
-    if (!keys.length) return true;
-
-    const duplicate = keys.some((key) => seen.has(key));
-
-    if (duplicate) {
-      return false;
-    }
-
-    keys.forEach((key) => seen.add(key));
-    return true;
-  });
 }
 
 function summarizeList(list) {
@@ -461,7 +272,7 @@ async function loadFamilyCollection(collectionName, familyId) {
 }
 
 export default function Dashboard() {
-  const { user, familyId, profile, dadName, momName, dadColor, momColor, perms } = useFamily();
+  const { user, familyId, profile, familyPeople, perms } = useFamily();
 
   const [tasksToday, setTasksToday] = useState([]);
   const [overdueTasks, setOverdueTasks] = useState([]);
@@ -477,26 +288,7 @@ export default function Dashboard() {
     perms?.groceries?.read !== false && perms?.meals?.read !== false;
   const canReadCalendar = perms?.calendar?.read !== false;
 
-  const people = useMemo(() => {
-    const profileForPeople = {
-      ...(profile || {}),
-      id: profile?.id || profile?.familyId || profile?.family_id || familyId,
-      familyId: profile?.familyId || profile?.family_id || familyId,
-
-      // Keep existing profile values first. Use FamilyContext names/colors only as fallback.
-      parent1Name: profile?.parent1Name || profile?.parent1_name || profile?.ownerName || profile?.owner_name || dadName,
-      parent1_name: profile?.parent1_name || profile?.parent1Name || profile?.owner_name || profile?.ownerName || dadName,
-      parent1Color: profile?.parent1Color || profile?.parent1_color || dadColor,
-      parent1_color: profile?.parent1_color || profile?.parent1Color || dadColor,
-
-      parent2Name: profile?.parent2Name || profile?.parent2_name || momName,
-      parent2_name: profile?.parent2_name || profile?.parent2Name || momName,
-      parent2Color: profile?.parent2Color || profile?.parent2_color || momColor,
-      parent2_color: profile?.parent2_color || profile?.parent2Color || momColor,
-    };
-
-    return buildFamilyPeople(profileForPeople, user);
-  }, [profile, user, familyId, dadName, momName, dadColor, momColor]);
+  const people = useMemo(() => familyPeople || [], [familyPeople]);
 
   useEffect(() => {
     const loadData = async () => {

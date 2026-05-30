@@ -122,6 +122,8 @@ function buildChildPerson(child, index) {
 
 function buildAdultPerson({
   id,
+  uid = "",
+  email = "",
   name,
   role,
   roleType,
@@ -129,7 +131,16 @@ function buildAdultPerson({
   color = "blue",
   aliases = [],
 }) {
-  const fallbackName = roleType === "dad" ? "Dad" : roleType === "mom" ? "Mom" : "Caregiver";
+  const fallbackName =
+    roleType === "dad"
+      ? "Dad"
+      : roleType === "mom"
+      ? "Mom"
+      : roleType === "parent"
+      ? "Parent"
+      : roleType === "owner"
+      ? "Me"
+      : "Caregiver";
   const cleanName = name?.trim() || fallbackName;
   const colorId = normalizeColorId(color, roleType === "mom" ? "amber" : "blue");
 
@@ -138,6 +149,8 @@ function buildAdultPerson({
       id,
       personId: id,
       person_id: id,
+      uid,
+      email,
       name: cleanName,
       role,
       roleType,
@@ -219,6 +232,81 @@ function buildCaregiverPeople(profile = {}) {
     });
 }
 
+function roleTypeForAdult(person = {}) {
+  const relationship = String(person.relationship || person.memberRelationship || person.member_relationship || person.role || "")
+    .trim()
+    .toLowerCase();
+  const source = String(person.source || "").trim().toLowerCase();
+  const role = String(person.role || "").trim().toLowerCase();
+
+  if (relationship === "father" || relationship === "dad") return "dad";
+  if (relationship === "mother" || relationship === "mom") return "mom";
+  if (relationship === "parent" || source === "parent1" || source === "parent2") return "parent";
+  if (role === "owner") return "owner";
+  return relationship || "adult";
+}
+
+function adultRoleLabel(person = {}) {
+  const relationship = String(person.relationship || "").trim().toLowerCase();
+  if (relationship === "father") return "Dad";
+  if (relationship === "mother") return "Mom";
+  if (relationship === "parent") return "Parent";
+  if (relationship === "grandmother") return "Grandmother";
+  if (relationship === "grandfather") return "Grandfather";
+  if (relationship === "babysitter") return "Babysitter";
+  if (relationship === "caregiver") return "Caregiver";
+  if (person.role === "owner") return "Owner";
+  return "Adult";
+}
+
+function shouldShowCoreAdultInTasks(person = {}) {
+  const source = String(person.source || "").trim().toLowerCase();
+  const role = String(person.role || "").trim().toLowerCase();
+  const relationship = String(person.relationship || "").trim().toLowerCase();
+
+  if (source === "parent1" || source === "parent2" || role === "owner") return true;
+  if (["father", "mother", "parent", "partner", "spouse"].includes(relationship)) return true;
+  return shouldShowMemberInTasks(person);
+}
+
+function buildAdultPersonFromCore(person = {}, index = 0) {
+  const name = getDisplayName(person, `Adult ${index + 1}`);
+  const id =
+    person.id ||
+    person.personId ||
+    person.person_id ||
+    person.uid ||
+    person.email ||
+    `adult-${slugify(name)}`;
+  const roleType = roleTypeForAdult(person);
+  const icon = roleType === "mom" ? Heart : roleType === "caregiver" ? Sparkles : Briefcase;
+
+  const boardPerson = buildAdultPerson({
+    id,
+    uid: person.uid || "",
+    email: person.email || "",
+    name,
+    role: adultRoleLabel(person),
+    roleType,
+    icon,
+    color: person.colorId || person.color_id || person.color || (index === 1 ? "amber" : "blue"),
+    aliases: [
+      person.uid,
+      person.email,
+      person.personId,
+      person.person_id,
+      person.relationship,
+      person.role,
+    ].filter(Boolean),
+  });
+
+  return {
+    ...boardPerson,
+    taskAssignable: canAssignTasksToMember(person),
+    avatarUrl: person.avatarUrl || person.avatar_url || person.photoURL || person.photoUrl || person.photo_url || "",
+  };
+}
+
 function buildFamilyPerson() {
   return withBoardColor(
     {
@@ -242,8 +330,16 @@ function dedupePeople(people) {
   const seen = new Set();
 
   return people.filter((person) => {
-    if (!person?.id || seen.has(person.id)) return false;
-    seen.add(person.id);
+    const keys = [
+      person.id,
+      person.personId,
+      person.person_id,
+      person.uid,
+      person.email ? `email:${String(person.email).trim().toLowerCase()}` : "",
+    ].filter(Boolean);
+
+    if (!keys.length || keys.some((key) => seen.has(key))) return false;
+    keys.forEach((key) => seen.add(key));
     return true;
   });
 }
@@ -259,11 +355,34 @@ export function useTaskBoardPeople({
   dadName = "",
   momName = "",
   profile = null,
+  familyPeople = [],
 } = {}) {
   const people = useMemo(() => {
-    const childPeople = Array.isArray(children)
+    const coreChildren = Array.isArray(familyPeople)
+      ? familyPeople.filter((person) => person.type === "child")
+      : [];
+    const coreAdults = Array.isArray(familyPeople)
+      ? familyPeople.filter((person) => person.type === "adult" && shouldShowCoreAdultInTasks(person))
+      : [];
+
+    const childPeople = coreChildren.length
+      ? coreChildren.map(buildChildPerson).filter(Boolean)
+      : Array.isArray(children)
       ? children.map(buildChildPerson).filter(Boolean)
       : [];
+
+    const adultPeople = coreAdults.map(buildAdultPersonFromCore).filter(Boolean);
+    const caregiverPeople = coreAdults.length ? [] : buildCaregiverPeople(profile);
+    const familyPerson = buildFamilyPerson();
+
+    const corePeople = dedupePeople([
+      ...adultPeople,
+      ...childPeople,
+      ...caregiverPeople,
+      familyPerson,
+    ].filter(Boolean));
+
+    if (adultPeople.length || childPeople.length || caregiverPeople.length) return corePeople;
 
     const parent1Role = profile?.parent1_role || profile?.parent1Role;
     const parent2Role = profile?.parent2_role || profile?.parent2Role;
@@ -308,9 +427,6 @@ export function useTaskBoardPeople({
         })
       : null;
 
-    const caregiverPeople = buildCaregiverPeople(profile);
-    const familyPerson = buildFamilyPerson();
-
     const realPeople = dedupePeople([
       ...childPeople,
       dadPerson,
@@ -322,7 +438,7 @@ export function useTaskBoardPeople({
     if (realPeople.length > 1) return realPeople;
 
     return taskPeople.map((person) => withBoardColor(person, person.color || "blue"));
-  }, [children, dadName, momName, profile]);
+  }, [children, dadName, momName, familyPeople, profile]);
 
   return {
     people,

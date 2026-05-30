@@ -106,6 +106,32 @@ function pushUniqueFamily(target, family) {
   target.push(family);
 }
 
+function uniqueFirestoreDocs(docs = []) {
+  const seen = new Set();
+  return docs.filter((doc) => {
+    if (!doc?.id || seen.has(doc.id)) return false;
+    seen.add(doc.id);
+    return true;
+  });
+}
+
+function custodyGroupBelongsToFamily(group = {}, familyId = "") {
+  if (!familyId) return false;
+
+  const linkedFamilyIds = [
+    group.familyId,
+    group.family_id,
+    group.householdFamilyId,
+    group.household_family_id,
+    ...(Array.isArray(group.linkedFamilyIds) ? group.linkedFamilyIds : []),
+    ...(Array.isArray(group.linked_family_ids) ? group.linked_family_ids : []),
+  ]
+    .filter(Boolean)
+    .map(String);
+
+  return linkedFamilyIds.includes(String(familyId));
+}
+
 async function getFamiliesByMemberEmail(email) {
   const cleanEmail = normalizeInviteEmail(email);
   if (!cleanEmail) return [];
@@ -618,6 +644,9 @@ export function FamilyProvider({ children }) {
     return localStorage.getItem(STORAGE_KEY) || null;
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [custodyGroups, setCustodyGroups] = useState([]);
+  const [custodyGroupsLoading, setCustodyGroupsLoading] = useState(false);
+  const [custodyGroupsRefreshKey, setCustodyGroupsRefreshKey] = useState(0);
 
   const myEmail = user?.email || authProfile?.email || null;
 
@@ -727,6 +756,55 @@ export function FamilyProvider({ children }) {
     }
   }, [activeProfile?.id, activeFamilyIdState]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCustodyGroups() {
+      const activeFamilyId = activeProfile?.id || "";
+      const email = normalizeEmail(myEmail);
+
+      if (!user || !activeFamilyId || !email) {
+        setCustodyGroups([]);
+        setCustodyGroupsLoading(false);
+        return;
+      }
+
+      setCustodyGroupsLoading(true);
+
+      try {
+        const groupRef = collection(db, "custodyGroups");
+        const results = await Promise.allSettled([
+          getDocs(query(groupRef, where("custodyReaderEmails", "array-contains", email))),
+          getDocs(query(groupRef, where("custodyReaderIds", "array-contains", user.uid))),
+          getDocs(query(groupRef, where("adminIds", "array-contains", user.uid))),
+          getDocs(query(groupRef, where("ownerId", "==", user.uid))),
+          getDocs(query(groupRef, where("createdBy", "==", user.uid))),
+        ]);
+
+        const groups = uniqueFirestoreDocs(
+          mapSettledFirestoreSnapshots(results, { type: "custodyGroup" })
+        ).filter((group) => custodyGroupBelongsToFamily(group, activeFamilyId));
+
+        if (!cancelled) setCustodyGroups(groups);
+      } catch (error) {
+        console.warn("Could not load custody access for current family:", error);
+        if (!cancelled) setCustodyGroups([]);
+      } finally {
+        if (!cancelled) setCustodyGroupsLoading(false);
+      }
+    }
+
+    loadCustodyGroups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProfile?.id, custodyGroupsRefreshKey, myEmail, user]);
+
+  const refreshCustodyGroups = () => {
+    setCustodyGroupsRefreshKey((current) => current + 1);
+  };
+
   const memberEntry = useMemo(() => {
     if (!activeProfile || !myEmail) return null;
     return (activeProfile.members || []).find((member) => {
@@ -757,6 +835,7 @@ export function FamilyProvider({ children }) {
   const dadColor = activeProfile?.parent1_role === "dad" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "blue" : activeProfile?.parent2_color || activeProfile?.parent2Color || "blue";
   const momColor = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_color || activeProfile?.parent1Color || "amber" : activeProfile?.parent2_color || activeProfile?.parent2Color || "amber";
   const familyChildren = normalizeFamilyChildren(activeProfile?.children || (activeProfile?.child_name ? [activeProfile.child_name] : []));
+  const hasCustodyAccess = custodyGroups.length > 0;
 
   const refreshFamilies = async () => {
     if (!user) return;
@@ -1009,14 +1088,18 @@ export function FamilyProvider({ children }) {
     familyId: activeProfile?.id || null,
     actualFamilyId: activeProfile?.id || null,
     custodyScopeId: "",
-    custodyModuleActive: false,
+    custodyGroups,
+    custodyGroupsLoading,
+    refreshCustodyGroups,
+    hasCustodyAccess,
+    custodyModuleActive: hasCustodyAccess,
     isOwner,
     isAdmin,
     perms,
-    dadName: dadName || "Papá",
-    momName: momName || "Mamá",
-    familyDadName: dadName || "Papá",
-    familyMomName: momName || "Mamá",
+    dadName: dadName || "",
+    momName: momName || "",
+    familyDadName: dadName || "",
+    familyMomName: momName || "",
     custodyParentOverride: null,
     dadColor,
     momColor,

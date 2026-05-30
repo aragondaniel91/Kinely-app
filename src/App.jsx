@@ -99,14 +99,14 @@ function RequireFamilySpace({ children, moduleName = "", label = "this area" }) 
 }
 
 function RequireModuleAccess({ children, moduleName = "", label = "this area" }) {
-  const { isLoading, profile, familyId, perms } = useFamily();
+  const { isLoading, profile, familyId, perms, hasCustodyAccess, custodyGroupsLoading } = useFamily();
 
-  if (isLoading) {
+  if (isLoading || (moduleName === "custody" && custodyGroupsLoading)) {
     return <RouteLoader />;
   }
 
-  if (moduleName === "custody" && (!profile || !familyId)) {
-    return children;
+  if (moduleName === "custody" && (!profile || !familyId || !hasCustodyAccess)) {
+    return <AccessDenied moduleName={label} />;
   }
 
   if (moduleName && perms?.[moduleName]?.read === false) {

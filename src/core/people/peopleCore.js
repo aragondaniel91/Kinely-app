@@ -18,6 +18,7 @@ export const PERSON_RELATIONSHIPS = {
   FATHER: "father",
   MOTHER: "mother",
   CO_PARENT: "co_parent",
+  PARENT: "parent",
   GRANDMOTHER: "grandmother",
   GRANDFATHER: "grandfather",
   BABYSITTER: "babysitter",
@@ -59,7 +60,7 @@ export function normalizeRelationship(value, fallback = PERSON_RELATIONSHIPS.FAM
 
   if (relationship === "dad") return PERSON_RELATIONSHIPS.FATHER;
   if (relationship === "mom") return PERSON_RELATIONSHIPS.MOTHER;
-  if (relationship === "parent") return fallback;
+  if (relationship === "parent") return PERSON_RELATIONSHIPS.PARENT;
   if (relationship === "member") return PERSON_RELATIONSHIPS.FAMILY_MEMBER;
 
   return Object.values(PERSON_RELATIONSHIPS).includes(relationship) ? relationship : fallback;
@@ -69,7 +70,7 @@ export function normalizeRole(value, fallback = PERSON_ROLES.VIEWER) {
   const role = String(value || "").trim().toLowerCase();
 
   if (!role) return fallback;
-  if (["dad", "mom", "parent"].includes(role)) return PERSON_ROLES.ADMIN;
+  if (["dad", "mom", "parent"].includes(role)) return fallback;
   if (["member", "family"].includes(role)) return PERSON_ROLES.VIEWER;
 
   return Object.values(PERSON_ROLES).includes(role) ? role : fallback;
@@ -201,8 +202,8 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
   const people = [];
 
   const ownerEmail = normalizeEmail(profile.ownerEmail || profile.owner_email || profile.parent1Email || profile.parent1_email || currentUser?.email);
-  const parent1Relationship = normalizeRelationship(profile.parent1Relationship || profile.parent1_relationship || profile.parent1Role || profile.parent1_role, PERSON_RELATIONSHIPS.FATHER);
-  const parent2Relationship = normalizeRelationship(profile.parent2Relationship || profile.parent2_relationship || profile.parent2Role || profile.parent2_role, PERSON_RELATIONSHIPS.MOTHER);
+  const parent1Relationship = normalizeRelationship(profile.parent1Relationship || profile.parent1_relationship || profile.parent1Role || profile.parent1_role, PERSON_RELATIONSHIPS.PARENT);
+  const parent2Relationship = normalizeRelationship(profile.parent2Relationship || profile.parent2_relationship || profile.parent2Role || profile.parent2_role, PERSON_RELATIONSHIPS.PARENT);
 
   people.push(
     normalizePerson(
@@ -230,7 +231,7 @@ export function buildFamilyPeople(profile = {}, currentUser = null) {
           email: parent2Email,
           displayName: profile.parent2Name || profile.parent2_name || nameFromEmail(parent2Email),
           type: PERSON_TYPES.ADULT,
-          role: PERSON_ROLES.ADMIN,
+          role: profile.parent2AppRole || profile.parent2_app_role || PERSON_ROLES.VIEWER,
           relationship: parent2Relationship,
           colorId: profile.parent2Color || profile.parent2_color || "amber",
           source: "parent2",

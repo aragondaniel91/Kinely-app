@@ -46,7 +46,7 @@ function AppShellLoader() {
 
 export default function AppShell() {
   const location = useLocation();
-  const { isLoading, profile, familyId, perms } = useFamily();
+  const { isLoading, profile, familyId, perms, hasCustodyAccess, custodyGroupsLoading } = useFamily();
 
   if (isLoading) {
     return <AppShellLoader />;
@@ -55,7 +55,7 @@ export default function AppShell() {
   const hasFamilySpace = Boolean(profile && familyId);
   const visibleNavItems = navItems.filter((item) => {
     if (item.requiresFamily && !hasFamilySpace) return false;
-    if (!hasFamilySpace && item.module === "custody") return true;
+    if (item.module === "custody") return hasFamilySpace && !custodyGroupsLoading && hasCustodyAccess && perms?.custody?.read !== false;
     if (item.module && perms?.[item.module]?.read === false) return false;
     return true;
   });

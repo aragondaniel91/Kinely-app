@@ -303,7 +303,7 @@ function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, o
 }
 
 export default function CustodyGroupsManager() {
-  const { user, myEmail, profile, familyId, isOwner, isAdmin } = useFamily();
+  const { user, myEmail, profile, familyId, isOwner, isAdmin, refreshCustodyGroups } = useFamily();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [noticeDialog, setNoticeDialog] = useState(null);
@@ -338,16 +338,12 @@ export default function CustodyGroupsManager() {
 
     try {
       const ref = collection(db, "custodyGroups");
-      const memberQuery = query(ref, where("memberEmails", "array-contains", email));
-      const legacyMemberQuery = query(ref, where("member_emails", "array-contains", email));
-      const viewerQuery = query(ref, where("viewerEmails", "array-contains", email));
-      const legacyViewerQuery = query(ref, where("viewer_emails", "array-contains", email));
-
       const results = await Promise.allSettled([
-        getDocs(memberQuery),
-        getDocs(legacyMemberQuery),
-        getDocs(viewerQuery),
-        getDocs(legacyViewerQuery),
+        getDocs(query(ref, where("custodyReaderEmails", "array-contains", email))),
+        getDocs(query(ref, where("custodyReaderIds", "array-contains", user?.uid || ""))),
+        getDocs(query(ref, where("adminIds", "array-contains", user?.uid || ""))),
+        getDocs(query(ref, where("ownerId", "==", user?.uid || ""))),
+        getDocs(query(ref, where("createdBy", "==", user?.uid || ""))),
       ]);
 
       if (results.every((result) => result.status === "rejected")) {
@@ -712,6 +708,7 @@ export default function CustodyGroupsManager() {
 
       resetForm();
       await loadGroups();
+      refreshCustodyGroups?.();
       showNotice({
         tone: "success",
         title: editingGroupId ? "Custody group updated" : "Custody group created",
@@ -757,6 +754,7 @@ export default function CustodyGroupsManager() {
     try {
       const result = await deleteCustodyGroupCascade(group.id);
       await loadGroups();
+      refreshCustodyGroups?.();
       showNotice({
         tone: "success",
         title: "Custody group deleted",

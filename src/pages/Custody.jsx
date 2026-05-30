@@ -285,10 +285,11 @@ export default function Custody() {
         try {
           const groupRef = collection(db, "custodyGroups");
           const groupResults = await Promise.allSettled([
-            getDocs(query(groupRef, where("memberEmails", "array-contains", email))),
-            getDocs(query(groupRef, where("member_emails", "array-contains", email))),
-            getDocs(query(groupRef, where("viewerEmails", "array-contains", email))),
-            getDocs(query(groupRef, where("viewer_emails", "array-contains", email))),
+            getDocs(query(groupRef, where("custodyReaderEmails", "array-contains", email))),
+            getDocs(query(groupRef, where("custodyReaderIds", "array-contains", user.uid))),
+            getDocs(query(groupRef, where("adminIds", "array-contains", user.uid))),
+            getDocs(query(groupRef, where("ownerId", "==", user.uid))),
+            getDocs(query(groupRef, where("createdBy", "==", user.uid))),
           ]);
 
           uniqueFirestoreDocsFromSnapshots(

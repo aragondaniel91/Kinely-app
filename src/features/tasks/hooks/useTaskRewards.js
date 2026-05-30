@@ -12,10 +12,6 @@ import { db } from "@/lib/firebase";
 import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
-  buildDemoChildReward,
-  getActiveFamilyReward,
-} from "@/features/tasks/data/demoRewards";
-import {
   normalizeRewardChildFields,
   rewardBelongsToChild,
 } from "@/features/tasks/utils/rewardIdentity";
@@ -81,10 +77,7 @@ export function useTaskRewards({ familyId, canRead, people = [], user = null, pr
   const childRewards = useMemo(
     () =>
       childPeople
-        .map((childPerson) => {
-          const realReward = findRewardForChild(rewards, childPerson);
-          return realReward || buildDemoChildReward(childPerson);
-        })
+        .map((childPerson) => findRewardForChild(rewards, childPerson))
         .filter(Boolean),
     [childPeople, rewards]
   );
@@ -92,9 +85,7 @@ export function useTaskRewards({ familyId, canRead, people = [], user = null, pr
   const childReward = childRewards[0] || null;
 
   const familyReward = useMemo(() => {
-    const realReward = rewards.find((reward) => reward.type === "family");
-
-    return realReward || getActiveFamilyReward();
+    return rewards.find((reward) => reward.type === "family") || null;
   }, [rewards]);
 
   const resetReward = useCallback(

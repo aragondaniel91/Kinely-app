@@ -13,7 +13,6 @@ import ManageTaskTemplatesDialog from "@/features/tasks/components/ManageTaskTem
 import ManageTaskRewardsDialog from "@/features/tasks/components/ManageTaskRewardsDialog";
 import RewardCelebrationOverlay from "@/features/tasks/components/RewardCelebrationOverlay";
 
-import { demoTasks } from "@/features/tasks/data/demoTasks";
 import { useFamilyTasks } from "@/features/tasks/hooks/useFamilyTasks";
 import { useTaskTemplates } from "@/features/tasks/hooks/useTaskTemplates";
 import { useTaskRewards } from "@/features/tasks/hooks/useTaskRewards";
@@ -205,7 +204,7 @@ export default function Tasks() {
     setSearchParams,
   ]);
 
-  const displayTasksBase = tasks.length > 0 ? tasks : demoTasks;
+  const displayTasksBase = tasks;
 
   const displayTasks = useMemo(() => {
     if (!linkedListIdFilter && !linkedEventIdFilter) return displayTasksBase;

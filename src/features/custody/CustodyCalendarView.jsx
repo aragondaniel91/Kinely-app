@@ -237,7 +237,7 @@ export default function CustodyCalendarView({
   onOpenChat,
 }) {
   const familyContext = useFamily();
-  const { myEmail, profile, familyId, dadName, momName, dadColor, momColor, custodyDadColor, custodyMomColor, perms } = familyContext;
+  const { user, myEmail, profile, familyId, dadName, momName, dadColor, momColor, custodyDadColor, custodyMomColor, perms } = familyContext;
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -256,16 +256,12 @@ export default function CustodyCalendarView({
 
       try {
         const collectionRef = collection(db, "custodyGroups");
-        const memberQuery = query(collectionRef, where("memberEmails", "array-contains", myEmail));
-        const legacyMemberQuery = query(collectionRef, where("member_emails", "array-contains", myEmail));
-        const viewerQuery = query(collectionRef, where("viewerEmails", "array-contains", myEmail));
-        const legacyViewerQuery = query(collectionRef, where("viewer_emails", "array-contains", myEmail));
-
         const results = await Promise.allSettled([
-          getDocs(memberQuery),
-          getDocs(legacyMemberQuery),
-          getDocs(viewerQuery),
-          getDocs(legacyViewerQuery),
+          getDocs(query(collectionRef, where("custodyReaderEmails", "array-contains", myEmail))),
+          getDocs(query(collectionRef, where("custodyReaderIds", "array-contains", user?.uid || ""))),
+          getDocs(query(collectionRef, where("adminIds", "array-contains", user?.uid || ""))),
+          getDocs(query(collectionRef, where("ownerId", "==", user?.uid || ""))),
+          getDocs(query(collectionRef, where("createdBy", "==", user?.uid || ""))),
         ]);
 
         if (results.every((result) => result.status === "rejected")) {
@@ -291,7 +287,7 @@ export default function CustodyCalendarView({
     return () => {
       cancelled = true;
     };
-  }, [myEmail, familyId]);
+  }, [myEmail, familyId, user?.uid]);
 
   useEffect(() => {
     let cancelled = false;
