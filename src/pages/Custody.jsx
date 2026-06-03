@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CreditCard,
   LayoutDashboard,
-  MessageCircle,
   Shirt,
   Sun,
   Truck,
@@ -14,10 +13,10 @@ import { collection, getDocs, onSnapshot, query, where } from "firebase/firestor
 
 import CustodyCalendarView from "@/features/custody/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
 import { uniqueFirestoreDocsFromSnapshots } from "@/core/firestore/firestoreDocUtils";
+import { canReadModule } from "@/lib/modulePermissions";
 
 const custodyModules = [
   {
@@ -32,7 +31,7 @@ const custodyModules = [
     id: "schedule",
     label: "Schedule",
     icon: CalendarDays,
-    description: "Custody calendar, manual days, bulk schedule, and future templates.",
+    description: "Custody calendar, manual days, bulk schedule, and schedule details.",
     accent: "bg-blue-50 text-blue-600 border-blue-100",
   },
   {
@@ -64,13 +63,6 @@ const custodyModules = [
     icon: CreditCard,
     description: "Shared expenses, split costs, who paid, who owes, and recurring payments.",
     accent: "bg-amber-50 text-amber-600 border-amber-100",
-  },
-  {
-    id: "chat",
-    label: "Chat",
-    icon: MessageCircle,
-    description: "Co-parent messages, important notes, and custody-related communication.",
-    accent: "bg-violet-50 text-violet-600 border-violet-100",
   },
 ];
 
@@ -133,7 +125,9 @@ function WeatherTimeBadge() {
       </div>
       <div className="leading-tight">
         <p className="text-sm font-black text-slate-950">{formatTime(now)}</p>
-        <p className="text-[11px] font-bold text-slate-500">68° · Sunny</p>
+        <p className="text-[11px] font-bold text-slate-500">
+          {now.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+        </p>
       </div>
     </div>
   );
@@ -167,43 +161,6 @@ function ModuleCard({ module, onClick }) {
   );
 }
 
-function ComingSoonPanel({ icon: Icon, title, description, bullets }) {
-  return (
-    <div className="px-3 pb-8 pt-4 md:px-6">
-      <Card className="mx-auto max-w-5xl rounded-[2rem] border-white/80 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-8">
-        <div className="flex flex-col gap-5 md:flex-row md:items-start">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-blue-50 text-blue-600">
-            <Icon className="h-7 w-7" />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
-              Coming next
-            </p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-              {title}
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold text-slate-500">
-              {description}
-            </p>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {bullets.map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
 export default function Custody() {
   const [activeCalendar, setActiveCalendar] = useState("custody");
   const [viewMode, setViewMode] = useState("month");
@@ -212,9 +169,11 @@ export default function Custody() {
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState("");
-  const { user, familyId, myEmail } = useFamily();
+  const { user, familyId, myEmail, perms } = useFamily();
 
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
+  const canReadBudget = canReadModule(perms, "budget");
+  const visibleCustodyModules = custodyModules.filter((module) => module.id !== "budget" || canReadBudget);
   const latestActivityId = custodyActivity[0]?.id || "";
 
   useEffect(() => {
@@ -324,7 +283,7 @@ export default function Custody() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {custodyModules.map((module) => (
+            {visibleCustodyModules.map((module) => (
               <ModuleCard
                 key={module.id}
                 module={module}
@@ -383,7 +342,6 @@ export default function Custody() {
           onOpenPacking={() => setActiveModule("packing")}
           onOpenNotifications={() => setActiveModule("notifications")}
           onOpenBudget={() => setActiveModule("budget")}
-          onOpenChat={() => setActiveModule("chat")}
         />
       )}
 
@@ -405,22 +363,6 @@ export default function Custody() {
           setActiveCalendar={setActiveCalendar}
           viewMode={viewMode}
           setViewMode={setViewMode}
-        />
-      )}
-
-      {activeModule === "chat" && (
-        <ComingSoonPanel
-          icon={MessageCircle}
-          title="Co-parent chat"
-          description="This section will keep custody-related messages and important notes organized by custody group."
-          bullets={[
-            "Custody-specific message thread",
-            "Important pinned notes",
-            "Exchange-day messages",
-            "Budget and receipt comments",
-            "Read status",
-            "Future notification support",
-          ]}
         />
       )}
     </div>

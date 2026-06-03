@@ -234,7 +234,6 @@ export default function CustodyCalendarView({
   onOpenPacking,
   onOpenNotifications,
   onOpenBudget,
-  onOpenChat,
 }) {
   const familyContext = useFamily();
   const { user, myEmail, profile, familyId, dadName, momName, dadColor, momColor, custodyDadColor, custodyMomColor, perms } = familyContext;
@@ -468,7 +467,6 @@ export default function CustodyCalendarView({
               onOpenPacking={onOpenPacking}
               onOpenNotifications={onOpenNotifications}
               onOpenBudget={onOpenBudget}
-              onOpenChat={onOpenChat}
             />
           </FamilyContext.Provider>
         ) : (

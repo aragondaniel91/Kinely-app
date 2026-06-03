@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronRight,
   HeartHandshake,
-  MessageCircle,
   Shirt,
   Sparkles,
   Truck,
@@ -366,7 +365,7 @@ function getCustodyChildDisplayName(custodyChildren = []) {
   return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
 }
 
-export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, onOpenPacking, onOpenNotifications, onOpenBudget, onOpenChat }) {
+export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, onOpenPacking, onOpenNotifications, onOpenBudget }) {
   const {
     user,
     familyId,
@@ -685,7 +684,6 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 onClick={onOpenBudget}
                 disabled={!canReadBudget}
               />
-              <ActionTile icon={MessageCircle} label="Chat" text="Co-parent notes" tone="violet" onClick={onOpenChat} />
             </div>
           </Card>
         </div>

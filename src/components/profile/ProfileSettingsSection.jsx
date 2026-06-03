@@ -2,7 +2,7 @@ import { Bell, Globe2, Languages, MapPin, ShieldCheck } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 
-function PreferenceRow({ icon: Icon, label, value, helper, badge = "Coming soon" }) {
+function PreferenceRow({ icon: Icon, label, value, helper, badge = null }) {
   return (
     <div className="flex items-start justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -62,36 +62,38 @@ export default function ProfileSettingsSection() {
             label="Timezone"
             value="Automatic"
             helper="Used for custody reminders, events, tasks, and daily family summaries."
+            badge="Active"
           />
 
           <PreferenceRow
             icon={MapPin}
             label="Default location"
             value="Not set"
-            helper="Future weather, school, activity, and reminder features can use a family location."
+            helper="Optional family location for local reminders, weather, school, and activity context."
+            badge="Optional"
           />
         </div>
       </Card>
 
       <Card className="rounded-[2rem] border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-          Coming next
+          Where to manage this
         </p>
 
         <div className="mt-4 space-y-3">
           <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
             <Bell className="h-5 w-5 text-blue-600" />
-            <p className="mt-2 text-sm font-black text-slate-950">Notification defaults</p>
+            <p className="mt-2 text-sm font-black text-slate-950">Notifications</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-              Email reminders, custody updates, task due dates, and family event notifications.
+              Use the Notifications tab to manage custody reminders, task due dates, and family event alerts.
             </p>
           </div>
 
           <div className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
             <ShieldCheck className="h-5 w-5 text-indigo-600" />
-            <p className="mt-2 text-sm font-black text-slate-950">Permission presets</p>
+            <p className="mt-2 text-sm font-black text-slate-950">Member access</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-              Admins will be able to choose module access for parents, caregivers, and family members.
+              Use Members & Access to decide who can view, create, edit, or manage each family module.
             </p>
           </div>
         </div>
