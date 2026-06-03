@@ -423,8 +423,6 @@ export default function Custody() {
           ]}
         />
       )}
-
-      {dialogs}
     </div>
   );
 }
