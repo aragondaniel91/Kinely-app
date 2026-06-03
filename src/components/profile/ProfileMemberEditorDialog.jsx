@@ -355,18 +355,11 @@ function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }
       nextAccess.assignable = false;
     }
 
-    if (field === "visible" && nextValue === true) {
-      nextAccess.read = true;
-    }
-
     if (field === "assignable" && nextValue === true) {
       nextAccess.visible = true;
-      nextAccess.read = true;
     }
 
     if (field === "write" && nextValue === true) {
-      nextAccess.visible = true;
-      nextAccess.assignable = true;
       nextAccess.read = true;
     }
 

@@ -197,8 +197,7 @@ export function shouldShowMemberInTasks(member = {}) {
     isAdminLikeMember(member) ||
     shouldUseDefaultChildAssignment(member, FAMILY_MODULES.tasks) ||
     access.visible === true ||
-    access.assignable === true ||
-    access.write === true
+    access.assignable === true
   );
 }
 
@@ -219,8 +218,7 @@ export function shouldShowMemberInCalendar(member = {}) {
     isAdminLikeMember(member) ||
     shouldUseDefaultChildAssignment(member, FAMILY_MODULES.calendar) ||
     access.visible === true ||
-    access.assignable === true ||
-    access.write === true
+    access.assignable === true
   );
 }
 
@@ -230,8 +228,7 @@ export function canAssignCalendarEventsToMember(member = {}) {
   return (
     isAdminLikeMember(member) ||
     shouldUseDefaultChildAssignment(member, FAMILY_MODULES.calendar) ||
-    access.assignable === true ||
-    access.write === true
+    access.assignable === true
   );
 }
 
