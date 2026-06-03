@@ -53,7 +53,7 @@ export default function ProfileSettingsSection() {
             icon={Languages}
             label="Language"
             value="English"
-            helper="The app currently uses English by default. Spanish support will be added through a dedicated language system."
+            helper="The app currently uses English by default. Multilingual support should be handled through a dedicated language system."
             badge="Default"
           />
 
@@ -93,7 +93,7 @@ export default function ProfileSettingsSection() {
             <ShieldCheck className="h-5 w-5 text-indigo-600" />
             <p className="mt-2 text-sm font-black text-slate-950">Member access</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-              Use Members & Access to decide who can view, create, edit, or manage each family module.
+              Use People & Access to decide who can view, create, edit, or manage each family module.
             </p>
           </div>
         </div>

@@ -300,7 +300,7 @@ export default function ProfileFamiliesSection() {
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-slate-950">Family Space</h2>
                 <p className="text-sm font-semibold text-slate-500">
-                  Spaces are the containers. People, roles, invitations, and module permissions live in Members & Access.
+                  Spaces are the containers. People, roles, invitations, and module permissions live in People & Access.
                 </p>
               </div>
             </div>
@@ -450,7 +450,7 @@ export default function ProfileFamiliesSection() {
                   <div>
                     <p className="text-sm font-black text-slate-950">Need to change people or access?</p>
                     <p className="text-sm font-semibold text-slate-500">
-                      Use Members & Access for roles, home presence, invitations, module permissions, and admin access.
+                      Use People & Access for roles, home presence, invitations, module permissions, and admin access.
                     </p>
                   </div>
                   <Button type="submit" disabled={!canManageSpace || saving} className="gap-2 rounded-xl">

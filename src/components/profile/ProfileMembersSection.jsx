@@ -1025,7 +1025,7 @@ export default function ProfileMembersSection() {
         <Card className="p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-slate-500">
-              <Shield className="h-4 w-4" /> Members & Permissions
+              <Shield className="h-4 w-4" /> People & Permissions
             </h2>
             {canEdit && (
               <div className="flex flex-wrap gap-2">

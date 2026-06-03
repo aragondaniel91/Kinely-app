@@ -1,4 +1,4 @@
-import { CalendarHeart, Home, Shield, Users } from "lucide-react";
+import { Baby, CalendarHeart, Home, Shield, Users } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { getColorMeta, normalizeChildren } from "@/lib/personColorUtils";
@@ -22,10 +22,11 @@ function memberCountOf(profile) {
 }
 
 export default function ProfileOverview() {
-  const { profile, familyId, isOwner, isAdmin, allProfiles } = useFamily();
+  const { profile, familyId, isOwner, isAdmin, allProfiles, custodyGroups } = useFamily();
   const children = normalizeChildren(profile?.children || []);
   const familyCount = Array.isArray(allProfiles) ? allProfiles.length : 0;
   const memberCount = memberCountOf(profile);
+  const custodyGroupCount = Array.isArray(custodyGroups) ? custodyGroups.length : 0;
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -52,7 +53,10 @@ export default function ProfileOverview() {
               const color = getColorMeta(child.color);
               return (
                 <span key={child.id || child.name} className={`rounded-full border px-3 py-1.5 text-xs font-bold ${color.bg} ${color.text} ${color.border}`}>
-                  👶 {child.name}
+                  <span className="inline-flex items-center gap-1">
+                    <Baby className="h-3.5 w-3.5" />
+                    {child.name}
+                  </span>
                 </span>
               );
             })
@@ -86,7 +90,7 @@ export default function ProfileOverview() {
           <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600"><CalendarHeart className="h-5 w-5" /></div>
             <div>
-              <p className="text-2xl font-black text-slate-950">—</p>
+              <p className="text-2xl font-black text-slate-950">{custodyGroupCount}</p>
               <p className="text-xs font-bold text-slate-400">Custody groups</p>
             </div>
           </div>

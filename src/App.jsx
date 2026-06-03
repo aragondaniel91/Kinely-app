@@ -150,7 +150,7 @@ function AppRoutes() {
             <Route path="/" element={<RequireFamilySpace moduleName="home" label="Home"><Dashboard /></RequireFamilySpace>} />
             <Route path="/calendar" element={<RequireFamilySpace moduleName="calendar" label="Calendar"><Calendar /></RequireFamilySpace>} />
             <Route path="/custody" element={<RequireModuleAccess moduleName="custody" label="Custody"><Custody /></RequireModuleAccess>} />
-            <Route path="/children" element={<Navigate to="/profile?tab=children" replace />} />
+            <Route path="/children" element={<Navigate to="/profile?tab=members" replace />} />
             <Route path="/tasks" element={<RequireFamilySpace moduleName="tasks" label="Tasks"><Tasks /></RequireFamilySpace>} />
             <Route path="/meals" element={<RequireFamilySpace moduleName="meals" label="Meals"><Meals /></RequireFamilySpace>} />
             <Route path="/lists" element={<RequireFamilySpace moduleName="lists" label="Lists"><Lists /></RequireFamilySpace>} />

@@ -93,7 +93,7 @@ function SectionHeader({ icon: Icon, eyebrow, title, description }) {
   );
 }
 
-export default function ChildProfiles() {
+export default function ChildProfiles({ embedded = false }) {
   const { profile, children = [], isAdmin, updateActiveFamily, refreshFamilies } = useFamily();
   const [selectedChildId, setSelectedChildId] = useState(children[0]?.id || children[0]?.childId || "");
   const [draftChildren, setDraftChildren] = useState(children);
@@ -271,12 +271,12 @@ export default function ChildProfiles() {
 
   if (!activeChildren.length) {
     return (
-      <div className="min-h-full bg-slate-50 p-4 md:p-6">
+      <div className={embedded ? "" : "min-h-full bg-slate-50 p-4 md:p-6"}>
         <Card className="mx-auto max-w-3xl rounded-[2rem] border-slate-200 bg-white p-6 text-center shadow-sm">
           <Baby className="mx-auto h-10 w-10 text-indigo-500" />
           <h1 className="mt-3 text-2xl font-black text-slate-950">No children yet</h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-            Add a child from Profile &gt; Members & Access first. Then their care profile will appear here.
+            Add a child from People & Access first. Then their care profile will appear here.
           </p>
         </Card>
       </div>
@@ -284,18 +284,18 @@ export default function ChildProfiles() {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 p-4 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-4">
+    <div className={embedded ? "" : "min-h-full bg-slate-50 p-4 md:p-6"}>
+      <div className={embedded ? "space-y-4" : "mx-auto max-w-7xl space-y-4"}>
         <Card className="rounded-[2rem] border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-5 shadow-sm md:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">Child Care Profile</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">Child care profiles</p>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Kids health, sizes, and care notes</h1>
               <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-slate-500">
-                Store basic care information both homes may need: allergies, medications, clothing sizes, emergency notes, and fever/allergy instructions.
+                Identity, roles, permissions, and assignment settings are managed above. Care profiles store allergies, medications, clothing sizes, emergency notes, and fever/allergy instructions.
               </p>
               <p className="mt-2 max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800">
-                Medical notes are for family coordination only and do not replace professional medical advice. Always follow your pediatrician’s instructions and emergency services guidance.
+                Medical notes are for family coordination only and do not replace professional medical advice. Always follow your pediatrician's instructions and emergency services guidance.
               </p>
             </div>
 
@@ -327,7 +327,9 @@ export default function ChildProfiles() {
                     className={`w-full rounded-2xl border px-3 py-3 text-left transition ${active ? "border-indigo-300 bg-indigo-50 text-indigo-900" : "border-slate-200 bg-white hover:bg-slate-50"}`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">👶</span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+                        <Baby className="h-4 w-4" />
+                      </span>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black">{childName(child)}</p>
                         <p className="text-xs font-semibold text-slate-500">{info.age ? `${info.age} years old` : "Care profile"}</p>
