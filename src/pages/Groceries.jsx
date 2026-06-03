@@ -37,6 +37,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
@@ -971,15 +972,8 @@ export default function Groceries() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const canRead =
-    perms?.lists?.read !== false &&
-    perms?.groceries?.read !== false &&
-    perms?.meals?.read !== false;
-
-  const canWrite =
-    perms?.lists?.write !== false &&
-    perms?.groceries?.write !== false &&
-    perms?.meals?.write !== false;
+  const canRead = canReadModule(perms, "lists");
+  const canWrite = canWriteModule(perms, "lists");
 
   const peopleOptions = useMemo(
     () =>

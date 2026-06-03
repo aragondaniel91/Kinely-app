@@ -498,7 +498,7 @@ function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLis
               <MiniPulse icon={CheckSquare} value={tasksToday.length} label="Tasks today" tone="blue" to="/tasks" />
               <MiniPulse icon={UtensilsCrossed} value={mealsToday.length} label="Meals today" tone="amber" to="/meals" />
               <MiniPulse icon={CalendarDays} value={calendarEventsToday.length} label="Events today" tone="violet" to="/calendar" />
-              <MiniPulse icon={ShoppingCart} value={openLists.length} label="Open lists" tone="emerald" to="/groceries" />
+              <MiniPulse icon={ShoppingCart} value={openLists.length} label="Open lists" tone="emerald" to="/lists" />
             </div>
           </div>
 
@@ -576,7 +576,7 @@ function NeedsAttention({ tasksToday, overdueTasks, mealsToday, calendarEventsTo
       title: `${openLists.length} open list${openLists.length === 1 ? "" : "s"}`,
       text: "Household lists active",
       tone: "emerald",
-      to: "/groceries",
+      to: "/lists",
     });
   }
 
@@ -648,7 +648,7 @@ function ModulesGrid({ tasksToday, mealsToday, calendarEventsToday, openLists })
       text: "Open family lists",
       metric: openLists.length,
       tone: "emerald",
-      to: "/groceries",
+      to: "/lists",
     },
   ];
 
@@ -841,7 +841,7 @@ function NextSevenDaysCard({ calendarEvents, people }) {
 function OpenListsCard({ openLists }) {
   return (
     <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-      <SectionHeader kicker="Lists" title="Open lists" action="Open" to="/groceries" />
+      <SectionHeader kicker="Lists" title="Open lists" action="Open" to="/lists" />
       <div className="mt-4 max-h-[265px] space-y-2.5 overflow-y-auto pr-1">
         {openLists.length ? (
           openLists.slice(0, 12).map((list, index) => (
@@ -851,7 +851,7 @@ function OpenListsCard({ openLists }) {
               title={getItemTitle(list, "Family list")}
               text={`${list.pendingCount ?? list.itemsCount ?? list.count ?? "Open"} item${Number(list.pendingCount ?? list.itemsCount ?? list.count) === 1 ? "" : "s"}`}
               tone="emerald"
-              to="/groceries"
+              to="/lists"
             />
           ))
         ) : (

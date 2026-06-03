@@ -8,7 +8,6 @@ import {
   MessageCircle,
   Shirt,
   Sun,
-  Trash2,
   Truck,
 } from "lucide-react";
 import { collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
@@ -16,8 +15,6 @@ import { collection, getDocs, onSnapshot, query, where } from "firebase/firestor
 import CustodyCalendarView from "@/features/custody/CustodyCalendarView";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import AppDialog from "@/components/app/AppDialog";
-import { resetCustodyDays } from "@/lib/resetCustodyData";
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
 import { uniqueFirestoreDocsFromSnapshots } from "@/core/firestore/firestoreDocUtils";
@@ -170,37 +167,6 @@ function ModuleCard({ module, onClick }) {
   );
 }
 
-function ManagementPanel({ canResetCustody, isResetting, onReset }) {
-  if (!canResetCustody) return null;
-
-  return (
-    <Card className="mt-5 rounded-[2rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-            Management
-          </p>
-          <h2 className="text-lg font-black text-slate-950">Custody data tools</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            Temporary admin tools live here until Profile has full custody management.
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isResetting}
-          onClick={onReset}
-          className="w-fit gap-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-        >
-          <Trash2 className="h-4 w-4" />
-          {isResetting ? "Resetting..." : "Reset custody data"}
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
 function ComingSoonPanel({ icon: Icon, title, description, bullets }) {
   return (
     <div className="px-3 pb-8 pt-4 md:px-6">
@@ -242,24 +208,12 @@ export default function Custody() {
   const [activeCalendar, setActiveCalendar] = useState("custody");
   const [viewMode, setViewMode] = useState("month");
   const [activeModule, setActiveModule] = useState("dashboard");
-  const [isResetting, setIsResetting] = useState(false);
-  const [noticeDialog, setNoticeDialog] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState(null);
-
-  const showNotice = ({ tone = "info", title, message }) => {
-    setNoticeDialog({ tone, title, message });
-  };
-
-  const askConfirm = ({ tone = "danger", title, message, confirmLabel = "Confirm", onConfirm }) => {
-    setConfirmDialog({ tone, title, message, confirmLabel, onConfirm });
-  };
   const [custodyActivity, setCustodyActivity] = useState([]);
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState("");
-  const { user, familyId, myEmail, isAdmin, isOwner } = useFamily();
+  const { user, familyId, myEmail } = useFamily();
 
-  const canResetCustody = Boolean(user && familyId && (isAdmin || isOwner));
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
   const latestActivityId = custodyActivity[0]?.id || "";
 
@@ -353,76 +307,6 @@ export default function Custody() {
     setCalendarRefreshKey((current) => current + 1);
   }, [latestActivityId]);
 
-  const handleResetCustody = async ({ skipConfirm = false } = {}) => {
-    if (!canResetCustody || isResetting) return;
-
-    if (!skipConfirm) {
-      askConfirm({
-        tone: "danger",
-        title: "Reset custody calendar?",
-        message: "This will permanently delete the existing custody days for the selected custody scope and start the custody calendar from zero. Continue?",
-        confirmLabel: "Reset calendar",
-        onConfirm: () => handleResetCustody({ skipConfirm: true }),
-      });
-      return;
-    }
-
-    setIsResetting(true);
-
-    try {
-      const result = await resetCustodyDays({
-        familyId,
-        userId: user.uid,
-      });
-
-      showNotice({
-        tone: "success",
-        title: "Custody reset completed",
-        message: `Deleted ${result.deleted} day(s). The calendar will refresh now.`,
-      });
-      window.setTimeout(() => window.location.reload(), 900);
-    } catch (error) {
-      console.error("Error resetting custody data:", error);
-      showNotice({
-        tone: "danger",
-        title: "Could not reset custody data",
-        message: error.message,
-      });
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  const dialogs = (
-    <>
-      <AppDialog
-        open={Boolean(confirmDialog)}
-        tone={confirmDialog?.tone}
-        title={confirmDialog?.title}
-        message={confirmDialog?.message}
-        confirmLabel={confirmDialog?.confirmLabel || "Confirm"}
-        cancelLabel="Cancel"
-        loading={isResetting}
-        onCancel={() => setConfirmDialog(null)}
-        onConfirm={() => {
-          const action = confirmDialog?.onConfirm;
-          setConfirmDialog(null);
-          action?.();
-        }}
-      />
-
-      <AppDialog
-        open={Boolean(noticeDialog)}
-        tone={noticeDialog?.tone}
-        title={noticeDialog?.title}
-        message={noticeDialog?.message}
-        confirmLabel="Got it"
-        onCancel={() => setNoticeDialog(null)}
-        onConfirm={() => setNoticeDialog(null)}
-      />
-    </>
-  );
-
   if (activeModule === "hub") {
     return (
       <div className="min-h-full bg-[#F8F7F4] px-4 pb-28 pt-5 md:px-8 md:pb-8">
@@ -449,13 +333,7 @@ export default function Custody() {
             ))}
           </div>
 
-          <ManagementPanel
-            canResetCustody={canResetCustody}
-            isResetting={isResetting}
-            onReset={handleResetCustody}
-          />
         </div>
-        {dialogs}
       </div>
     );
   }

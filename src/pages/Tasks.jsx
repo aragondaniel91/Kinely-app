@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useFamily } from "@/lib/FamilyContext";
+import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import AddTaskDialog from "@/components/tasks/AddTaskDialog";
 
 import TasksPageLayout from "@/features/tasks/components/TasksPageLayout";
@@ -77,8 +78,8 @@ export default function Tasks() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTaskScope, setActiveTaskScope] = useState("today");
 
-  const canRead = perms?.tasks?.read !== false;
-  const canWrite = perms?.tasks?.write !== false;
+  const canRead = canReadModule(perms, "tasks");
+  const canWrite = canWriteModule(perms, "tasks");
 
   const linkedListIdFilter = searchParams.get("linkedListId") || "";
   const linkedListTitleFilter = searchParams.get("listTitle") || "";

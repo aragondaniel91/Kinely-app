@@ -5,8 +5,15 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import FamilyHomeDashboard from "@/components/home/FamilyHomeDashboard";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { canReadModule } from "@/lib/modulePermissions";
 
-const todayStr = () => format(new Date(), "yyyy-MM-dd");
+function currentDateKey() {
+  return format(new Date(), "yyyy-MM-dd");
+}
+
+function dateFromKey(dateKey) {
+  return new Date(`${dateKey}T00:00:00`);
+}
 
 function normalizeDoc(docSnap) {
   return {
@@ -281,14 +288,23 @@ export default function Dashboard() {
   const [activity, setActivity] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [todayKey, setTodayKey] = useState(currentDateKey);
 
-  const canReadTasks = perms?.tasks?.read !== false;
-  const canReadMeals = perms?.meals?.read !== false;
-  const canReadGroceries =
-    perms?.groceries?.read !== false && perms?.meals?.read !== false;
-  const canReadCalendar = perms?.calendar?.read !== false;
+  const canReadTasks = canReadModule(perms, "tasks");
+  const canReadMeals = canReadModule(perms, "meals");
+  const canReadLists = canReadModule(perms, "lists");
+  const canReadCalendar = canReadModule(perms, "calendar");
+  const canReadActivity = canReadModule(perms, "home");
 
   const people = useMemo(() => familyPeople || [], [familyPeople]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setTodayKey(currentDateKey());
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -300,8 +316,8 @@ export default function Dashboard() {
       setLoading(true);
 
       try {
-        const today = todayStr();
-        const nextSeven = format(addDays(new Date(), 7), "yyyy-MM-dd");
+        const today = todayKey;
+        const nextSeven = format(addDays(dateFromKey(todayKey), 7), "yyyy-MM-dd");
 
         let taskData = [];
         let mealData = [];
@@ -317,15 +333,12 @@ export default function Dashboard() {
           mealData = await loadFamilyCollection("meals", familyId);
         }
 
-        if (canReadGroceries) {
+        if (canReadLists) {
           const familyLists = await loadFamilyCollection("familyLists", familyId);
 
           const itemCollections = [
             "groceries",
-            "groceryItems",
             "familyListItems",
-            "listItems",
-            "shoppingItems",
           ];
 
           const itemResults = await Promise.all(
@@ -338,12 +351,7 @@ export default function Dashboard() {
         }
 
         if (canReadCalendar) {
-          const calendarCollections = [
-            "familyCalendarEvents",
-            "familyEvents",
-            "calendarEvents",
-            "events",
-          ];
+          const calendarCollections = ["familyEvents"];
 
           const calendarResults = await Promise.all(
             calendarCollections.map((name) => loadFamilyCollection(name, familyId))
@@ -362,7 +370,9 @@ export default function Dashboard() {
             .filter((event) => isInDateRange(getItemDate(event), today, nextSeven));
         }
 
-        activityData = await loadFamilyCollection("familyActivity", familyId);
+        if (canReadActivity) {
+          activityData = await loadFamilyCollection("familyActivity", familyId);
+        }
 
         const pendingTasks = taskData.filter((task) => {
           const status = String(task.status || "pending").toLowerCase();
@@ -412,10 +422,12 @@ export default function Dashboard() {
   }, [
     user,
     familyId,
+    todayKey,
     canReadTasks,
     canReadMeals,
-    canReadGroceries,
+    canReadLists,
     canReadCalendar,
+    canReadActivity,
   ]);
 
   return (

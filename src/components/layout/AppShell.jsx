@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import FamilySelector from "@/components/layout/FamilySelector";
 import KinlyLogo from "@/components/brand/KinlyLogo";
 import { useFamily } from "@/lib/FamilyContext";
+import { canReadModule } from "@/lib/modulePermissions";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/", module: "home", requiresFamily: true },
@@ -55,8 +56,8 @@ export default function AppShell() {
   const hasFamilySpace = Boolean(profile && familyId);
   const visibleNavItems = navItems.filter((item) => {
     if (item.requiresFamily && !hasFamilySpace) return false;
-    if (item.module === "custody") return hasFamilySpace && !custodyGroupsLoading && hasCustodyAccess && perms?.custody?.read !== false;
-    if (item.module && perms?.[item.module]?.read === false) return false;
+    if (item.module === "custody") return hasFamilySpace && !custodyGroupsLoading && hasCustodyAccess && canReadModule(perms, "custody");
+    if (item.module && !canReadModule(perms, item.module)) return false;
     return true;
   });
 
@@ -77,9 +78,9 @@ export default function AppShell() {
 
       <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
         <div className="pointer-events-auto mx-auto max-w-3xl rounded-[1.85rem] border border-white/80 bg-white/78 p-1.5 shadow-[0_20px_52px_rgba(15,23,42,0.15)] backdrop-blur-2xl transition hover:bg-white/86">
-          <div className="flex items-center justify-around gap-1 overflow-x-auto">
+          <div className="grid grid-flow-col auto-cols-fr items-center gap-1 overflow-x-auto overscroll-x-contain sm:flex sm:justify-around">
             {visibleNavItems.map((item) => {
-              const isActive = location.pathname === item.path || (item.path === "/lists" && location.pathname === "/groceries");
+              const isActive = location.pathname === item.path;
               const Icon = item.icon;
 
               return (
@@ -87,7 +88,7 @@ export default function AppShell() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "flex min-w-[60px] flex-col items-center gap-1 rounded-[1.35rem] px-2.5 py-2 text-[10.5px] font-black transition-all duration-200 md:min-w-[68px] md:px-3 md:text-[11px]",
+                    "flex min-w-[52px] flex-col items-center gap-1 rounded-[1.35rem] px-2 py-2 text-[10px] font-black transition-all duration-200 sm:min-w-[60px] md:min-w-[68px] md:px-3 md:text-[11px]",
                     isActive
                       ? "bg-blue-50/95 text-blue-700 shadow-[0_8px_20px_rgba(91,141,239,0.16)] ring-1 ring-blue-100"
                       : "text-slate-400 hover:bg-white/80 hover:text-slate-700"

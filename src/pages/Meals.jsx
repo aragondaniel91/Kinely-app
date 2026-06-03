@@ -40,6 +40,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -1514,8 +1515,8 @@ export default function Meals() {
 
   const { familyId, user, profile, perms } = useFamily();
 
-  const canRead = perms?.meals?.read !== false;
-  const canWrite = perms?.meals?.write !== false;
+  const canRead = canReadModule(perms, "meals");
+  const canWrite = canWriteModule(perms, "meals");
 
   const weekEnd = addDays(weekStart, 6);
 

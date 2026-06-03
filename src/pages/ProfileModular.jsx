@@ -46,7 +46,7 @@ function TabButton({ tab, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-w-fit items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition ${
+      className={`flex min-w-[112px] snap-start items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition md:min-w-fit md:px-4 md:text-sm ${
         active
           ? "bg-indigo-600 text-white"
           : "text-slate-500 hover:bg-slate-50 hover:text-slate-950"
@@ -107,7 +107,7 @@ export default function ProfileModular() {
           </Button>
         </div>
 
-        <div className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div className="mb-5 grid grid-flow-col auto-cols-max gap-2 overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-200 bg-white p-2 shadow-sm snap-x">
           {tabs.map((tab) => (
             <TabButton key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} />
           ))}

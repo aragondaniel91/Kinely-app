@@ -13,7 +13,7 @@ import SmartNotificationsHub from "@/features/custody/SmartNotificationsHub";
 import BudgetHub from "@/features/custody/BudgetHub";
 import { Badge } from "@/components/ui/badge";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
-import CustodyScopeMetadataBackfill from "@/features/custody/CustodyScopeMetadataBackfill";
+import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -364,13 +364,15 @@ export default function CustodyCalendarView({
   const selectedCustodyGroupId = selectedGroup?.legacy ? "" : selectedGroup?.id || "";
   const scopedFamilyId = selectedCustodyGroupId || familyId;
   const canRenderCalendar = !loadingGroups && selectedGroup && scopedFamilyId && custodyAccess.canRead;
+  const canRenderScopedTool =
+    canRenderCalendar && (mode !== "budget" || canReadModule(perms, "budget"));
 
   const custodyPerms = useMemo(() => ({
     ...perms,
     calendar: {
       ...(perms?.calendar || {}),
       read: custodyAccess.canRead,
-      write: Boolean(perms?.calendar?.write !== false && custodyAccess.canWrite),
+      write: Boolean(canWriteModule(perms, "calendar") && custodyAccess.canWrite),
     },
   }), [perms, custodyAccess.canRead, custodyAccess.canWrite]);
 
@@ -460,16 +462,14 @@ export default function CustodyCalendarView({
 
         {canRenderCalendar ? (
           <FamilyContext.Provider value={scopedFamilyContext}>
-            <CustodyScopeMetadataBackfill>
-              <CustodyDashboardPro
-                onOpenSchedule={onOpenSchedule}
-                onOpenExchange={onOpenExchange}
-                onOpenPacking={onOpenPacking}
-                onOpenNotifications={onOpenNotifications}
-                onOpenBudget={onOpenBudget}
-                onOpenChat={onOpenChat}
-              />
-            </CustodyScopeMetadataBackfill>
+            <CustodyDashboardPro
+              onOpenSchedule={onOpenSchedule}
+              onOpenExchange={onOpenExchange}
+              onOpenPacking={onOpenPacking}
+              onOpenNotifications={onOpenNotifications}
+              onOpenBudget={onOpenBudget}
+              onOpenChat={onOpenChat}
+            />
           </FamilyContext.Provider>
         ) : (
           <div className="p-8 text-center text-sm font-bold text-slate-400">
@@ -487,11 +487,9 @@ export default function CustodyCalendarView({
           {groupSelector}
         </div>
 
-        {canRenderCalendar ? (
+        {canRenderScopedTool ? (
           <FamilyContext.Provider value={scopedFamilyContext}>
-            <CustodyScopeMetadataBackfill>
-              {renderScopedTool()}
-            </CustodyScopeMetadataBackfill>
+            {renderScopedTool()}
           </FamilyContext.Provider>
         ) : (
           <div className="p-8 text-center text-sm font-bold text-slate-400">
@@ -511,25 +509,23 @@ export default function CustodyCalendarView({
           <div className="custody-original-calendar-wrapper bg-[#F8F7F4]">
             {canRenderCalendar ? (
               <FamilyContext.Provider value={scopedFamilyContext}>
-                <CustodyScopeMetadataBackfill>
-                  <CustodyCalendar
-                    key={`${selectedCustodyGroupId}-${custodyParentNames.custodyDadColor}-${custodyParentNames.custodyMomColor}`}
-                    viewMode={viewMode === "mixed" ? "month" : viewMode}
-                    setViewMode={setViewMode}
-                    showFilters
-                    selectedCustodyGroup={selectedGroup}
-                    selectedCustodyGroupId={selectedCustodyGroupId}
-                    custodyDadName={custodyParentNames.custodyDadName}
-                    custodyMomName={custodyParentNames.custodyMomName}
-                    custodyDadEmail={custodyParentNames.custodyDadEmail}
-                    custodyMomEmail={custodyParentNames.custodyMomEmail}
-                    custodyDadColor={custodyParentNames.custodyDadColor}
-                    custodyMomColor={custodyParentNames.custodyMomColor}
-                    custodyChildren={selectedChildren}
-                    custodyChildIds={selectedChildIds}
-                    custodyCoParents={selectedParents}
-                  />
-                </CustodyScopeMetadataBackfill>
+                <CustodyCalendar
+                  key={`${selectedCustodyGroupId}-${custodyParentNames.custodyDadColor}-${custodyParentNames.custodyMomColor}`}
+                  viewMode={viewMode === "mixed" ? "month" : viewMode}
+                  setViewMode={setViewMode}
+                  showFilters
+                  selectedCustodyGroup={selectedGroup}
+                  selectedCustodyGroupId={selectedCustodyGroupId}
+                  custodyDadName={custodyParentNames.custodyDadName}
+                  custodyMomName={custodyParentNames.custodyMomName}
+                  custodyDadEmail={custodyParentNames.custodyDadEmail}
+                  custodyMomEmail={custodyParentNames.custodyMomEmail}
+                  custodyDadColor={custodyParentNames.custodyDadColor}
+                  custodyMomColor={custodyParentNames.custodyMomColor}
+                  custodyChildren={selectedChildren}
+                  custodyChildIds={selectedChildIds}
+                  custodyCoParents={selectedParents}
+                />
               </FamilyContext.Provider>
             ) : (
               <div className="p-8 text-center text-sm font-bold text-slate-400">

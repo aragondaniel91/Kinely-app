@@ -240,7 +240,7 @@ export default function FamilySelector() {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
-          <Link to="/children" className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2">
+          <Link to="/profile?tab=children" className="flex cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2">
             <HeartPulse className="h-3.5 w-3.5 text-indigo-600" />
             <span className="text-sm">Child care profiles</span>
           </Link>

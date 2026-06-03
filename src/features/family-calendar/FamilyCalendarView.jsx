@@ -17,6 +17,7 @@ import {
 
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
+import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { getFirestoreDocumentId, mapFirestoreDoc } from "@/core/firestore/firestoreDocUtils";
 import { deleteFamilyEventById } from "@/services/familyEventsService";
 import AddFamilyEventDialog from "@/features/family-calendar/components/AddFamilyEventDialog";
@@ -88,11 +89,11 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
   const [now, setNow] = useState(() => new Date());
 
   const people = familyPeople || [];
-  const canWriteCalendar = perms?.calendar?.write !== false;
-  const canReadLists = perms?.lists?.read !== false;
-  const canWriteLists = perms?.lists?.write !== false;
-  const canReadTasks = perms?.tasks?.read !== false;
-  const canWriteTasks = perms?.tasks?.write !== false;
+  const canWriteCalendar = canWriteModule(perms, "calendar");
+  const canReadLists = canReadModule(perms, "lists");
+  const canWriteLists = canWriteModule(perms, "lists");
+  const canReadTasks = canReadModule(perms, "tasks");
+  const canWriteTasks = canWriteModule(perms, "tasks");
   const { events, loading, loadEvents } = useFamilyCalendarEvents({ familyId, people });
   const calendarPeople = useMemo(
     () => people.filter((person) => shouldShowMemberInCalendar(person)),

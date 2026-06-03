@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { canReadModule } from "@/lib/modulePermissions";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { getPackingSummary } from "@/data/custodyPacking";
 import { currency, getBudgetSummary } from "@/data/custodyBudget";
@@ -237,7 +238,7 @@ function MetricCard({ title, value, text, icon: Icon, tone = "blue", onClick }) 
   );
 }
 
-function ActionTile({ icon: Icon, label, text, tone = "blue", onClick }) {
+function ActionTile({ icon: Icon, label, text, tone = "blue", onClick, disabled = false }) {
   const tones = {
     blue: "bg-blue-50 text-blue-700 border-blue-100",
     amber: "bg-amber-50 text-amber-700 border-amber-100",
@@ -250,7 +251,8 @@ function ActionTile({ icon: Icon, label, text, tone = "blue", onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+      disabled={disabled}
+      className="group flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:border-slate-200 disabled:hover:shadow-sm"
     >
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${tones[tone]}`}>
         <Icon className="h-5 w-5" />
@@ -259,7 +261,7 @@ function ActionTile({ icon: Icon, label, text, tone = "blue", onClick }) {
         <p className="truncate text-sm font-black text-slate-950">{label}</p>
         <p className="truncate text-xs font-semibold text-slate-500">{text}</p>
       </div>
-      <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:text-blue-500" />
+      <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:text-blue-500 group-disabled:group-hover:text-slate-300" />
     </button>
   );
 }
@@ -392,7 +394,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const [loadingBudget, setLoadingBudget] = useState(true);
   const [loadingExchanges, setLoadingExchanges] = useState(true);
 
-  const canRead = perms?.calendar?.read !== false;
+  const canRead = canReadModule(perms, "calendar");
+  const canReadBudget = canReadModule(perms, "budget");
   const packingSummary = useMemo(() => getPackingSummary(packingItems), [packingItems]);
   const budgetSummary = useMemo(() => getBudgetSummary(expenses), [expenses]);
 
@@ -454,7 +457,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     let cancelled = false;
 
     async function loadBudgetExpenses() {
-      if (!user || !custodyScopeId) {
+      if (!user || !custodyScopeId || !canReadBudget) {
         setExpenses([]);
         setLoadingBudget(false);
         return;
@@ -475,7 +478,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
 
     loadBudgetExpenses();
     return () => { cancelled = true; };
-  }, [user?.uid, custodyScopeId]);
+  }, [user?.uid, custodyScopeId, canReadBudget]);
 
   useEffect(() => {
     let cancelled = false;
@@ -674,7 +677,14 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               <ActionTile icon={Truck} label="Exchange" text={smartExchange?.needsReview ? "Review handoff details" : "Pickup and dropoff notes"} tone="rose" onClick={onOpenExchange} />
               <ActionTile icon={Shirt} label="Packing" text="Clothes, backpack, medicine" tone="emerald" onClick={onOpenPacking} />
               <ActionTile icon={BellRing} label="Reminders" text="Smart custody alerts" tone="amber" onClick={onOpenNotifications} />
-              <ActionTile icon={WalletCards} label="Budget" text={loadingBudget ? "Loading expenses" : `${currency(budgetSummary.pending)} pending`} tone="amber" onClick={onOpenBudget} />
+              <ActionTile
+                icon={WalletCards}
+                label="Budget"
+                text={!canReadBudget ? "Restricted" : loadingBudget ? "Loading expenses" : `${currency(budgetSummary.pending)} pending`}
+                tone="amber"
+                onClick={onOpenBudget}
+                disabled={!canReadBudget}
+              />
               <ActionTile icon={MessageCircle} label="Chat" text="Co-parent notes" tone="violet" onClick={onOpenChat} />
             </div>
           </Card>
@@ -704,37 +714,45 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
           </Card>
 
           <Card className="rounded-[1.8rem] border-white/80 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)] md:p-5">
-            <SectionHeader kicker="Budget status" title="Shared expenses" action="Budget" onAction={onOpenBudget} />
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Total</p>
-                <p className="mt-1 text-lg font-black text-slate-950">{loadingBudget ? "..." : currency(budgetSummary.total)}</p>
+            <SectionHeader kicker="Budget status" title="Shared expenses" action={canReadBudget ? "Budget" : ""} onAction={canReadBudget ? onOpenBudget : undefined} />
+            {!canReadBudget ? (
+              <div className="mt-4 rounded-[1.25rem] border border-amber-100 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
+                Budget details are restricted for this custody group.
               </div>
-              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-wide text-amber-700/70">Pending</p>
-                <p className="mt-1 text-lg font-black text-amber-800">{loadingBudget ? "..." : currency(budgetSummary.pending)}</p>
-              </div>
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700/70">Settled</p>
-                <p className="mt-1 text-lg font-black text-emerald-800">{loadingBudget ? "..." : currency(budgetSummary.settled)}</p>
-              </div>
-            </div>
-            <div className="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="rounded-full bg-amber-100 text-amber-800 hover:bg-amber-100">
-                  {budgetSummary.pendingCount} pending
-                </Badge>
-                <Badge className="rounded-full bg-blue-100 text-blue-800 hover:bg-blue-100">
-                  {budgetSummary.reviewCount} review
-                </Badge>
-                <Badge className="rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                  {budgetSummary.settledCount} settled
-                </Badge>
-              </div>
-              <p className="mt-3 text-sm font-semibold leading-5 text-slate-500">
-                Keep reimbursements visible so both homes know what is pending, reviewed, or settled.
-              </p>
-            </div>
+            ) : (
+              <>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Total</p>
+                    <p className="mt-1 text-lg font-black text-slate-950">{loadingBudget ? "..." : currency(budgetSummary.total)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-amber-700/70">Pending</p>
+                    <p className="mt-1 text-lg font-black text-amber-800">{loadingBudget ? "..." : currency(budgetSummary.pending)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700/70">Settled</p>
+                    <p className="mt-1 text-lg font-black text-emerald-800">{loadingBudget ? "..." : currency(budgetSummary.settled)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="rounded-full bg-amber-100 text-amber-800 hover:bg-amber-100">
+                      {budgetSummary.pendingCount} pending
+                    </Badge>
+                    <Badge className="rounded-full bg-blue-100 text-blue-800 hover:bg-blue-100">
+                      {budgetSummary.reviewCount} review
+                    </Badge>
+                    <Badge className="rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                      {budgetSummary.settledCount} settled
+                    </Badge>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold leading-5 text-slate-500">
+                    Keep reimbursements visible so both homes know what is pending, reviewed, or settled.
+                  </p>
+                </div>
+              </>
+            )}
           </Card>
         </div>
 

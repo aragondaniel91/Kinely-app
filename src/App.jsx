@@ -13,6 +13,7 @@ import AppShell from "@/components/layout/AppShell";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
 import { FamilyProvider, useFamily } from "@/lib/FamilyContext";
+import { canReadModule } from "@/lib/modulePermissions";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
@@ -20,7 +21,6 @@ const Custody = lazy(() => import("@/pages/Custody"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
 const Meals = lazy(() => import("@/pages/Meals"));
 const Lists = lazy(() => import("@/pages/Groceries"));
-const ChildProfiles = lazy(() => import("@/pages/ChildProfiles"));
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
 const Profile = lazy(() => import("@/pages/ProfileModular"));
@@ -91,7 +91,7 @@ function RequireFamilySpace({ children, moduleName = "", label = "this area" }) 
     return <Navigate to="/profile?tab=invitations" replace />;
   }
 
-  if (moduleName && perms?.[moduleName]?.read === false) {
+  if (moduleName && !canReadModule(perms, moduleName)) {
     return <AccessDenied moduleName={label} />;
   }
 
@@ -109,7 +109,7 @@ function RequireModuleAccess({ children, moduleName = "", label = "this area" })
     return <AccessDenied moduleName={label} />;
   }
 
-  if (moduleName && perms?.[moduleName]?.read === false) {
+  if (moduleName && !canReadModule(perms, moduleName)) {
     return <AccessDenied moduleName={label} />;
   }
 
@@ -149,7 +149,7 @@ function AppRoutes() {
           <Route path="/" element={<RequireFamilySpace moduleName="home" label="Home"><Dashboard /></RequireFamilySpace>} />
           <Route path="/calendar" element={<RequireFamilySpace moduleName="calendar" label="Calendar"><Calendar /></RequireFamilySpace>} />
           <Route path="/custody" element={<RequireModuleAccess moduleName="custody" label="Custody"><Custody /></RequireModuleAccess>} />
-          <Route path="/children" element={<RequireFamilySpace><ChildProfiles /></RequireFamilySpace>} />
+          <Route path="/children" element={<Navigate to="/profile?tab=children" replace />} />
           <Route path="/tasks" element={<RequireFamilySpace moduleName="tasks" label="Tasks"><Tasks /></RequireFamilySpace>} />
           <Route path="/meals" element={<RequireFamilySpace moduleName="meals" label="Meals"><Meals /></RequireFamilySpace>} />
           <Route path="/lists" element={<RequireFamilySpace moduleName="lists" label="Lists"><Lists /></RequireFamilySpace>} />

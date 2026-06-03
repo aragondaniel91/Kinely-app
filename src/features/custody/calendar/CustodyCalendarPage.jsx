@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 
@@ -188,8 +189,8 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const [pendingUndoConfirm, setPendingUndoConfirm] = useState(false);
   const [noticeDialog, setNoticeDialog] = useState(null);
 
-  const canRead = perms?.calendar?.read !== false;
-  const canWrite = perms?.calendar?.write !== false;
+  const canRead = canReadModule(perms, "calendar");
+  const canWrite = canWriteModule(perms, "calendar");
 
   const showNotice = ({ tone = "info", title, message }) => {
     setNoticeDialog({ tone, title, message });

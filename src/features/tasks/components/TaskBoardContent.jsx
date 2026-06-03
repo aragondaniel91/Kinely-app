@@ -44,11 +44,11 @@ export default function TaskBoardContent({
 
   return (
     <div className="space-y-5">
-      <section className="w-full overflow-x-auto pb-2">
+      <section className="w-full overflow-x-auto overscroll-x-contain pb-2">
         <div
           className="grid min-w-full gap-3"
           style={{
-            gridTemplateColumns: `repeat(${peopleCount}, minmax(185px, 1fr))`,
+            gridTemplateColumns: `repeat(${peopleCount}, minmax(clamp(142px, 44vw, 210px), 1fr))`,
           }}
         >
           {people.map((person) => (
