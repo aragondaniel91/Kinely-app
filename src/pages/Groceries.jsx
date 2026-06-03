@@ -41,6 +41,7 @@ import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1317,6 +1318,20 @@ export default function Groceries() {
         updatedAt: serverTimestamp(),
       });
 
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "lists",
+        type: "list_created",
+        title: `List created: ${cleanTitle}`,
+        description: selectedAssignee?.name
+          ? `Assigned to ${normalizePersonName(selectedAssignee.name, "Family")}`
+          : "Family list created",
+        entityType: "familyList",
+        entityId: docRef.id,
+      });
+
       setActiveListId(docRef.id);
       setSearchParams({ listId: docRef.id });
       setNewListTitle("");
@@ -1401,6 +1416,34 @@ export default function Groceries() {
             : currentItem
         )
       );
+
+      if (nextDone) {
+        const itemListId = item.listId || item.list_id || activeList?.id || "";
+        const listItems = items.filter((candidate) => {
+          const candidateListId = candidate.listId || candidate.list_id || "";
+          const candidateStatus = String(candidate.status || "").toLowerCase();
+          return candidateListId === itemListId && candidateStatus !== "archived";
+        });
+        const allDone = listItems.length > 0 && listItems.every((candidate) => {
+          if (candidate.id === item.id) return true;
+          const status = String(candidate.status || "").toLowerCase();
+          return candidate.checked === true || status === "done" || status === "completed";
+        });
+
+        if (allDone) {
+          queueFamilyActivity({
+            familyId,
+            user,
+            profile,
+            module: "lists",
+            type: "list_completed",
+            title: `List completed: ${activeList?.title || item.listTitle || "Family list"}`,
+            description: `${listItems.length} item${listItems.length === 1 ? "" : "s"} checked off.`,
+            entityType: "familyList",
+            entityId: itemListId,
+          });
+        }
+      }
 
       const source = String(item.source || item.source_type || "").toLowerCase();
       const listTitle = String(item.listTitle || item.list_title || "").trim().toLowerCase();
@@ -1514,6 +1557,18 @@ export default function Groceries() {
         updatedBy: user?.uid || null,
       });
 
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "lists",
+        type: "list_updated",
+        title: `List updated: ${editListTitle.trim()}`,
+        description: "Family list details changed.",
+        entityType: "familyList",
+        entityId: activeList.id,
+      });
+
       cancelEditingList();
       await loadData();
     } catch (error) {
@@ -1539,6 +1594,18 @@ export default function Groceries() {
             archivedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             updatedBy: user?.uid || null,
+          });
+
+          queueFamilyActivity({
+            familyId,
+            user,
+            profile,
+            module: "lists",
+            type: "list_archived",
+            title: `List hidden: ${list.title || "Family list"}`,
+            description: "The list was moved to Hidden lists.",
+            entityType: "familyList",
+            entityId: list.id,
           });
 
           toast({
@@ -1694,6 +1761,18 @@ export default function Groceries() {
         restoredAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid || null,
+      });
+
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "lists",
+        type: "list_restored",
+        title: `List restored: ${list.title || "Family list"}`,
+        description: "The list is active again.",
+        entityType: "familyList",
+        entityId: list.id,
       });
 
       toast({

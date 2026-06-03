@@ -32,6 +32,7 @@ import { useFamilyCalendarDateRange } from "@/features/family-calendar/hooks/use
 import { useFamilyCalendarEvents } from "@/features/family-calendar/hooks/useFamilyCalendarEvents";
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import { adaptFamilyEvent } from "@/core/events/familyEventAdapter";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 import {
   canAssignCalendarEventsToMember,
   shouldShowMemberInCalendar,
@@ -74,7 +75,7 @@ function focusEventPanel(event, setAnchorDate, setSelectedOverflow, setSelectedE
 
 
 export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
-  const { familyId, profile, familyPeople, perms } = useFamily();
+  const { user, familyId, profile, familyPeople, perms } = useFamily();
   const [searchParams, setSearchParams] = useSearchParams();
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [addDate, setAddDate] = useState(null);
@@ -331,6 +332,17 @@ export default function FamilyCalendarView({ viewMode = "week", setViewMode }) {
 
     try {
       await deleteFamilyEventById(eventToDelete.documentId);
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "calendar",
+        type: "event_deleted",
+        title: `Event deleted: ${eventToDelete.title || "Family event"}`,
+        description: "A calendar event was removed.",
+        entityType: "familyEvent",
+        entityId: eventToDelete.documentId,
+      });
       await unlinkDeletedEventReferences(eventToDelete.documentId);
       setSelectedEvent(null);
       setSelectedOverflow(null);

@@ -49,6 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import AddMealDialog from "@/components/meals/AddMealDialog";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 
 const mealTypeConfig = {
   breakfast: {
@@ -1911,6 +1912,19 @@ export default function Meals() {
         updatedAt: serverTimestamp(),
       });
 
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "meals",
+        type: "meal_created",
+        title: `Meal added: ${mealName}`,
+        description: `${template.mealType || template.meal_type || "dinner"} for ${format(selectedDay, "EEEE")}`,
+        entityType: "meal",
+        entityId: mealRef.id,
+        date: format(selectedDay, "yyyy-MM-dd"),
+      });
+
       let listRef = null;
       let targetListId = "";
       let addedCount = 0;
@@ -2057,6 +2071,19 @@ export default function Meals() {
             updatedAt: serverTimestamp(),
           });
 
+          queueFamilyActivity({
+            familyId,
+            user,
+            profile,
+            module: "lists",
+            type: "list_created",
+            title: `List created: ${listTitle}`,
+            description: "Created from a meal template.",
+            entityType: "familyList",
+            entityId: listRef.id,
+            date: format(selectedDay, "yyyy-MM-dd"),
+          });
+
           targetListId = listRef.id;
 
           await Promise.all(
@@ -2183,6 +2210,19 @@ export default function Meals() {
         updatedAt: serverTimestamp(),
       });
 
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "lists",
+        type: "list_created",
+        title: `List created: ${meal.name || "Meal"} ingredients`,
+        description: "Created from a meal plan.",
+        entityType: "familyList",
+        entityId: docRef.id,
+        date: meal.date || format(selectedDay, "yyyy-MM-dd"),
+      });
+
       toast({
         title: "Grocery list created",
         description: `A list was created for ${meal.name || "this meal"}.`,
@@ -2215,6 +2255,19 @@ export default function Meals() {
 
     try {
       await deleteDoc(doc(db, "meals", mealToDelete.id));
+
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "meals",
+        type: "meal_deleted",
+        title: `Meal deleted: ${mealToDelete.name || "Meal"}`,
+        description: "A meal was removed from the weekly plan.",
+        entityType: "meal",
+        entityId: mealToDelete.id,
+        date: mealToDelete.date || "",
+      });
 
       toast({
         title: "Meal deleted",

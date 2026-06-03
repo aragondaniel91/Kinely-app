@@ -14,6 +14,7 @@ import {
   isDone,
   normalizeTask,
 } from "@/features/tasks/utils/taskHelpers";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 
 export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profile = null }) {
   const [tasks, setTasks] = useState([]);
@@ -70,14 +71,24 @@ export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profi
         updatedBy: user?.uid || null,
       });
 
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "tasks",
+        type: nextDone ? "task_completed" : "task_reopened",
+        title: `${nextDone ? "Task completed" : "Task reopened"}: ${task.title || "Family task"}`,
+        description: completedByName
+          ? `${completedByName} marked it ${nextDone ? "done" : "pending"}.`
+          : `Marked ${nextDone ? "done" : "pending"}.`,
+        entityType: "task",
+        entityId: task.id,
+        date: task.dueDate || task.due_date || task.date || "",
+      });
+
       await loadTasks();
     } catch (error) {
       console.error("Error toggling task:", error);
-      notifyTaskNotice({
-        tone: "danger",
-        title: "Could not update task",
-        message: error.message,
-      });
     }
   };
 
@@ -89,14 +100,21 @@ export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profi
 
     try {
       await deleteDoc(doc(db, TASK_COLLECTIONS.tasks, id));
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "tasks",
+        type: "task_deleted",
+        title: `Task deleted: ${taskOrId?.title || "Family task"}`,
+        description: "A task was removed from the family board.",
+        entityType: "task",
+        entityId: id,
+        date: taskOrId?.dueDate || taskOrId?.due_date || taskOrId?.date || "",
+      });
       await loadTasks();
     } catch (error) {
       console.error("Error deleting task:", error);
-      notifyTaskNotice({
-        tone: "danger",
-        title: "Could not delete task",
-        message: error.message,
-      });
     }
   };
 

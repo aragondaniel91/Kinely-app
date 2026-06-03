@@ -32,6 +32,7 @@ import {
   resolveEventColorId,
 } from "@/core/events/eventCore";
 import { PERSON_TYPES } from "@/core/people/peopleCore";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 
 import {
   Dialog,
@@ -506,6 +507,18 @@ export default function AddFamilyEventDialog({
 
       if (isEditing) {
         await updateDoc(doc(db, "familyEvents", documentId), payload);
+        queueFamilyActivity({
+          familyId,
+          user,
+          profile,
+          module: "calendar",
+          type: "event_updated",
+          title: `Event updated: ${title.trim()}`,
+          description: eventDate,
+          entityType: "familyEvent",
+          entityId: documentId,
+          date: eventDate,
+        });
       } else {
         const eventRef = await addDoc(collection(db, "familyEvents"), {
           ...payload,
@@ -521,6 +534,19 @@ export default function AddFamilyEventDialog({
           documentId: eventRef.id,
           legacyId: payload.id && payload.id !== eventRef.id ? payload.id : payload.legacyId || payload.legacy_id || "",
           updatedAt: serverTimestamp(),
+        });
+
+        queueFamilyActivity({
+          familyId,
+          user,
+          profile,
+          module: "calendar",
+          type: "event_created",
+          title: `Event created: ${title.trim()}`,
+          description: eventDate,
+          entityType: "familyEvent",
+          entityId: eventRef.id,
+          date: eventDate,
         });
 
         if (createLinkedListWithEvent && canWriteLists) {
@@ -542,6 +568,19 @@ export default function AddFamilyEventDialog({
             created_date: new Date().toISOString(),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
+          });
+
+          queueFamilyActivity({
+            familyId,
+            user,
+            profile,
+            module: "lists",
+            type: "list_created",
+            title: `List created: ${title.trim()}`,
+            description: "Linked to a calendar event.",
+            entityType: "familyList",
+            entityId: listRef.id,
+            date: eventDate,
           });
 
           toast({

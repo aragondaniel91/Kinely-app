@@ -6,6 +6,10 @@ import FamilyHomeDashboard from "@/components/home/FamilyHomeDashboard";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { canReadModule } from "@/lib/modulePermissions";
+import {
+  getCustodyGroupChildren,
+  getCustodyGroupParents,
+} from "@/lib/custodyGroupUtils";
 
 function currentDateKey() {
   return format(new Date(), "yyyy-MM-dd");
@@ -289,8 +293,138 @@ function subscribeFamilyCollection(collectionName, familyId, onData, onReady) {
   );
 }
 
+function getCustodyGroupId(group = {}) {
+  return group.custodyGroupId || group.custody_group_id || group.id || "";
+}
+
+function normalizeCustodyDayDoc(docSnap, custodyGroupId) {
+  const data = docSnap.data();
+
+  return {
+    id: docSnap.id,
+    ...data,
+    custodyGroupId: data.custodyGroupId || data.custody_group_id || custodyGroupId,
+    date: normalizeDate(data.date),
+    isSplit: Boolean(data.isSplit || data.is_split),
+    withWhom: data.withWhom || data.with_whom || "",
+    morning: data.morning || "",
+    afternoon: data.afternoon || "",
+  };
+}
+
+function subscribeCustodyDays(custodyGroups = [], onData, onReady) {
+  const groups = custodyGroups
+    .map((group) => ({ group, id: getCustodyGroupId(group) }))
+    .filter((entry) => entry.id);
+
+  if (!groups.length) {
+    onData([]);
+    onReady?.();
+    return () => {};
+  }
+
+  const sourceData = new Map();
+  const readyGroups = new Set();
+  let ready = false;
+
+  const flush = () => {
+    onData(mergeDocsById(...Array.from(sourceData.values())));
+
+    if (!ready && readyGroups.size >= groups.length) {
+      ready = true;
+      onReady?.();
+    }
+  };
+
+  const unsubscribers = groups.map(({ id }) => {
+    const collectionQuery = query(
+      collection(db, "custodyDays"),
+      where("custodyGroupId", "==", id)
+    );
+
+    return onSnapshot(
+      collectionQuery,
+      (snap) => {
+        readyGroups.add(id);
+        sourceData.set(id, snap.docs.map((docSnap) => normalizeCustodyDayDoc(docSnap, id)));
+        flush();
+      },
+      (error) => {
+        readyGroups.add(id);
+        sourceData.set(id, []);
+        console.warn(`Could not listen to custodyDays for ${id}:`, error);
+        flush();
+      }
+    );
+  });
+
+  return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+}
+
+function getParentNameForCustodyKey(group = {}, key = "") {
+  const normalizedKey = String(key || "").trim().toLowerCase();
+  if (!normalizedKey) return "Not scheduled";
+  if (normalizedKey === "split") return "Split day";
+
+  const parents = getCustodyGroupParents(group);
+  const parent =
+    parents.find((entry) => String(entry.role || "").toLowerCase() === normalizedKey) ||
+    parents.find((entry) =>
+      [
+        entry.id,
+        entry.uid,
+        entry.personId,
+        entry.person_id,
+        entry.email,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .includes(normalizedKey)
+    );
+
+  if (parent) {
+    return parent.name || parent.displayName || parent.fullName || parent.email || normalizedKey;
+  }
+
+  if (normalizedKey === "dad") return "Dad";
+  if (normalizedKey === "mom") return "Mom";
+  return key;
+}
+
+function buildCustodyTodaySummaries(custodyGroups = [], custodyDays = [], todayKey = "") {
+  if (!custodyGroups.length || !custodyDays.length || !todayKey) return [];
+
+  return custodyGroups
+    .map((group) => {
+      const groupId = getCustodyGroupId(group);
+      if (!groupId) return null;
+
+      const today = custodyDays.find((day) => {
+        const dayGroupId = day.custodyGroupId || day.custody_group_id || "";
+        return dayGroupId === groupId && normalizeDate(day.date) === todayKey;
+      });
+
+      if (!today) return null;
+
+      const childNames = getCustodyGroupChildren(group);
+      const childLabel = childNames.length ? childNames.join(", ") : group.name || "Custody group";
+      const statusLabel = today.isSplit
+        ? `AM ${getParentNameForCustodyKey(group, today.morning)} / PM ${getParentNameForCustodyKey(group, today.afternoon)}`
+        : `With ${getParentNameForCustodyKey(group, today.withWhom)}`;
+
+      return {
+        id: groupId,
+        groupName: group.name || group.custodyGroupName || "Custody group",
+        childLabel,
+        statusLabel,
+        notes: today.notes || "",
+      };
+    })
+    .filter(Boolean);
+}
+
 export default function Dashboard() {
-  const { user, familyId, profile, familyPeople, perms } = useFamily();
+  const { user, familyId, profile, familyPeople, custodyGroups, perms } = useFamily();
 
   const [tasksToday, setTasksToday] = useState([]);
   const [overdueTasks, setOverdueTasks] = useState([]);
@@ -298,6 +432,7 @@ export default function Dashboard() {
   const [openLists, setOpenLists] = useState([]);
   const [activity, setActivity] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
+  const [custodyToday, setCustodyToday] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [todayKey, setTodayKey] = useState(currentDateKey);
@@ -309,6 +444,7 @@ export default function Dashboard() {
     familyListItems: [],
     activity: [],
     calendar: [],
+    custodyDays: [],
   });
 
   const canReadTasks = canReadModule(perms, "tasks");
@@ -316,8 +452,13 @@ export default function Dashboard() {
   const canReadLists = canReadModule(perms, "lists");
   const canReadCalendar = canReadModule(perms, "calendar");
   const canReadActivity = canReadModule(perms, "home");
+  const canReadCustody = canReadModule(perms, "custody");
 
   const people = useMemo(() => familyPeople || [], [familyPeople]);
+  const custodyGroupsForHome = useMemo(
+    () => (Array.isArray(custodyGroups) ? custodyGroups : []),
+    [custodyGroups]
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -337,6 +478,7 @@ export default function Dashboard() {
         familyListItems: [],
         activity: [],
         calendar: [],
+        custodyDays: [],
       });
       setLoading(false);
       setLastUpdated(null);
@@ -378,6 +520,25 @@ export default function Dashboard() {
     subscribe("activity", "familyActivity", canReadActivity);
     subscribe("calendar", "familyEvents", canReadCalendar);
 
+    if (canReadCustody && custodyGroupsForHome.length) {
+      pendingKeys.add("custodyDays");
+      subscriptions.push(
+        subscribeCustodyDays(
+          custodyGroupsForHome,
+          (items) => {
+            setLiveData((current) => ({ ...current, custodyDays: items }));
+            setLastUpdated(new Date());
+          },
+          () => {
+            pendingKeys.delete("custodyDays");
+            if (!pendingKeys.size) setLoading(false);
+          }
+        )
+      );
+    } else {
+      setLiveData((current) => ({ ...current, custodyDays: [] }));
+    }
+
     if (!pendingKeys.size) setLoading(false);
 
     return () => {
@@ -391,6 +552,8 @@ export default function Dashboard() {
     canReadLists,
     canReadCalendar,
     canReadActivity,
+    canReadCustody,
+    custodyGroupsForHome,
   ]);
 
   useEffect(() => {
@@ -440,6 +603,9 @@ export default function Dashboard() {
     const activityData = [...liveData.activity].sort((a, b) =>
       getActivitySortValue(b).localeCompare(getActivitySortValue(a))
     );
+    const custodyTodayData = canReadCustody
+      ? buildCustodyTodaySummaries(custodyGroupsForHome, liveData.custodyDays, today)
+      : [];
 
     setTasksToday(normalizedTasksToday);
     setOverdueTasks(normalizedOverdueTasks);
@@ -447,7 +613,8 @@ export default function Dashboard() {
     setOpenLists(normalizedLists);
     setCalendarEvents(calendarData.slice(0, 20));
     setActivity(activityData.slice(0, 6));
-  }, [liveData, todayKey]);
+    setCustodyToday(custodyTodayData);
+  }, [canReadCustody, custodyGroupsForHome, liveData, todayKey]);
 
   return (
     <FamilyHomeDashboard
@@ -459,6 +626,7 @@ export default function Dashboard() {
       openLists={openLists}
       activity={activity}
       calendarEvents={calendarEvents}
+      custodyToday={custodyToday}
       loading={loading}
       lastUpdated={lastUpdated}
     />

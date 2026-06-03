@@ -25,6 +25,7 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { cn } from "@/lib/utils";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -459,6 +460,19 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
       })
     );
 
+    queueFamilyActivity({
+      familyId,
+      user,
+      profile,
+      module: "lists",
+      type: "list_created",
+      title: `List created: ${mealTitle || "Meal"} ingredients`,
+      description: "Created from a meal plan.",
+      entityType: "familyList",
+      entityId: listRef.id,
+      date,
+    });
+
     return {
       listRef,
       addedCount: listItems.length,
@@ -501,6 +515,19 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
 
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+      });
+
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "meals",
+        type: "meal_created",
+        title: `Meal added: ${template.name || "Meal"}`,
+        description: `${selectedType} for ${format(date, "EEEE")}`,
+        entityType: "meal",
+        entityId: mealRef.id,
+        date,
       });
 
       let listRef = null;
@@ -587,6 +614,19 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
 
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+      });
+
+      queueFamilyActivity({
+        familyId,
+        user,
+        profile,
+        module: "meals",
+        type: "meal_created",
+        title: `Meal added: ${name.trim()}`,
+        description: `${mealType} for ${format(date, "EEEE")}`,
+        entityType: "meal",
+        entityId: mealRef.id,
+        date,
       });
 
       let listRef = null;

@@ -330,14 +330,23 @@ service cloud.firestore {
     function canCreateAnyScopedDoc() {
       return (
           hasRequestExplicitCustodyGroupId()
-          && canWriteCustody(requestCustodyScopeId())
+          && (
+            (
+              request.resource.data.get("module", "custody") == "budget"
+              && canWriteCustodyBudget(requestCustodyScopeId())
+            )
+            || (
+              request.resource.data.get("module", "custody") != "budget"
+              && canWriteCustody(requestCustodyScopeId())
+            )
+          )
         )
         || (
           !hasRequestExplicitCustodyGroupId()
           && hasRequestFamilyId()
-          && (
-            canWriteFamilyModule(requestFamilyId(), "home")
-            || canWriteCustody(requestFamilyId())
+          && canWriteFamilyModule(
+            requestFamilyId(),
+            request.resource.data.get("module", "home")
           )
         );
     }

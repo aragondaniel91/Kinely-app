@@ -13,6 +13,8 @@ const ownerUid = "owner_uid";
 const ownerEmail = "owner@example.com";
 const caregiverUid = "caregiver_uid";
 const caregiverEmail = "caregiver@example.com";
+const taskEditorUid = "task_editor_uid";
+const taskEditorEmail = "task.editor@example.com";
 const strangerUid = "stranger_uid";
 const strangerEmail = "stranger@example.com";
 
@@ -34,6 +36,7 @@ try {
 
   const ownerDb = contextFor(ownerUid, ownerEmail).firestore();
   const caregiverDb = contextFor(caregiverUid, caregiverEmail).firestore();
+  const taskEditorDb = contextFor(taskEditorUid, taskEditorEmail).firestore();
   const strangerDb = contextFor(strangerUid, strangerEmail).firestore();
 
   await assertSucceeds(
@@ -51,6 +54,8 @@ try {
       calendarReaderEmails: [caregiverEmail],
       tasksReaderIds: [caregiverUid],
       tasksReaderEmails: [caregiverEmail],
+      tasksWriterIds: [taskEditorUid],
+      tasksWriterEmails: [taskEditorEmail],
       listsReaderIds: [caregiverUid],
       listsReaderEmails: [caregiverEmail],
       createdAt: "2026-06-03T00:00:00.000Z",
@@ -89,6 +94,26 @@ try {
     caregiverDb.doc("tasks/task_owner").update({
       status: "done",
       updatedAt: "2026-06-03T01:00:00.000Z",
+    })
+  );
+  await assertSucceeds(
+    taskEditorDb.doc("familyActivity/task_activity_editor").set({
+      familyId: FAMILY_ID,
+      module: "tasks",
+      type: "task_completed",
+      title: "Task completed",
+      createdBy: taskEditorUid,
+      actorId: taskEditorUid,
+    })
+  );
+  await assertFails(
+    taskEditorDb.doc("familyActivity/calendar_activity_editor").set({
+      familyId: FAMILY_ID,
+      module: "calendar",
+      type: "event_created",
+      title: "Calendar activity should require calendar write",
+      createdBy: taskEditorUid,
+      actorId: taskEditorUid,
     })
   );
 

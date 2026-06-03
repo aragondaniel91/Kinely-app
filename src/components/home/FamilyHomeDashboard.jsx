@@ -691,6 +691,37 @@ function ModulesGrid({ tasksToday, mealsToday, calendarEventsToday, openLists })
   );
 }
 
+function CustodyTodayCard({ custodyToday = [] }) {
+  if (!custodyToday.length) return null;
+
+  return (
+    <Card className="rounded-[1.25rem] border-white/80 bg-white p-3 shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
+      <SectionHeader kicker="Custody today" title="Parenting schedule" action="Open" to="/custody" />
+      <div className="mt-2.5 grid gap-2 md:grid-cols-2">
+        {custodyToday.slice(0, 4).map((item) => (
+          <Link
+            key={item.id}
+            to="/custody"
+            className="flex items-center gap-3 rounded-[1.05rem] border border-rose-100 bg-rose-50/45 px-3 py-2.5 transition hover:-translate-y-0.5 hover:bg-rose-50 hover:shadow-md"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rose-100 bg-white text-rose-600">
+              <Heart className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-black text-slate-950">{item.childLabel}</p>
+              <p className="truncate text-xs font-semibold text-rose-700">{item.statusLabel}</p>
+              <p className="truncate text-[11px] font-bold text-slate-400">
+                {item.groupName}
+                {item.notes ? ` - ${item.notes}` : ""}
+              </p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function FamilyMembersToday({ people, tasksToday, calendarEventsToday, mealsToday }) {
   const visiblePeople = people.filter((person) => shouldShowMemberOnHome(person));
 
@@ -940,6 +971,7 @@ export default function FamilyHomeDashboard({
   openLists = [],
   activity = [],
   calendarEvents = [],
+  custodyToday = [],
   loading = false,
   lastUpdated = null,
 }) {
@@ -973,6 +1005,8 @@ export default function FamilyHomeDashboard({
           calendarEventsToday={calendarEventsToday}
           openLists={openLists}
         />
+
+        <CustodyTodayCard custodyToday={custodyToday} />
 
         <FamilyMembersToday
           people={people}

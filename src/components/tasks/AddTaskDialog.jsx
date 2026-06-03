@@ -47,6 +47,7 @@ import {
   getDefaultTaskIcon,
   getTaskAssigneeValue,
 } from "@/features/tasks/utils/taskDialogOptions";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 
 function getDateKey(offsetDays = 0) {
   const date = new Date();
@@ -510,14 +511,42 @@ export default function AddTaskDialog({
 
       if (editTask?.id) {
         await updateDoc(doc(db, TASK_COLLECTIONS.tasks, editTask.id), payload);
+        queueFamilyActivity({
+          familyId,
+          user,
+          profile,
+          module: "tasks",
+          type: "task_updated",
+          title: `Task updated: ${cleanTitle}`,
+          description: selectedPerson?.name
+            ? `Assigned to ${selectedPerson.name}`
+            : "Family task updated",
+          entityType: "task",
+          entityId: editTask.id,
+          date: dueDate,
+        });
       } else {
-        await addDoc(collection(db, TASK_COLLECTIONS.tasks), {
+        const taskRef = await addDoc(collection(db, TASK_COLLECTIONS.tasks), {
           ...payload,
           status: "pending",
           createdAt: serverTimestamp(),
           createdBy: user?.uid || null,
           createdByEmail: user?.email || null,
           created_date: new Date().toISOString(),
+        });
+        queueFamilyActivity({
+          familyId,
+          user,
+          profile,
+          module: "tasks",
+          type: "task_created",
+          title: `Task created: ${cleanTitle}`,
+          description: selectedPerson?.name
+            ? `Assigned to ${selectedPerson.name}`
+            : "Family task created",
+          entityType: "task",
+          entityId: taskRef.id,
+          date: dueDate,
         });
       }
 
