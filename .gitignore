@@ -12,6 +12,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# This project deploys with npm ci. Keep alternate package manager locks out.
+pnpm-lock.yaml
+yarn.lock
+
 node_modules
 dist
 dist-ssr
