@@ -10,6 +10,7 @@ import {
 
 import PageNotFound from "./lib/PageNotFound";
 import AppShell from "@/components/layout/AppShell";
+import RouteErrorBoundary from "@/components/app/RouteErrorBoundary";
 
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
 import { FamilyProvider, useFamily } from "@/lib/FamilyContext";
@@ -119,46 +120,47 @@ function RequireModuleAccess({ children, moduleName = "", label = "this area" })
 function AppRoutes() {
   return (
     <Suspense fallback={<RouteLoader />}>
-      <Routes>
+      <RouteErrorBoundary>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
 
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            }
+          />
 
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <Register />
-            </PublicRoute>
-          }
-        />
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/" element={<RequireFamilySpace moduleName="home" label="Home"><Dashboard /></RequireFamilySpace>} />
+            <Route path="/calendar" element={<RequireFamilySpace moduleName="calendar" label="Calendar"><Calendar /></RequireFamilySpace>} />
+            <Route path="/custody" element={<RequireModuleAccess moduleName="custody" label="Custody"><Custody /></RequireModuleAccess>} />
+            <Route path="/children" element={<Navigate to="/profile?tab=children" replace />} />
+            <Route path="/tasks" element={<RequireFamilySpace moduleName="tasks" label="Tasks"><Tasks /></RequireFamilySpace>} />
+            <Route path="/meals" element={<RequireFamilySpace moduleName="meals" label="Meals"><Meals /></RequireFamilySpace>} />
+            <Route path="/lists" element={<RequireFamilySpace moduleName="lists" label="Lists"><Lists /></RequireFamilySpace>} />
+            <Route path="/groceries" element={<Navigate to="/lists" replace />} />
+            <Route path="/profile" element={<Profile />} />
+          </Route>
 
-        <Route
-          element={
-            <ProtectedRoute>
-              <AppShell />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/" element={<RequireFamilySpace moduleName="home" label="Home"><Dashboard /></RequireFamilySpace>} />
-          <Route path="/calendar" element={<RequireFamilySpace moduleName="calendar" label="Calendar"><Calendar /></RequireFamilySpace>} />
-          <Route path="/custody" element={<RequireModuleAccess moduleName="custody" label="Custody"><Custody /></RequireModuleAccess>} />
-          <Route path="/children" element={<Navigate to="/profile?tab=children" replace />} />
-          <Route path="/tasks" element={<RequireFamilySpace moduleName="tasks" label="Tasks"><Tasks /></RequireFamilySpace>} />
-          <Route path="/meals" element={<RequireFamilySpace moduleName="meals" label="Meals"><Meals /></RequireFamilySpace>} />
-          <Route path="/lists" element={<RequireFamilySpace moduleName="lists" label="Lists"><Lists /></RequireFamilySpace>} />
-          <Route path="/groceries" element={<Navigate to="/lists" replace />} />
-          <Route path="/profile" element={<Profile />} />
-        </Route>
-
-        <Route path="*" element={<PageNotFound />} />
-      </Routes>
+          <Route path="*" element={<PageNotFound />} />
+        </Routes>
+      </RouteErrorBoundary>
     </Suspense>
   );
 }

@@ -10,6 +10,7 @@ export default [
       "src/components/**/*.{js,mjs,cjs,jsx}",
       "src/features/**/*.{js,mjs,cjs,jsx}",
       "src/pages/**/*.{js,mjs,cjs,jsx}",
+      "src/*.{js,mjs,cjs,jsx}",
       "src/Layout.jsx",
     ],
     ignores: ["src/lib/**/*", "src/components/ui/**/*"],
