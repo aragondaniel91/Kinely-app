@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format, addDays } from "date-fns";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 
 import FamilyHomeDashboard from "@/components/home/FamilyHomeDashboard";
 import { db } from "@/lib/firebase";
@@ -259,23 +259,34 @@ function mergeListsWithItems(familyLists = [], rawItems = []) {
   return normalizedLists;
 }
 
-async function loadFamilyCollection(collectionName, familyId) {
-  try {
-    const snap = await getDocs(
-      query(collection(db, collectionName), where("familyId", "==", familyId))
-    );
-    return snap.docs.map(normalizeDoc);
-  } catch (error) {
-    try {
-      const snap = await getDocs(
-        query(collection(db, collectionName), where("family_id", "==", familyId))
-      );
-      return snap.docs.map(normalizeDoc);
-    } catch (legacyError) {
-      console.warn(`Could not load ${collectionName}:`, legacyError);
-      return [];
+function mergeDocsById(...groups) {
+  const map = new Map();
+
+  groups.flat().forEach((item) => {
+    if (item?.id) map.set(item.id, item);
+  });
+
+  return Array.from(map.values());
+}
+
+function subscribeFamilyCollection(collectionName, familyId, onData, onReady) {
+  const collectionQuery = query(
+    collection(db, collectionName),
+    where("familyId", "==", familyId)
+  );
+
+  return onSnapshot(
+    collectionQuery,
+    (snap) => {
+      onData(snap.docs.map(normalizeDoc));
+      onReady?.();
+    },
+    (error) => {
+      console.warn(`Could not listen to ${collectionName}:`, error);
+      onData([]);
+      onReady?.();
     }
-  }
+  );
 }
 
 export default function Dashboard() {
@@ -288,7 +299,17 @@ export default function Dashboard() {
   const [activity, setActivity] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
   const [todayKey, setTodayKey] = useState(currentDateKey);
+  const [liveData, setLiveData] = useState({
+    tasks: [],
+    meals: [],
+    familyLists: [],
+    groceries: [],
+    familyListItems: [],
+    activity: [],
+    calendar: [],
+  });
 
   const canReadTasks = canReadModule(perms, "tasks");
   const canReadMeals = canReadModule(perms, "meals");
@@ -307,128 +328,126 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!user || !familyId) {
-        setLoading(false);
-        return;
-      }
+    if (!user || !familyId) {
+      setLiveData({
+        tasks: [],
+        meals: [],
+        familyLists: [],
+        groceries: [],
+        familyListItems: [],
+        activity: [],
+        calendar: [],
+      });
+      setLoading(false);
+      setLastUpdated(null);
+      return undefined;
+    }
 
-      setLoading(true);
+    const subscriptions = [];
+    const pendingKeys = new Set();
 
-      try {
-        const today = todayKey;
-        const nextSeven = format(addDays(dateFromKey(todayKey), 7), "yyyy-MM-dd");
+    const subscribe = (key, collectionName, enabled) => {
+      setLiveData((current) => ({ ...current, [key]: [] }));
 
-        let taskData = [];
-        let mealData = [];
-        let listData = [];
-        let activityData = [];
-        let calendarData = [];
+      if (!enabled) return;
 
-        if (canReadTasks) {
-          taskData = await loadFamilyCollection("tasks", familyId);
-        }
-
-        if (canReadMeals) {
-          mealData = await loadFamilyCollection("meals", familyId);
-        }
-
-        if (canReadLists) {
-          const familyLists = await loadFamilyCollection("familyLists", familyId);
-
-          const itemCollections = [
-            "groceries",
-            "familyListItems",
-          ];
-
-          const itemResults = await Promise.all(
-            itemCollections.map((name) => loadFamilyCollection(name, familyId))
-          );
-
-          const allListItems = itemResults.flat();
-
-          listData = mergeListsWithItems(familyLists, allListItems);
-        }
-
-        if (canReadCalendar) {
-          const calendarCollections = ["familyEvents"];
-
-          const calendarResults = await Promise.all(
-            calendarCollections.map((name) => loadFamilyCollection(name, familyId))
-          );
-
-          const seen = new Set();
-          calendarData = calendarResults
-            .flat()
-            .filter((event) => {
-              const date = getItemDate(event);
-              const key = `${event.id || ""}-${event.title || event.name || ""}-${date}`;
-              if (!date || seen.has(key)) return false;
-              seen.add(key);
-              return true;
-            })
-            .filter((event) => isInDateRange(getItemDate(event), today, nextSeven));
-        }
-
-        if (canReadActivity) {
-          activityData = await loadFamilyCollection("familyActivity", familyId);
-        }
-
-        const pendingTasks = taskData.filter((task) => {
-          const status = String(task.status || "pending").toLowerCase();
-          return status === "pending";
-        });
-
-        const normalizedTasksToday = pendingTasks.filter((task) => getItemDate(task) === today);
-        const normalizedOverdueTasks = pendingTasks.filter((task) => {
-          const date = getItemDate(task);
-          return date && date < today;
-        });
-
-        const normalizedMeals = mealData.filter((meal) => getItemDate(meal) === today);
-
-        const normalizedLists = listData
-          .map(summarizeList)
-          .filter((list) => list.status !== "archived");
-
-        normalizedLists.sort((a, b) => {
-          const countDiff = Number(b.pendingCount ?? 0) - Number(a.pendingCount ?? 0);
-          if (countDiff !== 0) return countDiff;
-          return String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""));
-        });
-        calendarData.sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
-        activityData.sort((a, b) => getActivitySortValue(b).localeCompare(getActivitySortValue(a)));
-
-        setTasksToday(normalizedTasksToday);
-        setOverdueTasks(normalizedOverdueTasks);
-        setMealsToday(normalizedMeals);
-        setOpenLists(normalizedLists);
-        setCalendarEvents(calendarData.slice(0, 20));
-        setActivity(activityData.slice(0, 6));
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
-        setTasksToday([]);
-        setOverdueTasks([]);
-        setMealsToday([]);
-        setOpenLists([]);
-        setCalendarEvents([]);
-        setActivity([]);
-      } finally {
-        setLoading(false);
-      }
+      pendingKeys.add(key);
+      subscriptions.push(
+        subscribeFamilyCollection(
+          collectionName,
+          familyId,
+          (items) => {
+            setLiveData((current) => ({ ...current, [key]: items }));
+            setLastUpdated(new Date());
+          },
+          () => {
+            pendingKeys.delete(key);
+            if (!pendingKeys.size) setLoading(false);
+          }
+        )
+      );
     };
 
-    loadData();
+    setLoading(true);
+    setLastUpdated(null);
+    subscribe("tasks", "tasks", canReadTasks);
+    subscribe("meals", "meals", canReadMeals);
+    subscribe("familyLists", "familyLists", canReadLists);
+    subscribe("groceries", "groceries", canReadLists);
+    subscribe("familyListItems", "familyListItems", canReadLists);
+    subscribe("activity", "familyActivity", canReadActivity);
+    subscribe("calendar", "familyEvents", canReadCalendar);
+
+    if (!pendingKeys.size) setLoading(false);
+
+    return () => {
+      subscriptions.forEach((unsubscribe) => unsubscribe());
+    };
   }, [
     user,
     familyId,
-    todayKey,
     canReadTasks,
     canReadMeals,
     canReadLists,
     canReadCalendar,
     canReadActivity,
   ]);
+
+  useEffect(() => {
+    const today = todayKey;
+    const nextSeven = format(addDays(dateFromKey(todayKey), 7), "yyyy-MM-dd");
+
+    const pendingTasks = liveData.tasks.filter((task) => {
+      const status = String(task.status || "pending").toLowerCase();
+      return status === "pending";
+    });
+
+    const normalizedTasksToday = pendingTasks.filter((task) => getItemDate(task) === today);
+    const normalizedOverdueTasks = pendingTasks.filter((task) => {
+      const date = getItemDate(task);
+      return date && date < today;
+    });
+
+    const normalizedMeals = liveData.meals.filter((meal) => getItemDate(meal) === today);
+
+    const listData = mergeListsWithItems(
+      liveData.familyLists,
+      mergeDocsById(liveData.groceries, liveData.familyListItems)
+    );
+
+    const normalizedLists = listData
+      .map(summarizeList)
+      .filter((list) => list.status !== "archived");
+
+    normalizedLists.sort((a, b) => {
+      const countDiff = Number(b.pendingCount ?? 0) - Number(a.pendingCount ?? 0);
+      if (countDiff !== 0) return countDiff;
+      return String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""));
+    });
+
+    const seen = new Set();
+    const calendarData = liveData.calendar
+      .filter((event) => {
+        const date = getItemDate(event);
+        const key = `${event.id || ""}-${event.title || event.name || ""}-${date}`;
+        if (!date || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .filter((event) => isInDateRange(getItemDate(event), today, nextSeven))
+      .sort((a, b) => getItemDate(a).localeCompare(getItemDate(b)));
+
+    const activityData = [...liveData.activity].sort((a, b) =>
+      getActivitySortValue(b).localeCompare(getActivitySortValue(a))
+    );
+
+    setTasksToday(normalizedTasksToday);
+    setOverdueTasks(normalizedOverdueTasks);
+    setMealsToday(normalizedMeals);
+    setOpenLists(normalizedLists);
+    setCalendarEvents(calendarData.slice(0, 20));
+    setActivity(activityData.slice(0, 6));
+  }, [liveData, todayKey]);
 
   return (
     <FamilyHomeDashboard
@@ -441,6 +460,7 @@ export default function Dashboard() {
       activity={activity}
       calendarEvents={calendarEvents}
       loading={loading}
+      lastUpdated={lastUpdated}
     />
   );
 }

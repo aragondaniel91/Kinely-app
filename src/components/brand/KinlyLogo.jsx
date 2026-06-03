@@ -48,8 +48,8 @@ export default function KinlyLogo({ showWordmark = true, className = "", markCla
       </svg>
 
       {showWordmark && (
-        <span className="kinly-wordmark text-3xl font-semibold leading-none tracking-[-0.07em]">
-          kinly
+        <span className="kinly-wordmark text-3xl font-semibold leading-none tracking-normal">
+          Kinely
         </span>
       )}
     </div>

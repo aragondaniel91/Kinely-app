@@ -27,7 +27,12 @@ function getGreeting() {
 }
 
 function getTodayKey() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeDate(value) {
@@ -471,15 +476,39 @@ function MiniPulse({ icon: Icon, value, label, tone, to }) {
   );
 }
 
-function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLists }) {
+function formatLiveStatus(lastUpdated) {
+  if (!lastUpdated) return "Waiting for data";
+
+  const date = lastUpdated instanceof Date ? lastUpdated : new Date(lastUpdated);
+  if (Number.isNaN(date.getTime())) return "Live";
+
+  return `Updated ${date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
+
+function LiveStatusBadge({ loading, lastUpdated }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-700 shadow-sm">
+      <span className={`h-2 w-2 rounded-full ${loading ? "animate-pulse bg-amber-400" : "bg-emerald-500"}`} />
+      {loading ? "Syncing" : formatLiveStatus(lastUpdated)}
+    </div>
+  );
+}
+
+function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLists, loading, lastUpdated }) {
   return (
     <section className="overflow-hidden rounded-[1.35rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
       <div className="kinly-family-gradient p-4 md:p-4">
         <div className="grid gap-4 xl:grid-cols-[1fr_0.62fr] xl:items-center">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
-              <Sparkles className="h-3.5 w-3.5" />
-              Home dashboard
+            <div className="mb-3 flex flex-wrap gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 shadow-sm">
+                <Sparkles className="h-3.5 w-3.5" />
+                Home dashboard
+              </div>
+              <LiveStatusBadge loading={loading} lastUpdated={lastUpdated} />
             </div>
 
             <h1 className="max-w-4xl text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
@@ -911,6 +940,8 @@ export default function FamilyHomeDashboard({
   openLists = [],
   activity = [],
   calendarEvents = [],
+  loading = false,
+  lastUpdated = null,
 }) {
   const today = getTodayKey();
   const calendarEventsToday = calendarEvents.filter((event) => getItemDate(event) === today);
@@ -924,6 +955,8 @@ export default function FamilyHomeDashboard({
           mealsToday={mealsToday}
           calendarEventsToday={calendarEventsToday}
           openLists={openLists}
+          loading={loading}
+          lastUpdated={lastUpdated}
         />
 
         <NeedsAttention

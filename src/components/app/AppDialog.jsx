@@ -29,7 +29,7 @@ const toneConfig = {
 export default function AppDialog({
   open,
   tone = "info",
-  eyebrow = "Kinly notice",
+  eyebrow = "Kinely notice",
   title,
   message,
   confirmLabel = "Got it",

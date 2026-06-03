@@ -47,7 +47,7 @@ export default function BudgetAppDialog({
 
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-              Kinly notice
+              Kinely notice
             </p>
             <h3 className="mt-1 text-2xl font-black text-slate-950">
               {title}

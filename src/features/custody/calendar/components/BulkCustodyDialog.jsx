@@ -493,7 +493,7 @@ export default function BulkCustodyDialog({
                     Smart schedule builder
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Choose a custody pattern and Kinly will generate the real day-by-day schedule.
+                    Choose a custody pattern and Kinely will generate the real day-by-day schedule.
                   </p>
                 </div>
 

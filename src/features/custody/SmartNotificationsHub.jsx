@@ -385,7 +385,7 @@ function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCo
               Calm reminders before things get stressful
             </h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 md:text-base">
-              Kinly turns the custody calendar, exchange details, packing readiness, and shared expenses into proactive reminders for connected homes.
+              Kinely turns the custody calendar, exchange details, packing readiness, and shared expenses into proactive reminders for connected homes.
             </p>
           </div>
 
@@ -688,7 +688,7 @@ export default function SmartNotificationsHub() {
                   Smart reminder logic
                 </h3>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  Toggle which reminder signals Kinly should prepare around custody transitions. Preferences are saved for this custody group.
+                  Toggle which reminder signals Kinely should prepare around custody transitions. Preferences are saved for this custody group.
                 </p>
               </div>
 
