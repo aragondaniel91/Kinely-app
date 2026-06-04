@@ -929,6 +929,74 @@ service cloud.firestore {
         );
     }
 
+    function isNotificationRecipient(data) {
+      return signedIn()
+        && (
+          data.recipientUid == request.auth.uid
+          || data.recipient_uid == request.auth.uid
+          || data.recipientEmail == userEmail()
+          || data.recipient_email == userEmail()
+        );
+    }
+
+    function canCreateFamilyNotification() {
+      return request.resource.data.familyId is string
+        && request.resource.data.familyId != ""
+        && (
+          canManageFamily(request.resource.data.familyId)
+          || canWriteFamilyModule(request.resource.data.familyId, "notifications")
+        );
+    }
+
+    function canCreateCustodyNotification() {
+      return request.resource.data.custodyGroupId is string
+        && request.resource.data.custodyGroupId != ""
+        && (
+          canManageCustodyGroup(request.resource.data.custodyGroupId)
+          || canWriteCustody(request.resource.data.custodyGroupId)
+        );
+    }
+
+    function canCreateNotificationDoc() {
+      return signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.recipientEmail is string
+        && request.resource.data.title is string
+        && request.resource.data.kind is string
+        && request.resource.data.status == "unread"
+        && (
+          canCreateFamilyNotification()
+          || canCreateCustodyNotification()
+        );
+    }
+
+    function canReadNotificationDoc() {
+      return isNotificationRecipient(resource.data)
+        || (
+          hasExistingFamilyId()
+          && canManageFamily(existingFamilyId())
+        )
+        || (
+          hasExistingCustodyScopeId()
+          && canManageCustodyGroup(existingCustodyScopeId())
+        );
+    }
+
+    function canUpdateOwnNotification() {
+      return isNotificationRecipient(resource.data)
+        && request.resource.data.recipientEmail == resource.data.recipientEmail
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "read",
+          "readAt",
+          "read_by",
+          "readBy",
+          "updatedAt"
+        ])
+        && request.resource.data.status in ["read", "unread"];
+    }
+
     match /users/{userId} {
       allow read, create, update: if signedIn() && request.auth.uid == userId;
       allow delete: if false;
@@ -1089,6 +1157,20 @@ service cloud.firestore {
     match /mail/{mailId} {
       allow create: if canCreateMailDoc();
       allow read, update, delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if canReadNotificationDoc();
+      allow create: if canCreateNotificationDoc();
+      allow update: if canUpdateOwnNotification();
+      allow delete: if (
+          hasExistingFamilyId()
+          && canManageFamily(existingFamilyId())
+        )
+        || (
+          hasExistingCustodyScopeId()
+          && canManageCustodyGroup(existingCustodyScopeId())
+        );
     }
 
     match /custodyDays/{docId} {

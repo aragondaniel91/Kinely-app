@@ -31,6 +31,7 @@ const HOUSEHOLD_COLLECTIONS = [
   "familyMembers",
   "familyActivity",
   "familyInvitations",
+  "notifications",
   "groceries",
 ];
 
@@ -43,6 +44,7 @@ const CUSTODY_COLLECTIONS = [
   "custodyExchanges",
   "custodyInvitations",
   "familyActivity",
+  "notifications",
 ];
 
 const CUSTODY_GROUP_LOOKUP_FIELDS = [

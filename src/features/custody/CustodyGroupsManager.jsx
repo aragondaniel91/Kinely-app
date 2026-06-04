@@ -36,6 +36,7 @@ import {
   withPendingCustodyInvitation,
 } from "@/lib/invitationUtils";
 import { queueCustodyInvitationEmail } from "@/services/emailQueueService";
+import { queueCustodyInvitationNotifications } from "@/services/notificationService";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -859,6 +860,7 @@ export default function CustodyGroupsManager() {
       );
 
       let queuedEmailCount = 0;
+      let queuedNotificationCount = 0;
       if (invitations.length) {
         const emailQueueResults = await Promise.allSettled(
           invitations.map((invite) =>
@@ -875,6 +877,17 @@ export default function CustodyGroupsManager() {
           .forEach((result) => {
             console.warn("Custody invitation email could not be queued:", result.reason);
           });
+
+        try {
+          const notificationIds = await queueCustodyInvitationNotifications({
+            invitations,
+            groupName: cleanName,
+            inviterName: user?.displayName || myEmail || user?.email || "Custody admin",
+          });
+          queuedNotificationCount = notificationIds.length;
+        } catch (notificationError) {
+          console.warn("Custody invitation notifications could not be queued:", notificationError);
+        }
       }
 
       resetForm();
@@ -884,9 +897,9 @@ export default function CustodyGroupsManager() {
         tone: "success",
         title: editingGroupId ? "Custody group updated" : "Custody group created",
         message: invitations.length
-          ? queuedEmailCount === invitations.length
-            ? `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending and email${invitations.length === 1 ? "" : "s"} queued.`
-            : `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending. ${queuedEmailCount} email${queuedEmailCount === 1 ? "" : "s"} queued; the invite remains available in Profile > Invitations.`
+          ? queuedEmailCount === invitations.length && queuedNotificationCount === invitations.length
+            ? `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending with email and in-app notification queued.`
+            : `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending. ${queuedEmailCount} email${queuedEmailCount === 1 ? "" : "s"} and ${queuedNotificationCount} in-app notification${queuedNotificationCount === 1 ? "" : "s"} queued.`
           : "No new invitations were needed because every listed email already has access or belongs to you.",
       });
     } catch (error) {

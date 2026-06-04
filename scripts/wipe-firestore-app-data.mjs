@@ -21,6 +21,8 @@ const APP_COLLECTIONS = [
   "familyMembers",
   "familyActivity",
   "familyInvitations",
+  "notifications",
+  "mail",
   "custodyInvitations",
   "custodyGroups",
   "custodyDays",

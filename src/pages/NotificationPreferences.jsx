@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import NotificationInbox from "@/components/profile/NotificationInbox";
 
 const DEFAULT_PREFERENCES = {
   channels: {
@@ -276,6 +277,8 @@ export default function NotificationPreferences() {
           </div>
         )}
       </Card>
+
+      <NotificationInbox />
 
       <Card className="rounded-[2rem] border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">

@@ -11,6 +11,7 @@ When an admin creates an invitation, the app now writes:
 ```txt
 familyInvitations/{id}
 custodyInvitations/{id}
+notifications/{id}
 mail/{id}
 ```
 
@@ -45,6 +46,8 @@ notification
 ```
 
 The frontend currently queues invitation emails. The generic notification email helper is ready for future backend-triggered reminders and digests.
+
+Invitation notifications are also written to `notifications/{id}` so the recipient can see them in Profile > Notifications after signing in with the invited email address.
 
 ## Required production sender
 
