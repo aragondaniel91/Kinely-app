@@ -106,7 +106,10 @@ function RequireModuleAccess({ children, moduleName = "", label = "this area" })
     return <RouteLoader />;
   }
 
-  if (moduleName === "custody" && (!profile || !familyId || !hasCustodyAccess)) {
+  if (
+    moduleName === "custody" &&
+    (!profile || !familyId || (!hasCustodyAccess && !canReadModule(perms, "custody")))
+  ) {
     return <AccessDenied moduleName={label} />;
   }
 
