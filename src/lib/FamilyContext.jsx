@@ -143,10 +143,86 @@ async function getFamiliesByMemberEmail(email) {
   ]);
 
   if (results.every((result) => result.status === "rejected")) {
-    throw results[0].reason;
+    console.warn("Could not load families by member email.", results[0].reason);
+    return [];
   }
 
   return mapSettledFirestoreSnapshots(results, { type: "family" });
+}
+
+async function getFamiliesByUserIdentity(firebaseUser, email) {
+  const uid = firebaseUser?.uid || "";
+  const cleanEmail = normalizeInviteEmail(email || firebaseUser?.email);
+  const familiesRef = collection(db, "families");
+  const familyQueries = [];
+
+  if (uid) {
+    familyQueries.push(query(familiesRef, where("ownerId", "==", uid)));
+    familyQueries.push(query(familiesRef, where("owner_id", "==", uid)));
+    familyQueries.push(query(familiesRef, where("createdBy", "==", uid)));
+    familyQueries.push(query(familiesRef, where("created_by", "==", uid)));
+    familyQueries.push(query(familiesRef, where("memberIds", "array-contains", uid)));
+    familyQueries.push(query(familiesRef, where("member_ids", "array-contains", uid)));
+    familyQueries.push(query(familiesRef, where("adminIds", "array-contains", uid)));
+    familyQueries.push(query(familiesRef, where("admin_ids", "array-contains", uid)));
+  }
+
+  if (cleanEmail) {
+    familyQueries.push(query(familiesRef, where("ownerEmail", "==", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("owner_email", "==", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("createdByEmail", "==", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("created_by_email", "==", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("created_by", "==", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("memberEmails", "array-contains", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("member_emails", "array-contains", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("adminEmails", "array-contains", cleanEmail)));
+    familyQueries.push(query(familiesRef, where("admin_emails", "array-contains", cleanEmail)));
+  }
+
+  if (!familyQueries.length) return [];
+
+  const results = await Promise.allSettled(
+    familyQueries.map((familyQuery) => getDocs(familyQuery))
+  );
+
+  if (results.every((result) => result.status === "rejected")) {
+    console.warn("Could not load families by user identity.", results[0].reason);
+    return [];
+  }
+
+  return mapSettledFirestoreSnapshots(results, { type: "family" });
+}
+
+async function syncUserFamilyRefs(firebaseUser, userData = {}, loadedFamilies = []) {
+  if (!firebaseUser?.uid || !loadedFamilies.length) return;
+
+  const validFamilyIds = loadedFamilies.map((family) => family?.id).filter(Boolean);
+  if (!validFamilyIds.length) return;
+
+  const currentFamilyIds = Array.isArray(userData.familyIds) ? userData.familyIds : [];
+  const nextFamilyIds = [...new Set([...currentFamilyIds, ...validFamilyIds])];
+  const nextFamilyId = validFamilyIds.includes(userData.familyId)
+    ? userData.familyId
+    : validFamilyIds[0];
+
+  const refsChanged =
+    userData.familyId !== nextFamilyId ||
+    nextFamilyIds.length !== currentFamilyIds.length ||
+    nextFamilyIds.some((familyId) => !currentFamilyIds.includes(familyId));
+
+  if (!refsChanged) return;
+
+  await setDoc(
+    doc(db, "users", firebaseUser.uid),
+    {
+      uid: firebaseUser.uid,
+      email: normalizeInviteEmail(firebaseUser.email || userData.email),
+      familyId: nextFamilyId,
+      familyIds: nextFamilyIds,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 }
 
 function slugify(value) {
@@ -708,6 +784,11 @@ export function FamilyProvider({ children }) {
           memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
         }
 
+        const identityFamilies = await getFamiliesByUserIdentity(user, myEmail);
+        identityFamilies.forEach((family) => pushUniqueFamily(loaded, family));
+
+        await syncUserFamilyRefs(user, userData, loaded);
+
         if (!cancelled) {
           setFamilies(loaded);
         }
@@ -735,8 +816,12 @@ export function FamilyProvider({ children }) {
     return (
       family.ownerId === user?.uid ||
       family.owner_id === user?.uid ||
+      family.createdBy === user?.uid ||
+      family.created_by === user?.uid ||
       family.ownerEmail === myEmail ||
       family.owner_email === myEmail ||
+      family.createdByEmail === myEmail ||
+      family.created_by_email === myEmail ||
       family.created_by === myEmail
     );
   });
@@ -818,6 +903,8 @@ export function FamilyProvider({ children }) {
   const isOwner = activeProfile
     ? activeProfile.ownerId === user?.uid ||
       activeProfile.owner_id === user?.uid ||
+      activeProfile.createdBy === user?.uid ||
+      activeProfile.created_by === user?.uid ||
       normalizeEmail(activeProfile.ownerEmail) === normalizeEmail(myEmail) ||
       normalizeEmail(activeProfile.owner_email) === normalizeEmail(myEmail) ||
       normalizeEmail(activeProfile.createdByEmail) === normalizeEmail(myEmail) ||
@@ -862,6 +949,11 @@ export function FamilyProvider({ children }) {
         const memberFamilies = await getFamiliesByMemberEmail(myEmail);
         memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
       }
+
+      const identityFamilies = await getFamiliesByUserIdentity(user, myEmail);
+      identityFamilies.forEach((family) => pushUniqueFamily(loaded, family));
+
+      await syncUserFamilyRefs(user, userData, loaded);
 
       setFamilies(loaded);
     } catch (error) {
