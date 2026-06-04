@@ -48,13 +48,42 @@ The frontend currently queues invitation emails. The generic notification email 
 
 ## Required production sender
 
-Choose one trusted sender:
+The repo includes a Firebase Cloud Function sender in:
+
+```txt
+functions/index.js
+```
+
+It listens to `mail/{mailId}`, sends through Resend, and then updates the `mail` document to `sent` or `error`.
+
+## Required production secrets
+
+Set these Firebase Functions secrets:
+
+```bash
+npx firebase-tools functions:secrets:set RESEND_API_KEY
+npx firebase-tools functions:secrets:set MAIL_FROM
+```
+
+Example `MAIL_FROM` value:
+
+```txt
+Kinly <no-reply@your-domain.com>
+```
+
+Then deploy functions:
+
+```bash
+npm run firebase:deploy:functions
+```
+
+You can still replace this later with another trusted sender:
 
 1. Firebase Trigger Email extension watching `mail`.
-2. A Firebase Cloud Function triggered by `mail/{mailId}`.
+2. A different Firebase Cloud Function provider.
 3. A Vercel/Node worker that uses Firebase Admin SDK and your email provider.
 
-The sender should:
+Any sender should:
 
 1. Read only documents where `status` is `queued`.
 2. Send `message.subject`, `message.text`, and `message.html` to `to`.

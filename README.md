@@ -81,7 +81,14 @@ If any required variable is missing, the app intentionally throws an error so br
 
 ## Email delivery
 
-Invitation emails are queued in Firestore under the `mail` collection. Configure a trusted sender, such as the Firebase Trigger Email extension or a backend worker, to watch `mail` and deliver queued messages.
+Invitation emails are queued in Firestore under the `mail` collection. The repo includes a Firebase Cloud Function sender in `functions/index.js` that watches `mail` and sends through Resend.
+
+Required Firebase Functions secrets:
+
+```bash
+npx firebase-tools functions:secrets:set RESEND_API_KEY
+npx firebase-tools functions:secrets:set MAIL_FROM
+```
 
 Details:
 
@@ -141,6 +148,12 @@ Deploy both Firestore rules and indexes:
 npm run firebase:deploy:firestore
 ```
 
+Deploy Cloud Functions:
+
+```bash
+npm run firebase:deploy:functions
+```
+
 ## Main scripts
 
 ```bash
@@ -153,6 +166,8 @@ npm run typecheck
 npm run firebase:deploy:rules
 npm run firebase:deploy:indexes
 npm run firebase:deploy:firestore
+npm run firebase:deploy:functions
+npm run functions:lint
 ```
 
 ## Custody data model notes

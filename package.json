@@ -17,6 +17,8 @@
     "firebase:deploy:rules": "npx firebase-tools deploy --only firestore:rules",
     "firebase:deploy:indexes": "npx firebase-tools deploy --only firestore:indexes",
     "firebase:deploy:firestore": "npx firebase-tools deploy --only firestore",
+    "firebase:deploy:functions": "npx firebase-tools deploy --only functions",
+    "functions:lint": "npm --prefix functions run lint",
     "firebase:wipe:app-data": "node scripts/wipe-firestore-app-data.mjs"
   },
   "dependencies": {
