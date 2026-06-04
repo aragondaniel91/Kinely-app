@@ -56,7 +56,7 @@ export default function AppShell() {
   const hasFamilySpace = Boolean(profile && familyId);
   const visibleNavItems = navItems.filter((item) => {
     if (item.requiresFamily && !hasFamilySpace) return false;
-    if (item.module === "custody") return hasFamilySpace && !custodyGroupsLoading && hasCustodyAccess && canReadModule(perms, "custody");
+    if (item.module === "custody") return hasFamilySpace && !custodyGroupsLoading && hasCustodyAccess;
     if (item.module && !canReadModule(perms, item.module)) return false;
     return true;
   });

@@ -45,7 +45,7 @@ export default function CustodyCalendarSidebar({
                 const active = custodyFilter === option.id;
                 return (
                   <button key={option.id} type="button" onClick={() => setCustodyFilter(option.id)} className={cn("rounded-full lg:rounded-xl border px-3 py-1.5 text-xs font-bold text-left transition", active ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground hover:text-foreground")}>
-                    <span className="mr-1">{option.icon}</span>
+                    <span className="mr-1 font-black">{option.icon}</span>
                     {option.label}
                   </button>
                 );
@@ -63,7 +63,7 @@ export default function CustodyCalendarSidebar({
 
           {todayCustody && (
             <div className={cn("mt-2 rounded-xl p-3 flex items-center gap-2 border", todayParent === "dad" ? `${dadTheme.bg} ${dadTheme.border}` : `${momTheme.bg} ${momTheme.border}`)}>
-              <span className="text-2xl">{todayParent === "dad" ? "👨" : todayParent === "mom" ? "👩" : "👨👩"}</span>
+              <span className="text-sm font-black">{todayParent === "dad" ? "D" : todayParent === "mom" ? "M" : "S"}</span>
               <div>
                 <p className="text-xs text-muted-foreground">With</p>
                 <p className={cn("font-black text-sm", todayParent === "dad" ? dadTheme.text : momTheme.text)}>{todayLabel}</p>
@@ -90,7 +90,7 @@ export default function CustodyCalendarSidebar({
                 </div>
               </div>
               <p className={cn("text-xs font-bold mt-1.5", nextChange.with_whom === "dad" ? dadTheme.text : momTheme.text)}>
-                With {nextChange.with_whom === "dad" ? `${dadName || "Dad"} 👨` : `${momName || "Mom"} 👩`}
+                With {nextChange.with_whom === "dad" ? dadName || "Dad" : momName || "Mom"}
               </p>
             </div>
           </div>
@@ -119,7 +119,7 @@ export default function CustodyCalendarSidebar({
             <div className="flex items-center gap-2"><div className={`w-4 h-4 rounded ${dadTheme.dot} shrink-0`} /><span className="text-xs">With {dadName || "Dad"}</span></div>
             <div className="flex items-center gap-2"><div className={`w-4 h-4 rounded ${momTheme.dot} shrink-0`} /><span className="text-xs">With {momName || "Mom"}</span></div>
             <div className="flex items-center gap-2"><div className="w-4 h-4 rounded overflow-hidden shrink-0 flex flex-col"><div className={`flex-1 ${dadTheme.dot}`} /><div className={`flex-1 ${momTheme.dot}`} /></div><span className="text-xs">Split day</span></div>
-            <div className="flex items-center gap-2"><div className="flex h-4 w-4 items-center justify-center rounded bg-blue-50 text-[10px]">✈️</div><span className="text-xs">Travel override</span></div>
+            <div className="flex items-center gap-2"><div className="flex h-4 w-4 items-center justify-center rounded bg-blue-50 text-[10px] font-black text-blue-700">T</div><span className="text-xs">Travel override</span></div>
           </div>
         </div>
 
@@ -135,7 +135,7 @@ export default function CustodyCalendarSidebar({
                     <p className={cn("text-xs", d.with_whom === "dad" ? dadTheme.text : momTheme.text)}>
                       {d.is_split ? `AM:${getParentLabel(d.morning, dadName, momName)} PM:${getParentLabel(d.afternoon, dadName, momName)}` : `With ${getParentLabel(d.with_whom, dadName, momName)}`}
                     </p>
-                    {d.isTravelOverride && <p className="text-[10px] font-bold text-blue-700">✈️ Travel override</p>}
+                    {d.isTravelOverride && <p className="text-[10px] font-bold text-blue-700">Travel override</p>}
                   </div>
                 </div>
               ))}

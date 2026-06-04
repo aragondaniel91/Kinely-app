@@ -13,7 +13,6 @@ import SmartNotificationsHub from "@/features/custody/SmartNotificationsHub";
 import BudgetHub from "@/features/custody/BudgetHub";
 import { Badge } from "@/components/ui/badge";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
-import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -116,19 +115,80 @@ function groupViewerEmails(group) {
   return [...new Set([...viewerEmails, ...legacyViewerEmails].map(normalizeEmail).filter(Boolean))];
 }
 
-function resolveCustodyAccess(group, myEmail) {
-  if (!group || group.legacy) return { canRead: true, canWrite: true, isViewerOnly: false };
+function uniqueStrings(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function accessEmails(group, camelKey, snakeKey, fallback = []) {
+  const explicit = [
+    ...(Array.isArray(group?.[camelKey]) ? group[camelKey] : []),
+    ...(Array.isArray(group?.[snakeKey]) ? group[snakeKey] : []),
+  ];
+
+  return uniqueStrings(explicit.length ? explicit.map(normalizeEmail) : fallback.map(normalizeEmail));
+}
+
+function accessIds(group, camelKey, snakeKey, fallback = []) {
+  const explicit = [
+    ...(Array.isArray(group?.[camelKey]) ? group[camelKey] : []),
+    ...(Array.isArray(group?.[snakeKey]) ? group[snakeKey] : []),
+  ];
+
+  return uniqueStrings(explicit.length ? explicit : fallback);
+}
+
+function includesPrincipal({ emails = [], ids = [] }, email, uid) {
+  return Boolean((email && emails.includes(email)) || (uid && ids.includes(uid)));
+}
+
+function resolveCustodyAccess(group, myEmail, userId = "") {
+  if (!group || group.legacy) {
+    return {
+      canRead: true,
+      canWrite: true,
+      canReadBudget: true,
+      canWriteBudget: true,
+      isViewerOnly: false,
+      isBudgetViewerOnly: false,
+    };
+  }
 
   const email = normalizeEmail(myEmail);
+  const uid = String(userId || "").trim();
   const members = groupMemberEmails(group);
   const viewers = groupViewerEmails(group);
-  const isMember = members.includes(email);
-  const isViewer = viewers.includes(email);
+  const memberIds = accessIds(group, "memberIds", "member_ids");
+  const viewerIds = accessIds(group, "viewerIds", "viewer_ids");
+
+  const custodyReaders = {
+    emails: accessEmails(group, "custodyReaderEmails", "custody_reader_emails", [...members, ...viewers]),
+    ids: accessIds(group, "custodyReaderIds", "custody_reader_ids", [...memberIds, ...viewerIds]),
+  };
+  const custodyWriters = {
+    emails: accessEmails(group, "custodyWriterEmails", "custody_writer_emails", members),
+    ids: accessIds(group, "custodyWriterIds", "custody_writer_ids", memberIds),
+  };
+  const budgetReaders = {
+    emails: accessEmails(group, "budgetReaderEmails", "budget_reader_emails", members),
+    ids: accessIds(group, "budgetReaderIds", "budget_reader_ids", memberIds),
+  };
+  const budgetWriters = {
+    emails: accessEmails(group, "budgetWriterEmails", "budget_writer_emails", members),
+    ids: accessIds(group, "budgetWriterIds", "budget_writer_ids", memberIds),
+  };
+
+  const isCustodyReader = includesPrincipal(custodyReaders, email, uid);
+  const isCustodyWriter = includesPrincipal(custodyWriters, email, uid);
+  const isBudgetReader = includesPrincipal(budgetReaders, email, uid);
+  const isBudgetWriter = includesPrincipal(budgetWriters, email, uid);
 
   return {
-    canRead: isMember || isViewer,
-    canWrite: isMember,
-    isViewerOnly: !isMember && isViewer,
+    canRead: isCustodyReader || isCustodyWriter,
+    canWrite: isCustodyWriter,
+    canReadBudget: isBudgetReader || isBudgetWriter,
+    canWriteBudget: isBudgetWriter,
+    isViewerOnly: !isCustodyWriter && isCustodyReader,
+    isBudgetViewerOnly: !isBudgetWriter && isBudgetReader,
   };
 }
 
@@ -358,22 +418,33 @@ export default function CustodyCalendarView({
   const selectedChildren = groupChildren(selectedGroup);
   const selectedChildIds = groupChildIds(selectedGroup);
   const selectedParents = groupParents(selectedGroup);
-  const custodyAccess = resolveCustodyAccess(selectedGroup, myEmail);
+  const custodyAccess = resolveCustodyAccess(selectedGroup, myEmail, user?.uid);
   const custodyParentNames = resolveCustodyParentNames(selectedGroup, dadName, momName);
   const selectedCustodyGroupId = selectedGroup?.legacy ? "" : selectedGroup?.id || "";
   const scopedFamilyId = selectedCustodyGroupId || familyId;
   const canRenderCalendar = !loadingGroups && selectedGroup && scopedFamilyId && custodyAccess.canRead;
   const canRenderScopedTool =
-    canRenderCalendar && (mode !== "budget" || canReadModule(perms, "budget"));
+    canRenderCalendar && (mode !== "budget" || custodyAccess.canReadBudget);
 
   const custodyPerms = useMemo(() => ({
     ...perms,
-    calendar: {
-      ...(perms?.calendar || {}),
+    custody: {
+      ...(perms?.custody || {}),
       read: custodyAccess.canRead,
-      write: Boolean(canWriteModule(perms, "calendar") && custodyAccess.canWrite),
+      write: custodyAccess.canWrite,
     },
-  }), [perms, custodyAccess.canRead, custodyAccess.canWrite]);
+    budget: {
+      ...(perms?.budget || {}),
+      read: custodyAccess.canReadBudget,
+      write: custodyAccess.canWriteBudget,
+    },
+  }), [
+    perms,
+    custodyAccess.canRead,
+    custodyAccess.canWrite,
+    custodyAccess.canReadBudget,
+    custodyAccess.canWriteBudget,
+  ]);
 
   const scopedFamilyContext = useMemo(
     () => ({

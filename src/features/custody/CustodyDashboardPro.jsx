@@ -393,7 +393,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const [loadingBudget, setLoadingBudget] = useState(true);
   const [loadingExchanges, setLoadingExchanges] = useState(true);
 
-  const canRead = canReadModule(perms, "calendar");
+  const canRead = canReadModule(perms, "custody");
   const canReadBudget = canReadModule(perms, "budget");
   const packingSummary = useMemo(() => getPackingSummary(packingItems), [packingItems]);
   const budgetSummary = useMemo(() => getBudgetSummary(expenses), [expenses]);

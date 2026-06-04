@@ -189,8 +189,8 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   const [pendingUndoConfirm, setPendingUndoConfirm] = useState(false);
   const [noticeDialog, setNoticeDialog] = useState(null);
 
-  const canRead = canReadModule(perms, "calendar");
-  const canWrite = canWriteModule(perms, "calendar");
+  const canRead = canReadModule(perms, "custody");
+  const canWrite = canWriteModule(perms, "custody");
 
   const showNotice = ({ tone = "info", title, message }) => {
     setNoticeDialog({ tone, title, message });
@@ -629,10 +629,10 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   }, 0);
 
   const custodyFilterOptions = [
-    { id: "all", label: "All", icon: "👨‍👩‍👧‍👦" },
-    { id: "dad", label: dadName || "Dad", icon: "👨" },
-    { id: "mom", label: momName || "Mom", icon: "👩" },
-    { id: "split", label: "Split", icon: "👨👩" },
+    { id: "all", label: "All", icon: "All" },
+    { id: "dad", label: dadName || "Dad", icon: "D" },
+    { id: "mom", label: momName || "Mom", icon: "M" },
+    { id: "split", label: "Split", icon: "S" },
   ];
 
   const weekLabels = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];

@@ -45,6 +45,7 @@ export default function BudgetExpenseDetail({
   onUndo,
   onMarkReview,
   onClearReview,
+  canWrite = true,
 }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -82,7 +83,7 @@ export default function BudgetExpenseDetail({
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Expense detail</p>
             <h3 className="mt-1 text-2xl font-black text-slate-950">{expense.title}</h3>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Total {currency(ledger.amount)} · Split {ledger.splitType}
+              Total {currency(ledger.amount)} | Split {ledger.splitType}
             </p>
           </div>
 
@@ -117,84 +118,90 @@ export default function BudgetExpenseDetail({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3">
-          <Button
-            type="button"
-            disabled={saving || selected.remaining <= 0}
-            onClick={() => onPay({ amount: selected.remaining, note })}
-            className="h-12 rounded-2xl font-black"
-          >
-            Pay full balance — {currency(selected.remaining)}
-          </Button>
-
-          {undoPayment && (
-            <button
+        {canWrite ? (
+          <div className="mt-4 grid gap-3">
+            <Button
               type="button"
-              disabled={saving}
-              onClick={() => onUndo(undoPayment)}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+              disabled={saving || selected.remaining <= 0}
+              onClick={() => onPay({ amount: selected.remaining, note })}
+              className="h-12 rounded-2xl font-black"
             >
-              Undo last payment — {currency(undoPayment.amount)}
-            </button>
-          )}
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              onPay({ amount, note });
-            }}
-            className="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1.5">
-                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Partial payment</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={amount}
-                  onChange={(event) => setAmount(event.target.value)}
-                  placeholder="0.00"
-                  className="rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800 focus-visible:ring-amber-100"
-                />
-              </label>
-
-              <label className="grid gap-1.5">
-                <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Observation</span>
-                <Input
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Optional note"
-                  className="rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800 focus-visible:ring-amber-100"
-                />
-              </label>
-            </div>
-
-            <Button type="submit" disabled={saving} variant="outline" className="h-11 rounded-2xl font-black">
-              Save partial payment
+              Pay full balance - {currency(selected.remaining)}
             </Button>
-          </form>
 
-          {expense.reviewFlag ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => onClearReview()}
-              className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
+            {undoPayment && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => onUndo(undoPayment)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+              >
+                Undo last payment - {currency(undoPayment.amount)}
+              </button>
+            )}
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                onPay({ amount, note });
+              }}
+              className="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
             >
-              Clear review status
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => onMarkReview(note)}
-              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-800 transition hover:bg-rose-100"
-            >
-              Mark this expense for review
-            </button>
-          )}
-        </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Partial payment</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    placeholder="0.00"
+                    className="rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800 focus-visible:ring-amber-100"
+                  />
+                </label>
+
+                <label className="grid gap-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Observation</span>
+                  <Input
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Optional note"
+                    className="rounded-2xl border-slate-200 bg-white text-sm font-semibold text-slate-800 focus-visible:ring-amber-100"
+                  />
+                </label>
+              </div>
+
+              <Button type="submit" disabled={saving} variant="outline" className="h-11 rounded-2xl font-black">
+                Save partial payment
+              </Button>
+            </form>
+
+            {expense.reviewFlag ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => onClearReview()}
+                className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-100"
+              >
+                Clear review status
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => onMarkReview(note)}
+                className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-800 transition hover:bg-rose-100"
+              >
+                Mark this expense for review
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-500">
+            You have view-only access to this custody budget.
+          </div>
+        )}
 
         <div className="mt-5 flex justify-end">
           <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="h-10 rounded-full px-5 font-black">

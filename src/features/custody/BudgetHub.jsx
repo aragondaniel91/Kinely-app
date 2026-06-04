@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
+import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { currency, getBudgetSummary, getExpenseLedger, validateExpenseLedger } from "@/data/custodyBudget";
@@ -257,6 +258,7 @@ export default function BudgetHub() {
     custodyDadColor,
     custodyMomColor,
     custodyParentOverride,
+    perms,
   } = useFamily();
 
   const parent1Name = custodyParentOverride?.dadName || dadName || "Parent 1";
@@ -276,6 +278,8 @@ export default function BudgetHub() {
     module: "budget",
     visibility: "custody_budget",
   }), [custodyScopeId, custodyParentOverride?.custodyGroupName, householdScopeId, selectedCustodyGroup?.name]);
+  const canReadBudget = canReadModule(perms, "budget");
+  const canWriteBudget = canWriteModule(perms, "budget");
 
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -293,7 +297,7 @@ export default function BudgetHub() {
     let cancelled = false;
 
     async function loadExpenses() {
-      if (!user || !custodyScopeId) {
+      if (!user || !custodyScopeId || !canReadBudget) {
         setExpenses([]);
         setLoading(false);
         return;
@@ -326,16 +330,32 @@ export default function BudgetHub() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid, custodyScopeFields, custodyScopeId]);
+  }, [user?.uid, custodyScopeFields, custodyScopeId, canReadBudget]);
 
   const summary = useMemo(() => getBudgetSummary(expenses), [expenses]);
 
   const openAddExpense = () => {
+    if (!canWriteBudget) {
+      showNotice({
+        title: "View-only budget",
+        message: "You can review this custody budget, but you do not have permission to make changes.",
+      });
+      return;
+    }
+
     setEditingExpense(null);
     setWizardOpen(true);
   };
 
   const openEditExpense = (expense) => {
+    if (!canWriteBudget) {
+      showNotice({
+        title: "View-only budget",
+        message: "You can review this custody budget, but you do not have permission to edit expenses.",
+      });
+      return;
+    }
+
     setEditingExpense(expense);
     setWizardOpen(true);
   };
@@ -366,7 +386,7 @@ export default function BudgetHub() {
   };
 
   const saveExpense = async (draftExpense) => {
-    if (!user || !custodyScopeId || savingExpense) return;
+    if (!user || !custodyScopeId || savingExpense || !canWriteBudget) return;
 
     if (!draftExpense.title) {
       showNotice({
@@ -436,7 +456,7 @@ export default function BudgetHub() {
   };
 
   const savePayment = async ({ amount, note = "" }) => {
-    if (!detailExpense || !user || !custodyScopeId || savingPayment) return;
+    if (!detailExpense || !user || !custodyScopeId || savingPayment || !canWriteBudget) return;
 
     const currentExpense = expenses.find((expense) => expense.id === detailExpense.id) || detailExpense;
     const currentLedger = currentExpense.ledger || getExpenseLedger(currentExpense);
@@ -523,7 +543,7 @@ export default function BudgetHub() {
   };
 
   const undoPayment = async (payment) => {
-    if (!detailExpense || !payment || !user || savingPayment) return;
+    if (!detailExpense || !payment || !user || savingPayment || !canWriteBudget) return;
 
     const currentExpense = expenses.find((expense) => expense.id === detailExpense.id) || detailExpense;
     const currentLedger = currentExpense.ledger || getExpenseLedger(currentExpense);
@@ -585,7 +605,7 @@ export default function BudgetHub() {
   };
 
   const setReview = async (reviewFlag, note = "") => {
-    if (!detailExpense || !user || savingPayment) return;
+    if (!detailExpense || !user || savingPayment || !canWriteBudget) return;
 
     const currentExpense = expenses.find((expense) => expense.id === detailExpense.id) || detailExpense;
     const updatedExpense = {
@@ -621,11 +641,19 @@ export default function BudgetHub() {
   };
 
   const deleteExpense = (expenseToDelete) => {
+    if (!canWriteBudget) {
+      showNotice({
+        title: "View-only budget",
+        message: "You can review this custody budget, but you do not have permission to delete expenses.",
+      });
+      return;
+    }
+
     setDeleteCandidate(expenseToDelete);
   };
 
   const confirmDeleteExpense = async () => {
-    if (!deleteCandidate || deletingExpense) return;
+    if (!deleteCandidate || deletingExpense || !canWriteBudget) return;
 
     const expenseToDelete = deleteCandidate;
     const previousExpenses = expenses;
@@ -648,6 +676,20 @@ export default function BudgetHub() {
       setDeletingExpense(false);
     }
   };
+
+  if (!canReadBudget) {
+    return (
+      <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
+        <Card className="mx-auto max-w-xl rounded-[2rem] border-white/80 bg-white p-6 text-center shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">Budget restricted</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">This custody budget is private</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+            A custody group admin can grant budget access from the group permissions.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="px-3 pb-28 pt-4 md:px-6 md:pb-8">
@@ -673,7 +715,7 @@ export default function BudgetHub() {
             icon={CheckCircle2}
             label="Fully paid"
             value={`${summary.paidCount}`}
-            helper={`${summary.partialCount} partial · ${summary.openCount} open · ${summary.reviewCount} review`}
+            helper={`${summary.partialCount} partial | ${summary.openCount} open | ${summary.reviewCount} review`}
             tone={summary.reviewCount > 0 ? "rose" : "emerald"}
           />
         </div>
@@ -689,9 +731,9 @@ export default function BudgetHub() {
                 </p>
               </div>
 
-              <Button type="button" onClick={openAddExpense} className="rounded-full gap-2">
+              <Button type="button" onClick={openAddExpense} disabled={!canWriteBudget} className="rounded-full gap-2">
                 <Plus className="h-4 w-4" />
-                Add expense
+                {canWriteBudget ? "Add expense" : "View only"}
               </Button>
             </div>
 
@@ -708,6 +750,7 @@ export default function BudgetHub() {
                   onOpen={setDetailExpense}
                   onEdit={openEditExpense}
                   onDelete={deleteExpense}
+                  canWrite={canWriteBudget}
                 />
               ))}
             </div>
@@ -766,6 +809,7 @@ export default function BudgetHub() {
           onUndo={undoPayment}
           onMarkReview={(note) => setReview(true, note)}
           onClearReview={() => setReview(false)}
+          canWrite={canWriteBudget}
         />
 
         <BudgetAppDialog

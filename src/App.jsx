@@ -110,6 +110,10 @@ function RequireModuleAccess({ children, moduleName = "", label = "this area" })
     return <AccessDenied moduleName={label} />;
   }
 
+  if (moduleName === "custody") {
+    return children;
+  }
+
   if (moduleName && !canReadModule(perms, moduleName)) {
     return <AccessDenied moduleName={label} />;
   }

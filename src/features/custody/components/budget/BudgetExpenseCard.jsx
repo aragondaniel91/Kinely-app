@@ -29,6 +29,7 @@ export default function BudgetExpenseCard({
   onOpen,
   onEdit,
   onDelete,
+  canWrite = true,
 }) {
   const ledger = expense.ledger || getExpenseLedger(expense);
   const dueStatus = getExpenseDueStatus(expense, ledger);
@@ -89,7 +90,7 @@ export default function BudgetExpenseCard({
           </div>
 
           <p className="mt-1 text-xs font-bold text-slate-500">
-            {expense.category} · {currency(ledger.amount)} · Split {ledger.splitType}
+            {expense.category} | {currency(ledger.amount)} | Split {ledger.splitType}
           </p>
 
           <div className="mt-3 grid gap-2 md:grid-cols-[1fr_150px]">
@@ -138,25 +139,27 @@ export default function BudgetExpenseCard({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => onEdit(expense)}
-            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-            aria-label={`Edit ${expense.title}`}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
+        {canWrite && (
+          <div className="flex shrink-0 items-center gap-2" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => onEdit(expense)}
+              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              aria-label={`Edit ${expense.title}`}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
 
-          <button
-            type="button"
-            onClick={() => onDelete(expense)}
-            className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-            aria-label={`Delete ${expense.title}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => onDelete(expense)}
+              className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+              aria-label={`Delete ${expense.title}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );
