@@ -19,7 +19,9 @@ import { uniqueFirestoreDocsFromSnapshots } from "@/core/firestore/firestoreDocU
 import { canReadModule } from "@/lib/modulePermissions";
 import {
   buildCustodyGroupAccessQueries,
-  custodyGroupBelongsToFamily,
+  custodyGroupIdsFromFamily,
+  getCustodyGroupsByIds,
+  shouldIncludeCustodyGroup,
 } from "@/lib/custodyGroupAccess";
 
 const custodyModules = [
@@ -195,7 +197,7 @@ export default function Custody() {
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [activityError, setActivityError] = useState("");
-  const { user, familyId, myEmail, perms } = useFamily();
+  const { user, profile, familyId, myEmail, perms } = useFamily();
 
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
   const canReadBudget = canReadModule(perms, "budget");
@@ -247,15 +249,20 @@ export default function Custody() {
           const groupResults = await Promise.allSettled(
             groupQueries.map((groupQuery) => getDocs(groupQuery))
           );
+          const linkedGroups = await getCustodyGroupsByIds(db, custodyGroupIdsFromFamily(profile));
 
-          uniqueFirestoreDocsFromSnapshots(
+          const queriedGroups = uniqueFirestoreDocsFromSnapshots(
             groupResults
               .filter((result) => result.status === "fulfilled")
               .map((result) => result.value)
-          ).forEach((docSnap) => {
-            const group = { id: docSnap.id, ...docSnap.data() };
-            if (!custodyGroupBelongsToFamily(group, familyId)) return;
-            familyIdsToWatch.add(docSnap.id);
+          ).map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+          const groups = [...linkedGroups, ...queriedGroups].filter((group, index, allGroups) => {
+            return group?.id && allGroups.findIndex((item) => item.id === group.id) === index;
+          });
+
+          groups.forEach((group) => {
+            if (!shouldIncludeCustodyGroup(group, { familyId, user, email })) return;
+            familyIdsToWatch.add(group.id);
           });
         } catch (error) {
           console.warn("Could not load custody spaces for audit log:", error);
@@ -306,7 +313,7 @@ export default function Custody() {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
       unsubscribers = [];
     };
-  }, [user, familyId, myEmail]);
+  }, [user, profile, familyId, myEmail]);
 
   useEffect(() => {
     if (!latestActivityId) return;

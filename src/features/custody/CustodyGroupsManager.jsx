@@ -33,9 +33,9 @@ import {
 } from "@/lib/custodyGroupUtils";
 import {
   buildCustodyGroupAccessQueries,
-  custodyGroupBelongsToFamily,
   custodyGroupIdsFromFamily,
   getCustodyGroupsByIds,
+  shouldIncludeCustodyGroup,
 } from "@/lib/custodyGroupAccess";
 import {
   buildCustodyInvitation,
@@ -462,7 +462,7 @@ export default function CustodyGroupsManager() {
           ...linkedGroups,
           ...mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }),
         ])
-          .filter((group) => custodyGroupBelongsToFamily(group, familyId))
+          .filter((group) => shouldIncludeCustodyGroup(group, { familyId, user, email }))
       );
     } catch (error) {
       console.error("Error loading custody groups:", error);

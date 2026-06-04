@@ -35,9 +35,9 @@ import {
 } from "@/lib/familyBootstrap";
 import {
   buildCustodyGroupAccessQueries,
-  custodyGroupBelongsToFamily,
   custodyGroupIdsFromFamily,
   getCustodyGroupsByIds,
+  shouldIncludeCustodyGroup,
 } from "@/lib/custodyGroupAccess";
 import {
   normalizeMemberRole,
@@ -867,7 +867,7 @@ export function FamilyProvider({ children }) {
             ...linkedGroups,
             ...mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }),
           ]
-        ).filter((group) => custodyGroupBelongsToFamily(group, activeFamilyId));
+        ).filter((group) => shouldIncludeCustodyGroup(group, { familyId: activeFamilyId, user, email }));
 
         if (!cancelled) setCustodyGroups(groups);
       } catch (error) {

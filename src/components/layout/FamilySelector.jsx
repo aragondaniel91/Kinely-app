@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
 import {
   buildCustodyGroupAccessQueries,
-  custodyGroupBelongsToFamily,
   custodyGroupIdsFromFamily,
   getCustodyGroupsByIds,
+  shouldIncludeCustodyGroup,
 } from "@/lib/custodyGroupAccess";
 
 import {
@@ -113,7 +113,7 @@ export default function FamilySelector() {
           ].filter((group, index, allGroups) => {
             return group?.id && allGroups.findIndex((item) => item.id === group.id) === index;
           });
-          setCustodyGroups(groups.filter((group) => custodyGroupBelongsToFamily(group, familyId)));
+          setCustodyGroups(groups.filter((group) => shouldIncludeCustodyGroup(group, { familyId, user, email })));
         }
       } catch (error) {
         console.warn("Could not load custody groups for selector:", error);

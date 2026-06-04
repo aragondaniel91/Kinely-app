@@ -15,9 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import {
   buildCustodyGroupAccessQueries,
-  custodyGroupBelongsToFamily,
   custodyGroupIdsFromFamily,
   getCustodyGroupsByIds,
+  shouldIncludeCustodyGroup,
 } from "@/lib/custodyGroupAccess";
 
 function normalizeEmail(value) {
@@ -358,7 +358,7 @@ export default function CustodyCalendarView({
           ...linkedGroups,
           ...mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }),
         ]
-          .filter((group) => custodyGroupBelongsToFamily(group, familyId));
+          .filter((group) => shouldIncludeCustodyGroup(group, { familyId, user, email: myEmail }));
         const uniqueData = data.filter((group, index, groups) => {
           return group?.id && groups.findIndex((item) => item.id === group.id) === index;
         });

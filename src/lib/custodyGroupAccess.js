@@ -24,6 +24,66 @@ export function custodyGroupBelongsToFamily(group = {}, familyId = "") {
   return linkedFamilyIds.length === 0 || linkedFamilyIds.includes(String(familyId));
 }
 
+function listIncludes(values, target) {
+  if (!target || !Array.isArray(values)) return false;
+  return values.map(String).includes(String(target));
+}
+
+function emailListIncludes(values, target) {
+  const cleanTarget = normalizeAccessEmail(target);
+  if (!cleanTarget || !Array.isArray(values)) return false;
+  return values.map(normalizeAccessEmail).includes(cleanTarget);
+}
+
+export function custodyGroupHasPrincipalAccess(group = {}, user, email) {
+  const uid = user?.uid || "";
+  const cleanEmail = normalizeAccessEmail(email || user?.email);
+
+  if (uid) {
+    const uidArrayFields = [
+      "custodyReaderIds",
+      "custody_reader_ids",
+      "custodyWriterIds",
+      "custody_writer_ids",
+      "memberIds",
+      "member_ids",
+      "viewerIds",
+      "viewer_ids",
+      "adminIds",
+      "admin_ids",
+    ];
+    const uidEqualFields = ["ownerId", "owner_id", "createdBy", "created_by"];
+
+    if (uidArrayFields.some((fieldName) => listIncludes(group[fieldName], uid))) return true;
+    if (uidEqualFields.some((fieldName) => String(group[fieldName] || "") === uid)) return true;
+  }
+
+  if (cleanEmail) {
+    const emailArrayFields = [
+      "custodyReaderEmails",
+      "custody_reader_emails",
+      "custodyWriterEmails",
+      "custody_writer_emails",
+      "memberEmails",
+      "member_emails",
+      "viewerEmails",
+      "viewer_emails",
+      "adminEmails",
+      "admin_emails",
+    ];
+    const emailEqualFields = ["ownerEmail", "owner_email", "createdByEmail", "created_by_email", "created_by"];
+
+    if (emailArrayFields.some((fieldName) => emailListIncludes(group[fieldName], cleanEmail))) return true;
+    if (emailEqualFields.some((fieldName) => normalizeAccessEmail(group[fieldName]) === cleanEmail)) return true;
+  }
+
+  return false;
+}
+
+export function shouldIncludeCustodyGroup(group = {}, { familyId, user, email } = {}) {
+  return custodyGroupBelongsToFamily(group, familyId) || custodyGroupHasPrincipalAccess(group, user, email);
+}
+
 export function custodyGroupIdsFromFamily(family = {}) {
   const linkedGroups = Array.isArray(family.custodyGroups) ? family.custodyGroups : [];
   const linkedGroupIds = linkedGroups
