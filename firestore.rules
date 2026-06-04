@@ -893,10 +893,10 @@ service cloud.firestore {
     match /custodyGroups/{groupId} {
       allow read: if canReadCustody(groupId);
       allow create: if signedIn()
-        && (
-          request.resource.data.ownerId == request.auth.uid
-          || userEmail() in listOrEmpty(request.resource.data.memberEmails)
-        );
+        && hasRequestFamilyId()
+        && canManageFamily(requestFamilyId())
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid;
       allow update: if canWriteCustody(groupId)
         || canAcceptCustodyMemberInvitationUpdate(groupId)
         || canAcceptCustodyViewerInvitationUpdate(groupId)

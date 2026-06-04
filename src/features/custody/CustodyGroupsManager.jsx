@@ -325,6 +325,7 @@ export default function CustodyGroupsManager() {
 
   const householdChildren = useMemo(() => getHouseholdChildren(profile), [profile]);
   const familyChildren = useMemo(() => householdChildren.map(childLabel).filter(Boolean), [householdChildren]);
+  const canCreateCustodyGroups = Boolean(isOwner || isAdmin);
 
   const loadGroups = async () => {
     const email = normalizeEmail(myEmail);
@@ -374,6 +375,15 @@ export default function CustodyGroupsManager() {
   };
 
   const startCreate = () => {
+    if (!canCreateCustodyGroups) {
+      showNotice({
+        tone: "warning",
+        title: "Admin access required",
+        message: "Only the owner or an admin of this family space can create a custody group here. If you need your own custody setup, create it inside your own family space.",
+      });
+      return;
+    }
+
     if (showForm && !editingGroupId) {
       resetForm();
       return;
@@ -459,6 +469,15 @@ export default function CustodyGroupsManager() {
     event.preventDefault();
 
     if (!user || !myEmail || saving) return;
+
+    if (!editingGroupId && !canCreateCustodyGroups) {
+      showNotice({
+        tone: "warning",
+        title: "Admin access required",
+        message: "Only the owner or an admin of this family space can create custody groups here.",
+      });
+      return;
+    }
 
     const cleanName = form.name.trim();
     const children = splitCsv(form.children);
@@ -785,10 +804,16 @@ export default function CustodyGroupsManager() {
           </p>
         </div>
 
-        <Button type="button" onClick={startCreate} className="w-fit gap-2 rounded-2xl">
-          <Plus className="h-4 w-4" />
-          {showForm && !editingGroupId ? "Close" : "New custody group"}
-        </Button>
+        {canCreateCustodyGroups ? (
+          <Button type="button" onClick={startCreate} className="w-fit gap-2 rounded-2xl">
+            <Plus className="h-4 w-4" />
+            {showForm && !editingGroupId ? "Close" : "New custody group"}
+          </Button>
+        ) : (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+            View access. Ask a family admin to create custody groups here.
+          </div>
+        )}
       </div>
 
       {familyChildren.length > 0 && (
