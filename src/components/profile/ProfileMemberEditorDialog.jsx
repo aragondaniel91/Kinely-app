@@ -561,6 +561,7 @@ export default function ProfileMemberEditorDialog({
   onClose,
   onSave,
   saving = false,
+  canManageAdminAccess = false,
 }) {
   if (!editor) return null;
 
@@ -589,6 +590,7 @@ export default function ProfileMemberEditorDialog({
     modules: normalizedModules,
   };
   const receivesFullAccess = safeEditor.admin;
+  const canToggleAdminAccess = !isOwner && !isChild && canManageAdminAccess === true;
 
   function patch(updates) {
     onChange?.({ ...safeEditor, ...updates });
@@ -646,6 +648,8 @@ export default function ProfileMemberEditorDialog({
   }
 
   function patchAdminAccess(checked) {
+    if (!canToggleAdminAccess) return;
+
     const nextModules = checked ? normalizeEditorModules({ ...safeEditor, modules: safeEditor.modules }) : safeEditor.modules;
     patch({
       admin: checked,
@@ -735,9 +739,14 @@ export default function ProfileMemberEditorDialog({
               <Switch
                 checked={safeEditor.admin}
                 onCheckedChange={patchAdminAccess}
-                disabled={isOwner}
+                disabled={!canToggleAdminAccess}
               />
             </label>
+            {!canToggleAdminAccess && !isOwner && (
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                Only the family owner can grant or remove admin access.
+              </p>
+            )}
           </div>
           )}
 

@@ -114,6 +114,23 @@ function uniqueClean(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function memberPersonId(member = {}) {
+  return member.personId || member.person_id || member.id || member.childId || member.child_id || "";
+}
+
+function memberEmail(member = {}) {
+  return normalizeEmail(member.email || member.ownerEmail || member.owner_email);
+}
+
+function isSelfMember(member = {}, user, myEmail) {
+  const uid = user?.uid || "";
+  const email = normalizeEmail(myEmail || user?.email);
+  return Boolean(
+    (uid && (member.uid === uid || memberPersonId(member) === uid)) ||
+      (email && memberEmail(member) === email)
+  );
+}
+
 function permissionAllowsRead(permission = {}) {
   return permission?.read === true || permission?.write === true || permission?.visible === true || permission?.assignable === true;
 }
@@ -297,15 +314,22 @@ function getMembers(profile, user, myEmail) {
   }
 
   function add(member) {
-    const key = member.personId || member.childId || normalizeEmail(member.email) || `${member.source}-${member.name}`.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
+    const keys = [
+      memberPersonId(member),
+      memberEmail(member),
+      member.childId || member.child_id || "",
+      `${member.source}-${member.name}`.toLowerCase(),
+    ].filter(Boolean);
+
+    if (keys.some((key) => seen.has(key))) return;
+    keys.forEach((key) => seen.add(key));
     result.push(member);
   }
 
   add({
     source: "owner",
     personId: profile?.parent1PersonId || profile?.parent1_person_id || user?.uid || "",
+    uid: user?.uid || profile?.ownerId || profile?.owner_id || "",
     name: profile?.parent1_name || profile?.parent1Name || user?.displayName || "Me",
     email: profile?.owner_email || profile?.ownerEmail || myEmail || user?.email || "",
     role: normalizeMemberRole(profile?.parent1_role || profile?.parent1Role, "parent"),
@@ -316,6 +340,7 @@ function getMembers(profile, user, myEmail) {
     showOnHomeDashboard: true,
     status: "active",
     locked: true,
+    owner: true,
   });
 
   if (profile?.parent2_name || profile?.parent2Name || profile?.parent2_email || profile?.parent2Email) {
@@ -405,10 +430,11 @@ function getMembers(profile, user, myEmail) {
   return result;
 }
 
-function MemberCard({ member, canEdit, onEdit, onDelete }) {
+function MemberCard({ member, canEdit, canDelete, onEdit, onDelete }) {
   const color = getColorMeta(member.color);
   const hasFullAccess = member.admin === true;
   const isChild = member.source === "child" || member.type === "child" || member.role === "child";
+  const isOwnerMember = member.source === "owner" || member.owner === true;
   const moduleBadges = editableModuleNames
     .map((moduleName) => {
       const access = getMemberModuleAccess(member, moduleName);
@@ -443,7 +469,9 @@ function MemberCard({ member, canEdit, onEdit, onDelete }) {
           {member.email || (isChild ? "Child profile" : "No email")}
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge variant={member.admin ? "secondary" : "outline"}>{member.admin ? "Admin" : isChild ? "Child" : member.role}</Badge>
+          <Badge variant={member.admin ? "secondary" : "outline"}>
+            {isOwnerMember ? "Owner" : member.admin ? "Admin" : isChild ? "Child" : member.role}
+          </Badge>
           {member.status === "pending" && (
             <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">
               Invitation pending
@@ -472,7 +500,7 @@ function MemberCard({ member, canEdit, onEdit, onDelete }) {
 
           {hasFullAccess && (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
-              Full family access
+              {isOwnerMember ? "Protected owner" : "Full family access"}
             </span>
           )}
 
@@ -501,7 +529,7 @@ function MemberCard({ member, canEdit, onEdit, onDelete }) {
         <Button
           type="button"
           variant="outline"
-          disabled={!canEdit || member.locked}
+          disabled={!canDelete}
           onClick={() => onDelete(member)}
           className="flex-1 gap-1 border-red-200 bg-red-50 text-xs text-red-700 hover:bg-red-100 hover:text-red-800 disabled:opacity-40"
         >
@@ -518,6 +546,7 @@ export default function ProfileMembersSection() {
     profile,
     familyId,
     isAdmin,
+    isOwner,
     myEmail,
     updateActiveFamily,
     refreshFamilies,
@@ -531,6 +560,40 @@ export default function ProfileMembersSection() {
 
   const members = useMemo(() => getMembers(profile, user, myEmail), [profile, user, myEmail]);
   const canEdit = isAdmin === true;
+  const acceptedAdminCount = useMemo(
+    () => members.filter((member) => member.status !== "pending" && isAdminMember(member)).length,
+    [members]
+  );
+
+  function canEditMember(member = {}) {
+    if (!canEdit) return false;
+    if (member.source === "owner" || member.owner === true || member.locked === true) return isOwner === true;
+    if (isAdminMember(member) && !isOwner) return false;
+    return true;
+  }
+
+  function canDeleteMember(member = {}) {
+    if (!canEdit || member?.locked || member?.source === "owner" || member?.owner === true) return false;
+    if (isSelfMember(member, user, myEmail)) return false;
+    if (isAdminMember(member) && acceptedAdminCount <= 1) return false;
+    return true;
+  }
+
+  function findExistingEditorMember(nextEditor = {}) {
+    const personId = nextEditor.personId || nextEditor.person_id || nextEditor.id || "";
+    const email = normalizeEmail(nextEditor.originalEmail || nextEditor.email);
+
+    return members.find((member) => {
+      const matchesBySource =
+        nextEditor.source &&
+        member.source === nextEditor.source &&
+        Number.isInteger(nextEditor.index) &&
+        member.index === nextEditor.index;
+      const matchesByPersonId = personId && memberPersonId(member) === personId;
+      const matchesByEmail = email && memberEmail(member) === email;
+      return matchesBySource || matchesByPersonId || matchesByEmail;
+    });
+  }
 
   function clearStatus() {
     setMessage("");
@@ -538,6 +601,8 @@ export default function ProfileMembersSection() {
   }
 
   function openAddMemberEditor() {
+    if (!canEdit) return;
+
     setEditor({
       mode: "add",
       source: "member",
@@ -555,6 +620,8 @@ export default function ProfileMembersSection() {
   }
 
   function openAddChildEditor() {
+    if (!canEdit) return;
+
     setEditor({
       mode: "add",
       source: "child",
@@ -572,6 +639,15 @@ export default function ProfileMembersSection() {
   }
 
   function openMemberEditor(member = {}) {
+    if (!canEditMember(member)) {
+      setError(
+        isAdminMember(member)
+          ? "Only the family owner can edit admin profiles."
+          : "Only the family owner can edit the owner profile."
+      );
+      return;
+    }
+
     setEditor({
       ...member,
       mode: "edit",
@@ -595,6 +671,11 @@ export default function ProfileMembersSection() {
 
   async function saveMember(nextEditor) {
     if (!nextEditor || !familyId || !canEdit) return;
+
+    if ((nextEditor.source === "owner" || nextEditor.owner === true || nextEditor.locked === true) && !isOwner) {
+      setError("Only the family owner can edit the owner profile.");
+      return;
+    }
 
     const email = normalizeEmail(nextEditor.email);
     const name = String(nextEditor.name || "").trim();
@@ -622,6 +703,24 @@ export default function ProfileMembersSection() {
       admin: nextEditor.admin === true,
       permissions,
     });
+    const existingEditorMember = findExistingEditorMember(nextEditor);
+    const adminChanged = Boolean(existingEditorMember) && isAdminMember(existingEditorMember) !== (nextEditor.admin === true);
+
+    if (isAdminMember(existingEditorMember) && !isOwner) {
+      setError("Only the family owner can edit admin profiles.");
+      return;
+    }
+
+    if (adminChanged && !isOwner) {
+      setError("Only the family owner can grant or remove admin access.");
+      return;
+    }
+
+    if (isAdminMember(existingEditorMember || nextEditor) && nextEditor.admin !== true && acceptedAdminCount <= 1) {
+      setError("This family needs at least one admin.");
+      return;
+    }
+
     const memberIdentityPayload = {
       id: personId,
       personId,
@@ -918,6 +1017,17 @@ export default function ProfileMembersSection() {
 
   async function deleteMember(member) {
     if (!familyId || !canEdit || member?.locked) return;
+
+    if (!canDeleteMember(member)) {
+      setError(
+        isSelfMember(member, user, myEmail)
+          ? "You cannot remove yourself from the active family space."
+          : "This member cannot be removed from this family space."
+      );
+      setConfirmDelete(null);
+      return;
+    }
+
     clearStatus();
     setSaving(true);
 
@@ -1045,9 +1155,12 @@ export default function ProfileMembersSection() {
               <MemberCard
                 key={`${member.source}-${member.email || member.name}-${index}`}
                 member={member}
-                canEdit={canEdit}
+                canEdit={canEditMember(member)}
+                canDelete={canDeleteMember(member)}
                 onEdit={openMemberEditor}
-                onDelete={(item) => setConfirmDelete(item)}
+                onDelete={(item) => {
+                  if (canDeleteMember(item)) setConfirmDelete(item);
+                }}
               />
             ))}
           </div>
@@ -1073,6 +1186,7 @@ export default function ProfileMembersSection() {
         onClose={() => setEditor(null)}
         onSave={saveMember}
         saving={saving}
+        canManageAdminAccess={isOwner === true}
       />
 
       <AppDialog
