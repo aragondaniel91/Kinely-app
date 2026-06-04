@@ -430,6 +430,7 @@ export function AuthProvider({ children }) {
             personType: parent2PersonType,
             livesHere: parent2LivesHere,
             showOnHomeDashboard: parent2ShowOnHomeDashboard,
+            color: cleanRole === "mom" ? "blue" : "amber",
             createdBy: result.user.uid,
             createdByEmail: cleanEmail,
             now,

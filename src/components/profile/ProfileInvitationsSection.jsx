@@ -7,6 +7,7 @@ import {
   doc,
   getDocs,
   query,
+  runTransaction,
   serverTimestamp,
   where,
   writeBatch,
@@ -93,6 +94,38 @@ function invitationGroupId(invitation) {
 
 function invitationFamilyName(invitation) {
   return invitation?.groupName || invitation?.group_name || invitation?.familyName || invitation?.family_name || "Family space";
+}
+
+function invitationWithoutClientFields(invitation = {}) {
+  const { collectionName, collection_name, ...data } = invitation;
+  return data;
+}
+
+function sameInvitation(left = {}, right = {}) {
+  const leftId = left.id || "";
+  const rightId = right.id || "";
+  const leftEmail = invitationEmail(left);
+  const rightEmail = invitationEmail(right);
+  const leftFamilyId = invitationFamilyId(left);
+  const rightFamilyId = invitationFamilyId(right);
+  const leftGroupId = invitationGroupId(left);
+  const rightGroupId = invitationGroupId(right);
+
+  return (
+    (leftId && rightId && leftId === rightId) ||
+    Boolean(
+      leftEmail &&
+        rightEmail &&
+        leftEmail === rightEmail &&
+        ((leftFamilyId && rightFamilyId && leftFamilyId === rightFamilyId) ||
+          (leftGroupId && rightGroupId && leftGroupId === rightGroupId))
+    )
+  );
+}
+
+function removeEmbeddedInvitation(list = [], invitation = {}) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => !sameInvitation(item, invitation));
 }
 
 function invitationRole(invitation) {
@@ -226,6 +259,11 @@ function buildAcceptedMember({ invitation, user, email }) {
     home_dashboard: showOnHomeDashboard,
     appRole,
     app_role: appRole,
+    color: invitation?.color || invitation?.colorId || invitation?.color_id || invitation?.familyColor || invitation?.family_color || "",
+    colorId: invitation?.colorId || invitation?.color_id || invitation?.color || invitation?.familyColor || invitation?.family_color || "",
+    color_id: invitation?.color_id || invitation?.colorId || invitation?.color || invitation?.familyColor || invitation?.family_color || "",
+    familyColor: invitation?.familyColor || invitation?.family_color || invitation?.color || invitation?.colorId || invitation?.color_id || "",
+    family_color: invitation?.family_color || invitation?.familyColor || invitation?.color || invitation?.colorId || invitation?.color_id || "",
     admin,
     isAdmin: admin,
     is_admin: admin,
@@ -236,6 +274,78 @@ function buildAcceptedMember({ invitation, user, email }) {
     modules: invitation?.modules || {},
     permissions: invitation?.permissions || DEFAULT_MEMBER_PERMISSIONS,
   };
+}
+
+function uniqueStrings(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function memberMatchesAcceptedInvite(member = {}, acceptedMember = {}, invitation = {}) {
+  const memberEmail = normalizeInviteEmail(member.email);
+  const acceptedEmail = normalizeInviteEmail(acceptedMember.email);
+  const memberPersonId = member.personId || member.person_id || member.id || "";
+  const acceptedPersonId = acceptedMember.personId || acceptedMember.person_id || acceptedMember.id || "";
+  const memberInvitationId = member.invitationId || member.invitation_id || "";
+
+  return (
+    (acceptedMember.uid && member.uid === acceptedMember.uid) ||
+    (acceptedEmail && memberEmail === acceptedEmail) ||
+    (acceptedPersonId && memberPersonId === acceptedPersonId) ||
+    (invitation.id && memberInvitationId === invitation.id)
+  );
+}
+
+function mergeAcceptedMember(existingMember = {}, acceptedMember = {}) {
+  const color =
+    acceptedMember.color ||
+    acceptedMember.colorId ||
+    acceptedMember.color_id ||
+    acceptedMember.familyColor ||
+    acceptedMember.family_color ||
+    existingMember.color ||
+    existingMember.colorId ||
+    existingMember.color_id ||
+    existingMember.familyColor ||
+    existingMember.family_color ||
+    "teal";
+
+  return {
+    ...existingMember,
+    ...acceptedMember,
+    color,
+    colorId: color,
+    color_id: color,
+    familyColor: color,
+    family_color: color,
+    invitationStatus: "accepted",
+    invitation_status: "accepted",
+    status: "active",
+  };
+}
+
+function mergeAcceptedMemberIntoFamilyMembers(members = [], acceptedMember = {}, invitation = {}) {
+  const currentMembers = Array.isArray(members) ? members : [];
+  let merged = false;
+
+  const nextMembers = currentMembers.reduce((result, member) => {
+    if (!memberMatchesAcceptedInvite(member, acceptedMember, invitation)) {
+      result.push(member);
+      return result;
+    }
+
+    if (!merged) {
+      result.push(mergeAcceptedMember(member, acceptedMember));
+      merged = true;
+    }
+
+    return result;
+  }, []);
+
+  if (!merged) {
+    nextMembers.push(mergeAcceptedMember({}, acceptedMember));
+  }
+
+  return nextMembers;
 }
 
 async function readInvitationDocs(collectionName, email) {
@@ -412,6 +522,8 @@ export default function ProfileInvitationsSection() {
       });
 
       const groupUpdate = {
+        pendingInvites: arrayRemove(invitationWithoutClientFields(invitation)),
+        pending_invites: arrayRemove(invitationWithoutClientFields(invitation)),
         updatedAt: serverTimestamp(),
       };
 
@@ -469,62 +581,87 @@ export default function ProfileInvitationsSection() {
     setError("");
 
     try {
-      const batch = writeBatch(db);
       const invitationRef = doc(db, "familyInvitations", invitation.id);
       const familyRef = doc(db, "families", familyId);
       const userRef = doc(db, "users", user.uid);
       const member = buildAcceptedMember({ invitation, user, email: recipientEmail });
 
-      batch.update(invitationRef, {
-        status: INVITATION_STATUS.ACCEPTED,
-        acceptedBy: user.uid,
-        accepted_by: user.uid,
-        acceptedAt: serverTimestamp(),
-        accepted_at: new Date().toISOString(),
-        updatedAt: serverTimestamp(),
-        updated_at: new Date().toISOString(),
-      });
+      await runTransaction(db, async (transaction) => {
+        const familySnap = await transaction.get(familyRef);
+        if (!familySnap.exists()) {
+          throw new Error("Family space was not found.");
+        }
 
-      const familyUpdate = {
-        memberIds: arrayUnion(user.uid),
-        memberEmails: arrayUnion(recipientEmail),
-        member_emails: arrayUnion(recipientEmail),
-        pendingMemberEmails: arrayRemove(recipientEmail),
-        pending_member_emails: arrayRemove(recipientEmail),
-        members: arrayUnion(member),
-        updatedAt: serverTimestamp(),
-      };
+        const family = familySnap.data();
+        const memberIds = uniqueStrings([
+          ...(Array.isArray(family.memberIds) ? family.memberIds : []),
+          user.uid,
+        ]);
+        const memberEmails = uniqueStrings([
+          ...(Array.isArray(family.memberEmails) ? family.memberEmails : []),
+          recipientEmail,
+        ]);
+        const pendingMemberEmails = uniqueStrings(
+          (Array.isArray(family.pendingMemberEmails) ? family.pendingMemberEmails : [])
+            .filter((item) => normalizeInviteEmail(item) !== recipientEmail)
+        );
+        const pendingMemberEmailsSnake = uniqueStrings(
+          (Array.isArray(family.pending_member_emails) ? family.pending_member_emails : [])
+            .filter((item) => normalizeInviteEmail(item) !== recipientEmail)
+        );
+        const members = mergeAcceptedMemberIntoFamilyMembers(family.members, member, invitation);
 
-      if (member.isAdmin === true) {
-        familyUpdate.adminIds = arrayUnion(user.uid);
-        familyUpdate.admin_ids = arrayUnion(user.uid);
-        familyUpdate.adminEmails = arrayUnion(recipientEmail);
-        familyUpdate.admin_emails = arrayUnion(recipientEmail);
-      } else {
-        Object.assign(
-          familyUpdate,
-          buildFamilyModuleArrayUnionUpdates({
+        transaction.update(invitationRef, {
+          status: INVITATION_STATUS.ACCEPTED,
+          acceptedBy: user.uid,
+          accepted_by: user.uid,
+          acceptedAt: serverTimestamp(),
+          accepted_at: new Date().toISOString(),
+          updatedAt: serverTimestamp(),
+          updated_at: new Date().toISOString(),
+        });
+
+        const familyUpdate = {
+          memberIds,
+          memberEmails,
+          member_emails: memberEmails,
+          pendingMemberEmails,
+          pending_member_emails: pendingMemberEmailsSnake,
+          pendingInvites: removeEmbeddedInvitation(family.pendingInvites, invitation),
+          pending_invites: removeEmbeddedInvitation(family.pending_invites, invitation),
+          members,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (member.isAdmin === true) {
+          familyUpdate.adminIds = arrayUnion(user.uid);
+          familyUpdate.admin_ids = arrayUnion(user.uid);
+          familyUpdate.adminEmails = arrayUnion(recipientEmail);
+          familyUpdate.admin_emails = arrayUnion(recipientEmail);
+        } else {
+          Object.assign(
+            familyUpdate,
+            buildFamilyModuleArrayUnionUpdates({
+              uid: user.uid,
+              email: recipientEmail,
+              permissions: member.permissions || DEFAULT_MEMBER_PERMISSIONS,
+            })
+          );
+        }
+
+        transaction.update(familyRef, familyUpdate);
+
+        transaction.set(
+          userRef,
+          {
             uid: user.uid,
             email: recipientEmail,
-            permissions: member.permissions || DEFAULT_MEMBER_PERMISSIONS,
-          })
+            familyIds: arrayUnion(familyId),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
         );
-      }
-
-      batch.update(familyRef, familyUpdate);
-
-      batch.set(
-        userRef,
-        {
-          uid: user.uid,
-          email: recipientEmail,
-          familyIds: arrayUnion(familyId),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      await batch.commit();
+      });
       await refreshFamilies?.();
       setActiveProfileId?.(familyId);
       removeInvitationFromList(invitation);
@@ -567,6 +704,8 @@ export default function ProfileInvitationsSection() {
         pending_member_emails: arrayRemove(recipientEmail),
         pendingViewerEmails: arrayRemove(recipientEmail),
         pending_viewer_emails: arrayRemove(recipientEmail),
+        pendingInvites: arrayRemove(invitationWithoutClientFields(invitation)),
+        pending_invites: arrayRemove(invitationWithoutClientFields(invitation)),
         updatedAt: serverTimestamp(),
       });
 
@@ -614,6 +753,8 @@ export default function ProfileInvitationsSection() {
       batch.update(familyRef, {
         pendingMemberEmails: arrayRemove(recipientEmail),
         pending_member_emails: arrayRemove(recipientEmail),
+        pendingInvites: arrayRemove(invitationWithoutClientFields(invitation)),
+        pending_invites: arrayRemove(invitationWithoutClientFields(invitation)),
         updatedAt: serverTimestamp(),
       });
 

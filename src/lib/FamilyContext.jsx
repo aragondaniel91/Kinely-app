@@ -919,6 +919,7 @@ export function FamilyProvider({ children }) {
           personType: parent2PersonType,
           livesHere: parent2LivesHere,
           showOnHomeDashboard: parent2ShowOnHomeDashboard,
+          color: "amber",
           createdBy: user.uid,
           createdByEmail: ownerEmail,
         })

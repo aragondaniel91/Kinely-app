@@ -865,6 +865,7 @@ export default function ProfileMembersSection() {
           personType: type,
           livesHere,
           showOnHomeDashboard,
+          color,
           modules,
           permissions,
           admin: nextEditor.admin === true,

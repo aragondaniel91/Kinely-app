@@ -506,6 +506,24 @@ service cloud.firestore {
         && listOrEmpty(after).hasOnly(listOrEmpty(before).concat([userEmail()]));
     }
 
+    function emailListRemovesOnlyCurrentUser(after, before) {
+      return userEmail() in listOrEmpty(before)
+        && !(userEmail() in listOrEmpty(after))
+        && listOrEmpty(before).hasAll(listOrEmpty(after))
+        && listOrEmpty(after).hasOnly(listOrEmpty(before))
+        && listOrEmpty(after).size() == listOrEmpty(before).size() - 1;
+    }
+
+    function emailListRemovesCurrentUserOrPreserved(after, before) {
+      return (
+        userEmail() in listOrEmpty(before)
+        && emailListRemovesOnlyCurrentUser(after, before)
+      ) || (
+        !(userEmail() in listOrEmpty(before))
+        && listPreserved(after, before)
+      );
+    }
+
     function moduleReadArraysAllowed(dataAfter, dataBefore, moduleName, granted) {
       return granted
         ? (
@@ -611,9 +629,9 @@ service cloud.firestore {
         && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
         && request.auth.uid in listOrEmpty(request.resource.data.memberIds)
         && userEmail() in listOrEmpty(request.resource.data.memberEmails)
-        && !(userEmail() in listOrEmpty(request.resource.data.pendingMemberEmails))
-        && familyMemberEmailsPreserved()
-        && familyMemberIdsPreserved()
+        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
+        && idListAddsOnlyCurrentUser(request.resource.data.memberIds, resource.data.memberIds)
+        && emailListAddsOnlyCurrentUser(request.resource.data.memberEmails, resource.data.memberEmails)
         && currentUserFamilyInvitationAfterStatus(familyId, "accepted")
         && (
           (
@@ -623,6 +641,8 @@ service cloud.firestore {
               "member_emails",
               "pendingMemberEmails",
               "pending_member_emails",
+              "pendingInvites",
+              "pending_invites",
               "members",
               "homeReaderIds",
               "homeWriterIds",
@@ -668,14 +688,16 @@ service cloud.firestore {
             currentUserFamilyInvitationAfterGrantsAdmin(familyId)
             && request.auth.uid in listOrEmpty(request.resource.data.adminIds)
             && userEmail() in listOrEmpty(request.resource.data.adminEmails)
-            && familyAdminEmailsPreserved()
-            && familyAdminIdsPreserved()
+            && idListAddsOnlyCurrentUser(request.resource.data.adminIds, resource.data.adminIds)
+            && emailListAddsOnlyCurrentUser(request.resource.data.adminEmails, resource.data.adminEmails)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               "memberIds",
               "memberEmails",
               "member_emails",
               "pendingMemberEmails",
               "pending_member_emails",
+              "pendingInvites",
+              "pending_invites",
               "members",
               "adminIds",
               "admin_ids",
@@ -691,11 +713,13 @@ service cloud.firestore {
       return signedIn()
         && familyExists(familyId)
         && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
-        && !(userEmail() in listOrEmpty(request.resource.data.pendingMemberEmails))
+        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
         && currentUserFamilyInvitationAfterStatus(familyId, "declined")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "pendingMemberEmails",
           "pending_member_emails",
+          "pendingInvites",
+          "pending_invites",
           "updatedAt"
         ]);
     }
@@ -726,9 +750,9 @@ service cloud.firestore {
         && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
         && request.auth.uid in listOrEmpty(request.resource.data.memberIds)
         && userEmail() in listOrEmpty(request.resource.data.memberEmails)
-        && !(userEmail() in listOrEmpty(request.resource.data.pendingMemberEmails))
-        && custodyMemberEmailsPreserved()
-        && custodyMemberIdsPreserved()
+        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
+        && idListAddsOnlyCurrentUser(request.resource.data.memberIds, resource.data.memberIds)
+        && emailListAddsOnlyCurrentUser(request.resource.data.memberEmails, resource.data.memberEmails)
         && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "memberIds",
@@ -736,6 +760,8 @@ service cloud.firestore {
           "member_emails",
           "pendingMemberEmails",
           "pending_member_emails",
+          "pendingInvites",
+          "pending_invites",
           "custodyReaderIds",
           "custodyWriterIds",
           "custodyReaderEmails",
@@ -755,9 +781,9 @@ service cloud.firestore {
         && userEmail() in listOrEmpty(resource.data.pendingViewerEmails)
         && request.auth.uid in listOrEmpty(request.resource.data.viewerIds)
         && userEmail() in listOrEmpty(request.resource.data.viewerEmails)
-        && !(userEmail() in listOrEmpty(request.resource.data.pendingViewerEmails))
-        && custodyViewerEmailsPreserved()
-        && custodyViewerIdsPreserved()
+        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingViewerEmails, resource.data.pendingViewerEmails)
+        && idListAddsOnlyCurrentUser(request.resource.data.viewerIds, resource.data.viewerIds)
+        && emailListAddsOnlyCurrentUser(request.resource.data.viewerEmails, resource.data.viewerEmails)
         && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "viewerIds",
@@ -765,6 +791,8 @@ service cloud.firestore {
           "viewer_emails",
           "pendingViewerEmails",
           "pending_viewer_emails",
+          "pendingInvites",
+          "pending_invites",
           "custodyReaderIds",
           "custodyWriterIds",
           "custodyReaderEmails",
@@ -785,14 +813,16 @@ service cloud.firestore {
           userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
           || userEmail() in listOrEmpty(resource.data.pendingViewerEmails)
         )
-        && !(userEmail() in listOrEmpty(request.resource.data.pendingMemberEmails))
-        && !(userEmail() in listOrEmpty(request.resource.data.pendingViewerEmails))
+        && emailListRemovesCurrentUserOrPreserved(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
+        && emailListRemovesCurrentUserOrPreserved(request.resource.data.pendingViewerEmails, resource.data.pendingViewerEmails)
         && currentUserCustodyInvitationAfterStatus(groupId, "declined")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "pendingMemberEmails",
           "pending_member_emails",
           "pendingViewerEmails",
           "pending_viewer_emails",
+          "pendingInvites",
+          "pending_invites",
           "updatedAt"
         ]);
     }
