@@ -34,6 +34,10 @@ import {
   findExistingFamilyIdForUser,
 } from "@/lib/familyBootstrap";
 import {
+  buildCustodyGroupAccessQueries,
+  custodyGroupBelongsToFamily,
+} from "@/lib/custodyGroupAccess";
+import {
   normalizeMemberRole,
   oppositeParentRole,
   roleDefaultLivesHere,
@@ -113,23 +117,6 @@ function uniqueFirestoreDocs(docs = []) {
     seen.add(doc.id);
     return true;
   });
-}
-
-function custodyGroupBelongsToFamily(group = {}, familyId = "") {
-  if (!familyId) return false;
-
-  const linkedFamilyIds = [
-    group.familyId,
-    group.family_id,
-    group.householdFamilyId,
-    group.household_family_id,
-    ...(Array.isArray(group.linkedFamilyIds) ? group.linkedFamilyIds : []),
-    ...(Array.isArray(group.linked_family_ids) ? group.linked_family_ids : []),
-  ]
-    .filter(Boolean)
-    .map(String);
-
-  return linkedFamilyIds.includes(String(familyId));
 }
 
 async function getFamiliesByMemberEmail(email) {
@@ -861,13 +848,15 @@ export function FamilyProvider({ children }) {
 
       try {
         const groupRef = collection(db, "custodyGroups");
-        const results = await Promise.allSettled([
-          getDocs(query(groupRef, where("custodyReaderEmails", "array-contains", email))),
-          getDocs(query(groupRef, where("custodyReaderIds", "array-contains", user.uid))),
-          getDocs(query(groupRef, where("adminIds", "array-contains", user.uid))),
-          getDocs(query(groupRef, where("ownerId", "==", user.uid))),
-          getDocs(query(groupRef, where("createdBy", "==", user.uid))),
-        ]);
+        const groupQueries = buildCustodyGroupAccessQueries({
+          collectionRef: groupRef,
+          user,
+          email,
+          familyId: activeFamilyId,
+        });
+        const results = await Promise.allSettled(
+          groupQueries.map((groupQuery) => getDocs(groupQuery))
+        );
 
         const groups = uniqueFirestoreDocs(
           mapSettledFirestoreSnapshots(results, { type: "custodyGroup" })

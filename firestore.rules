@@ -200,7 +200,17 @@ service cloud.firestore {
 
     function isCustodyOwner(familyId) {
       return custodyGroupExists(familyId)
-        && request.auth.uid == custodyGroupDoc(familyId).data.ownerId;
+        && (
+          request.auth.uid == custodyGroupDoc(familyId).data.ownerId
+          || request.auth.uid == custodyGroupDoc(familyId).data.owner_id
+          || request.auth.uid == custodyGroupDoc(familyId).data.createdBy
+          || request.auth.uid == custodyGroupDoc(familyId).data.created_by
+          || userEmail() == custodyGroupDoc(familyId).data.ownerEmail
+          || userEmail() == custodyGroupDoc(familyId).data.owner_email
+          || userEmail() == custodyGroupDoc(familyId).data.createdByEmail
+          || userEmail() == custodyGroupDoc(familyId).data.created_by_email
+          || userEmail() == custodyGroupDoc(familyId).data.created_by
+        );
     }
 
     function isCustodyAdmin(familyId) {
@@ -228,17 +238,64 @@ service cloud.firestore {
     function isCustodyMember(familyId) {
       return isCustodyAdmin(familyId)
         || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.memberIds)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.memberEmails);
+        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.member_ids)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.memberEmails)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.member_emails);
     }
 
     function isCustodyViewer(familyId) {
       return isCustodyMember(familyId)
         || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.viewerIds)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.viewerEmails);
+        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.viewer_ids)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.viewerEmails)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.viewer_emails)
+        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custodyReaderIds)
+        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custody_reader_ids)
+        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custodyWriterIds)
+        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custody_writer_ids)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custodyReaderEmails)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custody_reader_emails)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custodyWriterEmails)
+        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custody_writer_emails);
+    }
+
+    function custodyGroupFamilyId(familyId) {
+      return custodyGroupDoc(familyId).data.familyId is string
+        ? custodyGroupDoc(familyId).data.familyId
+        : custodyGroupDoc(familyId).data.family_id is string
+        ? custodyGroupDoc(familyId).data.family_id
+        : custodyGroupDoc(familyId).data.householdFamilyId is string
+        ? custodyGroupDoc(familyId).data.householdFamilyId
+        : custodyGroupDoc(familyId).data.household_family_id is string
+        ? custodyGroupDoc(familyId).data.household_family_id
+        : "";
+    }
+
+    function canReadCustodyFromLinkedFamily(familyId) {
+      return custodyGroupExists(familyId)
+        && custodyGroupFamilyId(familyId) != ""
+        && familyExists(custodyGroupFamilyId(familyId))
+        && (
+          canManageFamily(custodyGroupFamilyId(familyId))
+          || hasModuleReadGrant(familyDoc(custodyGroupFamilyId(familyId)).data, "custody")
+          || hasModuleWriteGrant(familyDoc(custodyGroupFamilyId(familyId)).data, "custody")
+        );
+    }
+
+    function canWriteCustodyFromLinkedFamily(familyId) {
+      return custodyGroupExists(familyId)
+        && custodyGroupFamilyId(familyId) != ""
+        && familyExists(custodyGroupFamilyId(familyId))
+        && (
+          canManageFamily(custodyGroupFamilyId(familyId))
+          || hasModuleWriteGrant(familyDoc(custodyGroupFamilyId(familyId)).data, "custody")
+        );
     }
 
     function canReadCustody(familyId) {
       return isCustodyAdmin(familyId)
+        || isCustodyViewer(familyId)
+        || canReadCustodyFromLinkedFamily(familyId)
         || (
           custodyGroupExists(familyId)
           && hasModuleReadGrant(custodyGroupDoc(familyId).data, "custody")
@@ -247,6 +304,7 @@ service cloud.firestore {
 
     function canWriteCustody(familyId) {
       return isCustodyAdmin(familyId)
+        || canWriteCustodyFromLinkedFamily(familyId)
         || (
           custodyGroupExists(familyId)
           && hasModuleWriteGrant(custodyGroupDoc(familyId).data, "custody")

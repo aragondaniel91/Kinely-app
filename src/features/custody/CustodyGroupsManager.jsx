@@ -31,6 +31,10 @@ import {
   normalizeKey,
 } from "@/lib/custodyGroupUtils";
 import {
+  buildCustodyGroupAccessQueries,
+  custodyGroupBelongsToFamily,
+} from "@/lib/custodyGroupAccess";
+import {
   buildCustodyInvitation,
   custodyInvitationId,
   withPendingCustodyInvitation,
@@ -435,19 +439,24 @@ export default function CustodyGroupsManager() {
 
     try {
       const ref = collection(db, "custodyGroups");
-      const results = await Promise.allSettled([
-        getDocs(query(ref, where("custodyReaderEmails", "array-contains", email))),
-        getDocs(query(ref, where("custodyReaderIds", "array-contains", user?.uid || ""))),
-        getDocs(query(ref, where("adminIds", "array-contains", user?.uid || ""))),
-        getDocs(query(ref, where("ownerId", "==", user?.uid || ""))),
-        getDocs(query(ref, where("createdBy", "==", user?.uid || ""))),
-      ]);
+      const groupQueries = buildCustodyGroupAccessQueries({
+        collectionRef: ref,
+        user,
+        email,
+        familyId,
+      });
+      const results = await Promise.allSettled(
+        groupQueries.map((groupQuery) => getDocs(groupQuery))
+      );
 
       if (results.every((result) => result.status === "rejected")) {
         throw results[0].reason;
       }
 
-      setGroups(mergeCustodyGroups(mapSettledFirestoreSnapshots(results, { type: "custodyGroup" })));
+      setGroups(
+        mergeCustodyGroups(mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }))
+          .filter((group) => custodyGroupBelongsToFamily(group, familyId))
+      );
     } catch (error) {
       console.error("Error loading custody groups:", error);
       setGroups([]);
@@ -458,7 +467,7 @@ export default function CustodyGroupsManager() {
 
   useEffect(() => {
     loadGroups();
-  }, [myEmail, familyId]);
+  }, [myEmail, familyId, user]);
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));

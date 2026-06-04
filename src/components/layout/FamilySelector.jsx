@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Baby, CalendarHeart, Check, ChevronDown, Eye, HeartPulse, Home, Plus } from "lucide-react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 
 import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
+import {
+  buildCustodyGroupAccessQueries,
+  custodyGroupBelongsToFamily,
+} from "@/lib/custodyGroupAccess";
 
 import {
   DropdownMenu,
@@ -70,7 +74,7 @@ function familyIsAdmin(family, email) {
 }
 
 export default function FamilySelector() {
-  const { profile, allProfiles, myEmail, familyId, setActiveProfileId, isLoading } = useFamily();
+  const { user, profile, allProfiles, myEmail, familyId, setActiveProfileId, isLoading } = useFamily();
   const navigate = useNavigate();
   const [custodyGroups, setCustodyGroups] = useState([]);
 
@@ -86,16 +90,12 @@ export default function FamilySelector() {
 
       try {
         const ref = collection(db, "custodyGroups");
-        const querySpecs = [
-          query(ref, where("memberEmails", "array-contains", email)),
-          query(ref, where("member_emails", "array-contains", email)),
-          query(ref, where("viewerEmails", "array-contains", email)),
-          query(ref, where("viewer_emails", "array-contains", email)),
-          query(ref, where("adminEmails", "array-contains", email)),
-          query(ref, where("admin_emails", "array-contains", email)),
-          query(ref, where("ownerEmail", "==", email)),
-          query(ref, where("owner_email", "==", email)),
-        ];
+        const querySpecs = buildCustodyGroupAccessQueries({
+          collectionRef: ref,
+          user,
+          email,
+          familyId,
+        });
 
         const results = await Promise.allSettled(querySpecs.map((custodyQuery) => getDocs(custodyQuery)));
 
@@ -105,17 +105,7 @@ export default function FamilySelector() {
 
         if (!cancelled) {
           const groups = mapSettledFirestoreSnapshots(results, { type: "custodyGroup" });
-          setCustodyGroups(groups.filter((group) => {
-            const linkedFamilies = [
-              group.familyId,
-              group.family_id,
-              group.householdFamilyId,
-              group.household_family_id,
-              ...(Array.isArray(group.linkedFamilyIds) ? group.linkedFamilyIds : []),
-            ].filter(Boolean);
-
-            return !familyId || linkedFamilies.length === 0 || linkedFamilies.includes(familyId);
-          }));
+          setCustodyGroups(groups.filter((group) => custodyGroupBelongsToFamily(group, familyId)));
         }
       } catch (error) {
         console.warn("Could not load custody groups for selector:", error);
@@ -128,7 +118,7 @@ export default function FamilySelector() {
     return () => {
       cancelled = true;
     };
-  }, [myEmail, familyId]);
+  }, [myEmail, familyId, user]);
 
   if (isLoading) {
     return (

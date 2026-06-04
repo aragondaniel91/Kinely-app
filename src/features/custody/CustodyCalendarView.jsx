@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Baby } from "lucide-react";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { FamilyContext, useFamily } from "@/lib/FamilyContext";
@@ -13,6 +13,10 @@ import SmartNotificationsHub from "@/features/custody/SmartNotificationsHub";
 import BudgetHub from "@/features/custody/BudgetHub";
 import { Badge } from "@/components/ui/badge";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
+import {
+  buildCustodyGroupAccessQueries,
+  custodyGroupBelongsToFamily,
+} from "@/lib/custodyGroupAccess";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -315,19 +319,22 @@ export default function CustodyCalendarView({
 
       try {
         const collectionRef = collection(db, "custodyGroups");
-        const results = await Promise.allSettled([
-          getDocs(query(collectionRef, where("custodyReaderEmails", "array-contains", myEmail))),
-          getDocs(query(collectionRef, where("custodyReaderIds", "array-contains", user?.uid || ""))),
-          getDocs(query(collectionRef, where("adminIds", "array-contains", user?.uid || ""))),
-          getDocs(query(collectionRef, where("ownerId", "==", user?.uid || ""))),
-          getDocs(query(collectionRef, where("createdBy", "==", user?.uid || ""))),
-        ]);
+        const groupQueries = buildCustodyGroupAccessQueries({
+          collectionRef,
+          user,
+          email: myEmail,
+          familyId,
+        });
+        const results = await Promise.allSettled(
+          groupQueries.map((groupQuery) => getDocs(groupQuery))
+        );
 
         if (results.every((result) => result.status === "rejected")) {
           throw results[0].reason;
         }
 
-        const data = mapSettledFirestoreSnapshots(results, { type: "custodyGroup" });
+        const data = mapSettledFirestoreSnapshots(results, { type: "custodyGroup" })
+          .filter((group) => custodyGroupBelongsToFamily(group, familyId));
 
         if (!cancelled) {
           setGroups(data);

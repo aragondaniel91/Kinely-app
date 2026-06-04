@@ -17,6 +17,10 @@ import { useFamily } from "@/lib/FamilyContext";
 import { db } from "@/lib/firebase";
 import { uniqueFirestoreDocsFromSnapshots } from "@/core/firestore/firestoreDocUtils";
 import { canReadModule } from "@/lib/modulePermissions";
+import {
+  buildCustodyGroupAccessQueries,
+  custodyGroupBelongsToFamily,
+} from "@/lib/custodyGroupAccess";
 
 const custodyModules = [
   {
@@ -234,19 +238,25 @@ export default function Custody() {
       if (email) {
         try {
           const groupRef = collection(db, "custodyGroups");
-          const groupResults = await Promise.allSettled([
-            getDocs(query(groupRef, where("custodyReaderEmails", "array-contains", email))),
-            getDocs(query(groupRef, where("custodyReaderIds", "array-contains", user.uid))),
-            getDocs(query(groupRef, where("adminIds", "array-contains", user.uid))),
-            getDocs(query(groupRef, where("ownerId", "==", user.uid))),
-            getDocs(query(groupRef, where("createdBy", "==", user.uid))),
-          ]);
+          const groupQueries = buildCustodyGroupAccessQueries({
+            collectionRef: groupRef,
+            user,
+            email,
+            familyId,
+          });
+          const groupResults = await Promise.allSettled(
+            groupQueries.map((groupQuery) => getDocs(groupQuery))
+          );
 
           uniqueFirestoreDocsFromSnapshots(
             groupResults
               .filter((result) => result.status === "fulfilled")
               .map((result) => result.value)
-          ).forEach((docSnap) => familyIdsToWatch.add(docSnap.id));
+          ).forEach((docSnap) => {
+            const group = { id: docSnap.id, ...docSnap.data() };
+            if (!custodyGroupBelongsToFamily(group, familyId)) return;
+            familyIdsToWatch.add(docSnap.id);
+          });
         } catch (error) {
           console.warn("Could not load custody spaces for audit log:", error);
         }
