@@ -129,13 +129,13 @@ export function buildFamilyInvitationEmailPayload({ invitation, familyName, invi
   });
   const subject = `You're invited to join ${safeFamilyName}`;
   const text = [
-    `${safeInviterName} invited you to join ${safeFamilyName} on Family Wall.`,
+    `${safeInviterName} invited you to join ${safeFamilyName} on Kinely.`,
     "Create or sign in with this same email address so the app can match your invitation.",
     `Open the invitation: ${actionUrl}`,
   ].join("\n\n");
   const html = invitationHtml({
     heading: subject,
-    intro: `${safeInviterName} invited you to join ${safeFamilyName} on Family Wall. Use this same email address when creating or signing in to your account.`,
+    intro: `${safeInviterName} invited you to join ${safeFamilyName} on Kinely. Use this same email address when creating or signing in to your account.`,
     actionUrl,
     fallbackText: "If the button does not work, copy and paste this link into your browser.",
   });
@@ -172,13 +172,13 @@ export function buildCustodyInvitationEmailPayload({ invitation, groupName, invi
   });
   const subject = `You're invited to ${safeGroupName}`;
   const text = [
-    `${safeInviterName} invited you to join ${safeGroupName} on Family Wall.`,
+    `${safeInviterName} invited you to join ${safeGroupName} on Kinely.`,
     "Create or sign in with this same email address so the app can match your custody invitation.",
     `Open the invitation: ${actionUrl}`,
   ].join("\n\n");
   const html = invitationHtml({
     heading: subject,
-    intro: `${safeInviterName} invited you to join ${safeGroupName} on Family Wall. Use this same email address when creating or signing in to your account.`,
+    intro: `${safeInviterName} invited you to join ${safeGroupName} on Kinely. Use this same email address when creating or signing in to your account.`,
     actionUrl,
     fallbackText: "If the button does not work, copy and paste this link into your browser.",
   });

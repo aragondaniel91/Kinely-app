@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getAuth, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { Baby, Palette, Pencil, Plus, Shield, Trash2 } from "lucide-react";
 
@@ -997,6 +998,23 @@ export default function ProfileMembersSection() {
           myEmail,
         }),
       });
+
+      const savedMember = {
+        ...nextEditor,
+        uid: nextEditor.uid,
+        personId,
+        person_id: personId,
+        id: personId,
+        email,
+      };
+      const savedMemberIsCurrentUser = nextEditor.source === "owner" || isSelfMember(savedMember, user, myEmail);
+
+      if (name && savedMemberIsCurrentUser) {
+        const auth = getAuth();
+        if (auth.currentUser && auth.currentUser.displayName !== name) {
+          await updateProfile(auth.currentUser, { displayName: name });
+        }
+      }
 
       let invitationEmailQueued = false;
       let invitationNotificationQueued = false;

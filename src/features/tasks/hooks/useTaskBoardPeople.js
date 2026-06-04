@@ -132,11 +132,11 @@ function buildAdultPerson({
 }) {
   const fallbackName =
     roleType === "dad"
-      ? "Dad"
+      ? "Papa"
       : roleType === "mom"
-      ? "Mom"
+      ? "Mama"
       : roleType === "parent"
-      ? "Parent"
+      ? "Padre o madre"
       : roleType === "owner"
       ? "Me"
       : "Caregiver";
@@ -247,9 +247,9 @@ function roleTypeForAdult(person = {}) {
 
 function adultRoleLabel(person = {}) {
   const relationship = String(person.relationship || "").trim().toLowerCase();
-  if (relationship === "father") return "Dad";
-  if (relationship === "mother") return "Mom";
-  if (relationship === "parent") return "Parent";
+  if (relationship === "father") return "Papa";
+  if (relationship === "mother") return "Mama";
+  if (relationship === "parent") return "Padre o madre";
   if (relationship === "grandmother") return "Grandmother";
   if (relationship === "grandfather") return "Grandfather";
   if (relationship === "babysitter") return "Babysitter";

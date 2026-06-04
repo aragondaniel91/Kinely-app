@@ -199,7 +199,7 @@ function SectionHeader({ kicker, title, action, onAction }) {
         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{kicker}</p>
         <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">{title}</h2>
       </div>
-      {action && (
+      {action && onAction && (
         <button type="button" onClick={onAction} className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-sm font-black text-primary transition hover:bg-blue-50">
           {action} <ChevronRight className="h-4 w-4" />
         </button>
@@ -208,7 +208,7 @@ function SectionHeader({ kicker, title, action, onAction }) {
   );
 }
 
-function MetricCard({ title, value, text, icon: Icon, tone = "blue", onClick }) {
+function MetricCard({ title, value, text, icon: Icon, tone = "blue", onClick, disabled = false }) {
   const tones = {
     blue: "bg-blue-50 text-blue-700 border-blue-100",
     amber: "bg-amber-50 text-amber-700 border-amber-100",
@@ -217,11 +217,14 @@ function MetricCard({ title, value, text, icon: Icon, tone = "blue", onClick }) 
     violet: "bg-violet-50 text-violet-700 border-violet-100",
   };
 
+  const isDisabled = disabled || !onClick;
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="min-h-[132px] rounded-[1.55rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-md"
+      onClick={isDisabled ? undefined : onClick}
+      disabled={isDisabled}
+      className="min-h-[132px] rounded-[1.55rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -246,11 +249,13 @@ function ActionTile({ icon: Icon, label, text, tone = "blue", onClick, disabled 
     violet: "bg-violet-50 text-violet-700 border-violet-100",
   };
 
+  const isDisabled = disabled || !onClick;
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={isDisabled ? undefined : onClick}
+      disabled={isDisabled}
       className="group flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:border-slate-200 disabled:hover:shadow-sm"
     >
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${tones[tone]}`}>
@@ -628,9 +633,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                   {heroSummary}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <button type="button" onClick={onOpenExchange} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
-                    Review exchange
-                  </button>
+                  {onOpenExchange && (
+                    <button type="button" onClick={onOpenExchange} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
+                      Review exchange
+                    </button>
+                  )}
                   <button type="button" onClick={onOpenSchedule} className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:text-blue-700 hover:shadow-md">
                     View schedule
                   </button>
@@ -650,6 +657,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               icon={Truck}
               tone={smartExchange?.needsReview ? "rose" : "blue"}
               onClick={onOpenExchange}
+              disabled={!onOpenExchange}
             />
             <MetricCard
               title="Packing readiness"
@@ -658,6 +666,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               icon={Shirt}
               tone={packingSummary.missingCount ? "rose" : "emerald"}
               onClick={onOpenPacking}
+              disabled={!onOpenPacking}
             />
           </div>
         </div>
@@ -673,9 +682,9 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             <SectionHeader kicker="Custody tools" title="Quick actions" action="Schedule" onAction={onOpenSchedule} />
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <ActionTile icon={CalendarDays} label="Schedule" text="Calendar and custody days" tone="blue" onClick={onOpenSchedule} />
-              <ActionTile icon={Truck} label="Exchange" text={smartExchange?.needsReview ? "Review handoff details" : "Pickup and dropoff notes"} tone="rose" onClick={onOpenExchange} />
-              <ActionTile icon={Shirt} label="Packing" text="Clothes, backpack, medicine" tone="emerald" onClick={onOpenPacking} />
-              <ActionTile icon={BellRing} label="Reminders" text="Smart custody alerts" tone="amber" onClick={onOpenNotifications} />
+              <ActionTile icon={Truck} label="Exchange" text="Coming soon" tone="rose" onClick={onOpenExchange} disabled={!onOpenExchange} />
+              <ActionTile icon={Shirt} label="Packing" text="Coming soon" tone="emerald" onClick={onOpenPacking} disabled={!onOpenPacking} />
+              <ActionTile icon={BellRing} label="Reminders" text="Coming soon" tone="amber" onClick={onOpenNotifications} disabled={!onOpenNotifications} />
               <ActionTile
                 icon={WalletCards}
                 label="Budget"
@@ -771,9 +780,11 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 </p>
               </div>
             </div>
-            <button type="button" onClick={onOpenNotifications} className="rounded-2xl bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100">
-              View reminders
-            </button>
+            {onOpenNotifications && (
+              <button type="button" onClick={onOpenNotifications} className="rounded-2xl bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100">
+                View reminders
+              </button>
+            )}
           </div>
         </Card>
       </div>

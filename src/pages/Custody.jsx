@@ -26,6 +26,7 @@ const custodyModules = [
     description:
       "Quick custody status, next change, parent balance, and selected custody group overview.",
     accent: "bg-slate-50 text-slate-700 border-slate-200",
+    ready: true,
   },
   {
     id: "schedule",
@@ -33,6 +34,7 @@ const custodyModules = [
     icon: CalendarDays,
     description: "Custody calendar, manual days, bulk schedule, and schedule details.",
     accent: "bg-blue-50 text-blue-600 border-blue-100",
+    ready: true,
   },
   {
     id: "exchange",
@@ -40,6 +42,7 @@ const custodyModules = [
     icon: Truck,
     description: "Pickup/dropoff days, handoff notes, exchange reminders, and status.",
     accent: "bg-cyan-50 text-cyan-600 border-cyan-100",
+    ready: false,
   },
   {
     id: "packing",
@@ -48,6 +51,7 @@ const custodyModules = [
     description:
       "Checklist for clothes, backpack, medicine, sports gear, and exchange-day items.",
     accent: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    ready: false,
   },
   {
     id: "notifications",
@@ -56,6 +60,7 @@ const custodyModules = [
     description:
       "Smart reminders for exchanges, packing, school items, medicine, and transition readiness.",
     accent: "bg-orange-50 text-orange-600 border-orange-100",
+    ready: false,
   },
   {
     id: "budget",
@@ -63,6 +68,7 @@ const custodyModules = [
     icon: CreditCard,
     description: "Shared expenses, split costs, who paid, who owes, and recurring payments.",
     accent: "bg-amber-50 text-amber-600 border-amber-100",
+    requiresModule: "budget",
   },
 ];
 
@@ -161,6 +167,22 @@ function ModuleCard({ module, onClick }) {
   );
 }
 
+function UpcomingCustodyToolsCard() {
+  return (
+    <div className="rounded-[2rem] border border-blue-100 bg-blue-50/70 p-5 text-sm font-semibold leading-6 text-blue-900 shadow-[0_12px_30px_rgba(15,23,42,0.04)] md:p-6">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">
+        Co-parenting tools
+      </p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+        More co-parenting tools coming soon
+      </h2>
+      <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900/75">
+        Custody schedule, calendar, and tasks are ready now. Exchange, packing, and smart reminder tools will appear here once they are production-ready.
+      </p>
+    </div>
+  );
+}
+
 export default function Custody() {
   const [activeCalendar, setActiveCalendar] = useState("custody");
   const [viewMode, setViewMode] = useState("month");
@@ -173,8 +195,23 @@ export default function Custody() {
 
   const selectedModule = custodyModules.find((module) => module.id === activeModule);
   const canReadBudget = canReadModule(perms, "budget");
-  const visibleCustodyModules = custodyModules.filter((module) => module.id !== "budget" || canReadBudget);
+  const visibleCustodyModules = custodyModules.filter((module) => {
+    if (module.requiresModule === "budget") return canReadBudget;
+    return module.ready === true;
+  });
   const latestActivityId = custodyActivity[0]?.id || "";
+
+  useEffect(() => {
+    const active = custodyModules.find((module) => module.id === activeModule);
+    if (!active) {
+      setActiveModule("dashboard");
+      return;
+    }
+
+    if (active.ready === false || (active.requiresModule === "budget" && !canReadBudget)) {
+      setActiveModule("dashboard");
+    }
+  }, [activeModule, canReadBudget]);
 
   useEffect(() => {
     let cancelled = false;
@@ -282,15 +319,25 @@ export default function Custody() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visibleCustodyModules.map((module) => (
-              <ModuleCard
-                key={module.id}
-                module={module}
-                onClick={() => setActiveModule(module.id)}
-              />
-            ))}
-          </div>
+          {visibleCustodyModules.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleCustodyModules.map((module) => (
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    onClick={() => setActiveModule(module.id)}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4">
+                <UpcomingCustodyToolsCard />
+              </div>
+            </>
+          ) : (
+            <UpcomingCustodyToolsCard />
+          )}
 
         </div>
       </div>
@@ -338,10 +385,7 @@ export default function Custody() {
           activityLoading={loadingActivity}
           activityError={activityError}
           onOpenSchedule={() => setActiveModule("schedule")}
-          onOpenExchange={() => setActiveModule("exchange")}
-          onOpenPacking={() => setActiveModule("packing")}
-          onOpenNotifications={() => setActiveModule("notifications")}
-          onOpenBudget={() => setActiveModule("budget")}
+          onOpenBudget={canReadBudget ? () => setActiveModule("budget") : undefined}
         />
       )}
 

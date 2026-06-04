@@ -35,6 +35,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 import CustodySpecialEventDialog, {
   getCustodyEventCategory,
 } from "@/features/custody/calendar/components/CustodySpecialEventDialog";
@@ -123,10 +124,6 @@ function travelPlanAffectsCustody(plan) {
   return status !== "rejected" && status !== "cancelled";
 }
 
-function activityLabel(profile, user) {
-  return profile?.displayName || profile?.name || profile?.firstName || user?.displayName || user?.email || "Someone";
-}
-
 function cleanAuditValue(value) {
   if (value === undefined || value === null) return "";
   if (typeof value === "string") return value.trim();
@@ -210,52 +207,6 @@ function buildTravelAuditSnapshot(plan = {}) {
     affectsCustody: Boolean(affectsCustody),
     notes: cleanAuditValue(plan.notes || ""),
   };
-}
-
-async function logFamilyActivity({
-  familyId,
-  custodyScopeFields = {},
-  user,
-  profile,
-  type,
-  title,
-  description = "",
-  entityType = "",
-  entityId = "",
-  date = "",
-  metadata = {},
-}) {
-  const activityFamilyId = familyId || custodyScopeFields.custodyGroupId || custodyScopeFields.familyId || "";
-  if (!activityFamilyId || !user || !type || !title) return;
-
-  try {
-    const custodyGroupId = custodyScopeFields.custodyGroupId || activityFamilyId;
-    const activityId = `${custodyGroupId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    await setDoc(doc(db, "familyActivity", activityId), {
-      id: activityId,
-      familyId: activityFamilyId,
-      custodyGroupId,
-      householdFamilyId: custodyScopeFields.householdFamilyId || "",
-      custodyGroupName: custodyScopeFields.custodyGroupName || "",
-      module: "custody",
-      visibility: "custody",
-      scope: "audit",
-      type,
-      title,
-      description,
-      entityType,
-      entityId,
-      date,
-      metadata,
-      actorId: user.uid,
-      actorEmail: user.email || null,
-      actorName: activityLabel(profile, user),
-      createdAt: serverTimestamp(),
-      readBy: [],
-    });
-  } catch (error) {
-    console.warn("Could not log family activity:", error);
-  }
 }
 
 function SectionCard({ eyebrow, title, description, action, children, className = "" }) {
@@ -427,7 +378,7 @@ export default function CustodyDayDialog({
     const after = buildCustodyAuditSnapshot(payload, { dadLabel, momLabel });
 
     await onSave(payload);
-    await logFamilyActivity({
+    queueFamilyActivity({
       familyId,
       custodyScopeFields,
       user,
@@ -482,7 +433,7 @@ export default function CustodyDayDialog({
       const after = buildSpecialEventAuditSnapshot(data);
 
       await setDoc(doc(db, "custodySpecialEvents", eventId), data, { merge: true });
-      await logFamilyActivity({
+      queueFamilyActivity({
         familyId,
         custodyScopeFields,
         user,
@@ -540,7 +491,7 @@ export default function CustodyDayDialog({
       const before = buildSpecialEventAuditSnapshot(event);
 
       await deleteDoc(doc(db, "custodySpecialEvents", event.id));
-      await logFamilyActivity({
+      queueFamilyActivity({
         familyId,
         custodyScopeFields,
         user,
@@ -608,7 +559,7 @@ export default function CustodyDayDialog({
       const after = buildTravelAuditSnapshot(data);
 
       await setDoc(doc(db, "custodyTravelPlans", travelId), data, { merge: true });
-      await logFamilyActivity({
+      queueFamilyActivity({
         familyId,
         custodyScopeFields,
         user,
@@ -668,7 +619,7 @@ export default function CustodyDayDialog({
       const before = buildTravelAuditSnapshot(plan);
 
       await deleteDoc(doc(db, "custodyTravelPlans", plan.id));
-      await logFamilyActivity({
+      queueFamilyActivity({
         familyId,
         custodyScopeFields,
         user,
@@ -719,7 +670,7 @@ export default function CustodyDayDialog({
     const before = buildCustodyAuditSnapshot(existingData, { dadLabel, momLabel });
 
     await onDelete(dateKey);
-    await logFamilyActivity({
+    queueFamilyActivity({
       familyId,
       custodyScopeFields,
       user,
@@ -774,7 +725,7 @@ export default function CustodyDayDialog({
       }
 
       await Promise.all(Array.from(refs.values()).map((ref) => deleteDoc(ref)));
-      await logFamilyActivity({
+      queueFamilyActivity({
         familyId,
         custodyScopeFields,
         user,

@@ -28,10 +28,10 @@ function buildInviteMessage({ inviteType, recipientName, custodyGroupName }) {
   const groupName = custodyGroupName?.trim() || "our custody calendar";
 
   if (inviteType === "viewer") {
-    return `Hi ${targetName},\n\nI’m sharing view-only access to ${groupName} in Family Wall so you can see the custody schedule and related custody updates.\n\nPlease create or log in to your Family Wall account using this same email address, then the shared custody group should appear under Custody.\n\nThanks.`;
+    return `Hi ${targetName},\n\nI’m sharing view-only access to ${groupName} in Kinely so you can see the custody schedule and related custody updates.\n\nPlease create or log in to your Kinely account using this same email address, then the shared custody group should appear under Custody.\n\nThanks.`;
   }
 
-  return `Hi ${targetName},\n\nI’m inviting you as a co-parent/member for ${groupName} in Family Wall. This gives you access to view and update the shared custody schedule.\n\nPlease create or log in to your Family Wall account using this same email address, then the custody group should appear under Custody.\n\nThanks.`;
+  return `Hi ${targetName},\n\nI’m inviting you as a co-parent/member for ${groupName} in Kinely. This gives you access to view and update the shared custody schedule.\n\nPlease create or log in to your Kinely account using this same email address, then the custody group should appear under Custody.\n\nThanks.`;
 }
 
 export default function CustodyInviteHelper() {
@@ -49,7 +49,7 @@ export default function CustodyInviteHelper() {
   );
 
   const mailtoHref = useMemo(() => {
-    const subject = encodeURIComponent("Family Wall custody invitation");
+    const subject = encodeURIComponent("Kinely custody invitation");
     const body = encodeURIComponent(message);
     const to = encodeURIComponent(recipientEmail.trim());
     return `mailto:${to}?subject=${subject}&body=${body}`;

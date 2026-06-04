@@ -6,6 +6,7 @@ import { deleteFamilyCascade } from "@/services/familyAdminService";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -145,6 +146,7 @@ export default function ProfileFamiliesSection() {
     isOwner,
     isAdmin,
   } = useFamily();
+  const { toast } = useToast();
 
   const canManageSpace = isOwner || isAdmin;
   const canDeleteSpace = isOwner;
@@ -211,6 +213,11 @@ export default function ProfileFamiliesSection() {
       });
       await refreshFamilies?.();
       setMessage("Family space saved.");
+      toast({
+        title: "Saved",
+        description: "Your family space settings have been updated.",
+        duration: 3000,
+      });
     } catch (saveError) {
       console.error("Error saving family space:", saveError);
       setError(saveError?.message || "Could not save the family space.");

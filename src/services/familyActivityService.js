@@ -29,25 +29,44 @@ function normalizeDateKey(value) {
 
 export async function logFamilyActivity({
   familyId,
+  custodyScopeFields = {},
   user,
   profile,
-  module = "home",
+  module = "",
   type,
   title,
   description = "",
   entityType = "",
   entityId = "",
   date = "",
-  visibility = "family",
+  visibility = "",
   metadata = {},
 }) {
-  if (!familyId || !user?.uid || !type || !title) return null;
+  const activityFamilyId = familyId || custodyScopeFields.familyId || custodyScopeFields.custodyGroupId || "";
+  if (!activityFamilyId || !user?.uid || !type || !title) return null;
 
   try {
+    const custodyGroupId = custodyScopeFields.custodyGroupId || "";
+    const householdFamilyId = custodyScopeFields.householdFamilyId || "";
+    const custodyGroupName = custodyScopeFields.custodyGroupName || "";
+    const effectiveModule = module || (custodyGroupId ? "custody" : "home");
+    const effectiveVisibility = visibility || (custodyGroupId ? "custody" : "family");
+
     return await addDoc(collection(db, "familyActivity"), {
-      familyId,
-      module,
-      visibility,
+      familyId: activityFamilyId,
+      family_id: activityFamilyId,
+      ...(custodyGroupId
+        ? {
+            custodyGroupId,
+            custody_group_id: custodyGroupId,
+            householdFamilyId,
+            household_family_id: householdFamilyId,
+            custodyGroupName,
+            custody_group_name: custodyGroupName,
+          }
+        : {}),
+      module: effectiveModule,
+      visibility: effectiveVisibility,
       type,
       title,
       description,

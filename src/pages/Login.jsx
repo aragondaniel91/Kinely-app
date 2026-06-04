@@ -76,7 +76,7 @@ export default function Login() {
                 Sign in
               </p>
               <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                Continue to Family Wall
+                Continue to Kinely
               </h2>
               <p className="mt-2 text-sm font-semibold text-slate-500">
                 Access your private family dashboard.

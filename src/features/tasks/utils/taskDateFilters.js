@@ -147,7 +147,8 @@ export function filterTasksByDateScope(tasks = [], scope = "all") {
     }
 
     if (scope === "upcoming") {
-      return dueDate && dueDate > today && !isDone(task);
+      if (!dueDate) return !isDone(task);
+      return dueDate > today && !isDone(task);
     }
 
     return true;

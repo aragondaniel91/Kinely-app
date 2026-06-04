@@ -87,7 +87,7 @@ export default function PersonCard({
         if (event.key === "Enter" || event.key === " ") onSelect(person.id);
       }}
       className={cn(
-        "group relative flex h-[158px] min-w-0 flex-col overflow-hidden rounded-[1.6rem] border p-3.5 text-left transition-all",
+        "group relative flex h-[158px] min-w-0 flex-col overflow-hidden rounded-[1.6rem] border p-3.5 text-left transition-all md:h-[200px] lg:h-[220px]",
         "shadow-[0_10px_26px_rgba(38,50,56,0.045)] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(38,50,56,0.06)]",
         selected
           ? `${colorClasses.borderStrong || colorClasses.border || "border-slate-200"} ${colorClasses.bg || "bg-white"} ring-4 ${colorClasses.ring || "ring-slate-100/80"}`

@@ -550,7 +550,7 @@ export default function Register() {
                 <Mail className="h-6 w-6 text-blue-600" />
                 <h3 className="mt-3 text-xl font-black text-slate-950">Join invitation mode</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  Your account will be created first. If your email is already listed in a family or custody group, Family Wall will show those shared spaces after login.
+                  Your account will be created first. If your email is already listed in a family or custody group, Kinely will show those shared spaces after login.
                 </p>
               </div>
             )}

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import NotificationInbox from "@/components/profile/NotificationInbox";
 
 const DEFAULT_PREFERENCES = {
   channels: {
@@ -46,7 +45,7 @@ const DEFAULT_PREFERENCES = {
 };
 
 const CHANNELS = [
-  { id: "inApp", label: "In-app", description: "Show inside Family Wall.", icon: Bell },
+  { id: "inApp", label: "In-app", description: "Show inside Kinely.", icon: Bell },
   { id: "email", label: "Email", description: "Send email notifications.", icon: Mail },
   { id: "push", label: "Push", description: "For mobile/tablet app later.", icon: MessageSquare },
   { id: "sms", label: "SMS", description: "Optional future channel.", icon: MessageSquare },
@@ -259,7 +258,7 @@ export default function NotificationPreferences() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">Notifications</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Notification preferences</h1>
             <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-slate-500">
-              Control when Family Wall should notify you about custody changes, family events, tasks, child care updates, meals, groceries, invitations, and messages.
+              Control when Kinely should notify you about custody changes, family events, tasks, child care updates, meals, groceries, invitations, and messages.
             </p>
             <p className="mt-2 text-xs font-bold text-slate-400">
               {enabledCount} notification types enabled · Saved per user account
@@ -277,8 +276,6 @@ export default function NotificationPreferences() {
           </div>
         )}
       </Card>
-
-      <NotificationInbox />
 
       <Card className="rounded-[2rem] border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">

@@ -21,6 +21,7 @@ import ProfileMembersSection from "@/components/profile/ProfileMembersSection";
 import ProfileCustodySection from "@/components/profile/ProfileCustodySection";
 import ProfileInvitationsSection from "@/components/profile/ProfileInvitationsSection";
 import ProfileSettingsSection from "@/components/profile/ProfileSettingsSection";
+import NotificationInbox from "@/components/profile/NotificationInbox";
 import ChildProfiles from "@/pages/ChildProfiles";
 import NotificationPreferences from "@/pages/NotificationPreferences";
 
@@ -125,7 +126,12 @@ export default function ProfileModular() {
         )}
         {activeTab === "invitations" && <ProfileInvitationsSection />}
         {activeTab === "custody" && <ProfileCustodySection />}
-        {activeTab === "notifications" && <NotificationPreferences />}
+        {activeTab === "notifications" && (
+          <div className="space-y-6">
+            <NotificationInbox />
+            <NotificationPreferences />
+          </div>
+        )}
         {activeTab === "settings" && <ProfileSettingsSection />}
       </div>
     </div>
