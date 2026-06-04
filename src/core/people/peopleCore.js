@@ -741,6 +741,9 @@ export function getRecordColorId(record = "") {
 export function resolveEventPersonFromRecord(record = {}, people = []) {
   if (!record || !people.length) return null;
 
+  // Production rule:
+  // Event ownership/assignment is ID-only.
+  // Do not infer event ownership from color, creator, actor, or display name.
   const recordTokens = getExplicitAssignmentIdentityTokens(record);
   if (!recordTokens.length) return null;
 
