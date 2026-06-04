@@ -297,6 +297,10 @@ service cloud.firestore {
         || isCustodyViewer(familyId)
         || canReadCustodyFromLinkedFamily(familyId)
         || (
+          familyExists(familyId)
+          && canReadFamilyModule(familyId, "custody")
+        )
+        || (
           custodyGroupExists(familyId)
           && hasModuleReadGrant(custodyGroupDoc(familyId).data, "custody")
         );
@@ -305,6 +309,10 @@ service cloud.firestore {
     function canWriteCustody(familyId) {
       return isCustodyAdmin(familyId)
         || canWriteCustodyFromLinkedFamily(familyId)
+        || (
+          familyExists(familyId)
+          && canWriteFamilyModule(familyId, "custody")
+        )
         || (
           custodyGroupExists(familyId)
           && hasModuleWriteGrant(custodyGroupDoc(familyId).data, "custody")

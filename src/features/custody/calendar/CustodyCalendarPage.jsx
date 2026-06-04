@@ -35,7 +35,7 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
-import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { getCustodyScopedDocSnapsForScopes } from "@/lib/firestoreFamilyQueries";
 
 import CustodyDayDialog from "@/features/custody/calendar/components/CustodyDayDialog";
 import BulkCustodyDialog from "@/features/custody/calendar/components/BulkCustodyDialog";
@@ -211,13 +211,14 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     setLoading(true);
 
     try {
-      const custodyDayDocs = await getCustodyScopedDocSnaps("custodyDays", custodyScopeId);
+      const custodyScopes = [custodyScopeId, householdScopeId].filter(Boolean);
+      const custodyDayDocs = await getCustodyScopedDocSnapsForScopes("custodyDays", custodyScopes);
       const data = custodyDayDocs.map(normalizeCustodyDay);
       data.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       setCustodyDays(data);
 
       try {
-        const specialEventDocs = await getCustodyScopedDocSnaps("custodySpecialEvents", custodyScopeId);
+        const specialEventDocs = await getCustodyScopedDocSnapsForScopes("custodySpecialEvents", custodyScopes);
         setSpecialEvents(specialEventDocs.map(normalizeSpecialEvent));
       } catch (eventError) {
         console.warn("Could not load custody special events:", eventError);
@@ -225,7 +226,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       }
 
       try {
-        const travelPlanDocs = await getCustodyScopedDocSnaps("custodyTravelPlans", custodyScopeId);
+        const travelPlanDocs = await getCustodyScopedDocSnapsForScopes("custodyTravelPlans", custodyScopes);
         setTravelPlans(travelPlanDocs.map(normalizeTravelPlan));
       } catch (travelError) {
         console.warn("Could not load custody travel plans:", travelError);

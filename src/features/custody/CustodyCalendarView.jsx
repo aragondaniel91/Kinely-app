@@ -163,6 +163,24 @@ function resolveCustodyAccess(group, myEmail, userId = "") {
   const viewers = groupViewerEmails(group);
   const memberIds = accessIds(group, "memberIds", "member_ids");
   const viewerIds = accessIds(group, "viewerIds", "viewer_ids");
+  const adminIds = accessIds(group, "adminIds", "admin_ids");
+  const adminEmails = accessEmails(group, "adminEmails", "admin_emails");
+  const ownerIds = uniqueStrings([
+    group.ownerId,
+    group.owner_id,
+    group.createdBy,
+    group.created_by,
+  ]);
+  const ownerEmails = uniqueStrings([
+    group.ownerEmail,
+    group.owner_email,
+    group.createdByEmail,
+    group.created_by_email,
+    group.created_by,
+  ].map(normalizeEmail));
+  const isGroupAdmin =
+    includesPrincipal({ emails: adminEmails, ids: adminIds }, email, uid) ||
+    includesPrincipal({ emails: ownerEmails, ids: ownerIds }, email, uid);
 
   const custodyReaders = {
     emails: accessEmails(group, "custodyReaderEmails", "custody_reader_emails", [...members, ...viewers]),
@@ -187,12 +205,12 @@ function resolveCustodyAccess(group, myEmail, userId = "") {
   const isBudgetWriter = includesPrincipal(budgetWriters, email, uid);
 
   return {
-    canRead: isCustodyReader || isCustodyWriter,
-    canWrite: isCustodyWriter,
-    canReadBudget: isBudgetReader || isBudgetWriter,
-    canWriteBudget: isBudgetWriter,
-    isViewerOnly: !isCustodyWriter && isCustodyReader,
-    isBudgetViewerOnly: !isBudgetWriter && isBudgetReader,
+    canRead: isGroupAdmin || isCustodyReader || isCustodyWriter,
+    canWrite: isGroupAdmin || isCustodyWriter,
+    canReadBudget: isGroupAdmin || isBudgetReader || isBudgetWriter,
+    canWriteBudget: isGroupAdmin || isBudgetWriter,
+    isViewerOnly: !isGroupAdmin && !isCustodyWriter && isCustodyReader,
+    isBudgetViewerOnly: !isGroupAdmin && !isBudgetWriter && isBudgetReader,
   };
 }
 

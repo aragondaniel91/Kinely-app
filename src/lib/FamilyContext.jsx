@@ -903,11 +903,28 @@ export function FamilyProvider({ children }) {
 
   const isAdmin =
     isOwner ||
+    memberEntry?.isAdmin === true ||
+    memberEntry?.is_admin === true ||
+    memberEntry?.appRole === "owner" ||
+    memberEntry?.appRole === "admin" ||
+    memberEntry?.app_role === "owner" ||
+    memberEntry?.app_role === "admin" ||
     listOrEmpty(activeProfile?.adminIds).includes(user?.uid) ||
     listOrEmpty(activeProfile?.admin_ids).includes(user?.uid) ||
     listOrEmpty(activeProfile?.adminEmails).map(normalizeEmail).includes(normalizeEmail(myEmail)) ||
     listOrEmpty(activeProfile?.admin_emails).map(normalizeEmail).includes(normalizeEmail(myEmail));
-  const perms = isAdmin ? DEFAULT_PERMS : normalizePermissions(memberEntry);
+  const isConfirmedMember =
+    listOrEmpty(activeProfile?.memberIds).includes(user?.uid) ||
+    listOrEmpty(activeProfile?.member_ids).includes(user?.uid) ||
+    listOrEmpty(activeProfile?.memberEmails).map(normalizeEmail).includes(normalizeEmail(myEmail)) ||
+    listOrEmpty(activeProfile?.member_emails).map(normalizeEmail).includes(normalizeEmail(myEmail));
+  const perms = isAdmin
+    ? DEFAULT_PERMS
+    : memberEntry
+    ? normalizePermissions(memberEntry)
+    : isConfirmedMember
+    ? READ_ONLY_PERMS
+    : NO_PERMS;
 
   const dadName = activeProfile?.parent1_role === "dad" ? activeProfile?.parent1_name : activeProfile?.parent2_name;
   const momName = activeProfile?.parent1_role === "mom" ? activeProfile?.parent1_name : activeProfile?.parent2_name;
