@@ -874,6 +874,61 @@ service cloud.firestore {
         ]);
     }
 
+    function validMailMessage() {
+      return request.resource.data.message is map
+        && request.resource.data.message.subject is string
+        && request.resource.data.message.text is string
+        && request.resource.data.message.html is string;
+    }
+
+    function validMailRecipient() {
+      return request.resource.data.recipientEmail is string
+        && request.resource.data.to is list
+        && request.resource.data.to.size() == 1
+        && request.resource.data.to[0] == request.resource.data.recipientEmail;
+    }
+
+    function canCreateFamilyInvitationMail() {
+      return request.resource.data.kind == "family_invitation"
+        && request.resource.data.familyId is string
+        && request.resource.data.invitationCollection == "familyInvitations"
+        && canManageFamily(request.resource.data.familyId);
+    }
+
+    function canCreateCustodyInvitationMail() {
+      return request.resource.data.kind == "custody_invitation"
+        && request.resource.data.custodyGroupId is string
+        && request.resource.data.invitationCollection == "custodyInvitations"
+        && canManageCustodyGroup(request.resource.data.custodyGroupId);
+    }
+
+    function canCreateNotificationMail() {
+      return request.resource.data.kind == "notification"
+        && (
+          (
+            request.resource.data.familyId is string
+            && canWriteFamilyModule(request.resource.data.familyId, "notifications")
+          )
+          || (
+            request.resource.data.custodyGroupId is string
+            && canWriteCustody(request.resource.data.custodyGroupId)
+          )
+        );
+    }
+
+    function canCreateMailDoc() {
+      return signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == "queued"
+        && validMailRecipient()
+        && validMailMessage()
+        && (
+          canCreateFamilyInvitationMail()
+          || canCreateCustodyInvitationMail()
+          || canCreateNotificationMail()
+        );
+    }
+
     match /users/{userId} {
       allow read, create, update: if signedIn() && request.auth.uid == userId;
       allow delete: if false;
@@ -1029,6 +1084,11 @@ service cloud.firestore {
       allow update: if canUpdateCustodyDoc()
         || canRecipientUpdateCustodyInvitation();
       allow delete: if canDeleteCustodyDoc();
+    }
+
+    match /mail/{mailId} {
+      allow create: if canCreateMailDoc();
+      allow read, update, delete: if false;
     }
 
     match /custodyDays/{docId} {

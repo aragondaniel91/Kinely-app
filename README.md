@@ -34,6 +34,7 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
 VITE_FIREBASE_APP_ID=your_firebase_app_id
+VITE_APP_PUBLIC_URL=https://your-production-domain.com
 ```
 
 Run locally:
@@ -65,6 +66,7 @@ VITE_FIREBASE_PROJECT_ID
 VITE_FIREBASE_STORAGE_BUCKET
 VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
+VITE_APP_PUBLIC_URL
 ```
 
 The Firebase client config is loaded from `import.meta.env` in:
@@ -74,6 +76,18 @@ src/lib/firebase.js
 ```
 
 If any required variable is missing, the app intentionally throws an error so broken deployments are easier to catch.
+
+`VITE_APP_PUBLIC_URL` is optional for local builds, but should be set in production so invitation emails open the correct domain.
+
+## Email delivery
+
+Invitation emails are queued in Firestore under the `mail` collection. Configure a trusted sender, such as the Firebase Trigger Email extension or a backend worker, to watch `mail` and deliver queued messages.
+
+Details:
+
+```txt
+docs/email-delivery.md
+```
 
 ## Firebase project
 
@@ -192,8 +206,9 @@ Before deploying:
 
 1. Confirm Vercel env vars are configured.
 2. Run `npm run build` locally or check the Vercel build.
-3. Deploy Firestore rules when ready with `npm run firebase:deploy:rules`.
-4. Test these app areas after deploy:
+3. Confirm the email sender is configured if invitations should send real emails.
+4. Deploy Firestore rules when ready with `npm run firebase:deploy:rules`.
+5. Test these app areas after deploy:
    - Login/Register
    - Home dashboard
    - Custody dashboard

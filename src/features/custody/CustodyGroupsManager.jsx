@@ -35,6 +35,7 @@ import {
   custodyInvitationId,
   withPendingCustodyInvitation,
 } from "@/lib/invitationUtils";
+import { queueCustodyInvitationEmail } from "@/services/emailQueueService";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -857,6 +858,25 @@ export default function CustodyGroupsManager() {
         )
       );
 
+      let queuedEmailCount = 0;
+      if (invitations.length) {
+        const emailQueueResults = await Promise.allSettled(
+          invitations.map((invite) =>
+            queueCustodyInvitationEmail({
+              invitation: invite,
+              groupName: cleanName,
+              inviterName: user?.displayName || myEmail || user?.email || "Custody admin",
+            })
+          )
+        );
+        queuedEmailCount = emailQueueResults.filter((result) => result.status === "fulfilled").length;
+        emailQueueResults
+          .filter((result) => result.status === "rejected")
+          .forEach((result) => {
+            console.warn("Custody invitation email could not be queued:", result.reason);
+          });
+      }
+
       resetForm();
       await loadGroups();
       refreshCustodyGroups?.();
@@ -864,7 +884,9 @@ export default function CustodyGroupsManager() {
         tone: "success",
         title: editingGroupId ? "Custody group updated" : "Custody group created",
         message: invitations.length
-          ? `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending. The invited person must sign in with that email and open Profile > Invites.`
+          ? queuedEmailCount === invitations.length
+            ? `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending and email${invitations.length === 1 ? "" : "s"} queued.`
+            : `${invitations.length} invitation${invitations.length === 1 ? "" : "s"} pending. ${queuedEmailCount} email${queuedEmailCount === 1 ? "" : "s"} queued; the invite remains available in Profile > Invitations.`
           : "No new invitations were needed because every listed email already has access or belongs to you.",
       });
     } catch (error) {

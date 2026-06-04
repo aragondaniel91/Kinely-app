@@ -10,6 +10,7 @@ import {
   familyInvitationId,
   withPendingFamilyInvitation,
 } from "@/lib/invitationUtils";
+import { queueFamilyInvitationEmail } from "@/services/emailQueueService";
 import { getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
 import AppDialog from "@/components/app/AppDialog";
@@ -996,17 +997,36 @@ export default function ProfileMembersSection() {
         }),
       });
 
+      let invitationEmailQueued = false;
+
       if (pendingInvite) {
         await setDoc(
           doc(db, "familyInvitations", familyInvitationId(familyId, email)),
           pendingInvite,
           { merge: true }
         );
+
+        try {
+          await queueFamilyInvitationEmail({
+            invitation: pendingInvite,
+            familyName: profile?.familyName || profile?.family_name || "",
+            inviterName: user?.displayName || myEmail || user?.email || "Family admin",
+          });
+          invitationEmailQueued = true;
+        } catch (emailError) {
+          console.warn("Family invitation email could not be queued:", emailError);
+        }
       }
 
       await refreshFamilies?.();
       setEditor(null);
-      setMessage(pendingInvite ? "Invitation created. Access stays pending until accepted." : "Member saved.");
+      setMessage(
+        pendingInvite
+          ? invitationEmailQueued
+            ? "Invitation created and email queued. Access stays pending until accepted."
+            : "Invitation created. Email could not be queued yet, but the invite remains available in Profile > Invitations."
+          : "Member saved."
+      );
     } catch (err) {
       console.error("Error saving member", err);
       setError(err?.message || "Error saving member.");

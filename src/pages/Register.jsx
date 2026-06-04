@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Baby, Check, HeartHandshake, Home, Lock, Mail, Shield, Sparkles, UserRound, Users } from "lucide-react";
 
 import { useAuth } from "@/lib/AuthContext";
@@ -292,6 +292,10 @@ function ChildInputList({ childrenText, setChildrenText }) {
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const invitationEmail = normalizeEmail(searchParams.get("email"));
+  const invitationMode = searchParams.get("mode");
+  const invitationId = searchParams.get("invite");
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -309,6 +313,17 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false);
   const selectedRoleMeta = getMemberRoleMeta(role);
   const shouldJoinByInvite = selectedRoleMeta?.inviteRecommended === true;
+
+  useEffect(() => {
+    if (invitationEmail) {
+      setEmail((current) => normalizeEmail(current) || invitationEmail);
+      setInviteEmail((current) => normalizeEmail(current) || invitationEmail);
+    }
+
+    if (invitationMode === "join" || invitationId) {
+      setOnboardingMode("join");
+    }
+  }, [invitationEmail, invitationMode, invitationId]);
 
   const children = useMemo(
     () => childrenText.split(",").map((childName, index) => ({
@@ -382,6 +397,8 @@ export default function Register() {
         personType: roleToPersonType(role),
         livesHere: roleDefaultLivesHere(role),
         showOnHomeDashboard: roleDefaultShowOnHomeDashboard(role),
+        inviteEmail: normalizeEmail(inviteEmail || email),
+        invitationId,
       });
       navigate(onboardingMode === "join" ? "/profile?tab=invitations" : "/");
     } catch (err) {
