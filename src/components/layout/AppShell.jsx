@@ -11,7 +11,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import FamilySelector from "@/components/layout/FamilySelector";
-import KinlyLogo from "@/components/brand/KinlyLogo";
+import KinelyLogo from "@/components/brand/KinelyLogo";
 import { useFamily } from "@/lib/FamilyContext";
 import { canReadModule } from "@/lib/modulePermissions";
 
@@ -27,9 +27,9 @@ const navItems = [
 
 function AppShellLoader() {
   return (
-    <div className="kinly-gradient-bg min-h-screen">
+    <div className="kinely-gradient-bg min-h-screen">
       <div className="fixed left-4 top-4">
-        <KinlyLogo />
+        <KinelyLogo />
       </div>
       <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3">
         <div className="mx-auto flex max-w-3xl justify-around rounded-[1.8rem] border border-white/80 bg-white/78 px-2 py-2 shadow-[0_18px_44px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
@@ -64,11 +64,11 @@ export default function AppShell() {
   });
 
   return (
-    <div className="kinly-gradient-bg flex min-h-dvh flex-col overflow-x-hidden">
+    <div className="kinely-gradient-bg flex min-h-dvh flex-col overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-transparent px-3 py-2.5 md:px-6 md:py-3">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-[1.55rem] border border-white/80 bg-white/76 px-3 py-2 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-2xl md:px-4">
           <Link to="/" className="shrink-0">
-            <KinlyLogo />
+            <KinelyLogo />
           </Link>
           <FamilySelector />
         </div>

@@ -50,7 +50,7 @@ import {
 
 export const FamilyContext = createContext(null);
 
-const STORAGE_KEY = "familywall_active_family_id";
+const STORAGE_KEY = "kinely_active_family_id";
 const FAMILY_MODULE_NAMES = [
   "home",
   "calendar",

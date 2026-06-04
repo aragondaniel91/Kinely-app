@@ -46,7 +46,7 @@ function RouteErrorFallback({ error, onReset }) {
   const message = error?.message || "Unknown route error";
 
   return (
-    <div className="kinly-gradient-bg flex min-h-dvh items-center justify-center p-6">
+    <div className="kinely-gradient-bg flex min-h-dvh items-center justify-center p-6">
       <div className="w-full max-w-lg rounded-[2rem] border border-white/80 bg-white p-6 text-center shadow-xl">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
           <RefreshCw className="h-5 w-5" />

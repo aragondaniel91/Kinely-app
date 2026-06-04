@@ -1,6 +1,6 @@
-# Kinly / Family Wall Organizer
+# Kinely
 
-Kinly is a family organization app for shared homes and co-parenting. The current MVP focuses on a custody-aware dashboard with calendar, exchange planning, packing readiness, shared expenses, groceries, meals, tasks, and smart reminders.
+Kinely is a family organization app for shared homes and co-parenting. The current product focuses on a custody-aware dashboard with calendar, exchange planning, packing readiness, shared expenses, groceries, meals, tasks, and smart reminders.
 
 ## Tech stack
 

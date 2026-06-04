@@ -5,7 +5,7 @@ import {
 } from "@firebase/rules-unit-testing";
 import { readFile } from "node:fs/promises";
 
-const PROJECT_ID = "demo-family-wall";
+const PROJECT_ID = "demo-kinely";
 const FAMILY_ID = "family_rules_smoke";
 const CUSTODY_GROUP_ID = "custody_rules_smoke";
 

@@ -600,7 +600,7 @@ async function sendWithResend({ from, to, subject, text, html, mailId }) {
       text,
       html,
       headers: {
-        "X-Family-Wall-Mail-Id": mailId,
+        "X-Kinely-Mail-Id": mailId,
       },
     }),
   });

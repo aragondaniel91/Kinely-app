@@ -1,9 +1,9 @@
 <<'EOF'
-# Family Wall App Product & Technical Audit
+# Kinely App Product & Technical Audit
 
 ## Purpose
 
-This document tracks the current state of the Family Wall app, what already exists, what needs improvement, and what should be prioritized next.
+This document tracks the current state of Kinely, what already exists, what needs improvement, and what should be prioritized next.
 
 The app direction is commercial-quality: every screen should feel calm, premium, trustworthy, family-friendly, and consistent from login to the deepest module.
 

@@ -64,7 +64,7 @@ function PublicRoute({ children }) {
 
 function AccessDenied({ moduleName = "this area" }) {
   return (
-    <div className="kinly-gradient-bg flex min-h-[calc(100dvh-8rem)] items-center justify-center p-6">
+    <div className="kinely-gradient-bg flex min-h-[calc(100dvh-8rem)] items-center justify-center p-6">
       <div className="w-full max-w-md rounded-[2rem] border border-white/80 bg-white p-6 text-center shadow-xl">
         <h1 className="text-2xl font-black tracking-tight text-slate-950">Access limited</h1>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">

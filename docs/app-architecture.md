@@ -1,4 +1,4 @@
-# Family Wall App Architecture Cleanup Plan
+# Kinely App Architecture Cleanup Plan
 
 ## Goal
 

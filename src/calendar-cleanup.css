@@ -23,7 +23,7 @@
   display: none;
 }
 
-/* Kinly Premium Calendar Grid V1
+/* Kinely Premium Calendar Grid V1
    Visual-only surface polish. No calendar logic is changed here. */
 .family-calendar-live-body > div.mx-auto {
   border-color: rgba(226, 232, 240, 0.82) !important;
@@ -117,7 +117,7 @@
   border-color: rgba(226, 232, 240, 0.62) !important;
 }
 
-/* Kinly Custody Premium Surface V1
+/* Kinely Custody Premium Surface V1
    Visual-only polish. Custody logic, Firestore writes and filters are untouched. */
 div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] {
   background: radial-gradient(circle at top left, rgba(91, 141, 239, 0.14), transparent 34%), linear-gradient(180deg, #f8f7f4 0%, #ffffff 52%, #f8fafc 100%) !important;
@@ -234,7 +234,7 @@ div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div.max-w-3xl
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.065) !important;
 }
 
-/* Kinly shape system refinement for custody.
+/* Kinely shape system refinement for custody.
    Goal: one soft-rounded visual DNA instead of mixed square/round frames. */
 div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.flex.flex-col.overflow-hidden {
   margin: 0.85rem !important;
@@ -256,7 +256,7 @@ div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] > div.flex-1.
   border-bottom: 1px solid rgba(226, 232, 240, 0.72) !important;
 }
 
-/* Family/group selector cards at the top of custody should match Kinly cards. */
+/* Family/group selector cards at the top of custody should match Kinely cards. */
 div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] button[class*="border"],
 div.flex.flex-col.lg\:flex-row.h-full.min-h-screen.bg-\[\#F7F8FC\] div[class*="border"] {
   border-color: rgba(226, 232, 240, 0.82);

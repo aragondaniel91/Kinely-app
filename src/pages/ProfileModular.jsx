@@ -85,7 +85,7 @@ export default function ProfileModular() {
   }
 
   return (
-    <div className="min-h-screen kinly-gradient-bg p-4 md:p-6">
+    <div className="min-h-screen kinely-gradient-bg p-4 md:p-6">
       <div className="mx-auto max-w-6xl">
         <div className="mb-5 flex flex-col gap-4 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">

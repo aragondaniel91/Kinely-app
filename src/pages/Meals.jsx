@@ -2298,7 +2298,7 @@ export default function Meals() {
 
   if (!canRead) {
     return (
-      <div className="kinly-gradient-bg flex min-h-full items-center justify-center p-6">
+      <div className="kinely-gradient-bg flex min-h-full items-center justify-center p-6">
         <div className="max-w-xl rounded-[2rem] border border-white/80 bg-white/80 p-8 text-center shadow-xl backdrop-blur-xl">
           <h1 className="text-2xl font-black tracking-tight text-slate-950">
             Meal Planner
@@ -2312,7 +2312,7 @@ export default function Meals() {
   }
 
   return (
-    <div className="kinly-gradient-bg min-h-full px-3 pb-28 pt-3 md:px-5 md:pb-12 lg:px-6">
+    <div className="kinely-gradient-bg min-h-full px-3 pb-28 pt-3 md:px-5 md:pb-12 lg:px-6">
       <div className="mx-auto max-w-7xl space-y-4">
         <section className="overflow-hidden rounded-[2.25rem] border border-white/80 bg-white/78 shadow-[0_20px_58px_rgba(15,23,42,0.08)] backdrop-blur-xl">
           <div className="grid gap-5 bg-gradient-to-br from-white via-orange-50/70 to-blue-50/60 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">

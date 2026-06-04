@@ -40,7 +40,7 @@ const MODULE_ACCESS_CONFIGS = [
   {
     id: "home",
     label: "Home",
-    description: "Family wall dashboard and today view.",
+    description: "Kinely dashboard and today view.",
     icon: Home,
   },
   {

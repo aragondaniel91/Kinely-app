@@ -139,7 +139,7 @@ walk(ROOT);
 
 const report = [];
 
-report.push("# Family Wall Audit Report");
+report.push("# Kinely Audit Report");
 report.push("");
 report.push(`Scanned files: ${files.length}`);
 report.push(`Generated: ${new Date().toISOString()}`);
@@ -184,5 +184,5 @@ for (const check of checks) {
   report.push("");
 }
 
-fs.writeFileSync("family-wall-audit-report.md", report.join("\n"));
-console.log("Audit complete: family-wall-audit-report.md");
+fs.writeFileSync("kinely-audit-report.md", report.join("\n"));
+console.log("Audit complete: kinely-audit-report.md");

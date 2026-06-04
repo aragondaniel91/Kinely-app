@@ -17,7 +17,7 @@ const args = [
   "--only",
   "firestore",
   "--project",
-  "demo-family-wall",
+  "demo-kinely",
   "node scripts/firestore-rules-smoke-test.mjs",
 ];
 

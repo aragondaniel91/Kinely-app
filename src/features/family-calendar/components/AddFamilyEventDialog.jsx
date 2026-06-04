@@ -81,7 +81,7 @@ function loadGoogleMapsPlaces() {
 
   if (!googleMapsPlacesPromise) {
     googleMapsPlacesPromise = new Promise((resolve) => {
-      const existingScript = document.querySelector("script[data-family-wall-google-maps]");
+      const existingScript = document.querySelector("script[data-kinely-google-maps]");
       if (existingScript) {
         existingScript.addEventListener("load", () => resolve(Boolean(window.google?.maps?.places)), { once: true });
         existingScript.addEventListener("error", () => resolve(false), { once: true });
@@ -92,7 +92,7 @@ function loadGoogleMapsPlaces() {
       script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
-      script.dataset.familyWallGoogleMaps = "true";
+      script.dataset.kinelyGoogleMaps = "true";
       script.onload = () => resolve(Boolean(window.google?.maps?.places));
       script.onerror = () => resolve(false);
       document.head.appendChild(script);

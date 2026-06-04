@@ -500,7 +500,7 @@ function LiveStatusBadge({ loading, lastUpdated }) {
 function Hero({ familyName, tasksToday, mealsToday, calendarEventsToday, openLists, loading, lastUpdated }) {
   return (
     <section className="overflow-hidden rounded-[1.35rem] border border-white/80 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)]">
-      <div className="kinly-family-gradient p-4 md:p-4">
+      <div className="kinely-family-gradient p-4 md:p-4">
         <div className="grid gap-4 xl:grid-cols-[1fr_0.62fr] xl:items-center">
           <div>
             <div className="mb-3 flex flex-wrap gap-2">
@@ -979,7 +979,7 @@ export default function FamilyHomeDashboard({
   const calendarEventsToday = calendarEvents.filter((event) => getItemDate(event) === today);
 
   return (
-    <div className="kinly-gradient-bg min-h-full px-3 pb-24 pt-2 md:px-5 md:pb-10 lg:px-6">
+    <div className="kinely-gradient-bg min-h-full px-3 pb-24 pt-2 md:px-5 md:pb-10 lg:px-6">
       <div className="mx-auto max-w-7xl space-y-2.5">
         <Hero
           familyName={familyName}

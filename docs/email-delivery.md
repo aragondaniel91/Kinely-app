@@ -71,7 +71,7 @@ npx firebase-tools functions:secrets:set MAIL_FROM
 Example `MAIL_FROM` value:
 
 ```txt
-Kinly <no-reply@your-domain.com>
+Kinely <no-reply@your-domain.com>
 ```
 
 Then deploy functions:
