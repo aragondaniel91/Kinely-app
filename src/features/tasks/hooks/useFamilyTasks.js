@@ -64,11 +64,14 @@ export function useFamilyTasks({ familyId, canRead, canWrite, user = null, profi
         completed_at: nextDone ? serverTimestamp() : null,
         completedBy: nextDone ? user?.uid || null : null,
         completed_by: nextDone ? user?.uid || null : null,
+        completedByEmail: nextDone ? user?.email || null : null,
+        completed_by_email: nextDone ? user?.email || null : null,
         completedByName: nextDone ? completedByName : "",
         completed_by_name: nextDone ? completedByName : "",
 
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid || null,
+        updatedByEmail: user?.email || null,
       });
 
       queueFamilyActivity({

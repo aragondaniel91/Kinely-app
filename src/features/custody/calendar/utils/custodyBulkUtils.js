@@ -157,6 +157,8 @@ export function buildBulkDayPayload({
     userId: user.uid,
     createdBy: user.uid,
     createdByEmail: user.email || null,
+    updatedBy: user.uid,
+    updatedByEmail: user.email || null,
     bulkRunId,
     bulkTemplateId: payload.templateId || "custom",
     smartPatternId: payload.smartPatternId || null,

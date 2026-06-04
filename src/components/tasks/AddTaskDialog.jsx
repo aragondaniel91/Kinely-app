@@ -507,6 +507,7 @@ export default function AddTaskDialog({
         familyName: profile?.family_name || profile?.familyName || "",
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid || null,
+        updatedByEmail: user?.email || null,
       };
 
       if (editTask?.id) {

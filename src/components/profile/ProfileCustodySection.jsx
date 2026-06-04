@@ -29,7 +29,9 @@ export default function ProfileCustodySection() {
       </Card>
 
       <CustodyInviteHelper />
-      <CustodyGroupsManager />
+      <div id="custody-groups-manager">
+        <CustodyGroupsManager />
+      </div>
     </div>
   );
 }

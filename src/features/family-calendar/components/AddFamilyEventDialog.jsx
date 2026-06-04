@@ -503,6 +503,8 @@ export default function AddFamilyEventDialog({
             }
           : null,
         updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || null,
+        updatedByEmail: user?.email || null,
       };
 
       if (isEditing) {
