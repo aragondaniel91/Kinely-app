@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Baby, Eye, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
+import { Baby, Eye, Pencil, Plus, ShieldCheck, Trash2, Users, WalletCards } from "lucide-react";
 import {
   collection,
   doc,
@@ -52,6 +52,8 @@ const EMPTY_FORM = {
   momEmail: "",
   momColor: "amber",
   viewerEmails: "",
+  budgetViewerEmails: "",
+  budgetEditorEmails: "",
 };
 
 function splitCsv(value) {
@@ -83,11 +85,54 @@ function uniqueClean(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
-function buildCustodyModuleAccessArrays({ memberIds = [], memberEmails = [], viewerIds = [], viewerEmails = [] }) {
+function groupAccessEmails(group, camelKey, snakeKey) {
+  return normalizeEmailList([
+    ...(Array.isArray(group?.[camelKey]) ? group[camelKey] : []),
+    ...(Array.isArray(group?.[snakeKey]) ? group[snakeKey] : []),
+  ]);
+}
+
+function emailListWithout(values = [], blocked = []) {
+  const blockedSet = new Set(normalizeEmailList(blocked));
+  return normalizeEmailList(values).filter((email) => !blockedSet.has(email));
+}
+
+function groupPendingInvites(group) {
+  return Array.isArray(group?.pendingInvites)
+    ? group.pendingInvites
+    : Array.isArray(group?.pending_invites)
+    ? group.pending_invites
+    : [];
+}
+
+function inviteEmail(invite) {
+  return normalizeEmail(invite?.recipientEmail || invite?.recipient_email);
+}
+
+function invitePermission(invite, moduleName) {
+  return invite?.permissions?.[moduleName] || {};
+}
+
+function permissionCanRead(permission = {}) {
+  return permission.read === true || permission.write === true;
+}
+
+function buildCustodyModuleAccessArrays({
+  memberIds = [],
+  memberEmails = [],
+  viewerIds = [],
+  viewerEmails = [],
+  budgetViewerEmails = [],
+  budgetEditorEmails = [],
+}) {
   const custodyReaderIds = uniqueClean([...memberIds, ...viewerIds]);
   const custodyReaderEmails = normalizeEmailList([...memberEmails, ...viewerEmails]);
   const custodyWriterIds = uniqueClean(memberIds);
   const custodyWriterEmails = normalizeEmailList(memberEmails);
+  const budgetEditors = emailListWithout(budgetEditorEmails, memberEmails);
+  const budgetViewers = emailListWithout(budgetViewerEmails, [...memberEmails, ...budgetEditors]);
+  const budgetReaderEmails = normalizeEmailList([...memberEmails, ...budgetEditors, ...budgetViewers]);
+  const budgetWriterEmails = normalizeEmailList([...memberEmails, ...budgetEditors]);
 
   return {
     custodyReaderIds,
@@ -96,8 +141,8 @@ function buildCustodyModuleAccessArrays({ memberIds = [], memberEmails = [], vie
     custodyWriterEmails,
     budgetReaderIds: custodyWriterIds,
     budgetWriterIds: custodyWriterIds,
-    budgetReaderEmails: custodyWriterEmails,
-    budgetWriterEmails: custodyWriterEmails,
+    budgetReaderEmails,
+    budgetWriterEmails,
   };
 }
 
@@ -195,6 +240,24 @@ function ColorSelector({ label, value, onChange }) {
 function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, onDelete }) {
   const memberEmails = getCustodyGroupMemberEmails(group);
   const viewerEmails = getCustodyGroupViewerEmails(group);
+  const budgetWriterEmails = groupAccessEmails(group, "budgetWriterEmails", "budget_writer_emails");
+  const budgetReaderEmails = groupAccessEmails(group, "budgetReaderEmails", "budget_reader_emails");
+  const budgetEditors = emailListWithout(budgetWriterEmails, memberEmails);
+  const budgetViewers = emailListWithout(budgetReaderEmails, [...memberEmails, ...budgetWriterEmails]);
+  const pendingMemberEmails = getPendingMemberEmails(group);
+  const pendingViewerEmails = getPendingViewerEmails(group);
+  const pendingInvites = groupPendingInvites(group);
+  const pendingBudgetEditors = pendingInvites
+    .filter((invite) => invitePermission(invite, "budget").write === true)
+    .map(inviteEmail)
+    .filter(Boolean);
+  const pendingBudgetViewers = pendingInvites
+    .filter((invite) => {
+      const budgetPermission = invitePermission(invite, "budget");
+      return permissionCanRead(budgetPermission) && budgetPermission.write !== true;
+    })
+    .map(inviteEmail)
+    .filter(Boolean);
   const isMember = memberEmails.includes(normalizeEmail(myEmail));
   const canManage = canManageCustodyGroup(group, user, myEmail, { isOwner, isAdmin, familyId });
   const canDelete = canDeleteCustodyGroup(group, user, myEmail);
@@ -241,7 +304,7 @@ function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, o
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
+      <div className="mt-4 grid gap-2 lg:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -274,8 +337,39 @@ function GroupCard({ group, user, myEmail, isOwner, isAdmin, familyId, onEdit, o
           <p className="mt-2 text-sm font-bold text-slate-600">
             {viewerEmails.length ? viewerEmails.join(", ") : "No viewers"}
           </p>
+          {pendingViewerEmails.length > 0 && (
+            <p className="mt-1 text-xs font-bold text-amber-700">
+              Pending: {pendingViewerEmails.join(", ")}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+            <WalletCards className="h-3.5 w-3.5" />
+            Budget access
+          </div>
+          <div className="mt-2 space-y-1.5 text-sm font-bold text-slate-600">
+            <p>
+              Editors: {budgetEditors.length ? budgetEditors.join(", ") : "Parents only"}
+            </p>
+            <p>
+              View only: {budgetViewers.length ? budgetViewers.join(", ") : "No extra viewers"}
+            </p>
+            {(pendingBudgetEditors.length > 0 || pendingBudgetViewers.length > 0) && (
+              <p className="text-xs text-amber-700">
+                Pending: {[...pendingBudgetEditors, ...pendingBudgetViewers].join(", ")}
+              </p>
+            )}
+          </div>
         </div>
       </div>
+
+      {pendingMemberEmails.length > 0 && (
+        <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+          Pending parent invite: {pendingMemberEmails.join(", ")}
+        </p>
+      )}
 
       {(canManage || canDelete) && (
         <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -399,6 +493,10 @@ export default function CustodyGroupsManager() {
     const dadParent = parents.find((parent) => parent.role === "dad") || parents[0] || {};
     const momParent = parents.find((parent) => parent.role === "mom") || parents[1] || {};
     const memberEmails = getCustodyGroupMemberEmails(group);
+    const budgetWriterEmails = groupAccessEmails(group, "budgetWriterEmails", "budget_writer_emails");
+    const budgetReaderEmails = groupAccessEmails(group, "budgetReaderEmails", "budget_reader_emails");
+    const budgetEditors = emailListWithout(budgetWriterEmails, memberEmails);
+    const budgetViewers = emailListWithout(budgetReaderEmails, [...memberEmails, ...budgetWriterEmails]);
 
     setEditingGroupId(group.id);
     setForm({
@@ -411,6 +509,8 @@ export default function CustodyGroupsManager() {
       momEmail: momParent.email || memberEmails[1] || "",
       momColor: momParent.color || momParent.custodyColor || "amber",
       viewerEmails: getCustodyGroupViewerEmails(group).join(", "),
+      budgetViewerEmails: budgetViewers.join(", "),
+      budgetEditorEmails: budgetEditors.join(", "),
     });
     setShowForm(true);
   };
@@ -484,8 +584,17 @@ export default function CustodyGroupsManager() {
     const activeEmail = normalizeEmail(myEmail || user.email);
     const dadEmail = normalizeEmail(form.dadEmail || activeEmail);
     const momEmail = normalizeEmail(form.momEmail);
-    const viewerEmails = splitEmailCsv(form.viewerEmails).filter((email) => email !== dadEmail && email !== momEmail);
     const parentEmails = normalizeEmailList([dadEmail, momEmail]);
+    const blockedParentEmails = new Set(parentEmails);
+    const budgetEditorEmails = splitEmailCsv(form.budgetEditorEmails)
+      .filter((email) => !blockedParentEmails.has(email));
+    const budgetViewerEmails = splitEmailCsv(form.budgetViewerEmails)
+      .filter((email) => !blockedParentEmails.has(email) && !budgetEditorEmails.includes(email));
+    const viewerEmails = normalizeEmailList([
+      ...splitEmailCsv(form.viewerEmails),
+      ...budgetViewerEmails,
+      ...budgetEditorEmails,
+    ]).filter((email) => !blockedParentEmails.has(email));
 
     if (!cleanName) {
       showNotice({
@@ -538,6 +647,9 @@ export default function CustodyGroupsManager() {
       ).filter((email) => !acceptedMemberEmails.includes(email));
       const acceptedViewerIds = (Array.isArray(existingGroup?.viewerIds) ? existingGroup.viewerIds : [])
         .filter((uid) => !acceptedMemberIds.includes(uid));
+      const acceptedPrincipalEmails = normalizeEmailList([...acceptedMemberEmails, ...acceptedViewerEmails]);
+      const acceptedBudgetEditorEmails = budgetEditorEmails.filter((email) => acceptedPrincipalEmails.includes(email));
+      const acceptedBudgetViewerEmails = budgetViewerEmails.filter((email) => acceptedPrincipalEmails.includes(email));
       const adminIds = [
         ...new Set([
           ...(Array.isArray(existingGroup?.adminIds) ? existingGroup.adminIds : []),
@@ -603,6 +715,8 @@ export default function CustodyGroupsManager() {
           memberEmails: acceptedMemberEmails,
           viewerIds: acceptedViewerIds,
           viewerEmails: acceptedViewerEmails,
+          budgetViewerEmails: acceptedBudgetViewerEmails,
+          budgetEditorEmails: acceptedBudgetEditorEmails,
         }),
         createdBy: existingGroup?.createdBy || existingGroup?.created_by || payload.createdBy,
         created_by: existingGroup?.created_by || existingGroup?.createdBy || payload.createdBy,
@@ -616,19 +730,36 @@ export default function CustodyGroupsManager() {
           name: form.dadName.trim() || "Dad",
           role: "dad",
           access: "member",
+          permissions: {
+            custody: { read: true, write: true },
+            budget: { read: true, write: true },
+          },
         },
         {
           email: momEmail,
           name: form.momName.trim() || "Mom",
           role: "mom",
           access: "member",
+          permissions: {
+            custody: { read: true, write: true },
+            budget: { read: true, write: true },
+          },
         },
-        ...viewerEmails.map((email) => ({
-          email,
-          name: email,
-          role: "viewer",
-          access: "viewer",
-        })),
+        ...viewerEmails.map((email) => {
+          const budgetWrite = budgetEditorEmails.includes(email);
+          const budgetRead = budgetWrite || budgetViewerEmails.includes(email);
+
+          return {
+            email,
+            name: email,
+            role: budgetWrite ? "budget_editor" : "viewer",
+            access: "viewer",
+            permissions: {
+              custody: { read: true, write: false },
+              budget: { read: budgetRead, write: budgetWrite },
+            },
+          };
+        }),
       ];
 
       const invitationMap = new Map();
@@ -646,6 +777,7 @@ export default function CustodyGroupsManager() {
           recipientEmail: email,
           role: spec.role,
           access: spec.access,
+          permissions: spec.permissions,
           createdBy: user.uid,
           createdByEmail: user.email || myEmail,
           now: nowIso,
@@ -933,7 +1065,73 @@ export default function CustodyGroupsManager() {
                 placeholder="mary@email.com"
                 className="mt-1"
               />
-              <p className="mt-1 text-xs font-semibold text-slate-500">Viewers can see this custody group but cannot edit it unless they created or manage this group.</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                Viewers can see the custody calendar. Budget access is controlled separately below.
+              </p>
+            </div>
+
+            <div className="md:col-span-2 rounded-3xl border border-blue-100 bg-white p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-500">Access permissions</p>
+                  <h3 className="mt-1 text-base font-black text-slate-950">Custody and budget stay separate</h3>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                    Parents can edit custody and budget by default. Add extra people only when they truly need access.
+                  </p>
+                </div>
+                <Badge variant="outline" className="w-fit border-amber-200 bg-amber-50 text-amber-700">
+                  Budget is sensitive
+                </Badge>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Custody calendar
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-slate-700">
+                    Parents edit. Viewers read only.
+                  </p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                    Use the Viewers field for grandparents, caregivers, or partners who should only see custody information.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                    <WalletCards className="h-3.5 w-3.5" />
+                    Budget
+                  </div>
+                  <div className="mt-3 grid gap-3">
+                    <label>
+                      <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Budget viewers</span>
+                      <Input
+                        value={form.budgetViewerEmails}
+                        onChange={(event) => updateForm("budgetViewerEmails", event.target.value)}
+                        placeholder="viewer@email.com"
+                        className="mt-1 bg-white"
+                      />
+                      <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">
+                        Can view expenses but cannot add payments or edit records.
+                      </span>
+                    </label>
+
+                    <label>
+                      <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Budget editors</span>
+                      <Input
+                        value={form.budgetEditorEmails}
+                        onChange={(event) => updateForm("budgetEditorEmails", event.target.value)}
+                        placeholder="editor@email.com"
+                        className="mt-1 bg-white"
+                      />
+                      <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">
+                        Can add expenses, mark payments, and edit the shared ledger.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
