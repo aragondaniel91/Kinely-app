@@ -69,25 +69,41 @@ service cloud.firestore {
 
     function isFamilyOwner(familyId) {
       return familyExists(familyId)
-        && request.auth.uid == familyDoc(familyId).data.ownerId;
+        && (
+          request.auth.uid == familyDoc(familyId).data.ownerId
+          || request.auth.uid == familyDoc(familyId).data.owner_id
+          || request.auth.uid == familyDoc(familyId).data.createdBy
+          || request.auth.uid == familyDoc(familyId).data.created_by
+          || userEmail() == familyDoc(familyId).data.ownerEmail
+          || userEmail() == familyDoc(familyId).data.owner_email
+          || userEmail() == familyDoc(familyId).data.createdByEmail
+          || userEmail() == familyDoc(familyId).data.created_by_email
+          || userEmail() == familyDoc(familyId).data.created_by
+        );
     }
 
     function isFamilyAdmin(familyId) {
       return isFamilyOwner(familyId)
         || request.auth.uid in listOrEmpty(familyDoc(familyId).data.adminIds)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.adminEmails);
+        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.admin_ids)
+        || userEmail() in listOrEmpty(familyDoc(familyId).data.adminEmails)
+        || userEmail() in listOrEmpty(familyDoc(familyId).data.admin_emails);
     }
 
     function isFamilyMember(familyId) {
       return isFamilyAdmin(familyId)
         || request.auth.uid in listOrEmpty(familyDoc(familyId).data.memberIds)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.memberEmails);
+        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.member_ids)
+        || userEmail() in listOrEmpty(familyDoc(familyId).data.memberEmails)
+        || userEmail() in listOrEmpty(familyDoc(familyId).data.member_emails);
     }
 
     function isFamilyViewer(familyId) {
       return isFamilyMember(familyId)
         || request.auth.uid in listOrEmpty(familyDoc(familyId).data.viewerIds)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.viewerEmails);
+        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.viewer_ids)
+        || userEmail() in listOrEmpty(familyDoc(familyId).data.viewerEmails)
+        || userEmail() in listOrEmpty(familyDoc(familyId).data.viewer_emails);
     }
 
     function canReadFamily(familyId) {
@@ -115,23 +131,48 @@ service cloud.firestore {
       return mapList(data, moduleName + "WriterEmails");
     }
 
+    function hasModulePolicy(data, moduleName) {
+      return mapOrEmpty(data).keys().hasAny([
+        moduleName + "ReaderIds",
+        moduleName + "WriterIds",
+        moduleName + "ReaderEmails",
+        moduleName + "WriterEmails",
+        moduleName + "_reader_ids",
+        moduleName + "_writer_ids",
+        moduleName + "_reader_emails",
+        moduleName + "_writer_emails"
+      ]);
+    }
+
     function hasModuleReadGrant(data, moduleName) {
       return request.auth.uid in moduleReaderIds(data, moduleName)
         || request.auth.uid in moduleWriterIds(data, moduleName)
         || userEmail() in moduleReaderEmails(data, moduleName)
-        || userEmail() in moduleWriterEmails(data, moduleName);
+        || userEmail() in moduleWriterEmails(data, moduleName)
+        || request.auth.uid in mapList(data, moduleName + "_reader_ids")
+        || request.auth.uid in mapList(data, moduleName + "_writer_ids")
+        || userEmail() in mapList(data, moduleName + "_reader_emails")
+        || userEmail() in mapList(data, moduleName + "_writer_emails");
     }
 
     function hasModuleWriteGrant(data, moduleName) {
       return request.auth.uid in moduleWriterIds(data, moduleName)
-        || userEmail() in moduleWriterEmails(data, moduleName);
+        || userEmail() in moduleWriterEmails(data, moduleName)
+        || request.auth.uid in mapList(data, moduleName + "_writer_ids")
+        || userEmail() in mapList(data, moduleName + "_writer_emails");
     }
 
     function canReadFamilyModule(familyId, moduleName) {
       return isFamilyAdmin(familyId)
         || (
           familyExists(familyId)
-          && hasModuleReadGrant(familyDoc(familyId).data, moduleName)
+          && (
+            hasModuleReadGrant(familyDoc(familyId).data, moduleName)
+            || (
+              isFamilyMember(familyId)
+              && !hasModulePolicy(familyDoc(familyId).data, moduleName)
+            )
+          )
         );
     }
 
@@ -139,7 +180,13 @@ service cloud.firestore {
       return isFamilyAdmin(familyId)
         || (
           familyExists(familyId)
-          && hasModuleWriteGrant(familyDoc(familyId).data, moduleName)
+          && (
+            hasModuleWriteGrant(familyDoc(familyId).data, moduleName)
+            || (
+              isFamilyMember(familyId)
+              && !hasModulePolicy(familyDoc(familyId).data, moduleName)
+            )
+          )
         );
     }
 
@@ -223,19 +270,25 @@ service cloud.firestore {
     }
 
     function hasRequestFamilyId() {
-      return request.resource.data.familyId is string;
+      return request.resource.data.familyId is string
+        || request.resource.data.family_id is string;
     }
 
     function hasExistingFamilyId() {
-      return resource.data.familyId is string;
+      return resource.data.familyId is string
+        || resource.data.family_id is string;
     }
 
     function requestFamilyId() {
-      return request.resource.data.familyId;
+      return request.resource.data.familyId is string
+        ? request.resource.data.familyId
+        : request.resource.data.family_id;
     }
 
     function existingFamilyId() {
-      return resource.data.familyId;
+      return resource.data.familyId is string
+        ? resource.data.familyId
+        : resource.data.family_id;
     }
 
     function hasRequestCustodyScopeId() {
