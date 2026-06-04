@@ -352,7 +352,7 @@ function normalizePermissions(member) {
   }
 
   if (!member.permissions && !hasModulePermissions(member.modules) && !hasLegacyPermissions(member)) {
-    return NO_PERMS;
+    return READ_ONLY_PERMS;
   }
 
   const legacy = {

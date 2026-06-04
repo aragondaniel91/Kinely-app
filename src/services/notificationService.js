@@ -23,18 +23,6 @@ function cleanText(value, fallback = "") {
   return text || fallback;
 }
 
-function safeKey(value) {
-  return cleanText(value, "notification")
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 180);
-}
-
-function notificationDocId({ prefix = "notification", entityId = "", recipientEmail = "" }) {
-  return `${safeKey(prefix)}_${safeKey(entityId)}_${safeKey(recipientEmail)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function notificationPayload({
   id,
   kind,
@@ -119,11 +107,7 @@ export async function queueInAppNotification(options) {
   const notificationRef = options.id
     ? doc(db, NOTIFICATIONS_COLLECTION, options.id)
     : doc(collection(db, NOTIFICATIONS_COLLECTION));
-  const id = options.id || notificationRef.id || notificationDocId({
-    prefix: options.kind || "notification",
-    entityId: options.entityId || options.title,
-    recipientEmail,
-  });
+  const id = options.id || notificationRef.id;
   const payload = notificationPayload({
     ...options,
     id,
@@ -151,11 +135,7 @@ export async function queueInAppNotifications(notifications = []) {
     const notificationRef = item.id
       ? doc(db, NOTIFICATIONS_COLLECTION, item.id)
       : doc(collection(db, NOTIFICATIONS_COLLECTION));
-    const id = item.id || notificationRef.id || notificationDocId({
-      prefix: item.kind || "notification",
-      entityId: item.entityId || item.title,
-      recipientEmail: item.recipientEmail,
-    });
+    const id = item.id || notificationRef.id;
     ids.push(id);
     batch.set(
       notificationRef,

@@ -297,6 +297,45 @@ function getCustodyGroupId(group = {}) {
   return group.custodyGroupId || group.custody_group_id || group.id || "";
 }
 
+function buildHouseholdCustodyGroup(profile = {}) {
+  const familyId = profile.id || profile.familyId || profile.family_id || "";
+  if (!familyId) return null;
+
+  const parents = [
+    {
+      id: profile.parent1PersonId || profile.parent1_person_id || profile.ownerId || profile.owner_id || "",
+      uid: profile.ownerId || profile.owner_id || "",
+      email: profile.ownerEmail || profile.owner_email || profile.parent1Email || profile.parent1_email || "",
+      name: profile.parent1Name || profile.parent1_name || profile.ownerName || profile.owner_name || "Parent 1",
+      role: profile.parent1Role || profile.parent1_role || "parent1",
+    },
+    {
+      id: profile.parent2PersonId || profile.parent2_person_id || "",
+      email: profile.parent2Email || profile.parent2_email || "",
+      name: profile.parent2Name || profile.parent2_name || "Parent 2",
+      role: profile.parent2Role || profile.parent2_role || "parent2",
+    },
+  ].filter((parent) => parent.name || parent.email || parent.id || parent.uid);
+
+  return {
+    id: familyId,
+    custodyGroupId: familyId,
+    name: `${getFamilyName(profile)} custody`,
+    children: Array.isArray(profile.children) ? profile.children : [],
+    parents,
+  };
+}
+
+function getDashboardCustodyGroups(profile = {}, custodyGroups = []) {
+  const groups = Array.isArray(custodyGroups) ? [...custodyGroups] : [];
+  const householdGroup = buildHouseholdCustodyGroup(profile);
+  if (!householdGroup) return groups;
+
+  const householdGroupId = getCustodyGroupId(householdGroup);
+  if (groups.some((group) => getCustodyGroupId(group) === householdGroupId)) return groups;
+  return [...groups, householdGroup];
+}
+
 function normalizeCustodyDayDoc(docSnap, custodyGroupId) {
   const data = docSnap.data();
 
@@ -312,12 +351,29 @@ function normalizeCustodyDayDoc(docSnap, custodyGroupId) {
   };
 }
 
-function subscribeCustodyDays(custodyGroups = [], onData, onReady) {
-  const groups = custodyGroups
-    .map((group) => ({ group, id: getCustodyGroupId(group) }))
-    .filter((entry) => entry.id);
+function subscribeCustodyDays(custodyGroups = [], familyId = "", onData, onReady) {
+  const sources = [];
+  const seenSources = new Set();
+  const addSource = (fieldName, id) => {
+    if (!fieldName || !id) return;
+    const key = `${fieldName}:${id}`;
+    if (seenSources.has(key)) return;
+    seenSources.add(key);
+    sources.push({ key, fieldName, id });
+  };
 
-  if (!groups.length) {
+  custodyGroups
+    .map((group) => getCustodyGroupId(group))
+    .filter(Boolean)
+    .forEach((id) => {
+      addSource("custodyGroupId", id);
+      addSource("custody_group_id", id);
+    });
+
+  addSource("familyId", familyId);
+  addSource("family_id", familyId);
+
+  if (!sources.length) {
     onData([]);
     onReady?.();
     return () => {};
@@ -330,29 +386,29 @@ function subscribeCustodyDays(custodyGroups = [], onData, onReady) {
   const flush = () => {
     onData(mergeDocsById(...Array.from(sourceData.values())));
 
-    if (!ready && readyGroups.size >= groups.length) {
+    if (!ready && readyGroups.size >= sources.length) {
       ready = true;
       onReady?.();
     }
   };
 
-  const unsubscribers = groups.map(({ id }) => {
+  const unsubscribers = sources.map(({ key, fieldName, id }) => {
     const collectionQuery = query(
       collection(db, "custodyDays"),
-      where("custodyGroupId", "==", id)
+      where(fieldName, "==", id)
     );
 
     return onSnapshot(
       collectionQuery,
       (snap) => {
-        readyGroups.add(id);
-        sourceData.set(id, snap.docs.map((docSnap) => normalizeCustodyDayDoc(docSnap, id)));
+        readyGroups.add(key);
+        sourceData.set(key, snap.docs.map((docSnap) => normalizeCustodyDayDoc(docSnap, id)));
         flush();
       },
       (error) => {
-        readyGroups.add(id);
-        sourceData.set(id, []);
-        console.warn(`Could not listen to custodyDays for ${id}:`, error);
+        readyGroups.add(key);
+        sourceData.set(key, []);
+        console.warn(`Could not listen to custodyDays for ${key}:`, error);
         flush();
       }
     );
@@ -456,8 +512,8 @@ export default function Dashboard() {
 
   const people = useMemo(() => familyPeople || [], [familyPeople]);
   const custodyGroupsForHome = useMemo(
-    () => (Array.isArray(custodyGroups) ? custodyGroups : []),
-    [custodyGroups]
+    () => getDashboardCustodyGroups(profile, custodyGroups),
+    [profile, custodyGroups]
   );
 
   useEffect(() => {
@@ -520,11 +576,12 @@ export default function Dashboard() {
     subscribe("activity", "familyActivity", canReadActivity);
     subscribe("calendar", "familyEvents", canReadCalendar);
 
-    if (canReadCustody && custodyGroupsForHome.length) {
+    if (canReadCustody) {
       pendingKeys.add("custodyDays");
       subscriptions.push(
         subscribeCustodyDays(
           custodyGroupsForHome,
+          familyId,
           (items) => {
             setLiveData((current) => ({ ...current, custodyDays: items }));
             setLastUpdated(new Date());
