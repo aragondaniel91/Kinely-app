@@ -10,6 +10,8 @@ import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils
 import {
   buildCustodyGroupAccessQueries,
   custodyGroupBelongsToFamily,
+  custodyGroupIdsFromFamily,
+  getCustodyGroupsByIds,
 } from "@/lib/custodyGroupAccess";
 
 import {
@@ -98,13 +100,19 @@ export default function FamilySelector() {
         });
 
         const results = await Promise.allSettled(querySpecs.map((custodyQuery) => getDocs(custodyQuery)));
+        const linkedGroups = await getCustodyGroupsByIds(db, custodyGroupIdsFromFamily(profile));
 
-        if (results.every((result) => result.status === "rejected")) {
+        if (!linkedGroups.length && results.every((result) => result.status === "rejected")) {
           throw results[0].reason;
         }
 
         if (!cancelled) {
-          const groups = mapSettledFirestoreSnapshots(results, { type: "custodyGroup" });
+          const groups = [
+            ...linkedGroups,
+            ...mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }),
+          ].filter((group, index, allGroups) => {
+            return group?.id && allGroups.findIndex((item) => item.id === group.id) === index;
+          });
           setCustodyGroups(groups.filter((group) => custodyGroupBelongsToFamily(group, familyId)));
         }
       } catch (error) {
@@ -118,7 +126,7 @@ export default function FamilySelector() {
     return () => {
       cancelled = true;
     };
-  }, [myEmail, familyId, user]);
+  }, [myEmail, familyId, profile, user]);
 
   if (isLoading) {
     return (

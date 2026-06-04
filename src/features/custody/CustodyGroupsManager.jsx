@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Baby, Eye, Pencil, Plus, ShieldCheck, Trash2, Users, WalletCards } from "lucide-react";
 import {
+  arrayUnion,
   collection,
   doc,
   getDocs,
@@ -33,6 +34,8 @@ import {
 import {
   buildCustodyGroupAccessQueries,
   custodyGroupBelongsToFamily,
+  custodyGroupIdsFromFamily,
+  getCustodyGroupsByIds,
 } from "@/lib/custodyGroupAccess";
 import {
   buildCustodyInvitation,
@@ -448,13 +451,17 @@ export default function CustodyGroupsManager() {
       const results = await Promise.allSettled(
         groupQueries.map((groupQuery) => getDocs(groupQuery))
       );
+      const linkedGroups = await getCustodyGroupsByIds(db, custodyGroupIdsFromFamily(profile));
 
-      if (results.every((result) => result.status === "rejected")) {
+      if (!linkedGroups.length && results.every((result) => result.status === "rejected")) {
         throw results[0].reason;
       }
 
       setGroups(
-        mergeCustodyGroups(mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }))
+        mergeCustodyGroups([
+          ...linkedGroups,
+          ...mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }),
+        ])
           .filter((group) => custodyGroupBelongsToFamily(group, familyId))
       );
     } catch (error) {
@@ -467,7 +474,7 @@ export default function CustodyGroupsManager() {
 
   useEffect(() => {
     loadGroups();
-  }, [myEmail, familyId, user]);
+  }, [myEmail, familyId, profile, user]);
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -853,6 +860,18 @@ export default function CustodyGroupsManager() {
           });
           await batch.commit();
         }
+      }
+
+      if (familyId) {
+        await setDoc(
+          doc(db, "families", familyId),
+          {
+            custodyGroupIds: arrayUnion(groupId),
+            custody_group_ids: arrayUnion(groupId),
+            updatedAt: now,
+          },
+          { merge: true }
+        );
       }
 
       await Promise.all(

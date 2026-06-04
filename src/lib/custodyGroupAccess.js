@@ -1,4 +1,4 @@
-import { query, where } from "firebase/firestore";
+import { doc, getDoc, query, where } from "firebase/firestore";
 
 export function normalizeAccessEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -22,6 +22,40 @@ export function custodyGroupBelongsToFamily(group = {}, familyId = "") {
 
   const linkedFamilyIds = custodyGroupFamilyIds(group);
   return linkedFamilyIds.length === 0 || linkedFamilyIds.includes(String(familyId));
+}
+
+export function custodyGroupIdsFromFamily(family = {}) {
+  const linkedGroups = Array.isArray(family.custodyGroups) ? family.custodyGroups : [];
+  const linkedGroupIds = linkedGroups
+    .map((group) => (typeof group === "string" ? group : group?.id || group?.custodyGroupId || group?.custody_group_id))
+    .filter(Boolean);
+
+  return [
+    family.custodyGroupId,
+    family.custody_group_id,
+    ...(Array.isArray(family.custodyGroupIds) ? family.custodyGroupIds : []),
+    ...(Array.isArray(family.custody_group_ids) ? family.custody_group_ids : []),
+    ...linkedGroupIds,
+  ]
+    .filter(Boolean)
+    .map(String)
+    .filter((id, index, ids) => ids.indexOf(id) === index);
+}
+
+export async function getCustodyGroupsByIds(db, groupIds = []) {
+  const uniqueIds = [...new Set(groupIds.filter(Boolean).map(String))];
+  if (!uniqueIds.length) return [];
+
+  const results = await Promise.allSettled(
+    uniqueIds.map(async (groupId) => {
+      const snap = await getDoc(doc(db, "custodyGroups", groupId));
+      return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    })
+  );
+
+  return results
+    .filter((result) => result.status === "fulfilled" && result.value)
+    .map((result) => result.value);
 }
 
 export function buildCustodyGroupAccessQueries({ collectionRef, user, email, familyId }) {

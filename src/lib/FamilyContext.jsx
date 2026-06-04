@@ -36,6 +36,8 @@ import {
 import {
   buildCustodyGroupAccessQueries,
   custodyGroupBelongsToFamily,
+  custodyGroupIdsFromFamily,
+  getCustodyGroupsByIds,
 } from "@/lib/custodyGroupAccess";
 import {
   normalizeMemberRole,
@@ -854,12 +856,17 @@ export function FamilyProvider({ children }) {
           email,
           familyId: activeFamilyId,
         });
-        const results = await Promise.allSettled(
+        const linkedGroupsPromise = getCustodyGroupsByIds(db, custodyGroupIdsFromFamily(activeProfile));
+        const queryGroupsPromise = Promise.allSettled(
           groupQueries.map((groupQuery) => getDocs(groupQuery))
         );
+        const [linkedGroups, results] = await Promise.all([linkedGroupsPromise, queryGroupsPromise]);
 
         const groups = uniqueFirestoreDocs(
-          mapSettledFirestoreSnapshots(results, { type: "custodyGroup" })
+          [
+            ...linkedGroups,
+            ...mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }),
+          ]
         ).filter((group) => custodyGroupBelongsToFamily(group, activeFamilyId));
 
         if (!cancelled) setCustodyGroups(groups);
@@ -876,7 +883,7 @@ export function FamilyProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [activeProfile?.id, custodyGroupsRefreshKey, myEmail, user]);
+  }, [activeProfile, custodyGroupsRefreshKey, myEmail, user]);
 
   const refreshCustodyGroups = () => {
     setCustodyGroupsRefreshKey((current) => current + 1);

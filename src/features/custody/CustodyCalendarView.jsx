@@ -16,6 +16,8 @@ import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import {
   buildCustodyGroupAccessQueries,
   custodyGroupBelongsToFamily,
+  custodyGroupIdsFromFamily,
+  getCustodyGroupsByIds,
 } from "@/lib/custodyGroupAccess";
 
 function normalizeEmail(value) {
@@ -346,17 +348,24 @@ export default function CustodyCalendarView({
         const results = await Promise.allSettled(
           groupQueries.map((groupQuery) => getDocs(groupQuery))
         );
+        const linkedGroups = await getCustodyGroupsByIds(db, custodyGroupIdsFromFamily(profile));
 
-        if (results.every((result) => result.status === "rejected")) {
+        if (!linkedGroups.length && results.every((result) => result.status === "rejected")) {
           throw results[0].reason;
         }
 
-        const data = mapSettledFirestoreSnapshots(results, { type: "custodyGroup" })
+        const data = [
+          ...linkedGroups,
+          ...mapSettledFirestoreSnapshots(results, { type: "custodyGroup" }),
+        ]
           .filter((group) => custodyGroupBelongsToFamily(group, familyId));
+        const uniqueData = data.filter((group, index, groups) => {
+          return group?.id && groups.findIndex((item) => item.id === group.id) === index;
+        });
 
         if (!cancelled) {
-          setGroups(data);
-          setSelectedGroupId((current) => current || data[0]?.id || "legacy-family-custody");
+          setGroups(uniqueData);
+          setSelectedGroupId((current) => current || uniqueData[0]?.id || "legacy-family-custody");
         }
       } catch (error) {
         console.error("Error loading custody groups:", error);
@@ -371,7 +380,7 @@ export default function CustodyCalendarView({
     return () => {
       cancelled = true;
     };
-  }, [myEmail, familyId, user?.uid]);
+  }, [myEmail, familyId, profile, user?.uid]);
 
   useEffect(() => {
     let cancelled = false;
