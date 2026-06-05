@@ -79,6 +79,8 @@ Family profile updates are Worker-first through `POST /families/update` when `VI
 
 Custody group saves are Worker-first through `POST /custody-groups/save`. On create, the Worker requires the caller to be a family owner/admin. On edit, it requires the caller to be a custody group owner/admin. The Worker writes the custody group, pending custody invitations, family `custodyGroupIds`, and child `custodyGroupIds` with backend timestamps. This prevents caregivers/viewers from creating or changing co-parenting access inside a household space unless they are explicitly admins.
 
+Invitation responses are Worker-first through `POST /invitations/family/respond` and `POST /invitations/custody/respond`. The Worker verifies the Firebase ID token, ensures the signed-in user's email matches the invitation recipient, marks the invitation accepted/declined, removes pending invite state, and grants family/custody permissions only for accepted invitations.
+
 Activity notifications are Worker-first through `POST /notifications/activity/send`. The app calls this endpoint after writing `familyActivity`. The Worker verifies the Firebase ID token, validates access to the family or custody group, derives recipients from the Firestore family/group document, reads each user's notification preferences, writes in-app notification documents, and sends email through Resend only when the user has email notifications enabled.
 
 Firestore document triggers for calendar/task/custody changes still run in Firebase Functions as a temporary fallback. Cloudflare Workers do not listen to Firestore document changes natively, so new production flows should prefer explicit app calls to the Worker or a separate Google-to-Worker webhook bridge.

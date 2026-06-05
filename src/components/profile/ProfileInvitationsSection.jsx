@@ -26,6 +26,10 @@ import {
   roleToPersonType,
   roleToRelationship,
 } from "@/lib/memberRoles";
+import {
+  respondToCustodyInvitationViaWorker,
+  respondToFamilyInvitationViaWorker,
+} from "@/services/invitationBackendService";
 
 const DEFAULT_MEMBER_PERMISSIONS = {
   home: { read: false, write: false },
@@ -506,6 +510,20 @@ export default function ProfileInvitationsSection() {
     setError("");
 
     try {
+      const workerResult = await respondToCustodyInvitationViaWorker({
+        invitationId: invitation.id,
+        action: "accept",
+      });
+
+      if (workerResult) {
+        await refreshFamilies?.();
+        removeInvitationFromList(invitation);
+        setMessage(invitationAccess(invitation) === "viewer"
+          ? "Invitation accepted. The custody calendar is now available in view-only mode."
+          : "Invitation accepted. The custody calendar is now active on your account.");
+        return;
+      }
+
       const access = invitationAccess(invitation);
       const batch = writeBatch(db);
       const invitationRef = doc(db, INVITATION_COLLECTIONS.CUSTODY, invitation.id);
@@ -581,6 +599,19 @@ export default function ProfileInvitationsSection() {
     setError("");
 
     try {
+      const workerResult = await respondToFamilyInvitationViaWorker({
+        invitationId: invitation.id,
+        action: "accept",
+      });
+
+      if (workerResult) {
+        await refreshFamilies?.();
+        setActiveProfileId?.(workerResult.familyId || familyId);
+        removeInvitationFromList(invitation);
+        setMessage("Invitation accepted. The family space is now active on your account.");
+        return;
+      }
+
       const invitationRef = doc(db, "familyInvitations", invitation.id);
       const familyRef = doc(db, "families", familyId);
       const userRef = doc(db, "users", user.uid);
@@ -685,6 +716,17 @@ export default function ProfileInvitationsSection() {
     setError("");
 
     try {
+      const workerResult = await respondToCustodyInvitationViaWorker({
+        invitationId: invitation.id,
+        action: "decline",
+      });
+
+      if (workerResult) {
+        removeInvitationFromList(invitation);
+        setMessage("Invitation declined.");
+        return;
+      }
+
       const batch = writeBatch(db);
       const invitationRef = doc(db, INVITATION_COLLECTIONS.CUSTODY, invitation.id);
       const groupRef = doc(db, "custodyGroups", groupId);
@@ -736,6 +778,17 @@ export default function ProfileInvitationsSection() {
     setError("");
 
     try {
+      const workerResult = await respondToFamilyInvitationViaWorker({
+        invitationId: invitation.id,
+        action: "decline",
+      });
+
+      if (workerResult) {
+        removeInvitationFromList(invitation);
+        setMessage("Invitation declined.");
+        return;
+      }
+
       const batch = writeBatch(db);
       const invitationRef = doc(db, "familyInvitations", invitation.id);
       const familyRef = doc(db, "families", familyId);

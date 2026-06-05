@@ -790,6 +790,69 @@ function mergeInvites(existing = [], invite) {
   return [...map.values()];
 }
 
+function invitationsMatch(left = {}, right = {}) {
+  const leftId = cleanText(left.id);
+  const rightId = cleanText(right.id);
+  const leftEmail = normalizeEmail(left.recipientEmail || left.recipient_email);
+  const rightEmail = normalizeEmail(right.recipientEmail || right.recipient_email);
+  const leftFamilyId = cleanText(left.familyId || left.family_id);
+  const rightFamilyId = cleanText(right.familyId || right.family_id);
+  const leftGroupId = cleanText(left.groupId || left.group_id || left.custodyGroupId || left.custody_group_id || leftFamilyId);
+  const rightGroupId = cleanText(right.groupId || right.group_id || right.custodyGroupId || right.custody_group_id || rightFamilyId);
+
+  return Boolean(
+    (leftId && rightId && leftId === rightId) ||
+    (leftEmail && rightEmail && leftEmail === rightEmail && (
+      (leftFamilyId && rightFamilyId && leftFamilyId === rightFamilyId) ||
+      (leftGroupId && rightGroupId && leftGroupId === rightGroupId)
+    ))
+  );
+}
+
+function removeEmbeddedInvitation(list = [], invitation = {}) {
+  return listOrEmpty(list).filter((item) => !invitationsMatch(item, invitation));
+}
+
+function removeEmail(list = [], email = "") {
+  const cleanEmail = normalizeEmail(email);
+  return listOrEmpty(list).map(normalizeEmail).filter((item) => item && item !== cleanEmail);
+}
+
+function mergeEmailList(...groups) {
+  return [...new Set(groups.flat().map(normalizeEmail).filter(Boolean))];
+}
+
+function invitationAccess(invitation = {}) {
+  const access = cleanText(invitation.access || invitation.accessLevel || invitation.access_level);
+  const type = cleanText(invitation.type || invitation.inviteType || invitation.invite_type);
+  const role = cleanText(invitation.role);
+  return access === "viewer" || type.includes("viewer") || role === "viewer" ? "viewer" : "member";
+}
+
+function modulePermission(permission = {}) {
+  return {
+    read: permission?.read === true || permission?.write === true || permission?.visible === true || permission?.assignable === true,
+    write: permission?.write === true,
+  };
+}
+
+function addAccessArrays(update = {}, { uid = "", email = "", moduleName = "", permission = {} } = {}) {
+  const access = modulePermission(permission);
+  const readerIdsKey = `${moduleName}ReaderIds`;
+  const readerEmailsKey = `${moduleName}ReaderEmails`;
+  const writerIdsKey = `${moduleName}WriterIds`;
+  const writerEmailsKey = `${moduleName}WriterEmails`;
+
+  if (access.read) {
+    update[readerIdsKey] = mergeIdList(update[readerIdsKey], uid);
+    update[readerEmailsKey] = mergeEmailList(update[readerEmailsKey], email);
+  }
+  if (access.write) {
+    update[writerIdsKey] = mergeIdList(update[writerIdsKey], uid);
+    update[writerEmailsKey] = mergeEmailList(update[writerEmailsKey], email);
+  }
+}
+
 function pendingFamilyUpdate(family = {}, invitation = {}, now = new Date().toISOString()) {
   const email = normalizeEmail(invitation.recipientEmail || invitation.recipient_email);
   const pendingMemberEmails = uniqueStrings([
@@ -907,6 +970,103 @@ function normalizeCustodyInvitation(raw = {}, token = {}) {
     updatedAt: now,
     updated_at: now,
   };
+}
+
+function familyInvitationMember(invitation = {}, token = {}) {
+  const email = normalizeEmail(invitation.recipientEmail || invitation.recipient_email || token.email);
+  const role = cleanText(invitation.role, "family");
+  const name = cleanText(
+    invitation.recipientName ||
+    invitation.recipient_name ||
+    token.name ||
+    email,
+    email
+  );
+  const admin = (
+    invitation.admin === true ||
+    invitation.isAdmin === true ||
+    invitation.is_admin === true ||
+    invitation.appRole === "admin" ||
+    invitation.app_role === "admin"
+  );
+  const livesHere = invitation.livesHere === true || invitation.lives_here === true;
+  const showOnHomeDashboard = (
+    invitation.showOnHomeDashboard === true ||
+    invitation.show_on_home_dashboard === true ||
+    invitation.homeDashboard === true ||
+    invitation.home_dashboard === true ||
+    livesHere
+  );
+
+  return {
+    id: `user_${token.sub}`,
+    personId: `user_${token.sub}`,
+    person_id: `user_${token.sub}`,
+    uid: token.sub,
+    email,
+    name,
+    displayName: name,
+    display_name: name,
+    type: cleanText(invitation.personType || invitation.person_type || role, "member"),
+    personType: cleanText(invitation.personType || invitation.person_type || role, "member"),
+    person_type: cleanText(invitation.person_type || invitation.personType || role, "member"),
+    role,
+    relationship: cleanText(invitation.relationship || invitation.memberRelationship || invitation.member_relationship || role),
+    memberRelationship: cleanText(invitation.relationship || invitation.memberRelationship || invitation.member_relationship || role),
+    member_relationship: cleanText(invitation.relationship || invitation.memberRelationship || invitation.member_relationship || role),
+    livesHere,
+    lives_here: livesHere,
+    showOnHomeDashboard,
+    show_on_home_dashboard: showOnHomeDashboard,
+    homeDashboard: showOnHomeDashboard,
+    home_dashboard: showOnHomeDashboard,
+    appRole: cleanText(invitation.appRole || invitation.app_role || (admin ? "admin" : "viewer")),
+    app_role: cleanText(invitation.app_role || invitation.appRole || (admin ? "admin" : "viewer")),
+    color: cleanText(invitation.color || invitation.colorId || invitation.color_id || invitation.familyColor || invitation.family_color),
+    colorId: cleanText(invitation.colorId || invitation.color_id || invitation.color || invitation.familyColor || invitation.family_color),
+    color_id: cleanText(invitation.color_id || invitation.colorId || invitation.color || invitation.familyColor || invitation.family_color),
+    familyColor: cleanText(invitation.familyColor || invitation.family_color || invitation.color || invitation.colorId || invitation.color_id),
+    family_color: cleanText(invitation.family_color || invitation.familyColor || invitation.color || invitation.colorId || invitation.color_id),
+    admin,
+    isAdmin: admin,
+    is_admin: admin,
+    invitationStatus: "accepted",
+    invitation_status: "accepted",
+    invitationId: cleanText(invitation.id),
+    invitation_id: cleanText(invitation.id),
+    modules: mapOrEmpty(invitation.modules),
+    permissions: mapOrEmpty(invitation.permissions),
+    status: "active",
+  };
+}
+
+function mergeAcceptedMember(members = [], acceptedMember = {}) {
+  const currentMembers = listOrEmpty(members);
+  let merged = false;
+  const acceptedEmail = normalizeEmail(acceptedMember.email);
+
+  const nextMembers = currentMembers.map((member) => {
+    const memberEmail = normalizeEmail(member?.email);
+    const sameMember = (
+      (acceptedMember.uid && member?.uid === acceptedMember.uid) ||
+      (acceptedEmail && memberEmail === acceptedEmail) ||
+      (acceptedMember.invitationId && (member?.invitationId === acceptedMember.invitationId || member?.invitation_id === acceptedMember.invitationId))
+    );
+    if (!sameMember) return member;
+
+    merged = true;
+    return {
+      ...member,
+      ...acceptedMember,
+      color: acceptedMember.color || member.color || member.colorId || "teal",
+      colorId: acceptedMember.colorId || acceptedMember.color || member.colorId || member.color || "teal",
+      color_id: acceptedMember.color_id || acceptedMember.colorId || acceptedMember.color || member.color_id || member.colorId || "teal",
+      status: "active",
+    };
+  });
+
+  if (!merged) nextMembers.push(acceptedMember);
+  return nextMembers;
 }
 
 function mergeNotificationPreferences(saved = {}) {
@@ -1423,6 +1583,198 @@ async function handleCustodyGroupSave(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+function responseStatus(action = "") {
+  const normalized = cleanText(action).toLowerCase();
+  if (normalized === "decline" || normalized === "declined") return "declined";
+  if (normalized === "accept" || normalized === "accepted") return "accepted";
+  throw new Error("Invitation response must be accept or decline.");
+}
+
+function assertInviteRecipient(invitation = {}, token = {}) {
+  const inviteEmail = normalizeEmail(invitation.recipientEmail || invitation.recipient_email);
+  const tokenEmail = normalizeEmail(token.email);
+  if (!inviteEmail || !tokenEmail || inviteEmail !== tokenEmail) {
+    throw new Error("This invitation belongs to a different email address.");
+  }
+  return inviteEmail;
+}
+
+async function handleFamilyInvitationRespond(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const invitationId = cleanText(payload.invitationId || payload.invitation_id || payload.id);
+  const status = responseStatus(payload.action || payload.status);
+  if (!invitationId) throw new Error("Family invitation response requires invitationId.");
+
+  const invitation = await firestoreGetDoc(env, "familyInvitations", invitationId);
+  if (!invitation) throw new Error("Family invitation was not found.");
+  const recipientEmail = assertInviteRecipient(invitation, token);
+  const familyId = cleanText(invitation.familyId || invitation.family_id);
+  const family = await firestoreGetDoc(env, "families", familyId);
+  if (!family) throw new Error("Family space was not found.");
+
+  const now = new Date().toISOString();
+  const invitationUpdate = {
+    status,
+    updatedAt: now,
+    updated_at: now,
+    ...(status === "accepted"
+      ? {
+          acceptedBy: cleanText(token.sub),
+          accepted_by: cleanText(token.sub),
+          acceptedAt: now,
+          accepted_at: now,
+        }
+      : {
+          declinedBy: cleanText(token.sub),
+          declined_by: cleanText(token.sub),
+          declinedAt: now,
+          declined_at: now,
+        }),
+  };
+  const familyUpdate = {
+    pendingMemberEmails: removeEmail(family.pendingMemberEmails, recipientEmail),
+    pending_member_emails: removeEmail(family.pending_member_emails, recipientEmail),
+    pendingInvites: removeEmbeddedInvitation(family.pendingInvites, invitation),
+    pending_invites: removeEmbeddedInvitation(family.pending_invites, invitation),
+    updatedAt: now,
+    updated_at: now,
+  };
+  const writes = [
+    firestoreMergeWrite(env, "familyInvitations", invitationId, invitationUpdate),
+  ];
+
+  if (status === "accepted") {
+    const member = familyInvitationMember(invitation, token);
+    const memberIds = mergeIdList(family.memberIds, family.member_ids, token.sub);
+    const memberEmails = mergeEmailList(family.memberEmails, family.member_emails, recipientEmail);
+    Object.assign(familyUpdate, {
+      memberIds,
+      member_ids: memberIds,
+      memberEmails,
+      member_emails: memberEmails,
+      members: mergeAcceptedMember(family.members, member),
+    });
+
+    if (member.isAdmin === true) {
+      familyUpdate.adminIds = mergeIdList(family.adminIds, family.admin_ids, token.sub);
+      familyUpdate.admin_ids = familyUpdate.adminIds;
+      familyUpdate.adminEmails = mergeEmailList(family.adminEmails, family.admin_emails, recipientEmail);
+      familyUpdate.admin_emails = familyUpdate.adminEmails;
+    } else {
+      Object.entries(mapOrEmpty(member.permissions)).forEach(([moduleName, permission]) => {
+        addAccessArrays(familyUpdate, {
+          uid: token.sub,
+          email: recipientEmail,
+          moduleName,
+          permission,
+        });
+      });
+    }
+
+    const userDoc = await firestoreGetDoc(env, "users", token.sub);
+    writes.push(firestoreMergeWrite(env, "users", token.sub, {
+      uid: cleanText(token.sub),
+      email: recipientEmail,
+      familyIds: mergeIdList(userDoc?.familyIds, userDoc?.family_ids, familyId),
+      family_ids: mergeIdList(userDoc?.familyIds, userDoc?.family_ids, familyId),
+      updatedAt: now,
+      updated_at: now,
+    }));
+  }
+
+  writes.push(firestoreMergeWrite(env, "families", familyId, familyUpdate));
+  await firestoreCommit(env, writes);
+
+  return json({
+    ok: true,
+    status,
+    familyId,
+    invitationId,
+  }, { status: 200 }, origin);
+}
+
+async function handleCustodyInvitationRespond(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const invitationId = cleanText(payload.invitationId || payload.invitation_id || payload.id);
+  const status = responseStatus(payload.action || payload.status);
+  if (!invitationId) throw new Error("Custody invitation response requires invitationId.");
+
+  const invitation = await firestoreGetDoc(env, "custodyInvitations", invitationId);
+  if (!invitation) throw new Error("Custody invitation was not found.");
+  const recipientEmail = assertInviteRecipient(invitation, token);
+  const groupId = cleanText(invitation.groupId || invitation.group_id || invitation.custodyGroupId || invitation.custody_group_id || invitation.familyId || invitation.family_id);
+  const group = await firestoreGetDoc(env, "custodyGroups", groupId);
+  if (!group) throw new Error("Custody group was not found.");
+
+  const now = new Date().toISOString();
+  const access = invitationAccess(invitation);
+  const invitationUpdate = {
+    status,
+    updatedAt: now,
+    updated_at: now,
+    ...(status === "accepted"
+      ? {
+          acceptedBy: cleanText(token.sub),
+          accepted_by: cleanText(token.sub),
+          acceptedAt: now,
+          accepted_at: now,
+        }
+      : {
+          declinedBy: cleanText(token.sub),
+          declined_by: cleanText(token.sub),
+          declinedAt: now,
+          declined_at: now,
+        }),
+  };
+  const groupUpdate = {
+    pendingInvites: removeEmbeddedInvitation(group.pendingInvites, invitation),
+    pending_invites: removeEmbeddedInvitation(group.pending_invites, invitation),
+    pendingMemberEmails: removeEmail(group.pendingMemberEmails, recipientEmail),
+    pending_member_emails: removeEmail(group.pending_member_emails, recipientEmail),
+    pendingViewerEmails: removeEmail(group.pendingViewerEmails, recipientEmail),
+    pending_viewer_emails: removeEmail(group.pending_viewer_emails, recipientEmail),
+    updatedAt: now,
+    updated_at: now,
+  };
+
+  if (status === "accepted") {
+    if (access === "viewer") {
+      groupUpdate.viewerIds = mergeIdList(group.viewerIds, group.viewer_ids, token.sub);
+      groupUpdate.viewer_ids = groupUpdate.viewerIds;
+      groupUpdate.viewerEmails = mergeEmailList(group.viewerEmails, group.viewer_emails, recipientEmail);
+      groupUpdate.viewer_emails = groupUpdate.viewerEmails;
+    } else {
+      groupUpdate.memberIds = mergeIdList(group.memberIds, group.member_ids, token.sub);
+      groupUpdate.member_ids = groupUpdate.memberIds;
+      groupUpdate.memberEmails = mergeEmailList(group.memberEmails, group.member_emails, recipientEmail);
+      groupUpdate.member_emails = groupUpdate.memberEmails;
+    }
+
+    Object.entries(mapOrEmpty(invitation.permissions)).forEach(([moduleName, permission]) => {
+      addAccessArrays(groupUpdate, {
+        uid: token.sub,
+        email: recipientEmail,
+        moduleName,
+        permission,
+      });
+    });
+  }
+
+  await firestoreCommit(env, [
+    firestoreMergeWrite(env, "custodyInvitations", invitationId, invitationUpdate),
+    firestoreMergeWrite(env, "custodyGroups", groupId, groupUpdate),
+  ]);
+
+  return json({
+    ok: true,
+    status,
+    groupId,
+    invitationId,
+  }, { status: 200 }, origin);
+}
+
 function normalizeActivity(raw = {}, token = {}) {
   const custodyGroupId = cleanText(raw.custodyGroupId || raw.custody_group_id);
   const householdFamilyId = cleanText(raw.householdFamilyId || raw.household_family_id);
@@ -1619,6 +1971,14 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/invitations/custody/send") {
         return handleCustodyInvitationSend(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/invitations/family/respond") {
+        return handleFamilyInvitationRespond(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/invitations/custody/respond") {
+        return handleCustodyInvitationRespond(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/custody-groups/save") {
