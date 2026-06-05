@@ -48,6 +48,8 @@ Configure Worker secrets:
 npx wrangler secret put RESEND_API_KEY --config workers/kinely-api/wrangler.jsonc
 npx wrangler secret put MAIL_FROM --config workers/kinely-api/wrangler.jsonc
 npx wrangler secret put WEBHOOK_SECRET --config workers/kinely-api/wrangler.jsonc
+npx wrangler secret put GOOGLE_CLIENT_EMAIL --config workers/kinely-api/wrangler.jsonc
+npx wrangler secret put GOOGLE_PRIVATE_KEY --config workers/kinely-api/wrangler.jsonc
 ```
 
 Required Worker variables are defined in `workers/kinely-api/wrangler.jsonc`:
@@ -60,4 +62,8 @@ Required Worker variables are defined in `workers/kinely-api/wrangler.jsonc`:
 
 Invitation email sending is Worker-first when `VITE_KINELY_API_URL` is set. If that variable is missing, the app keeps using the existing Firestore `mail` queue and Firebase Function email sender.
 
+The Worker also includes `POST /invitations/family/send`, which verifies the Firebase ID token, checks that the caller is a family owner/admin, writes the pending invitation to Firestore with a service account, updates the family pending invite fields, and sends the invitation email through Resend.
+
 Firestore document triggers for calendar/task/custody changes still run in Firebase Functions for now. Cloudflare Workers do not listen to Firestore document changes natively, so those event-driven flows need either explicit app calls to the Worker or a separate Google-to-Worker webhook bridge.
+
+For the Google service account, start with the smallest practical IAM role for the migration. The Worker currently needs Firestore document read/write access for family invitation flows.
