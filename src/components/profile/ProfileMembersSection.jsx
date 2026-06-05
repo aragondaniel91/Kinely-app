@@ -11,7 +11,10 @@ import {
   familyInvitationId,
   withPendingFamilyInvitation,
 } from "@/lib/invitationUtils";
-import { queueFamilyInvitationEmail } from "@/services/emailQueueService";
+import {
+  queueFamilyInvitationEmail,
+  sendFamilyInvitationViaWorker,
+} from "@/services/emailQueueService";
 import { queueFamilyInvitationNotification } from "@/services/notificationService";
 import { getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
@@ -1020,21 +1023,34 @@ export default function ProfileMembersSection() {
       let invitationNotificationQueued = false;
 
       if (pendingInvite) {
-        await setDoc(
-          doc(db, "familyInvitations", familyInvitationId(familyId, email)),
-          pendingInvite,
-          { merge: true }
-        );
+        const inviteDeliveryOptions = {
+          invitation: pendingInvite,
+          familyName: profile?.familyName || profile?.family_name || "",
+          inviterName: user?.displayName || myEmail || user?.email || "Family admin",
+        };
+        let invitationHandledByWorker = false;
 
         try {
-          await queueFamilyInvitationEmail({
-            invitation: pendingInvite,
-            familyName: profile?.familyName || profile?.family_name || "",
-            inviterName: user?.displayName || myEmail || user?.email || "Family admin",
-          });
+          const workerResult = await sendFamilyInvitationViaWorker(inviteDeliveryOptions);
+          invitationHandledByWorker = Boolean(workerResult);
           invitationEmailQueued = true;
-        } catch (emailError) {
-          console.warn("Family invitation email could not be queued:", emailError);
+        } catch (workerError) {
+          console.warn("Family invitation Worker delivery failed, falling back to Firestore queue:", workerError);
+        }
+
+        if (!invitationHandledByWorker) {
+          await setDoc(
+            doc(db, "familyInvitations", familyInvitationId(familyId, email)),
+            pendingInvite,
+            { merge: true }
+          );
+
+          try {
+            await queueFamilyInvitationEmail(inviteDeliveryOptions);
+            invitationEmailQueued = true;
+          } catch (emailError) {
+            console.warn("Family invitation email could not be queued:", emailError);
+          }
         }
 
         try {

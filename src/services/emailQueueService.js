@@ -35,6 +35,30 @@ function workerApiBaseUrl() {
   return cleanText(import.meta.env.VITE_KINELY_API_URL).replace(/\/+$/g, "");
 }
 
+async function authorizedWorkerRequest(pathname, payload) {
+  const workerBaseUrl = workerApiBaseUrl();
+  if (!workerBaseUrl) return null;
+
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error("A signed-in user is required to call Kinely API.");
+
+  const response = await fetch(`${workerBaseUrl}${pathname}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result?.ok === false) {
+    throw new Error(result?.error || `Kinely API request failed with ${response.status}.`);
+  }
+
+  return result;
+}
+
 function buildAppUrl(pathname, params = {}) {
   const search = new URLSearchParams();
 
@@ -240,31 +264,18 @@ export function buildNotificationEmailPayload({
 
 export async function queueEmailPayload(payload) {
   if (!payload?.id || !payload?.recipientEmail) return null;
-  const workerBaseUrl = workerApiBaseUrl();
-
-  if (workerBaseUrl) {
-    const token = await auth.currentUser?.getIdToken();
-    if (!token) throw new Error("A signed-in user is required to send email through Kinely API.");
-
-    const response = await fetch(`${workerBaseUrl}/emails/send`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result?.ok === false) {
-      throw new Error(result?.error || `Kinely API email request failed with ${response.status}.`);
-    }
-
+  const result = await authorizedWorkerRequest("/emails/send", payload);
+  if (result) {
     return result?.id || payload.id;
   }
 
   await setDoc(doc(db, MAIL_COLLECTION, payload.id), payload, { merge: true });
   return payload.id;
+}
+
+export async function sendFamilyInvitationViaWorker(options) {
+  const result = await authorizedWorkerRequest("/invitations/family/send", options);
+  return result || null;
 }
 
 export async function queueFamilyInvitationEmail(options) {
