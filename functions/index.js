@@ -146,8 +146,10 @@ function notificationEmailHtml({ title, body, actionUrl }) {
   `.trim();
 }
 
-function notificationDocId({ kind, entityId, recipientEmail, dedupeKey = "" }) {
-  const seed = dedupeKey || `${entityId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function notificationDocId({ kind, recipientEmail, dedupeKey = "" }) {
+  const seed = cleanText(dedupeKey);
+  if (!seed) return "";
+
   return [kind, seed, recipientEmail]
     .map((part) => cleanText(part, "notification").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 120))
     .join("_");
@@ -374,17 +376,17 @@ async function dispatchPreferenceNotifications({
     if (prefs.notifyOn?.[prefKey] !== true) continue;
 
     const recipientEmail = normalizeEmail(recipient.email);
-    const baseId = notificationDocId({
+    const stableBaseId = notificationDocId({
       kind,
-      entityId,
       recipientEmail,
       dedupeKey,
     });
 
     if (prefs.channels?.inApp !== false) {
-      const ref = db.collection("notifications").doc(baseId);
+      const ref = stableBaseId ? db.collection("notifications").doc(stableBaseId) : db.collection("notifications").doc();
+      const notificationId = ref.id;
       batch.set(ref, {
-        id: baseId,
+        id: notificationId,
         kind,
         title,
         body,
@@ -425,7 +427,8 @@ async function dispatchPreferenceNotifications({
     }
 
     if (prefs.channels?.email === true) {
-      const mailRef = db.collection("mail").doc(`mail_${baseId}`);
+      const mailRef = stableBaseId ? db.collection("mail").doc(`mail_${stableBaseId}`) : db.collection("mail").doc();
+      const mailId = mailRef.id;
       if (dedupeKey) {
         const existingMail = await mailRef.get();
         if (existingMail.exists) continue;
@@ -433,7 +436,7 @@ async function dispatchPreferenceNotifications({
 
       const text = `${body}\n\nOpen Kinely: ${absoluteActionUrl}`;
       batch.set(mailRef, {
-        id: `mail_${baseId}`,
+        id: mailId,
         to: [recipientEmail],
         recipientEmail,
         message: {
