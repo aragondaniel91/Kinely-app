@@ -60,6 +60,10 @@ import {
   buildBulkDayPayload,
   generateBlockStarts,
 } from "@/features/custody/calendar/utils/custodyBulkUtils";
+import {
+  deleteCustodyDayViaWorker,
+  saveCustodyDaysViaWorker,
+} from "@/services/custodyBackendService";
 
 function getCustodyDaySegments(day) {
   if (!day) return [];
@@ -273,12 +277,21 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         updatedAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
+      const workerResult = await saveCustodyDaysViaWorker({
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        days: [data],
+      });
+      const savedData = workerResult?.days?.[0] || data;
+
+      if (!workerResult) {
+        await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
+      }
 
       setCustodyDays((prev) => {
         const existing = prev.find((d) => normalizeDate(d.date) === dateKey);
-        if (existing) return prev.map((d) => (normalizeDate(d.date) === dateKey ? { ...d, ...data } : d));
-        return [...prev, data].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        if (existing) return prev.map((d) => (normalizeDate(d.date) === dateKey ? { ...d, ...savedData } : d));
+        return [...prev, savedData].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       });
 
       setSelectedDate(null);
@@ -375,15 +388,27 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
             });
           }
 
-          await setDoc(ref, data, { merge: true });
           generatedEntries.push(data);
+        }
+      }
+
+      const workerResult = await saveCustodyDaysViaWorker({
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        days: generatedEntries,
+      });
+      const savedEntries = workerResult?.days?.length ? workerResult.days : generatedEntries;
+
+      if (!workerResult) {
+        for (const data of generatedEntries) {
+          await setDoc(doc(db, "custodyDays", data.id), data, { merge: true });
         }
       }
 
       setCustodyDays((prev) => {
         const map = new Map();
         prev.forEach((item) => map.set(normalizeDate(item.date), item));
-        generatedEntries.forEach((item) => map.set(normalizeDate(item.date), item));
+        savedEntries.forEach((item) => map.set(normalizeDate(item.date), item));
         return Array.from(map.values()).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       });
 
@@ -420,17 +445,39 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
     setIsSaving(true);
 
     try {
-      for (const entry of lastBulkUndo.entries) {
-        const ref = doc(db, "custodyDays", entry.id);
+      const restoreEntries = lastBulkUndo.entries
+        .filter((entry) => entry.before)
+        .map((entry) => ({
+          ...entry.before,
+          restoredFromBulkRunId: lastBulkUndo.bulkRunId,
+          updatedAt: serverTimestamp(),
+        }));
+      const deleteEntries = lastBulkUndo.entries.filter((entry) => !entry.before);
 
-        if (entry.before) {
-          await setDoc(ref, {
-            ...entry.before,
-            restoredFromBulkRunId: lastBulkUndo.bulkRunId,
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          await deleteDoc(ref);
+      if (restoreEntries.length) {
+        const workerResult = await saveCustodyDaysViaWorker({
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          days: restoreEntries,
+        });
+
+        if (!workerResult) {
+          for (const entry of restoreEntries) {
+            await setDoc(doc(db, "custodyDays", entry.id), entry, { merge: true });
+          }
+        }
+      }
+
+      for (const entry of deleteEntries) {
+        const workerResult = await deleteCustodyDayViaWorker({
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          date: entry.date,
+          docId: entry.id,
+        });
+
+        if (!workerResult) {
+          await deleteDoc(doc(db, "custodyDays", entry.id));
         }
       }
 
@@ -470,13 +517,22 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       const dateKey = normalizeDate(date);
       const newDocId = `${custodyScopeId}_${dateKey}`;
 
-      await deleteDoc(doc(db, "custodyDays", newDocId));
+      const workerResult = await deleteCustodyDayViaWorker({
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        date: dateKey,
+        docId: newDocId,
+      });
 
-      try {
-        const oldDocId = `${user.uid}_${dateKey}`;
-        await deleteDoc(doc(db, "custodyDays", oldDocId));
-      } catch (legacyError) {
-        console.warn("Could not delete legacy custody doc:", legacyError);
+      if (!workerResult) {
+        await deleteDoc(doc(db, "custodyDays", newDocId));
+
+        try {
+          const oldDocId = `${user.uid}_${dateKey}`;
+          await deleteDoc(doc(db, "custodyDays", oldDocId));
+        } catch (legacyError) {
+          console.warn("Could not delete legacy custody doc:", legacyError);
+        }
       }
 
       setCustodyDays((prev) => prev.filter((d) => normalizeDate(d.date) !== dateKey));

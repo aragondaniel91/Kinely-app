@@ -955,6 +955,79 @@ function memberCanReadModule(member = {}, moduleName = "") {
   return true;
 }
 
+function permissionAllowsWrite(permission) {
+  if (permission === true) return true;
+  if (typeof permission === "string") return ["write", "admin", "owner"].includes(permission);
+  if (!permission || typeof permission !== "object") return false;
+  return permission.write === true;
+}
+
+function memberCanWriteModule(member = {}, moduleName = "") {
+  if (!moduleName || member.admin === true || member.isAdmin === true || member.is_admin === true) return true;
+  if (["owner", "admin"].includes(cleanText(member.appRole || member.app_role))) return true;
+
+  const normalizedModule = moduleName === "groceries" ? "lists" : moduleName;
+  const permissions = mapOrEmpty(member.permissions);
+  const modules = mapOrEmpty(member.modules);
+
+  if (Object.prototype.hasOwnProperty.call(permissions, normalizedModule)) {
+    return permissionAllowsWrite(permissions[normalizedModule]);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(modules, normalizedModule)) {
+    return permissionAllowsWrite(modules[normalizedModule]);
+  }
+
+  return cleanText(member.access || member.accessLevel || member.access_level) === "member";
+}
+
+function canWriteFamilyModule(family = {}, token = {}, moduleName = "") {
+  if (canManageFamily(family, token)) return true;
+
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  const normalizedModule = moduleName === "groceries" ? "lists" : moduleName;
+  const writerIds = uniqueStrings([
+    family[`${normalizedModule}WriterIds`],
+    family[`${normalizedModule}_writer_ids`],
+  ].flat());
+  const writerEmails = uniqueStrings([
+    family[`${normalizedModule}WriterEmails`],
+    family[`${normalizedModule}_writer_emails`],
+  ].flat()).map(normalizeEmail);
+
+  return Boolean(
+    (uid && writerIds.includes(uid)) ||
+    (email && writerEmails.includes(email)) ||
+    memberCanWriteModule(findPrincipalMember(family, token), normalizedModule)
+  );
+}
+
+function canWriteCustodyGroup(group = {}, token = {}) {
+  if (canManageCustodyGroup(group, token)) return true;
+
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  const writerIds = uniqueStrings([
+    group.custodyWriterIds,
+    group.custody_writer_ids,
+    group.memberIds,
+    group.member_ids,
+  ].flat());
+  const writerEmails = uniqueStrings([
+    group.custodyWriterEmails,
+    group.custody_writer_emails,
+    group.memberEmails,
+    group.member_emails,
+  ].flat()).map(normalizeEmail);
+
+  return Boolean(
+    (uid && writerIds.includes(uid)) ||
+    (email && writerEmails.includes(email)) ||
+    memberCanWriteModule(findPrincipalMember(group, token), "custody")
+  );
+}
+
 function upsertRecipient(recipients, candidate = {}, moduleName = "") {
   const email = normalizeEmail(candidate.email || candidate.emailAddress || candidate.memberEmail || candidate.recipientEmail);
   const uid = cleanText(candidate.uid || candidate.userId || candidate.user_id || candidate.id);
@@ -1922,6 +1995,180 @@ async function handleCustodyGroupDelete(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+function normalizeDateKey(value) {
+  const text = cleanText(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+}
+
+async function assertCustodyDayWriteAccess(env, { familyId = "", custodyGroupId = "" } = {}, token = {}) {
+  const groupId = cleanText(custodyGroupId);
+  const group = groupId ? await firestoreGetDoc(env, "custodyGroups", groupId) : null;
+
+  if (group) {
+    if (!canWriteCustodyGroup(group, token)) {
+      return { forbidden: true, error: "You do not have write access to this custody group." };
+    }
+
+    return {
+      forbidden: false,
+      familyId: cleanText(group.familyId || group.family_id || group.householdFamilyId || group.household_family_id || familyId),
+      custodyGroupId: groupId,
+      custodyGroupName: cleanText(group.name || group.groupName || group.group_name),
+    };
+  }
+
+  const householdFamilyId = cleanText(familyId || groupId);
+  const family = householdFamilyId ? await firestoreGetDoc(env, "families", householdFamilyId) : null;
+
+  if (!family) {
+    return { forbidden: true, error: "Custody scope was not found." };
+  }
+
+  if (!canWriteFamilyModule(family, token, "custody")) {
+    return { forbidden: true, error: "You do not have permission to edit custody for this family space." };
+  }
+
+  return {
+    forbidden: false,
+    familyId: householdFamilyId,
+    custodyGroupId: groupId || householdFamilyId,
+    custodyGroupName: "",
+  };
+}
+
+function normalizeCustodyDayForWrite(raw = {}, { familyId = "", custodyGroupId = "", custodyGroupName = "", token = {}, now = "" } = {}) {
+  const date = normalizeDateKey(raw.date);
+  if (!date) throw new Error("Custody day requires a YYYY-MM-DD date.");
+
+  const scopeId = cleanText(raw.custodyGroupId || raw.custody_group_id || custodyGroupId || familyId);
+  if (!scopeId) throw new Error("Custody day requires a custody scope.");
+
+  const isSplit = raw.is_split === true || raw.isSplit === true;
+  const withWhom = isSplit ? null : cleanText(raw.with_whom || raw.withWhom) || null;
+  const morning = isSplit ? cleanText(raw.morning) || null : null;
+  const afternoon = isSplit ? cleanText(raw.afternoon) || null : null;
+  const householdFamilyId = cleanText(raw.householdFamilyId || raw.household_family_id || familyId);
+  const docId = cleanText(raw.id, `${scopeId}_${date}`);
+  const createdAt = typeof raw.createdAt === "string"
+    ? raw.createdAt
+    : typeof raw.created_at === "string"
+      ? raw.created_at
+      : now;
+
+  return {
+    ...raw,
+    id: docId,
+    date,
+    is_split: isSplit,
+    isSplit,
+    with_whom: withWhom,
+    withWhom,
+    morning,
+    afternoon,
+    notes: cleanText(raw.notes),
+    familyId: householdFamilyId || familyId || scopeId,
+    family_id: householdFamilyId || familyId || scopeId,
+    custodyGroupId: scopeId,
+    custody_group_id: scopeId,
+    householdFamilyId,
+    household_family_id: householdFamilyId,
+    custodyGroupName: cleanText(raw.custodyGroupName || raw.custody_group_name || custodyGroupName),
+    custody_group_name: cleanText(raw.custodyGroupName || raw.custody_group_name || custodyGroupName),
+    module: "custody",
+    visibility: "custody",
+    userId: cleanText(raw.userId || raw.user_id || token.sub),
+    user_id: cleanText(raw.userId || raw.user_id || token.sub),
+    createdBy: cleanText(raw.createdBy || raw.created_by || token.sub),
+    created_by: cleanText(raw.createdBy || raw.created_by || token.sub),
+    createdByEmail: normalizeEmail(raw.createdByEmail || raw.created_by_email || token.email),
+    created_by_email: normalizeEmail(raw.createdByEmail || raw.created_by_email || token.email),
+    createdAt,
+    created_at: createdAt,
+    updatedBy: cleanText(token.sub),
+    updated_by: cleanText(token.sub),
+    updatedByEmail: normalizeEmail(token.email),
+    updated_by_email: normalizeEmail(token.email),
+    updatedAt: now,
+    updated_at: now,
+  };
+}
+
+async function handleCustodyDaysSave(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const rawDays = Array.isArray(payload.days)
+    ? payload.days
+    : [payload.day || payload.data || payload].filter(Boolean);
+
+  if (!rawDays.length) throw new Error("Custody day save requires at least one day.");
+
+  const firstDay = mapOrEmpty(rawDays[0]);
+  const requestedFamilyId = cleanText(payload.familyId || payload.family_id || firstDay.familyId || firstDay.family_id || firstDay.householdFamilyId || firstDay.household_family_id);
+  const requestedGroupId = cleanText(payload.custodyGroupId || payload.custody_group_id || firstDay.custodyGroupId || firstDay.custody_group_id || requestedFamilyId);
+  const scope = await assertCustodyDayWriteAccess(env, {
+    familyId: requestedFamilyId,
+    custodyGroupId: requestedGroupId,
+  }, token);
+
+  if (scope.forbidden) {
+    return json({ ok: false, error: scope.error }, { status: 403 }, origin);
+  }
+
+  const now = new Date().toISOString();
+  const days = rawDays.map((day) => normalizeCustodyDayForWrite(mapOrEmpty(day), {
+    familyId: scope.familyId || requestedFamilyId,
+    custodyGroupId: scope.custodyGroupId || requestedGroupId,
+    custodyGroupName: scope.custodyGroupName,
+    token,
+    now,
+  }));
+  const writes = days.map((day) => firestoreMergeWrite(env, "custodyDays", day.id, day));
+  const committed = await firestoreCommitInChunks(env, writes);
+
+  return json({
+    ok: true,
+    savedCount: days.length,
+    committedWrites: committed,
+    days,
+  }, { status: 200 }, origin);
+}
+
+async function handleCustodyDayDelete(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const date = normalizeDateKey(payload.date);
+  const familyId = cleanText(payload.familyId || payload.family_id || payload.householdFamilyId || payload.household_family_id);
+  const custodyGroupId = cleanText(payload.custodyGroupId || payload.custody_group_id || payload.scopeId || payload.scope_id || familyId);
+
+  if (!date) throw new Error("Custody day delete requires a YYYY-MM-DD date.");
+  if (!custodyGroupId && !familyId) throw new Error("Custody day delete requires a custody scope.");
+
+  const scope = await assertCustodyDayWriteAccess(env, { familyId, custodyGroupId }, token);
+  if (scope.forbidden) {
+    return json({ ok: false, error: scope.error }, { status: 403 }, origin);
+  }
+
+  const scopeId = cleanText(scope.custodyGroupId || custodyGroupId || familyId);
+  const docIds = uniqueStrings([
+    payload.docId,
+    payload.doc_id,
+    `${scopeId}_${date}`,
+    `${cleanText(token.sub)}_${date}`,
+  ]);
+  const writesByName = new Map();
+  docIds.forEach((docId) => addDeleteWrite(writesByName, env, "custodyDays", docId));
+  const writes = [...writesByName.values()];
+  const committed = await firestoreCommitInChunks(env, writes);
+
+  return json({
+    ok: true,
+    date,
+    deletedRecords: writes.length,
+    committedWrites: committed,
+    deletedDocIds: docIds,
+  }, { status: 200 }, origin);
+}
+
 function responseStatus(action = "") {
   const normalized = cleanText(action).toLowerCase();
   if (normalized === "decline" || normalized === "declined") return "declined";
@@ -2326,6 +2573,14 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/custody-groups/delete") {
         return handleCustodyGroupDelete(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/custody-days/save") {
+        return handleCustodyDaysSave(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/custody-days/delete") {
+        return handleCustodyDayDelete(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/families/update") {

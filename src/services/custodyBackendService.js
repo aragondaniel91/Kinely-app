@@ -19,3 +19,25 @@ export async function deleteCustodyGroupViaWorker({ groupId }) {
     groupId,
   });
 }
+
+export async function saveCustodyDaysViaWorker({ familyId, custodyGroupId, days }) {
+  const dayList = Array.isArray(days) ? days : [days].filter(Boolean);
+  if (!dayList.length) return null;
+
+  return authorizedWorkerRequest("/custody-days/save", {
+    familyId,
+    custodyGroupId,
+    days: dayList,
+  });
+}
+
+export async function deleteCustodyDayViaWorker({ familyId, custodyGroupId, date, docId }) {
+  if (!date || (!familyId && !custodyGroupId)) return null;
+
+  return authorizedWorkerRequest("/custody-days/delete", {
+    familyId,
+    custodyGroupId,
+    date,
+    docId,
+  });
+}
