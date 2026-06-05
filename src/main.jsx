@@ -7,6 +7,21 @@ import "./calendar-cleanup.css";
 import "./custody-card-refinement.css";
 import "./custody-final-pass.css";
 
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+
+    const reloadKey = "kinely:last-preload-reload";
+    const lastReload = Number(window.sessionStorage.getItem(reloadKey) || 0);
+    const shouldReload = Date.now() - lastReload > 10_000;
+
+    if (shouldReload) {
+      window.sessionStorage.setItem(reloadKey, String(Date.now()));
+      window.location.reload();
+    }
+  });
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <App />

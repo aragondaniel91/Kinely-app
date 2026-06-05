@@ -44,6 +44,7 @@ class RouteErrorBoundaryInner extends React.Component {
 
 function RouteErrorFallback({ error, onReset }) {
   const message = error?.message || "Unknown route error";
+  const reloadPage = () => window.location.reload();
 
   return (
     <div className="kinely-gradient-bg flex min-h-dvh items-center justify-center p-6">
@@ -59,11 +60,14 @@ function RouteErrorFallback({ error, onReset }) {
           Something interrupted this family space. You can try again or return home while we keep the rest of the app available.
         </p>
 
-        {import.meta.env.DEV && (
-          <pre className="mt-4 max-h-40 overflow-auto rounded-2xl bg-slate-950 p-3 text-left text-xs font-semibold text-slate-100">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left">
+          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+            Technical detail
+          </p>
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs font-semibold text-slate-700">
             {message}
           </pre>
-        )}
+        </div>
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Button
@@ -73,6 +77,16 @@ function RouteErrorFallback({ error, onReset }) {
           >
             <RefreshCw className="h-4 w-4" />
             Try again
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={reloadPage}
+            className="rounded-full px-5 font-black"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Reload app
           </Button>
 
           <Button
