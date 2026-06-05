@@ -9,7 +9,15 @@ Create a Pages project from the GitHub repository.
 - Framework preset: `Vite`
 - Build command: `npm ci && npm run build`
 - Output directory: `dist`
-- Production branch: `main`
+- Production branch: `stabilization/firestore-and-lint` for the current migration, then `main` once the branch is merged.
+
+If the Cloudflare UI requires a deploy command, use:
+
+```text
+npx wrangler pages deploy dist --project-name=kinely-app
+```
+
+Do not use `npx wrangler deploy` for the frontend. That command is for Workers and will try to parse the Vite app as a Worker.
 
 Set these Pages environment variables:
 
