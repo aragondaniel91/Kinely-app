@@ -278,6 +278,11 @@ export async function sendFamilyInvitationViaWorker(options) {
   return result || null;
 }
 
+export async function sendCustodyInvitationViaWorker(options) {
+  const result = await authorizedWorkerRequest("/invitations/custody/send", options);
+  return result || null;
+}
+
 export async function queueFamilyInvitationEmail(options) {
   return queueEmailPayload(buildFamilyInvitationEmailPayload(options));
 }

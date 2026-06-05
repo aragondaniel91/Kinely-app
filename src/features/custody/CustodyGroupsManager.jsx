@@ -42,7 +42,10 @@ import {
   custodyInvitationId,
   withPendingCustodyInvitation,
 } from "@/lib/invitationUtils";
-import { queueCustodyInvitationEmail } from "@/services/emailQueueService";
+import {
+  queueCustodyInvitationEmail,
+  sendCustodyInvitationViaWorker,
+} from "@/services/emailQueueService";
 import { queueCustodyInvitationNotifications } from "@/services/notificationService";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
@@ -891,13 +894,22 @@ export default function CustodyGroupsManager() {
       let queuedNotificationCount = 0;
       if (invitations.length) {
         const emailQueueResults = await Promise.allSettled(
-          invitations.map((invite) =>
-            queueCustodyInvitationEmail({
+          invitations.map(async (invite) => {
+            const inviteDeliveryOptions = {
               invitation: invite,
               groupName: cleanName,
               inviterName: user?.displayName || myEmail || user?.email || "Custody admin",
-            })
-          )
+            };
+
+            try {
+              const workerResult = await sendCustodyInvitationViaWorker(inviteDeliveryOptions);
+              if (workerResult) return workerResult;
+            } catch (workerError) {
+              console.warn("Custody invitation Worker delivery failed, falling back to Firestore queue:", workerError);
+            }
+
+            return queueCustodyInvitationEmail(inviteDeliveryOptions);
+          })
         );
         queuedEmailCount = emailQueueResults.filter((result) => result.status === "fulfilled").length;
         emailQueueResults

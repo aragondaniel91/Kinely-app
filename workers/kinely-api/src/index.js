@@ -374,6 +374,10 @@ function familyInvitationId(familyId, email) {
   return `family_${familyId}_${normalizeEmail(email)}`;
 }
 
+function custodyInvitationId(groupId, email) {
+  return `custody_${groupId}_${normalizeEmail(email)}`;
+}
+
 function invitationRegisterUrl(env, { email, invitationId, type }) {
   const base = cleanText(env.APP_PUBLIC_URL, "https://kinely.net").replace(/\/+$/g, "");
   const url = new URL("/register", base);
@@ -431,6 +435,36 @@ function buildFamilyInvitationEmail(env, { invitation, family, inviterName = "Fa
   };
 }
 
+function buildCustodyInvitationEmail(env, { invitation, group, inviterName = "Custody admin" }) {
+  const recipientEmail = normalizeEmail(invitation.recipientEmail || invitation.recipient_email);
+  const safeGroupName = cleanText(group.name || group.groupName || group.group_name || invitation.groupName || invitation.group_name, "your custody space");
+  const safeInviterName = cleanText(inviterName, "Custody admin");
+  const actionUrl = invitationRegisterUrl(env, {
+    email: recipientEmail,
+    invitationId: invitation.id,
+    type: "custody_invitation",
+  });
+  const subject = `You're invited to ${safeGroupName}`;
+  const text = [
+    `${safeInviterName} invited you to join ${safeGroupName} on Kinely.`,
+    "Create or sign in with this same email address so the app can match your custody invitation.",
+    `Open the invitation: ${actionUrl}`,
+  ].join("\n\n");
+
+  return {
+    id: invitation.id,
+    kind: "custody_invitation",
+    to: [recipientEmail],
+    subject,
+    text,
+    html: invitationHtml({
+      heading: subject,
+      intro: `${safeInviterName} invited you to join ${safeGroupName} on Kinely. Use this same email address when creating or signing in to your account.`,
+      actionUrl,
+    }),
+  };
+}
+
 function memberEmail(member = {}) {
   return normalizeEmail(member.email || member.ownerEmail || member.owner_email || member.recipientEmail || member.recipient_email);
 }
@@ -463,6 +497,51 @@ function canManageFamily(family = {}, token = {}) {
   );
 }
 
+function canManageCustodyGroup(group = {}, token = {}) {
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  if (!uid && !email) return false;
+
+  const ownerIds = uniqueStrings([
+    group.ownerId,
+    group.owner_id,
+    group.createdBy,
+    group.created_by,
+    group.createdByUid,
+    group.created_by_uid,
+  ]);
+  const ownerEmails = uniqueStrings([
+    group.ownerEmail,
+    group.owner_email,
+    group.createdByEmail,
+    group.created_by_email,
+  ]).map(normalizeEmail);
+  const adminIds = uniqueStrings([group.adminIds, group.admin_ids].flat());
+  const adminEmails = uniqueStrings([group.adminEmails, group.admin_emails].flat()).map(normalizeEmail);
+  const managerMembers = [
+    ...listOrEmpty(group.parents),
+    ...listOrEmpty(group.coParents),
+    ...listOrEmpty(group.members),
+  ].filter((member) => (
+    member?.isAdmin === true ||
+    member?.is_admin === true ||
+    member?.admin === true ||
+    member?.owner === true ||
+    member?.appRole === "owner" ||
+    member?.appRole === "admin" ||
+    member?.app_role === "owner" ||
+    member?.app_role === "admin"
+  ));
+
+  return (
+    ownerIds.includes(uid) ||
+    ownerEmails.includes(email) ||
+    adminIds.includes(uid) ||
+    adminEmails.includes(email) ||
+    managerMembers.some((member) => cleanText(member.uid || member.userId || member.user_id) === uid || memberEmail(member) === email)
+  );
+}
+
 function mergeInvites(existing = [], invite) {
   const map = new Map();
   listOrEmpty(existing).forEach((item) => {
@@ -492,6 +571,44 @@ function pendingFamilyUpdate(family = {}, invitation = {}, now = new Date().toIS
   };
 }
 
+function pendingCustodyUpdate(group = {}, invitation = {}, now = new Date().toISOString()) {
+  const email = normalizeEmail(invitation.recipientEmail || invitation.recipient_email);
+  const isViewer = invitation.access === "viewer" || invitation.accessLevel === "viewer" || invitation.access_level === "viewer";
+  const pendingInvites = mergeInvites(group.pendingInvites || group.pending_invites || [], invitation);
+
+  if (isViewer) {
+    const pendingViewerEmails = uniqueStrings([
+      ...listOrEmpty(group.pendingViewerEmails),
+      ...listOrEmpty(group.pending_viewer_emails),
+      email,
+    ]).map(normalizeEmail);
+
+    return {
+      pendingViewerEmails,
+      pending_viewer_emails: pendingViewerEmails,
+      pendingInvites,
+      pending_invites: pendingInvites,
+      updatedAt: now,
+      updated_at: now,
+    };
+  }
+
+  const pendingMemberEmails = uniqueStrings([
+    ...listOrEmpty(group.pendingMemberEmails),
+    ...listOrEmpty(group.pending_member_emails),
+    email,
+  ]).map(normalizeEmail);
+
+  return {
+    pendingMemberEmails,
+    pending_member_emails: pendingMemberEmails,
+    pendingInvites,
+    pending_invites: pendingInvites,
+    updatedAt: now,
+    updated_at: now,
+  };
+}
+
 function normalizeFamilyInvitation(raw = {}, token = {}) {
   const familyId = cleanText(raw.familyId || raw.family_id);
   const recipientEmail = normalizeEmail(raw.recipientEmail || raw.recipient_email);
@@ -506,6 +623,36 @@ function normalizeFamilyInvitation(raw = {}, token = {}) {
     id,
     familyId,
     family_id: familyId,
+    status: "pending",
+    recipientEmail,
+    recipient_email: recipientEmail,
+    createdBy: cleanText(raw.createdBy || raw.created_by || token.sub),
+    created_by: cleanText(raw.createdBy || raw.created_by || token.sub),
+    createdByEmail: normalizeEmail(raw.createdByEmail || raw.created_by_email || token.email),
+    created_by_email: normalizeEmail(raw.createdByEmail || raw.created_by_email || token.email),
+    createdAt: raw.createdAt || raw.created_at || now,
+    created_at: raw.created_at || raw.createdAt || now,
+    updatedAt: now,
+    updated_at: now,
+  };
+}
+
+function normalizeCustodyInvitation(raw = {}, token = {}) {
+  const groupId = cleanText(raw.groupId || raw.group_id || raw.custodyGroupId || raw.custody_group_id || raw.familyId || raw.family_id);
+  const recipientEmail = normalizeEmail(raw.recipientEmail || raw.recipient_email);
+  const now = new Date().toISOString();
+  if (!groupId || !recipientEmail) {
+    throw new Error("Custody invitation requires groupId and recipientEmail.");
+  }
+
+  const id = cleanText(raw.id, custodyInvitationId(groupId, recipientEmail));
+  return {
+    ...raw,
+    id,
+    familyId: groupId,
+    family_id: groupId,
+    groupId,
+    group_id: groupId,
     status: "pending",
     recipientEmail,
     recipient_email: recipientEmail,
@@ -557,6 +704,40 @@ async function sendWithResend(env, mail) {
   }
 
   return body;
+}
+
+async function handleCustodyInvitationSend(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const invitation = normalizeCustodyInvitation(payload.invitation || payload, token);
+  const group = await firestoreGetDoc(env, "custodyGroups", invitation.groupId);
+  if (!group) throw new Error("Custody group was not found.");
+  if (!canManageCustodyGroup(group, token)) {
+    return json({ ok: false, error: "Only a custody group owner or admin can send this invitation." }, { status: 403 }, origin);
+  }
+
+  const now = new Date().toISOString();
+  const nextGroupUpdate = pendingCustodyUpdate(group, invitation, now);
+  await firestoreCommit(env, [
+    firestoreMergeWrite(env, "custodyInvitations", invitation.id, invitation),
+    firestoreMergeWrite(env, "custodyGroups", invitation.groupId, nextGroupUpdate),
+  ]);
+
+  const providerResult = await sendWithResend(env, buildCustodyInvitationEmail(env, {
+    invitation,
+    group: {
+      ...group,
+      ...nextGroupUpdate,
+    },
+    inviterName: payload.inviterName || payload.inviter_name || token.name || token.email || "Custody admin",
+  }));
+
+  return json({
+    ok: true,
+    invitationId: invitation.id,
+    provider: "resend",
+    providerMessageId: providerResult?.id || "",
+  }, { status: 200 }, origin);
 }
 
 async function handleFamilyInvitationSend(request, env, origin) {
@@ -646,6 +827,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/invitations/family/send") {
         return handleFamilyInvitationSend(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/invitations/custody/send") {
+        return handleCustodyInvitationSend(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {

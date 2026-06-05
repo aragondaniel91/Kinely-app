@@ -64,6 +64,8 @@ Invitation email sending is Worker-first when `VITE_KINELY_API_URL` is set. If t
 
 The Worker also includes `POST /invitations/family/send`, which verifies the Firebase ID token, checks that the caller is a family owner/admin, writes the pending invitation to Firestore with a service account, updates the family pending invite fields, and sends the invitation email through Resend.
 
+Custody invitations can use `POST /invitations/custody/send`, which verifies the Firebase ID token, checks that the caller is a custody group owner/admin, writes the pending custody invitation to Firestore with a service account, updates the custody group pending invite fields, and sends the invitation email through Resend.
+
 Firestore document triggers for calendar/task/custody changes still run in Firebase Functions for now. Cloudflare Workers do not listen to Firestore document changes natively, so those event-driven flows need either explicit app calls to the Worker or a separate Google-to-Worker webhook bridge.
 
 For the Google service account, start with the smallest practical IAM role for the migration. The Worker currently needs Firestore document read/write access for family invitation flows.
