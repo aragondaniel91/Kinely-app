@@ -75,6 +75,8 @@ The Worker also includes `POST /invitations/family/send`, which verifies the Fir
 
 Custody invitations can use `POST /invitations/custody/send`, which verifies the Firebase ID token, checks that the caller is a custody group owner/admin, writes the pending custody invitation to Firestore with a service account, updates the custody group pending invite fields, and sends the invitation email through Resend.
 
+Family profile updates are Worker-first through `POST /families/update` when `VITE_KINELY_API_URL` is configured. This covers family settings, members, children, permissions, and home visibility updates from the profile area. The Worker verifies the Firebase ID token, checks owner/admin access against the current Firestore family document, strips immutable owner/created fields from the request, and writes the update with backend timestamps.
+
 Activity notifications are Worker-first through `POST /notifications/activity/send`. The app calls this endpoint after writing `familyActivity`. The Worker verifies the Firebase ID token, validates access to the family or custody group, derives recipients from the Firestore family/group document, reads each user's notification preferences, writes in-app notification documents, and sends email through Resend only when the user has email notifications enabled.
 
 Firestore document triggers for calendar/task/custody changes still run in Firebase Functions as a temporary fallback. Cloudflare Workers do not listen to Firestore document changes natively, so new production flows should prefer explicit app calls to the Worker or a separate Google-to-Worker webhook bridge.

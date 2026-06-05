@@ -1209,6 +1209,66 @@ async function handleFamilyInvitationSend(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+function sanitizeFamilyUpdates(updates = {}, token = {}) {
+  const blockedFields = new Set([
+    "id",
+    "createdAt",
+    "created_at",
+    "createdBy",
+    "created_by",
+    "createdByEmail",
+    "created_by_email",
+    "ownerId",
+    "owner_id",
+    "ownerUid",
+    "owner_uid",
+    "ownerEmail",
+    "owner_email",
+  ]);
+  const sanitized = {};
+
+  Object.entries(mapOrEmpty(updates)).forEach(([key, value]) => {
+    if (blockedFields.has(key) || value === undefined) return;
+    if (key === "updatedAt" || key === "updated_at") return;
+    sanitized[key] = value;
+  });
+
+  const now = new Date().toISOString();
+  return {
+    ...sanitized,
+    updatedAt: now,
+    updated_at: now,
+    updatedBy: cleanText(token.sub),
+    updated_by: cleanText(token.sub),
+    updatedByEmail: normalizeEmail(token.email),
+    updated_by_email: normalizeEmail(token.email),
+  };
+}
+
+async function handleFamilyUpdate(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const familyId = cleanText(payload.familyId || payload.family_id);
+  if (!familyId) throw new Error("Family update requires familyId.");
+
+  const family = await firestoreGetDoc(env, "families", familyId);
+  if (!family) throw new Error("Family space was not found.");
+  if (!canManageFamily(family, token)) {
+    return json({ ok: false, error: "Only a family owner or admin can update this family space." }, { status: 403 }, origin);
+  }
+
+  const updates = sanitizeFamilyUpdates(payload.updates || payload.data || {}, token);
+  await firestoreCommit(env, [
+    firestoreMergeWrite(env, "families", familyId, updates),
+  ]);
+
+  return json({
+    ok: true,
+    familyId,
+    updatedFieldCount: Object.keys(updates).length,
+  }, { status: 200 }, origin);
+}
+
 function normalizeActivity(raw = {}, token = {}) {
   const custodyGroupId = cleanText(raw.custodyGroupId || raw.custody_group_id);
   const householdFamilyId = cleanText(raw.householdFamilyId || raw.household_family_id);
@@ -1405,6 +1465,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/invitations/custody/send") {
         return handleCustodyInvitationSend(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/families/update") {
+        return handleFamilyUpdate(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/notifications/activity/send") {

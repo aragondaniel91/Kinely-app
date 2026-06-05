@@ -1,7 +1,8 @@
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { normalizeInviteEmail } from "@/lib/invitationUtils";
+import { authorizedWorkerRequest } from "@/services/kinelyApiClient";
 
 const MAIL_COLLECTION = "mail";
 const FAMILY_INVITATION_KIND = "family_invitation";
@@ -29,34 +30,6 @@ function appBaseUrl() {
     return window.location.origin;
   }
   return "";
-}
-
-function workerApiBaseUrl() {
-  return cleanText(import.meta.env.VITE_KINELY_API_URL).replace(/\/+$/g, "");
-}
-
-async function authorizedWorkerRequest(pathname, payload) {
-  const workerBaseUrl = workerApiBaseUrl();
-  if (!workerBaseUrl) return null;
-
-  const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error("A signed-in user is required to call Kinely API.");
-
-  const response = await fetch(`${workerBaseUrl}${pathname}`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result?.ok === false) {
-    throw new Error(result?.error || `Kinely API request failed with ${response.status}.`);
-  }
-
-  return result;
 }
 
 function buildAppUrl(pathname, params = {}) {

@@ -39,6 +39,7 @@ import {
   getCustodyGroupsByIds,
   shouldIncludeCustodyGroup,
 } from "@/lib/custodyGroupAccess";
+import { updateFamilyViaWorker } from "@/services/familyBackendService";
 import {
   normalizeMemberRole,
   oppositeParentRole,
@@ -1188,7 +1189,15 @@ export function FamilyProvider({ children }) {
     if (data.parent2Relationship !== undefined) payload.parent2_relationship = data.parent2Relationship;
     if (data.parent2Color !== undefined) payload.parent2_color = data.parent2Color;
 
-    await updateDoc(doc(db, "families", activeProfile.id), payload);
+    const workerResult = await updateFamilyViaWorker({
+      familyId: activeProfile.id,
+      updates: payload,
+    });
+
+    if (!workerResult) {
+      await updateDoc(doc(db, "families", activeProfile.id), payload);
+    }
+
     await refreshFamilies();
   };
 
