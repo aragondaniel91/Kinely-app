@@ -180,10 +180,10 @@ function UpcomingCustodyToolsCard() {
         Co-parenting tools
       </p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-        Additional tools are not enabled yet
+        More co-parenting tools are being shaped
       </h2>
       <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900/75">
-        Custody schedule, calendar, and tasks are ready now. Exchange, packing, and smart reminder workspaces stay hidden until they are production-ready.
+        Custody schedule, calendar, and shared tasks are active now. Exchange notes, packing, and smart reminders will appear here once they are reliable enough for daily family use.
       </p>
     </div>
   );

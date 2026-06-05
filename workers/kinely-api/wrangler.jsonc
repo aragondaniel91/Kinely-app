@@ -8,6 +8,6 @@
   "vars": {
     "APP_PUBLIC_URL": "https://kinely.net",
     "FIREBASE_PROJECT_ID": "family-wall-b5f1d",
-    "ALLOWED_ORIGINS": "https://kinely.net,https://www.kinely.net,http://localhost:5173"
+    "ALLOWED_ORIGINS": "https://kinely.net,https://www.kinely.net,https://kinely-app.pages.dev,http://localhost:5173"
   }
 }

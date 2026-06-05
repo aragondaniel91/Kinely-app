@@ -6,7 +6,10 @@ function cleanText(value, fallback = "") {
 }
 
 export function workerApiBaseUrl() {
-  return cleanText(import.meta.env.VITE_KINELY_API_URL).replace(/\/+$/g, "");
+  const configuredUrl = cleanText(import.meta.env.VITE_KINELY_API_URL).replace(/\/+$/g, "");
+  if (!configuredUrl) return "";
+  if (/^https?:\/\//i.test(configuredUrl)) return configuredUrl;
+  return `https://${configuredUrl}`;
 }
 
 export function hasWorkerApiConfigured() {

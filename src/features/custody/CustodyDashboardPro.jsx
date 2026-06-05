@@ -713,7 +713,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50/70 p-4 sm:col-span-2">
                   <p className="text-sm font-black text-slate-950">More tools are being prepared</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-blue-900/75">
-                    Schedule and budget are available now. Exchange, packing, and reminder workspaces will appear here when they are enabled for production.
+                    Schedule and budget are available now. Exchange, packing, and reminder workspaces will appear here once they are reliable enough for daily family use.
                   </p>
                 </div>
               )}
