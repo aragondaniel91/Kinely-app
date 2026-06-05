@@ -1,6 +1,6 @@
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { normalizeInviteEmail } from "@/lib/invitationUtils";
 
 const MAIL_COLLECTION = "mail";
@@ -29,6 +29,10 @@ function appBaseUrl() {
     return window.location.origin;
   }
   return "";
+}
+
+function workerApiBaseUrl() {
+  return cleanText(import.meta.env.VITE_KINELY_API_URL).replace(/\/+$/g, "");
 }
 
 function buildAppUrl(pathname, params = {}) {
@@ -236,6 +240,29 @@ export function buildNotificationEmailPayload({
 
 export async function queueEmailPayload(payload) {
   if (!payload?.id || !payload?.recipientEmail) return null;
+  const workerBaseUrl = workerApiBaseUrl();
+
+  if (workerBaseUrl) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("A signed-in user is required to send email through Kinely API.");
+
+    const response = await fetch(`${workerBaseUrl}/emails/send`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result?.ok === false) {
+      throw new Error(result?.error || `Kinely API email request failed with ${response.status}.`);
+    }
+
+    return result?.id || payload.id;
+  }
+
   await setDoc(doc(db, MAIL_COLLECTION, payload.id), payload, { merge: true });
   return payload.id;
 }
