@@ -2,6 +2,56 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
+const FIRESTORE_BATCH_SIZE = 400;
+
+const HOUSEHOLD_COLLECTIONS = [
+  "familyEvents",
+  "tasks",
+  "taskTemplates",
+  "routineRuns",
+  "rewards",
+  "meals",
+  "mealTemplates",
+  "familyLists",
+  "familyListItems",
+  "familyPantryItems",
+  "children",
+  "familyMembers",
+  "familyActivity",
+  "familyInvitations",
+  "notifications",
+  "groceries",
+];
+
+const CUSTODY_COLLECTIONS = [
+  "custodyDays",
+  "custodySpecialEvents",
+  "custodyTravelPlans",
+  "custodyPackingItems",
+  "custodyExpenses",
+  "custodyExchanges",
+  "custodyInvitations",
+  "familyActivity",
+  "notifications",
+];
+
+const CUSTODY_GROUP_LOOKUP_FIELDS = [
+  "familyId",
+  "family_id",
+  "householdFamilyId",
+  "household_family_id",
+  "actualFamilyId",
+  "actual_family_id",
+];
+
+const CUSTODY_SCOPE_LOOKUP_FIELDS = [
+  "custodyGroupId",
+  "custody_group_id",
+  "groupId",
+  "group_id",
+  "familyId",
+  "family_id",
+];
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
   channels: {
@@ -372,6 +422,21 @@ async function firestoreRunQuery(env, structuredQuery = {}) {
     : [];
 }
 
+async function firestoreQueryField(env, collectionName, { field, op = "EQUAL", value }) {
+  if (!collectionName || !field || value === undefined || value === null || value === "") return [];
+
+  return firestoreRunQuery(env, {
+    from: [{ collectionId: collectionName }],
+    where: {
+      fieldFilter: {
+        field: { fieldPath: field },
+        op,
+        value: { stringValue: String(value) },
+      },
+    },
+  });
+}
+
 async function firestoreCommit(env, writes = []) {
   const projectId = cleanText(env.FIREBASE_PROJECT_ID);
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`;
@@ -387,6 +452,19 @@ async function firestoreCommit(env, writes = []) {
   return body;
 }
 
+async function firestoreCommitInChunks(env, writes = []) {
+  let committed = 0;
+
+  for (let index = 0; index < writes.length; index += FIRESTORE_BATCH_SIZE) {
+    const chunk = writes.slice(index, index + FIRESTORE_BATCH_SIZE);
+    if (!chunk.length) continue;
+    await firestoreCommit(env, chunk);
+    committed += chunk.length;
+  }
+
+  return committed;
+}
+
 function firestoreMergeWrite(env, collectionName, docId, data = {}) {
   const fieldPaths = Object.keys(mapOrEmpty(data));
   return {
@@ -398,6 +476,10 @@ function firestoreMergeWrite(env, collectionName, docId, data = {}) {
       fieldPaths,
     },
   };
+}
+
+function firestoreDeleteNameWrite(documentName) {
+  return { delete: documentName };
 }
 
 function parseMailPayload(payload = {}) {
@@ -558,6 +640,29 @@ function canManageFamily(family = {}, token = {}) {
   );
 }
 
+function canDeleteFamily(family = {}, token = {}) {
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  if (!uid && !email) return false;
+
+  const ownerIds = uniqueStrings([
+    family.ownerId,
+    family.owner_id,
+    family.ownerUid,
+    family.owner_uid,
+    family.createdBy,
+    family.created_by,
+  ]);
+  const ownerEmails = uniqueStrings([
+    family.ownerEmail,
+    family.owner_email,
+    family.createdByEmail,
+    family.created_by_email,
+  ]).map(normalizeEmail);
+
+  return ownerIds.includes(uid) || ownerEmails.includes(email);
+}
+
 function canManageCustodyGroup(group = {}, token = {}) {
   const uid = cleanText(token.sub);
   const email = normalizeEmail(token.email);
@@ -667,6 +772,161 @@ function canAccessCustodyGroup(group = {}, token = {}) {
     (uid && uniqueStrings(idFields).includes(uid)) ||
     (email && emailFields.some((values) => listOrEmpty(values).map(normalizeEmail).includes(email)))
   );
+}
+
+function addDeleteWrite(writesByName, env, collectionName, docId) {
+  if (!docId) return;
+  const name = firestoreDocumentName(env, collectionName, docId);
+  writesByName.set(name, firestoreDeleteNameWrite(name));
+}
+
+async function collectWhereDeletes(env, writesByName, collectionName, filters = []) {
+  const activeFilters = filters.filter((filter) => (
+    filter?.field &&
+    filter?.value !== undefined &&
+    filter?.value !== null &&
+    filter?.value !== ""
+  ));
+
+  const results = await Promise.allSettled(
+    activeFilters.map((filter) => firestoreQueryField(env, collectionName, {
+      field: filter.field,
+      op: filter.op || "EQUAL",
+      value: filter.value,
+    }))
+  );
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length === results.length && results.length > 0) {
+    throw failures[0].reason;
+  }
+
+  results.forEach((result) => {
+    if (result.status !== "fulfilled") return;
+    result.value.forEach((doc) => addDeleteWrite(writesByName, env, collectionName, doc.id));
+  });
+}
+
+async function collectCustodyGroupDocsForFamily(env, familyId) {
+  const docsById = new Map();
+  const filters = [
+    ...CUSTODY_GROUP_LOOKUP_FIELDS.map((field) => ({ field, value: familyId })),
+    { field: "linkedFamilyIds", op: "ARRAY_CONTAINS", value: familyId },
+    { field: "linked_family_ids", op: "ARRAY_CONTAINS", value: familyId },
+  ];
+
+  const results = await Promise.allSettled(
+    filters.map((filter) => firestoreQueryField(env, "custodyGroups", filter))
+  );
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length === results.length && results.length > 0) {
+    throw failures[0].reason;
+  }
+
+  results.forEach((result) => {
+    if (result.status !== "fulfilled") return;
+    result.value.forEach((doc) => docsById.set(doc.id, doc));
+  });
+
+  return [...docsById.values()];
+}
+
+async function collectCustodyCascadeDeletes(env, groupId, writesByName) {
+  for (const collectionName of CUSTODY_COLLECTIONS) {
+    await collectWhereDeletes(env, writesByName, collectionName, (
+      CUSTODY_SCOPE_LOOKUP_FIELDS.map((field) => ({ field, value: groupId }))
+    ));
+  }
+
+  addDeleteWrite(writesByName, env, "custodyNotificationPrefs", groupId);
+}
+
+async function custodyGroupReferenceUpdateWrites(env, groupId, group = {}) {
+  const now = new Date().toISOString();
+  const writesByName = new Map();
+  const familyDocs = new Map();
+  const childDocs = new Map();
+
+  const familyIds = uniqueStrings([
+    group.familyId,
+    group.family_id,
+    group.householdFamilyId,
+    group.household_family_id,
+    group.actualFamilyId,
+    group.actual_family_id,
+  ]);
+
+  for (const familyId of familyIds) {
+    const family = await firestoreGetDoc(env, "families", familyId);
+    if (family) familyDocs.set(familyId, { ...family, id: familyId });
+  }
+
+  const familyResults = await Promise.allSettled([
+    firestoreQueryField(env, "families", { field: "custodyGroupIds", op: "ARRAY_CONTAINS", value: groupId }),
+    firestoreQueryField(env, "families", { field: "custody_group_ids", op: "ARRAY_CONTAINS", value: groupId }),
+  ]);
+  familyResults.forEach((result) => {
+    if (result.status === "fulfilled") {
+      result.value.forEach((doc) => familyDocs.set(doc.id, doc));
+    }
+  });
+
+  const childResults = await Promise.allSettled([
+    firestoreQueryField(env, "children", { field: "custodyGroupIds", op: "ARRAY_CONTAINS", value: groupId }),
+    firestoreQueryField(env, "children", { field: "custody_group_ids", op: "ARRAY_CONTAINS", value: groupId }),
+  ]);
+  childResults.forEach((result) => {
+    if (result.status === "fulfilled") {
+      result.value.forEach((doc) => childDocs.set(doc.id, doc));
+    }
+  });
+
+  familyDocs.forEach((family, familyId) => {
+    const custodyGroupIds = mergeIdList(family.custodyGroupIds, family.custody_group_ids)
+      .filter((id) => id !== groupId);
+    writesByName.set(`families/${familyId}`, firestoreMergeWrite(env, "families", familyId, {
+      custodyGroupIds,
+      custody_group_ids: custodyGroupIds,
+      updatedAt: now,
+      updated_at: now,
+    }));
+  });
+
+  childDocs.forEach((child, childId) => {
+    const custodyGroupIds = mergeIdList(child.custodyGroupIds, child.custody_group_ids)
+      .filter((id) => id !== groupId);
+    writesByName.set(`children/${childId}`, firestoreMergeWrite(env, "children", childId, {
+      custodyGroupIds,
+      custody_group_ids: custodyGroupIds,
+      updatedAt: now,
+      updated_at: now,
+    }));
+  });
+
+  return [...writesByName.values()];
+}
+
+async function collectFamilyCascadeDeletes(env, familyId, writesByName) {
+  const custodyGroups = await collectCustodyGroupDocsForFamily(env, familyId);
+
+  for (const group of custodyGroups) {
+    await collectCustodyCascadeDeletes(env, group.id, writesByName);
+    addDeleteWrite(writesByName, env, "custodyGroups", group.id);
+  }
+
+  for (const collectionName of HOUSEHOLD_COLLECTIONS) {
+    await collectWhereDeletes(env, writesByName, collectionName, [
+      { field: "familyId", value: familyId },
+      { field: "family_id", value: familyId },
+    ]);
+  }
+
+  addDeleteWrite(writesByName, env, "families", familyId);
+
+  return {
+    deletedCustodyGroups: custodyGroups.length,
+  };
 }
 
 function permissionAllowsRead(permission) {
@@ -1433,6 +1693,56 @@ async function handleFamilyUpdate(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+async function handleFamilyDelete(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const familyId = cleanText(payload.familyId || payload.family_id);
+  if (!familyId) throw new Error("Family delete requires familyId.");
+
+  const family = await firestoreGetDoc(env, "families", familyId);
+  if (!family) throw new Error("Family space was not found.");
+  if (!canDeleteFamily(family, token)) {
+    return json({ ok: false, error: "Only the family owner can delete this family space." }, { status: 403 }, origin);
+  }
+
+  const writesByName = new Map();
+  const cascade = await collectFamilyCascadeDeletes(env, familyId, writesByName);
+  const userId = cleanText(token.sub);
+  const user = userId ? await firestoreGetDoc(env, "users", userId) : null;
+  const userWrites = [];
+  const now = new Date().toISOString();
+
+  if (user && userId) {
+    const familyIds = mergeIdList(user.familyIds, user.family_ids).filter((id) => id !== familyId);
+    const userUpdate = {
+      familyIds,
+      family_ids: familyIds,
+      updatedAt: now,
+      updated_at: now,
+    };
+
+    if (cleanText(user.familyId || user.family_id) === familyId) {
+      const nextFamilyId = familyIds[0] || "";
+      userUpdate.familyId = nextFamilyId;
+      userUpdate.family_id = nextFamilyId;
+    }
+
+    userWrites.push(firestoreMergeWrite(env, "users", userId, userUpdate));
+  }
+
+  const deleteWrites = [...writesByName.values()];
+  const committed = await firestoreCommitInChunks(env, [...deleteWrites, ...userWrites]);
+
+  return json({
+    ok: true,
+    familyId,
+    deletedRecords: deleteWrites.length,
+    deletedCustodyGroups: cascade.deletedCustodyGroups,
+    updatedUser: Boolean(userWrites.length),
+    committedWrites: committed,
+  }, { status: 200 }, origin);
+}
+
 function sanitizeCustodyGroupPayload(raw = {}, { existingGroup = null, token = {}, groupId = "", familyId = "", now = "" } = {}) {
   const blockedFields = new Set([
     "id",
@@ -1580,6 +1890,35 @@ async function handleCustodyGroupSave(request, env, origin) {
     groupId: requestedGroupId,
     invitationIds: invitations.map((invite) => invite.id),
     linkedChildCount: childIds.length,
+  }, { status: 200 }, origin);
+}
+
+async function handleCustodyGroupDelete(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const groupId = cleanText(payload.groupId || payload.group_id || payload.custodyGroupId || payload.custody_group_id);
+  if (!groupId) throw new Error("Custody group delete requires groupId.");
+
+  const group = await firestoreGetDoc(env, "custodyGroups", groupId);
+  if (!group) throw new Error("Custody group was not found.");
+  if (!canManageCustodyGroup(group, token)) {
+    return json({ ok: false, error: "Only a custody group owner or admin can delete this group." }, { status: 403 }, origin);
+  }
+
+  const writesByName = new Map();
+  await collectCustodyCascadeDeletes(env, groupId, writesByName);
+  addDeleteWrite(writesByName, env, "custodyGroups", groupId);
+
+  const referenceWrites = await custodyGroupReferenceUpdateWrites(env, groupId, group);
+  const deleteWrites = [...writesByName.values()];
+  const committed = await firestoreCommitInChunks(env, [...referenceWrites, ...deleteWrites]);
+
+  return json({
+    ok: true,
+    groupId,
+    deletedRecords: deleteWrites.length,
+    updatedReferences: referenceWrites.length,
+    committedWrites: committed,
   }, { status: 200 }, origin);
 }
 
@@ -1985,8 +2324,16 @@ export default {
         return handleCustodyGroupSave(request, env, origin);
       }
 
+      if (request.method === "POST" && url.pathname === "/custody-groups/delete") {
+        return handleCustodyGroupDelete(request, env, origin);
+      }
+
       if (request.method === "POST" && url.pathname === "/families/update") {
         return handleFamilyUpdate(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/families/delete") {
+        return handleFamilyDelete(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/notifications/activity/send") {

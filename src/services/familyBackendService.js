@@ -8,3 +8,11 @@ export async function updateFamilyViaWorker({ familyId, updates }) {
     updates,
   });
 }
+
+export async function deleteFamilyViaWorker({ familyId }) {
+  if (!familyId) return null;
+
+  return authorizedWorkerRequest("/families/delete", {
+    familyId,
+  });
+}

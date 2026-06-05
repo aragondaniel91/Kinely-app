@@ -11,3 +11,11 @@ export async function saveCustodyGroupViaWorker({ groupId, familyId, group, invi
     childIds,
   });
 }
+
+export async function deleteCustodyGroupViaWorker({ groupId }) {
+  if (!groupId) return null;
+
+  return authorizedWorkerRequest("/custody-groups/delete", {
+    groupId,
+  });
+}

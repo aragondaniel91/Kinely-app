@@ -13,6 +13,8 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { deleteCustodyGroupViaWorker } from "@/services/custodyBackendService";
+import { deleteFamilyViaWorker } from "@/services/familyBackendService";
 
 const BATCH_SIZE = 400;
 
@@ -150,6 +152,14 @@ export async function deleteCustodyGroupCascade(groupId) {
     throw new Error("A custody group id is required.");
   }
 
+  const workerResult = await deleteCustodyGroupViaWorker({ groupId });
+  if (workerResult) {
+    return {
+      deletedRecords: workerResult.deletedRecords ?? 0,
+      updatedReferences: workerResult.updatedReferences ?? 0,
+    };
+  }
+
   const refsByPath = new Map();
   await collectCustodyCascadeRefs(groupId, refsByPath);
 
@@ -165,6 +175,14 @@ export async function deleteCustodyGroupCascade(groupId) {
 export async function deleteFamilyCascade({ familyId, userId }) {
   if (!familyId) {
     throw new Error("A family id is required.");
+  }
+
+  const workerResult = await deleteFamilyViaWorker({ familyId });
+  if (workerResult) {
+    return {
+      deletedRecords: workerResult.deletedRecords ?? 0,
+      deletedCustodyGroups: workerResult.deletedCustodyGroups ?? 0,
+    };
   }
 
   const refsByPath = new Map();
