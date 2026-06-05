@@ -17,7 +17,9 @@ If the Cloudflare UI requires a deploy command, use:
 npx wrangler pages deploy dist --project-name=kinely-app
 ```
 
-Do not use `npx wrangler deploy` for the frontend. That command is for Workers and will try to parse the Vite app as a Worker.
+If the project was created as a Workers static assets app and Cloudflare automatically runs `npx wrangler versions upload`, the root `wrangler.jsonc` supports that flow by pointing Workers static assets at `./dist`.
+
+Do not use `npx wrangler deploy` for the frontend. That command is for Workers with an entry script and will try to parse the Vite app as a Worker.
 
 Set these Pages environment variables:
 
