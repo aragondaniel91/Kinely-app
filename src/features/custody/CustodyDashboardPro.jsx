@@ -224,7 +224,11 @@ function MetricCard({ title, value, text, icon: Icon, tone = "blue", onClick, di
       type="button"
       onClick={isDisabled ? undefined : onClick}
       disabled={isDisabled}
-      className="min-h-[132px] rounded-[1.55rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)]"
+      className={`min-h-[132px] rounded-[1.55rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition ${
+        isDisabled
+          ? "cursor-default"
+          : "hover:-translate-y-0.5 hover:shadow-md"
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -256,7 +260,11 @@ function ActionTile({ icon: Icon, label, text, tone = "blue", onClick, disabled 
       type="button"
       onClick={isDisabled ? undefined : onClick}
       disabled={isDisabled}
-      className="group flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:border-slate-200 disabled:hover:shadow-sm"
+      className={`group flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/90 p-3 text-left shadow-sm transition ${
+        isDisabled
+          ? "cursor-not-allowed opacity-70"
+          : "hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+      }`}
     >
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${tones[tone]}`}>
         <Icon className="h-5 w-5" />
@@ -613,6 +621,10 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
     : smartExchange
       ? `${nextChangeText}. ${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel}. ${smartExchange.needsReview ? "Details need review." : "Details confirmed."}`
       : "No upcoming exchange is currently scheduled.";
+  const canOpenExchange = typeof onOpenExchange === "function";
+  const canOpenPacking = typeof onOpenPacking === "function";
+  const canOpenNotifications = typeof onOpenNotifications === "function";
+  const hasMoreToolsEnabled = canOpenExchange || canOpenPacking || canOpenNotifications;
 
   return (
     <div className="bg-[#F8F7F4] px-3 pb-24 pt-3 md:px-5 md:pb-10 lg:px-6">
@@ -633,7 +645,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                   {heroSummary}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  {onOpenExchange && (
+                  {canOpenExchange && (
                     <button type="button" onClick={onOpenExchange} className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800">
                       Review exchange
                     </button>
@@ -656,8 +668,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               text={loadingExchanges ? "Checking exchange details..." : smartExchange ? `${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel} · ${formatExchangeTime(smartExchange.time)} · ${smartExchange.location || "Location needs review"}` : "No upcoming exchange found"}
               icon={Truck}
               tone={smartExchange?.needsReview ? "rose" : "blue"}
-              onClick={onOpenExchange}
-              disabled={!onOpenExchange}
+              onClick={canOpenExchange ? onOpenExchange : undefined}
             />
             <MetricCard
               title="Packing readiness"
@@ -665,8 +676,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
               text={loadingPacking ? "Checking packing checklist..." : `${packingSummary.packedCount} ready · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing`}
               icon={Shirt}
               tone={packingSummary.missingCount ? "rose" : "emerald"}
-              onClick={onOpenPacking}
-              disabled={!onOpenPacking}
+              onClick={canOpenPacking ? onOpenPacking : undefined}
             />
           </div>
         </div>
@@ -682,9 +692,15 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             <SectionHeader kicker="Custody tools" title="Quick actions" action="Schedule" onAction={onOpenSchedule} />
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <ActionTile icon={CalendarDays} label="Schedule" text="Calendar and custody days" tone="blue" onClick={onOpenSchedule} />
-              <ActionTile icon={Truck} label="Exchange" text="Coming soon" tone="rose" onClick={onOpenExchange} disabled={!onOpenExchange} />
-              <ActionTile icon={Shirt} label="Packing" text="Coming soon" tone="emerald" onClick={onOpenPacking} disabled={!onOpenPacking} />
-              <ActionTile icon={BellRing} label="Reminders" text="Coming soon" tone="amber" onClick={onOpenNotifications} disabled={!onOpenNotifications} />
+              {canOpenExchange && (
+                <ActionTile icon={Truck} label="Exchange" text="Pickup and dropoff details" tone="rose" onClick={onOpenExchange} />
+              )}
+              {canOpenPacking && (
+                <ActionTile icon={Shirt} label="Packing" text="Exchange-day checklist" tone="emerald" onClick={onOpenPacking} />
+              )}
+              {canOpenNotifications && (
+                <ActionTile icon={BellRing} label="Reminders" text="Custody notification settings" tone="amber" onClick={onOpenNotifications} />
+              )}
               <ActionTile
                 icon={WalletCards}
                 label="Budget"
@@ -693,6 +709,14 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 onClick={onOpenBudget}
                 disabled={!canReadBudget}
               />
+              {!hasMoreToolsEnabled && (
+                <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50/70 p-4 sm:col-span-2">
+                  <p className="text-sm font-black text-slate-950">More tools are being prepared</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-blue-900/75">
+                    Schedule and budget are available now. Exchange, packing, and reminder workspaces will appear here when they are enabled for production.
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
         </div>
@@ -780,7 +804,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 </p>
               </div>
             </div>
-            {onOpenNotifications && (
+            {canOpenNotifications && (
               <button type="button" onClick={onOpenNotifications} className="rounded-2xl bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100">
                 View reminders
               </button>

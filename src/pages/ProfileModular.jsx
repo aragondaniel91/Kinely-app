@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bell,
@@ -13,6 +13,7 @@ import {
 
 import { useAuth } from "@/lib/AuthContext";
 import { useFamily } from "@/lib/FamilyContext";
+import { canReadModule } from "@/lib/modulePermissions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ProfileOverview from "@/components/profile/ProfileOverview";
@@ -63,9 +64,19 @@ function TabButton({ tab, active, onClick }) {
 
 export default function ProfileModular() {
   const { logout } = useAuth();
-  const { profile, familyId, isOwner, isAdmin } = useFamily();
+  const { profile, familyId, isOwner, isAdmin, perms, custodyGroups } = useFamily();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const canSeeCustodyTab = Boolean(
+    isOwner ||
+    isAdmin ||
+    canReadModule(perms, "custody") ||
+    (Array.isArray(custodyGroups) && custodyGroups.length)
+  );
+  const visibleTabs = useMemo(
+    () => tabs.filter((tab) => tab.id !== "custody" || canSeeCustodyTab),
+    [canSeeCustodyTab]
+  );
   const [activeTab, setActiveTab] = useState(() => {
     const requestedTab = normalizeTabId(searchParams.get("tab"));
     if (tabs.some((tab) => tab.id === requestedTab)) return requestedTab;
@@ -74,10 +85,16 @@ export default function ProfileModular() {
 
   useEffect(() => {
     const requestedTab = normalizeTabId(searchParams.get("tab"));
-    if (tabs.some((tab) => tab.id === requestedTab)) {
+    if (visibleTabs.some((tab) => tab.id === requestedTab)) {
       setActiveTab(requestedTab);
     }
-  }, [searchParams]);
+  }, [searchParams, visibleTabs]);
+
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(profile ? "overview" : "invitations");
+    }
+  }, [activeTab, profile, visibleTabs]);
 
   async function handleLogout() {
     await logout();
@@ -111,7 +128,7 @@ export default function ProfileModular() {
         </div>
 
         <div className="mb-5 grid grid-flow-col auto-cols-max gap-2 overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-200 bg-white p-2 shadow-sm snap-x">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <TabButton key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} />
           ))}
         </div>
