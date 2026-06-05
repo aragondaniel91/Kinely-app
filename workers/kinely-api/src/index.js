@@ -847,6 +847,10 @@ function pendingCustodyUpdate(group = {}, invitation = {}, now = new Date().toIS
   };
 }
 
+function mergeIdList(...groups) {
+  return [...new Set(groups.flat().map(cleanText).filter(Boolean))];
+}
+
 function normalizeFamilyInvitation(raw = {}, token = {}) {
   const familyId = cleanText(raw.familyId || raw.family_id);
   const recipientEmail = normalizeEmail(raw.recipientEmail || raw.recipient_email);
@@ -1269,6 +1273,156 @@ async function handleFamilyUpdate(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+function sanitizeCustodyGroupPayload(raw = {}, { existingGroup = null, token = {}, groupId = "", familyId = "", now = "" } = {}) {
+  const blockedFields = new Set([
+    "id",
+    "createdAt",
+    "created_at",
+    "createdBy",
+    "created_by",
+    "createdByEmail",
+    "created_by_email",
+    "ownerId",
+    "owner_id",
+    "ownerEmail",
+    "owner_email",
+    "updatedAt",
+    "updated_at",
+  ]);
+  const sanitized = {};
+
+  Object.entries(mapOrEmpty(raw)).forEach(([key, value]) => {
+    if (blockedFields.has(key) || value === undefined) return;
+    sanitized[key] = value;
+  });
+
+  const ownerId = cleanText(existingGroup?.ownerId || existingGroup?.owner_id || token.sub);
+  const ownerEmail = normalizeEmail(existingGroup?.ownerEmail || existingGroup?.owner_email || token.email);
+  const createdBy = cleanText(existingGroup?.createdBy || existingGroup?.created_by || token.sub);
+  const createdByEmail = normalizeEmail(existingGroup?.createdByEmail || existingGroup?.created_by_email || token.email);
+  const adminIds = mergeIdList(sanitized.adminIds, sanitized.admin_ids, existingGroup?.adminIds, existingGroup?.admin_ids, ownerId, token.sub);
+  const adminEmails = mergeIdList(sanitized.adminEmails, sanitized.admin_emails, existingGroup?.adminEmails, existingGroup?.admin_emails, ownerEmail, token.email)
+    .map(normalizeEmail);
+
+  return {
+    ...sanitized,
+    custodyGroupId: groupId,
+    custody_group_id: groupId,
+    familyId: cleanText(sanitized.familyId || sanitized.family_id || existingGroup?.familyId || existingGroup?.family_id || familyId),
+    family_id: cleanText(sanitized.familyId || sanitized.family_id || existingGroup?.familyId || existingGroup?.family_id || familyId),
+    householdFamilyId: cleanText(sanitized.householdFamilyId || sanitized.household_family_id || existingGroup?.householdFamilyId || existingGroup?.household_family_id || familyId),
+    household_family_id: cleanText(sanitized.householdFamilyId || sanitized.household_family_id || existingGroup?.householdFamilyId || existingGroup?.household_family_id || familyId),
+    ownerId,
+    owner_id: ownerId,
+    ownerEmail,
+    owner_email: ownerEmail,
+    adminIds,
+    admin_ids: adminIds,
+    adminEmails,
+    admin_emails: adminEmails,
+    createdBy,
+    created_by: createdBy,
+    createdByEmail,
+    created_by_email: createdByEmail,
+    createdAt: existingGroup?.createdAt || existingGroup?.created_at || now,
+    created_at: existingGroup?.created_at || existingGroup?.createdAt || now,
+    updatedAt: now,
+    updated_at: now,
+    updatedBy: cleanText(token.sub),
+    updated_by: cleanText(token.sub),
+    updatedByEmail: normalizeEmail(token.email),
+    updated_by_email: normalizeEmail(token.email),
+  };
+}
+
+function normalizeChildLinkIds(payload = {}, childIds = []) {
+  return mergeIdList(
+    childIds,
+    payload.childIds,
+    payload.child_ids,
+    listOrEmpty(payload.children).map((child) => child?.id || child?.childId || child?.child_id)
+  );
+}
+
+async function handleCustodyGroupSave(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const rawGroup = mapOrEmpty(payload.group || payload.payload || payload.data);
+  const requestedGroupId = cleanText(payload.groupId || payload.group_id || rawGroup.custodyGroupId || rawGroup.custody_group_id || rawGroup.id || crypto.randomUUID());
+  const familyId = cleanText(payload.familyId || payload.family_id || rawGroup.householdFamilyId || rawGroup.household_family_id || rawGroup.familyId || rawGroup.family_id);
+  if (!requestedGroupId) throw new Error("Custody group save requires groupId.");
+  if (!familyId) throw new Error("Custody group save requires familyId.");
+
+  const existingGroup = await firestoreGetDoc(env, "custodyGroups", requestedGroupId);
+  if (existingGroup) {
+    if (!canManageCustodyGroup(existingGroup, token)) {
+      return json({ ok: false, error: "Only a custody group owner or admin can update this group." }, { status: 403 }, origin);
+    }
+  } else {
+    const family = await firestoreGetDoc(env, "families", familyId);
+    if (!family) throw new Error("Family space was not found.");
+    if (!canManageFamily(family, token)) {
+      return json({ ok: false, error: "Only a family owner or admin can create a custody group." }, { status: 403 }, origin);
+    }
+  }
+
+  const now = new Date().toISOString();
+  let group = sanitizeCustodyGroupPayload(rawGroup, {
+    existingGroup,
+    token,
+    groupId: requestedGroupId,
+    familyId,
+    now,
+  });
+  const invitations = listOrEmpty(payload.invitations)
+    .map((invite) => normalizeCustodyInvitation({ ...invite, groupId: requestedGroupId }, token))
+    .filter((invite) => invite.recipientEmail);
+
+  invitations.forEach((invite) => {
+    group = {
+      ...group,
+      ...pendingCustodyUpdate(group, invite, now),
+    };
+  });
+
+  const writes = [
+    firestoreMergeWrite(env, "custodyGroups", requestedGroupId, group),
+    ...invitations.map((invite) => firestoreMergeWrite(env, "custodyInvitations", invite.id, invite)),
+  ];
+
+  const family = await firestoreGetDoc(env, "families", familyId);
+  if (family) {
+    const custodyGroupIds = mergeIdList(family.custodyGroupIds, family.custody_group_ids, requestedGroupId);
+    writes.push(firestoreMergeWrite(env, "families", familyId, {
+      custodyGroupIds,
+      custody_group_ids: custodyGroupIds,
+      updatedAt: now,
+      updated_at: now,
+    }));
+  }
+
+  const childIds = normalizeChildLinkIds(group, payload.childIds || payload.child_ids || []);
+  for (const childId of childIds) {
+    const child = await firestoreGetDoc(env, "children", childId);
+    const custodyGroupIds = mergeIdList(child?.custodyGroupIds, child?.custody_group_ids, requestedGroupId);
+    writes.push(firestoreMergeWrite(env, "children", childId, {
+      custodyGroupIds,
+      custody_group_ids: custodyGroupIds,
+      updatedAt: now,
+      updated_at: now,
+    }));
+  }
+
+  await firestoreCommit(env, writes);
+
+  return json({
+    ok: true,
+    groupId: requestedGroupId,
+    invitationIds: invitations.map((invite) => invite.id),
+    linkedChildCount: childIds.length,
+  }, { status: 200 }, origin);
+}
+
 function normalizeActivity(raw = {}, token = {}) {
   const custodyGroupId = cleanText(raw.custodyGroupId || raw.custody_group_id);
   const householdFamilyId = cleanText(raw.householdFamilyId || raw.household_family_id);
@@ -1465,6 +1619,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/invitations/custody/send") {
         return handleCustodyInvitationSend(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/custody-groups/save") {
+        return handleCustodyGroupSave(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/families/update") {

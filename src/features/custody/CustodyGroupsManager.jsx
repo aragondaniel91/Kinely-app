@@ -17,6 +17,7 @@ import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
 import { deleteCustodyGroupCascade } from "@/services/familyAdminService";
+import { saveCustodyGroupViaWorker } from "@/services/custodyBackendService";
 import {
   CHILD_RELATIONSHIP_TYPES,
   buildCustodyGroupPayload,
@@ -812,83 +813,95 @@ export default function CustodyGroupsManager() {
         finalPayload = withPendingCustodyInvitation(finalPayload, invite);
       });
 
-      if (editingGroupId) {
-        if (invitations.length) {
-          const batch = writeBatch(db);
-          batch.update(groupRef, finalPayload);
-          invitations.forEach((invite) => {
-            batch.set(
-              doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
-              invite,
-              { merge: true }
-            );
-          });
-          await batch.commit();
+      const workerSaveResult = await saveCustodyGroupViaWorker({
+        groupId,
+        familyId,
+        group: finalPayload,
+        invitations,
+        childIds: childRecords.map((child) => child.id).filter(Boolean),
+      });
+
+      if (!workerSaveResult) {
+        if (editingGroupId) {
+          if (invitations.length) {
+            const batch = writeBatch(db);
+            batch.update(groupRef, finalPayload);
+            invitations.forEach((invite) => {
+              batch.set(
+                doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
+                invite,
+                { merge: true }
+              );
+            });
+            await batch.commit();
+          } else {
+            await updateDoc(groupRef, finalPayload);
+          }
         } else {
-          await updateDoc(groupRef, finalPayload);
-        }
-      } else {
-        const basePayload = {
-          ...finalPayload,
-          pendingMemberEmails: [],
-          pending_member_emails: [],
-          pendingViewerEmails: [],
-          pending_viewer_emails: [],
-          pendingInvites: [],
-          pending_invites: [],
-        };
+          const basePayload = {
+            ...finalPayload,
+            pendingMemberEmails: [],
+            pending_member_emails: [],
+            pendingViewerEmails: [],
+            pending_viewer_emails: [],
+            pendingInvites: [],
+            pending_invites: [],
+          };
 
-        await setDoc(groupRef, {
-          ...basePayload,
-          createdAt: now,
-        });
-
-        if (invitations.length) {
-          const batch = writeBatch(db);
-          batch.update(groupRef, {
-            pendingMemberEmails: finalPayload.pendingMemberEmails || [],
-            pending_member_emails: finalPayload.pending_member_emails || [],
-            pendingViewerEmails: finalPayload.pendingViewerEmails || [],
-            pending_viewer_emails: finalPayload.pending_viewer_emails || [],
-            pendingInvites: finalPayload.pendingInvites || [],
-            pending_invites: finalPayload.pending_invites || [],
-            updatedAt: now,
+          await setDoc(groupRef, {
+            ...basePayload,
+            createdAt: now,
           });
-          invitations.forEach((invite) => {
-            batch.set(
-              doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
-              invite,
-              { merge: true }
-            );
-          });
-          await batch.commit();
+
+          if (invitations.length) {
+            const batch = writeBatch(db);
+            batch.update(groupRef, {
+              pendingMemberEmails: finalPayload.pendingMemberEmails || [],
+              pending_member_emails: finalPayload.pending_member_emails || [],
+              pendingViewerEmails: finalPayload.pendingViewerEmails || [],
+              pending_viewer_emails: finalPayload.pending_viewer_emails || [],
+              pendingInvites: finalPayload.pendingInvites || [],
+              pending_invites: finalPayload.pending_invites || [],
+              updatedAt: now,
+            });
+            invitations.forEach((invite) => {
+              batch.set(
+                doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
+                invite,
+                { merge: true }
+              );
+            });
+            await batch.commit();
+          }
         }
-      }
 
-      if (familyId) {
-        await setDoc(
-          doc(db, "families", familyId),
-          {
-            custodyGroupIds: arrayUnion(groupId),
-            custody_group_ids: arrayUnion(groupId),
-            updatedAt: now,
-          },
-          { merge: true }
-        );
-      }
-
-      await Promise.all(
-        childRecords.map((child) =>
-          setDoc(
-            doc(db, "children", child.id),
+        if (familyId) {
+          await setDoc(
+            doc(db, "families", familyId),
             {
-              custodyGroupIds: [...new Set([...(child.custodyGroupIds || []), groupId].filter(Boolean))],
+              custodyGroupIds: arrayUnion(groupId),
+              custody_group_ids: arrayUnion(groupId),
               updatedAt: now,
             },
             { merge: true }
+          );
+        }
+
+        await Promise.all(
+          childRecords.map((child) =>
+            setDoc(
+              doc(db, "children", child.id),
+              {
+                custodyGroupIds: [...new Set([...(child.custodyGroupIds || []), groupId].filter(Boolean))],
+                updatedAt: now,
+              },
+              { merge: true }
+            )
           )
-        )
-      );
+        );
+      } else {
+        await refreshCustodyGroups?.();
+      }
 
       let queuedEmailCount = 0;
       let queuedNotificationCount = 0;
