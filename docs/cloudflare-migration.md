@@ -42,6 +42,15 @@ Deploy:
 npm run cloudflare:worker:deploy
 ```
 
+In non-interactive shells, Wrangler needs a Cloudflare API token:
+
+```powershell
+$env:CLOUDFLARE_API_TOKEN="paste_cloudflare_token_here"
+npm run cloudflare:worker:deploy
+```
+
+Create the token in Cloudflare Dashboard > My Profile > API Tokens. Use the built-in `Edit Cloudflare Workers` template and restrict it to the account that owns Kinely.
+
 Configure Worker secrets:
 
 ```powershell
