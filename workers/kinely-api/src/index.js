@@ -3,6 +3,35 @@ const FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/s
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  channels: {
+    inApp: true,
+    email: true,
+    push: false,
+    sms: false,
+  },
+  notifyOn: {
+    custodyCreated: true,
+    custodyEdited: true,
+    custodyDeleted: true,
+    familyEventCreated: true,
+    familyEventEdited: true,
+    taskAssigned: true,
+    taskCompleted: false,
+    childCareUpdated: true,
+    medicationOrAllergyUpdated: true,
+    mealPlanUpdated: false,
+    groceryItemAdded: false,
+    invitationReceived: true,
+    messageReceived: true,
+  },
+  quietHours: {
+    enabled: false,
+    start: "22:00",
+    end: "07:00",
+  },
+};
+
 let jwksCache = {
   expiresAt: 0,
   keys: {},
@@ -320,6 +349,29 @@ async function firestoreGetDoc(env, collectionName, docId) {
   };
 }
 
+async function firestoreRunQuery(env, structuredQuery = {}) {
+  const projectId = cleanText(env.FIREBASE_PROJECT_ID);
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
+  const { response, body } = await firestoreRequest(env, url, {
+    method: "POST",
+    body: JSON.stringify({ structuredQuery }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Firestore query failed (${response.status}): ${JSON.stringify(body).slice(0, 800)}`);
+  }
+
+  return Array.isArray(body)
+    ? body
+        .map((item) => item.document)
+        .filter(Boolean)
+        .map((document) => ({
+          id: cleanText(document.name).split("/").pop(),
+          ...fromFirestoreFields(document.fields || {}),
+        }))
+    : [];
+}
+
 async function firestoreCommit(env, writes = []) {
   const projectId = cleanText(env.FIREBASE_PROJECT_ID);
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`;
@@ -376,6 +428,15 @@ function familyInvitationId(familyId, email) {
 
 function custodyInvitationId(groupId, email) {
   return `custody_${groupId}_${normalizeEmail(email)}`;
+}
+
+function escapeHtml(value) {
+  return cleanText(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function invitationRegisterUrl(env, { email, invitationId, type }) {
@@ -542,6 +603,183 @@ function canManageCustodyGroup(group = {}, token = {}) {
   );
 }
 
+function findPrincipalMember(container = {}, token = {}) {
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  const candidates = [
+    ...listOrEmpty(container.members),
+    ...listOrEmpty(container.parents),
+    ...listOrEmpty(container.coParents),
+    ...listOrEmpty(container.viewers),
+  ];
+
+  return candidates.find((member) => (
+    (uid && cleanText(member?.uid || member?.userId || member?.user_id || member?.id) === uid) ||
+    (email && memberEmail(member) === email)
+  ));
+}
+
+function emailListHasPrincipal(values = [], token = {}) {
+  const email = normalizeEmail(token.email);
+  return Boolean(email && listOrEmpty(values).map(normalizeEmail).includes(email));
+}
+
+function canAccessFamily(family = {}, token = {}) {
+  if (canManageFamily(family, token)) return true;
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+
+  return Boolean(
+    findPrincipalMember(family, token) ||
+    (uid && uniqueStrings([family.memberIds, family.member_ids].flat()).includes(uid)) ||
+    emailListHasPrincipal(family.memberEmails, token) ||
+    emailListHasPrincipal(family.member_emails, token)
+  );
+}
+
+function canAccessCustodyGroup(group = {}, token = {}) {
+  if (canManageCustodyGroup(group, token)) return true;
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  const idFields = [
+    group.memberIds,
+    group.member_ids,
+    group.viewerIds,
+    group.viewer_ids,
+    group.custodyReaderIds,
+    group.custody_reader_ids,
+    group.custodyWriterIds,
+    group.custody_writer_ids,
+  ].flat();
+  const emailFields = [
+    group.memberEmails,
+    group.member_emails,
+    group.viewerEmails,
+    group.viewer_emails,
+    group.custodyReaderEmails,
+    group.custody_reader_emails,
+    group.custodyWriterEmails,
+    group.custody_writer_emails,
+  ];
+
+  return Boolean(
+    findPrincipalMember(group, token) ||
+    (uid && uniqueStrings(idFields).includes(uid)) ||
+    (email && emailFields.some((values) => listOrEmpty(values).map(normalizeEmail).includes(email)))
+  );
+}
+
+function permissionAllowsRead(permission) {
+  if (permission === true) return true;
+  if (typeof permission === "string") return ["read", "write", "admin", "owner"].includes(permission);
+  if (!permission || typeof permission !== "object") return false;
+  return permission.read === true || permission.write === true || permission.visible === true || permission.assignable === true;
+}
+
+function memberCanReadModule(member = {}, moduleName = "") {
+  if (!moduleName || member.admin === true || member.isAdmin === true || member.is_admin === true) return true;
+  if (["owner", "admin"].includes(cleanText(member.appRole || member.app_role))) return true;
+
+  const normalizedModule = moduleName === "groceries" ? "lists" : moduleName;
+  const permissions = mapOrEmpty(member.permissions);
+  const modules = mapOrEmpty(member.modules);
+
+  if (Object.prototype.hasOwnProperty.call(permissions, normalizedModule)) {
+    return permissionAllowsRead(permissions[normalizedModule]);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(modules, normalizedModule)) {
+    return permissionAllowsRead(modules[normalizedModule]);
+  }
+
+  return true;
+}
+
+function upsertRecipient(recipients, candidate = {}, moduleName = "") {
+  const email = normalizeEmail(candidate.email || candidate.emailAddress || candidate.memberEmail || candidate.recipientEmail);
+  const uid = cleanText(candidate.uid || candidate.userId || candidate.user_id || candidate.id);
+  if (!email || !memberCanReadModule(candidate, moduleName)) return;
+
+  const key = email || uid;
+  if (!recipients.has(key)) {
+    recipients.set(key, {
+      email,
+      uid,
+      name: cleanText(candidate.name || candidate.displayName || candidate.fullName || candidate.label || email),
+      moduleName,
+    });
+  } else if (uid && !recipients.get(key).uid) {
+    recipients.get(key).uid = uid;
+  }
+}
+
+function familyNotificationRecipients(family = {}, moduleName = "") {
+  const recipients = new Map();
+  upsertRecipient(recipients, {
+    uid: family.ownerId || family.owner_id || family.createdBy || family.created_by,
+    email: family.ownerEmail || family.owner_email || family.createdByEmail || family.created_by_email,
+    name: family.parent1Name || family.parent1_name || family.ownerName || family.owner_name || "Family owner",
+    admin: true,
+  }, moduleName);
+  upsertRecipient(recipients, {
+    uid: family.parent1Uid || family.parent1_uid,
+    email: family.parent1Email || family.parent1_email || family.ownerEmail || family.owner_email,
+    name: family.parent1Name || family.parent1_name,
+    admin: true,
+  }, moduleName);
+  upsertRecipient(recipients, {
+    uid: family.parent2Uid || family.parent2_uid,
+    email: family.parent2Email || family.parent2_email,
+    name: family.parent2Name || family.parent2_name,
+    permissions: family.parent2Permissions || family.parent2_permissions,
+    modules: family.parent2Modules || family.parent2_modules,
+  }, moduleName);
+
+  listOrEmpty(family.members).forEach((member) => upsertRecipient(recipients, member, moduleName));
+
+  if (recipients.size <= 1) {
+    uniqueStrings([family.memberEmails, family.member_emails, family.adminEmails, family.admin_emails].flat())
+      .map(normalizeEmail)
+      .forEach((email) => upsertRecipient(recipients, { email }, moduleName));
+  }
+
+  return [...recipients.values()];
+}
+
+function custodyNotificationRecipients(group = {}, moduleName = "custody") {
+  const recipients = new Map();
+  upsertRecipient(recipients, {
+    uid: group.ownerId || group.owner_id || group.createdBy || group.created_by || group.createdByUid || group.created_by_uid,
+    email: group.ownerEmail || group.owner_email || group.createdByEmail || group.created_by_email,
+    name: "Custody owner",
+    admin: true,
+  }, moduleName);
+
+  [
+    ...listOrEmpty(group.parents),
+    ...listOrEmpty(group.coParents),
+    ...listOrEmpty(group.members),
+    ...listOrEmpty(group.viewers),
+  ].forEach((member) => upsertRecipient(recipients, member, moduleName));
+
+  uniqueStrings([
+    group.memberEmails,
+    group.member_emails,
+    group.viewerEmails,
+    group.viewer_emails,
+    group.adminEmails,
+    group.admin_emails,
+    group.custodyReaderEmails,
+    group.custody_reader_emails,
+    group.custodyWriterEmails,
+    group.custody_writer_emails,
+  ].flat())
+    .map(normalizeEmail)
+    .forEach((email) => upsertRecipient(recipients, { email, modules: { custody: { read: true } } }, moduleName));
+
+  return [...recipients.values()];
+}
+
 function mergeInvites(existing = [], invite) {
   const map = new Map();
   listOrEmpty(existing).forEach((item) => {
@@ -667,6 +905,203 @@ function normalizeCustodyInvitation(raw = {}, token = {}) {
   };
 }
 
+function mergeNotificationPreferences(saved = {}) {
+  return {
+    channels: {
+      ...DEFAULT_NOTIFICATION_PREFERENCES.channels,
+      ...mapOrEmpty(saved.channels),
+    },
+    notifyOn: {
+      ...DEFAULT_NOTIFICATION_PREFERENCES.notifyOn,
+      ...mapOrEmpty(saved.notifyOn || saved.notify_on),
+    },
+    quietHours: {
+      ...DEFAULT_NOTIFICATION_PREFERENCES.quietHours,
+      ...mapOrEmpty(saved.quietHours || saved.quiet_hours),
+    },
+  };
+}
+
+function activityPreferenceKey(activity = {}) {
+  const type = cleanText(activity.type);
+  const moduleName = cleanText(activity.module);
+
+  if (moduleName === "tasks" || type.startsWith("task_")) {
+    return type === "task_completed" ? "taskCompleted" : "taskAssigned";
+  }
+
+  if (moduleName === "calendar" || type.startsWith("event_")) {
+    return type.includes("updated") || type.includes("edited") ? "familyEventEdited" : "familyEventCreated";
+  }
+
+  if (
+    moduleName === "custody" ||
+    type.includes("custody") ||
+    type.includes("special_event") ||
+    type.includes("travel_plan")
+  ) {
+    if (type.includes("deleted")) return "custodyDeleted";
+    if (type.includes("updated") || type.includes("edited")) return "custodyEdited";
+    return "custodyCreated";
+  }
+
+  if (moduleName === "meals" || type.includes("meal")) {
+    return "mealPlanUpdated";
+  }
+
+  if (["lists", "groceries"].includes(moduleName) || type.includes("grocery") || type.includes("list")) {
+    return "groceryItemAdded";
+  }
+
+  if (type.includes("child") || type.includes("care")) {
+    return "childCareUpdated";
+  }
+
+  return "";
+}
+
+function activityActionUrl(activity = {}) {
+  const moduleName = cleanText(activity.module);
+  const entityId = cleanText(activity.entityId || activity.entity_id);
+
+  if (moduleName === "tasks") return "/tasks";
+  if (moduleName === "meals") return "/meals";
+  if (["lists", "groceries"].includes(moduleName)) return "/lists";
+  if (moduleName === "custody") return "/custody";
+  if (moduleName === "calendar") {
+    return entityId ? `/calendar?eventId=${encodeURIComponent(entityId)}` : "/calendar";
+  }
+
+  return "/profile?tab=notifications";
+}
+
+function actorMatchesRecipient(activity = {}, recipient = {}) {
+  const actorIds = uniqueStrings([activity.actorId, activity.actor_id, activity.createdBy, activity.created_by]);
+  const actorEmails = uniqueStrings([
+    activity.actorEmail,
+    activity.actor_email,
+    activity.createdByEmail,
+    activity.created_by_email,
+  ]).map(normalizeEmail);
+
+  return Boolean(
+    (recipient.uid && actorIds.includes(recipient.uid)) ||
+    (recipient.email && actorEmails.includes(normalizeEmail(recipient.email)))
+  );
+}
+
+async function findUserByEmail(env, email) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return null;
+
+  for (const fieldPath of ["email", "notificationEmail", "notification_email"]) {
+    const docs = await firestoreRunQuery(env, {
+      from: [{ collectionId: "users" }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath },
+          op: "EQUAL",
+          value: { stringValue: cleanEmail },
+        },
+      },
+      limit: 1,
+    });
+    if (docs[0]) return docs[0];
+  }
+
+  return null;
+}
+
+async function loadRecipientPreferences(env, recipient = {}) {
+  const uid = cleanText(recipient.uid);
+  const email = normalizeEmail(recipient.email);
+  let userDoc = uid ? await firestoreGetDoc(env, "users", uid) : null;
+  if (!userDoc && email) userDoc = await findUserByEmail(env, email);
+
+  return mergeNotificationPreferences(userDoc?.notificationPreferences || userDoc?.notification_preferences || {});
+}
+
+function notificationRecord({ activity, recipient, preferenceKey, channels, now }) {
+  const title = cleanText(activity.title, "Family update");
+  const body = cleanText(activity.description, "Something changed in Kinely.");
+  const activityId = cleanText(activity.id || activity.entityId || activity.entity_id || crypto.randomUUID());
+  const recipientKey = normalizeEmail(recipient.email).replace(/[^a-z0-9]+/g, "_");
+  const id = `activity_${activityId}_${recipientKey}`.slice(0, 140);
+
+  return {
+    id,
+    kind: preferenceKey,
+    title,
+    body,
+    recipientEmail: normalizeEmail(recipient.email),
+    recipient_email: normalizeEmail(recipient.email),
+    recipientUid: cleanText(recipient.uid),
+    recipient_uid: cleanText(recipient.uid),
+    familyId: cleanText(activity.householdFamilyId || activity.household_family_id || activity.familyId || activity.family_id),
+    family_id: cleanText(activity.householdFamilyId || activity.household_family_id || activity.familyId || activity.family_id),
+    custodyGroupId: cleanText(activity.custodyGroupId || activity.custody_group_id),
+    custody_group_id: cleanText(activity.custodyGroupId || activity.custody_group_id),
+    scopeType: cleanText(activity.custodyGroupId || activity.custody_group_id) ? "custody" : "family",
+    scope_type: cleanText(activity.custodyGroupId || activity.custody_group_id) ? "custody" : "family",
+    module: cleanText(activity.module, "notifications"),
+    entityType: cleanText(activity.entityType || activity.entity_type),
+    entity_type: cleanText(activity.entityType || activity.entity_type),
+    entityId: cleanText(activity.entityId || activity.entity_id),
+    entity_id: cleanText(activity.entityId || activity.entity_id),
+    actionUrl: activityActionUrl(activity),
+    action_url: activityActionUrl(activity),
+    status: "unread",
+    read: false,
+    readBy: [],
+    read_by: [],
+    channels,
+    createdBy: cleanText(activity.createdBy || activity.created_by || activity.actorId || activity.actor_id),
+    created_by: cleanText(activity.createdBy || activity.created_by || activity.actorId || activity.actor_id),
+    createdByEmail: normalizeEmail(activity.createdByEmail || activity.created_by_email || activity.actorEmail || activity.actor_email),
+    created_by_email: normalizeEmail(activity.createdByEmail || activity.created_by_email || activity.actorEmail || activity.actor_email),
+    metadata: {
+      ...mapOrEmpty(activity.metadata),
+      activityId,
+      preferenceKey,
+    },
+    createdAt: now,
+    created_at: now,
+    updatedAt: now,
+    updated_at: now,
+  };
+}
+
+function activityEmail(env, notification = {}) {
+  const base = cleanText(env.APP_PUBLIC_URL, "https://kinely.net").replace(/\/+$/g, "");
+  const actionUrl = new URL(cleanText(notification.actionUrl || notification.action_url, "/profile?tab=notifications"), base).toString();
+  const text = [
+    notification.title,
+    notification.body,
+    `Open in Kinely: ${actionUrl}`,
+  ].filter(Boolean).join("\n\n");
+
+  return {
+    id: notification.id,
+    kind: notification.kind,
+    to: [notification.recipientEmail || notification.recipient_email],
+    subject: notification.title,
+    text,
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.6; max-width: 620px;">
+        <p style="font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #4f46e5; margin: 0 0 8px;">Kinely</p>
+        <h1 style="font-size: 22px; margin: 0 0 12px;">${escapeHtml(notification.title)}</h1>
+        <p style="font-size: 15px; margin: 0 0 18px;">${escapeHtml(notification.body)}</p>
+        <p style="margin: 0 0 22px;">
+          <a href="${escapeHtml(actionUrl)}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; border-radius: 14px; padding: 12px 18px; font-weight: 700;">
+            Open Kinely
+          </a>
+        </p>
+        <p style="font-size: 12px; color: #64748b; word-break: break-all; margin: 0;">${escapeHtml(actionUrl)}</p>
+      </div>
+    `.trim(),
+  };
+}
+
 async function sendWithResend(env, mail) {
   const apiKey = cleanText(env.RESEND_API_KEY);
   const from = cleanText(env.MAIL_FROM);
@@ -774,6 +1209,145 @@ async function handleFamilyInvitationSend(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+function normalizeActivity(raw = {}, token = {}) {
+  const custodyGroupId = cleanText(raw.custodyGroupId || raw.custody_group_id);
+  const householdFamilyId = cleanText(raw.householdFamilyId || raw.household_family_id);
+  const familyId = cleanText(raw.familyId || raw.family_id || householdFamilyId || custodyGroupId);
+  const now = new Date().toISOString();
+
+  if (!familyId && !custodyGroupId) {
+    throw new Error("Activity notification requires familyId or custodyGroupId.");
+  }
+
+  return {
+    ...raw,
+    id: cleanText(raw.id || raw.activityId || raw.activity_id || crypto.randomUUID()),
+    familyId,
+    family_id: familyId,
+    custodyGroupId,
+    custody_group_id: custodyGroupId,
+    householdFamilyId,
+    household_family_id: householdFamilyId,
+    module: cleanText(raw.module || (custodyGroupId ? "custody" : "home")),
+    type: cleanText(raw.type),
+    title: cleanText(raw.title),
+    description: cleanText(raw.description),
+    entityType: cleanText(raw.entityType || raw.entity_type),
+    entity_type: cleanText(raw.entityType || raw.entity_type),
+    entityId: cleanText(raw.entityId || raw.entity_id),
+    entity_id: cleanText(raw.entityId || raw.entity_id),
+    actorId: cleanText(raw.actorId || raw.actor_id || raw.createdBy || raw.created_by || token.sub),
+    actor_id: cleanText(raw.actorId || raw.actor_id || raw.createdBy || raw.created_by || token.sub),
+    actorEmail: normalizeEmail(raw.actorEmail || raw.actor_email || raw.createdByEmail || raw.created_by_email || token.email),
+    actor_email: normalizeEmail(raw.actorEmail || raw.actor_email || raw.createdByEmail || raw.created_by_email || token.email),
+    createdBy: cleanText(raw.createdBy || raw.created_by || token.sub),
+    created_by: cleanText(raw.createdBy || raw.created_by || token.sub),
+    createdByEmail: normalizeEmail(raw.createdByEmail || raw.created_by_email || token.email),
+    created_by_email: normalizeEmail(raw.createdByEmail || raw.created_by_email || token.email),
+    createdAt: raw.createdAt || raw.created_at || now,
+    created_at: raw.created_at || raw.createdAt || now,
+  };
+}
+
+async function activityRecipientsForScope(env, activity, token) {
+  const moduleName = cleanText(activity.module, activity.custodyGroupId ? "custody" : "home");
+
+  if (activity.custodyGroupId) {
+    const group = await firestoreGetDoc(env, "custodyGroups", activity.custodyGroupId);
+    if (group) {
+      if (!canAccessCustodyGroup(group, token)) {
+        return { forbidden: true, recipients: [] };
+      }
+      return { forbidden: false, recipients: custodyNotificationRecipients(group, moduleName) };
+    }
+  }
+
+  const familyId = cleanText(activity.householdFamilyId || activity.household_family_id || activity.familyId || activity.family_id);
+  const family = familyId ? await firestoreGetDoc(env, "families", familyId) : null;
+  if (!family) {
+    return { missing: true, recipients: [] };
+  }
+  if (!canAccessFamily(family, token)) {
+    return { forbidden: true, recipients: [] };
+  }
+
+  return { forbidden: false, recipients: familyNotificationRecipients(family, moduleName) };
+}
+
+async function handleActivityNotificationSend(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const activity = normalizeActivity(payload.activity || payload, token);
+  const preferenceKey = activityPreferenceKey(activity);
+
+  if (!activity.title || !activity.type || !preferenceKey) {
+    return json({ ok: true, skipped: true, reason: "No matching notification preference." }, { status: 200 }, origin);
+  }
+
+  const scope = await activityRecipientsForScope(env, activity, token);
+  if (scope.forbidden) {
+    return json({ ok: false, error: "You do not have access to send notifications for this space." }, { status: 403 }, origin);
+  }
+  if (scope.missing) {
+    return json({ ok: true, skipped: true, reason: "Notification scope was not found." }, { status: 200 }, origin);
+  }
+
+  const now = new Date().toISOString();
+  const recipients = scope.recipients.filter((recipient) => !actorMatchesRecipient(activity, recipient));
+  const notificationWrites = [];
+  const emailDeliveries = [];
+  const skipped = [];
+
+  for (const recipient of recipients) {
+    const preferences = await loadRecipientPreferences(env, recipient);
+    if (preferences.notifyOn?.[preferenceKey] !== true) {
+      skipped.push({ email: recipient.email, reason: "preference_disabled" });
+      continue;
+    }
+
+    const channels = {
+      inApp: preferences.channels?.inApp !== false,
+      email: preferences.channels?.email === true,
+    };
+
+    if (!channels.inApp && !channels.email) {
+      skipped.push({ email: recipient.email, reason: "channels_disabled" });
+      continue;
+    }
+
+    const notification = notificationRecord({
+      activity,
+      recipient,
+      preferenceKey,
+      channels,
+      now,
+    });
+
+    if (channels.inApp) {
+      notificationWrites.push(firestoreMergeWrite(env, "notifications", notification.id, notification));
+    }
+
+    if (channels.email) {
+      emailDeliveries.push(sendWithResend(env, activityEmail(env, notification)));
+    }
+  }
+
+  if (notificationWrites.length) {
+    await firestoreCommit(env, notificationWrites);
+  }
+
+  const emailResults = await Promise.allSettled(emailDeliveries);
+
+  return json({
+    ok: true,
+    preferenceKey,
+    inAppCount: notificationWrites.length,
+    emailCount: emailResults.filter((result) => result.status === "fulfilled").length,
+    emailFailedCount: emailResults.filter((result) => result.status === "rejected").length,
+    skippedCount: skipped.length,
+  }, { status: 200 }, origin);
+}
+
 async function handleSendEmail(request, env, origin) {
   const token = await verifyFirebaseToken(request, env);
   const payload = await request.json();
@@ -831,6 +1405,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/invitations/custody/send") {
         return handleCustodyInvitationSend(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/notifications/activity/send") {
+        return handleActivityNotificationSend(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {

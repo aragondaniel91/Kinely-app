@@ -283,6 +283,11 @@ export async function sendCustodyInvitationViaWorker(options) {
   return result || null;
 }
 
+export async function sendActivityNotificationViaWorker(options) {
+  const result = await authorizedWorkerRequest("/notifications/activity/send", options);
+  return result || null;
+}
+
 export async function queueFamilyInvitationEmail(options) {
   return queueEmailPayload(buildFamilyInvitationEmailPayload(options));
 }

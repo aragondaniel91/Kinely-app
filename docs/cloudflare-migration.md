@@ -75,6 +75,8 @@ The Worker also includes `POST /invitations/family/send`, which verifies the Fir
 
 Custody invitations can use `POST /invitations/custody/send`, which verifies the Firebase ID token, checks that the caller is a custody group owner/admin, writes the pending custody invitation to Firestore with a service account, updates the custody group pending invite fields, and sends the invitation email through Resend.
 
-Firestore document triggers for calendar/task/custody changes still run in Firebase Functions for now. Cloudflare Workers do not listen to Firestore document changes natively, so those event-driven flows need either explicit app calls to the Worker or a separate Google-to-Worker webhook bridge.
+Activity notifications are Worker-first through `POST /notifications/activity/send`. The app calls this endpoint after writing `familyActivity`. The Worker verifies the Firebase ID token, validates access to the family or custody group, derives recipients from the Firestore family/group document, reads each user's notification preferences, writes in-app notification documents, and sends email through Resend only when the user has email notifications enabled.
 
-For the Google service account, start with the smallest practical IAM role for the migration. The Worker currently needs Firestore document read/write access for family invitation flows.
+Firestore document triggers for calendar/task/custody changes still run in Firebase Functions as a temporary fallback. Cloudflare Workers do not listen to Firestore document changes natively, so new production flows should prefer explicit app calls to the Worker or a separate Google-to-Worker webhook bridge.
+
+For the Google service account, start with the smallest practical IAM role for the migration. The Worker currently needs Firestore document read/write access for invitation and notification flows.

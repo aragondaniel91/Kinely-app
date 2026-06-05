@@ -1,6 +1,7 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { sendActivityNotificationViaWorker } from "@/services/emailQueueService";
 
 function actorName(profile, user) {
   return (
@@ -51,8 +52,7 @@ export async function logFamilyActivity({
     const custodyGroupName = custodyScopeFields.custodyGroupName || "";
     const effectiveModule = module || (custodyGroupId ? "custody" : "home");
     const effectiveVisibility = visibility || (custodyGroupId ? "custody" : "family");
-
-    return await addDoc(collection(db, "familyActivity"), {
+    const activityPayload = {
       familyId: activityFamilyId,
       family_id: activityFamilyId,
       ...(custodyGroupId
@@ -79,9 +79,24 @@ export async function logFamilyActivity({
       actorId: user.uid,
       actorEmail: user.email || null,
       actorName: actorName(profile, user),
+    };
+
+    const activityRef = await addDoc(collection(db, "familyActivity"), {
+      ...activityPayload,
       createdAt: serverTimestamp(),
       readBy: [],
     });
+
+    void sendActivityNotificationViaWorker({
+      activity: {
+        id: activityRef.id,
+        ...activityPayload,
+      },
+    }).catch((error) => {
+      console.warn("Could not send activity notifications:", error);
+    });
+
+    return activityRef;
   } catch (error) {
     console.warn("Could not log family activity:", error);
     return null;
