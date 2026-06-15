@@ -377,7 +377,9 @@ export default function CustodyDayDialog({
     const before = existingData ? buildCustodyAuditSnapshot(existingData, { dadLabel, momLabel }) : null;
     const after = buildCustodyAuditSnapshot(payload, { dadLabel, momLabel });
 
-    await onSave(payload);
+    const saved = await onSave(payload);
+    if (saved === false) return;
+
     queueFamilyActivity({
       familyId,
       custodyScopeFields,

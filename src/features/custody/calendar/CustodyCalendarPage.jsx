@@ -65,6 +65,23 @@ import {
   saveCustodyDaysViaWorker,
 } from "@/services/custodyBackendService";
 
+const FIRESTORE_WRITE_TIMEOUT_MS = 10000;
+
+async function withWriteTimeout(promise, label) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out. Please check your connection and try again.`));
+    }, FIRESTORE_WRITE_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function getCustodyDaySegments(day) {
   if (!day) return [];
 
@@ -251,7 +268,17 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   }, [user?.uid, custodyScopeId, canRead]);
 
   const saveCustodyDay = async (payload) => {
-    if (!user || !custodyScopeId || !canWrite) return;
+    if (!user || !custodyScopeId || !canWrite) {
+      showNotice({
+        tone: "warning",
+        title: "Cannot save custody day",
+        message: !canWrite
+          ? "Your current role does not have permission to edit the custody schedule."
+          : "The custody schedule context is still loading. Please refresh and try again.",
+      });
+      return false;
+    }
+
     setIsSaving(true);
 
     try {
@@ -285,7 +312,10 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       const savedData = workerResult?.days?.[0] || data;
 
       if (!workerResult) {
-        await setDoc(doc(db, "custodyDays", docId), data, { merge: true });
+        await withWriteTimeout(
+          setDoc(doc(db, "custodyDays", docId), data, { merge: true }),
+          "Saving custody day"
+        );
       }
 
       setCustodyDays((prev) => {
@@ -296,6 +326,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
       setSelectedDate(null);
       setLastBulkUndo(null);
+      return true;
     } catch (error) {
       console.error("Error saving custody day:", error);
       showNotice({
@@ -303,13 +334,23 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         title: "Could not save custody day",
         message: error.message,
       });
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
   const saveBulkCustodyDays = async (payload, confirmed = false) => {
-    if (!user || !custodyScopeId || !canWrite) return;
+    if (!user || !custodyScopeId || !canWrite) {
+      showNotice({
+        tone: "warning",
+        title: "Cannot save custody range",
+        message: !canWrite
+          ? "Your current role does not have permission to edit the custody schedule."
+          : "The custody schedule context is still loading. Please refresh and try again.",
+      });
+      return false;
+    }
 
     const baseStart = parseISO(`${payload.startDate}T12:00:00`);
     const baseEnd = parseISO(`${payload.endDate}T12:00:00`);
@@ -320,7 +361,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         title: "Invalid date range",
         message: "Please review the start and end dates.",
       });
-      return;
+      return false;
     }
 
     if (baseEnd < baseStart) {
@@ -329,7 +370,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         title: "Invalid date range",
         message: "The end date cannot be earlier than the start date.",
       });
-      return;
+      return false;
     }
 
     const rangeLength = differenceInCalendarDays(baseEnd, baseStart);
@@ -341,14 +382,14 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         title: "No schedule generated",
         message: "No schedule occurrences were generated. Please review the selected pattern and dates.",
       });
-      return;
+      return false;
     }
 
     const estimatedTotalDays = payload.generatedDayMap ? Object.keys(payload.generatedDayMap).length : blockStarts.length * (rangeLength + 1);
 
     if (!confirmed) {
       setPendingBulkConfirm({ payload, estimatedTotalDays });
-      return;
+      return false;
     }
 
     setPendingBulkConfirm(null);
@@ -401,7 +442,10 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
       if (!workerResult) {
         for (const data of generatedEntries) {
-          await setDoc(doc(db, "custodyDays", data.id), data, { merge: true });
+          await withWriteTimeout(
+            setDoc(doc(db, "custodyDays", data.id), data, { merge: true }),
+            "Saving custody range"
+          );
         }
       }
 
@@ -421,6 +465,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       });
 
       setShowBulkDialog(false);
+      return true;
     } catch (error) {
       console.error("Error saving bulk custody days:", error);
       showNotice({
@@ -428,6 +473,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         title: "Could not save custody range",
         message: error.message,
       });
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -463,7 +509,10 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
 
         if (!workerResult) {
           for (const entry of restoreEntries) {
-            await setDoc(doc(db, "custodyDays", entry.id), entry, { merge: true });
+            await withWriteTimeout(
+              setDoc(doc(db, "custodyDays", entry.id), entry, { merge: true }),
+              "Restoring custody range"
+            );
           }
         }
       }
@@ -477,7 +526,10 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         });
 
         if (!workerResult) {
-          await deleteDoc(doc(db, "custodyDays", entry.id));
+          await withWriteTimeout(
+            deleteDoc(doc(db, "custodyDays", entry.id)),
+            "Deleting custody day"
+          );
         }
       }
 
@@ -510,7 +562,17 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
   };
 
   const deleteCustodyDay = async (date) => {
-    if (!user || !custodyScopeId || !date || !canWrite) return;
+    if (!user || !custodyScopeId || !date || !canWrite) {
+      showNotice({
+        tone: "warning",
+        title: "Cannot delete custody day",
+        message: !canWrite
+          ? "Your current role does not have permission to edit the custody schedule."
+          : "The custody schedule context is still loading. Please refresh and try again.",
+      });
+      return false;
+    }
+
     setIsSaving(true);
 
     try {
@@ -525,11 +587,17 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       });
 
       if (!workerResult) {
-        await deleteDoc(doc(db, "custodyDays", newDocId));
+        await withWriteTimeout(
+          deleteDoc(doc(db, "custodyDays", newDocId)),
+          "Deleting custody day"
+        );
 
         try {
           const oldDocId = `${user.uid}_${dateKey}`;
-          await deleteDoc(doc(db, "custodyDays", oldDocId));
+          await withWriteTimeout(
+            deleteDoc(doc(db, "custodyDays", oldDocId)),
+            "Deleting legacy custody day"
+          );
         } catch (legacyError) {
           console.warn("Could not delete legacy custody doc:", legacyError);
         }
@@ -538,6 +606,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       setCustodyDays((prev) => prev.filter((d) => normalizeDate(d.date) !== dateKey));
       setSelectedDate(null);
       setLastBulkUndo(null);
+      return true;
     } catch (error) {
       console.error("Error deleting custody day:", error);
       showNotice({
@@ -545,6 +614,7 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         title: "Could not delete custody day",
         message: error.message,
       });
+      return false;
     } finally {
       setIsSaving(false);
     }

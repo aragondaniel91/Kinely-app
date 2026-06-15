@@ -6,7 +6,9 @@ function isNetworkFailure(error) {
     error instanceof TypeError ||
     message.includes("failed to fetch") ||
     message.includes("networkerror") ||
-    message.includes("load failed")
+    message.includes("load failed") ||
+    message.includes("timed out") ||
+    message.includes("abort")
   );
 }
 
