@@ -237,9 +237,14 @@ export function buildNotificationEmailPayload({
 
 export async function queueEmailPayload(payload) {
   if (!payload?.id || !payload?.recipientEmail) return null;
-  const result = await authorizedWorkerRequest("/emails/send", payload);
-  if (result) {
-    return result?.id || payload.id;
+
+  try {
+    const result = await authorizedWorkerRequest("/emails/send", payload);
+    if (result) {
+      return result?.id || payload.id;
+    }
+  } catch (error) {
+    console.warn("Kinely email Worker delivery failed; writing to Firestore mail queue.", error);
   }
 
   await setDoc(doc(db, MAIL_COLLECTION, payload.id), payload, { merge: true });

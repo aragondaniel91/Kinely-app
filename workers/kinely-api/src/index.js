@@ -2520,6 +2520,42 @@ async function handleSendEmail(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+async function handleDiagnosticEmailTest(request, env, origin) {
+  const expectedSecret = cleanText(env.WEBHOOK_SECRET);
+  const providedSecret = cleanText(request.headers.get("x-kinely-webhook-secret"));
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return json({ ok: false, error: "Unauthorized diagnostic request." }, { status: 401 }, origin);
+  }
+
+  const payload = await request.json().catch(() => ({}));
+  const recipient = normalizeEmail(payload.to || payload.email || payload.recipientEmail);
+  if (!recipient) {
+    return json({ ok: false, error: "Diagnostic email requires a recipient email." }, { status: 400 }, origin);
+  }
+
+  const providerResult = await sendWithResend(env, {
+    id: `diagnostic_${Date.now()}`,
+    kind: "diagnostic",
+    to: [recipient],
+    subject: "Kinely email test",
+    text: "This is a Kinely diagnostic email. If you received it, Resend delivery is configured correctly.",
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.6; max-width: 620px;">
+        <p style="font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #4f46e5; margin: 0 0 8px;">Kinely</p>
+        <h1 style="font-size: 22px; margin: 0 0 12px;">Email test</h1>
+        <p style="font-size: 15px; margin: 0;">This is a Kinely diagnostic email. If you received it, Resend delivery is configured correctly.</p>
+      </div>
+    `.trim(),
+  });
+
+  return json({
+    ok: true,
+    provider: "resend",
+    providerMessageId: providerResult?.id || "",
+    to: recipient,
+  }, { status: 200 }, origin);
+}
+
 async function handleResendWebhook(request, env, origin) {
   const expectedSecret = cleanText(env.WEBHOOK_SECRET);
   if (expectedSecret) {
@@ -2598,6 +2634,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/notifications/activity/send") {
         return handleActivityNotificationSend(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/diagnostics/email-test") {
+        return handleDiagnosticEmailTest(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {

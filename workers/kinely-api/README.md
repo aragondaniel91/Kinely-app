@@ -37,6 +37,19 @@ Or from this Worker directory:
 npx wrangler deploy
 ```
 
+## Email Diagnostic
+
+After deploying, send a protected test email through the Worker:
+
+```powershell
+curl.exe -X POST "https://kinely-api.your-account.workers.dev/diagnostics/email-test" `
+  -H "content-type: application/json" `
+  -H "x-kinely-webhook-secret: YOUR_WEBHOOK_SECRET" `
+  -d "{\"to\":\"you@example.com\"}"
+```
+
+If the response is not `{"ok":true,...}`, the returned error is the Resend or Worker configuration issue to fix.
+
 ## Local Development
 
 ```powershell
