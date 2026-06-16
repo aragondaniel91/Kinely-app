@@ -60,11 +60,6 @@ import {
   buildBulkDayPayload,
   generateBlockStarts,
 } from "@/features/custody/calendar/utils/custodyBulkUtils";
-import {
-  deleteCustodyDayViaWorker,
-  saveCustodyDaysViaWorker,
-} from "@/services/custodyBackendService";
-
 const FIRESTORE_WRITE_TIMEOUT_MS = 10000;
 
 async function withWriteTimeout(promise, label) {
@@ -304,24 +299,15 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         updatedAt: serverTimestamp(),
       };
 
-      const workerResult = await saveCustodyDaysViaWorker({
-        familyId: custodyScopeFields.familyId,
-        custodyGroupId: custodyScopeId,
-        days: [data],
-      });
-      const savedData = workerResult?.days?.[0] || data;
-
-      if (!workerResult) {
-        await withWriteTimeout(
-          setDoc(doc(db, "custodyDays", docId), data, { merge: true }),
-          "Saving custody day"
-        );
-      }
+      await withWriteTimeout(
+        setDoc(doc(db, "custodyDays", docId), data, { merge: true }),
+        "Saving custody day"
+      );
 
       setCustodyDays((prev) => {
         const existing = prev.find((d) => normalizeDate(d.date) === dateKey);
-        if (existing) return prev.map((d) => (normalizeDate(d.date) === dateKey ? { ...d, ...savedData } : d));
-        return [...prev, savedData].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        if (existing) return prev.map((d) => (normalizeDate(d.date) === dateKey ? { ...d, ...data } : d));
+        return [...prev, data].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       });
 
       setSelectedDate(null);
@@ -433,26 +419,17 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         }
       }
 
-      const workerResult = await saveCustodyDaysViaWorker({
-        familyId: custodyScopeFields.familyId,
-        custodyGroupId: custodyScopeId,
-        days: generatedEntries,
-      });
-      const savedEntries = workerResult?.days?.length ? workerResult.days : generatedEntries;
-
-      if (!workerResult) {
-        for (const data of generatedEntries) {
-          await withWriteTimeout(
-            setDoc(doc(db, "custodyDays", data.id), data, { merge: true }),
-            "Saving custody range"
-          );
-        }
+      for (const data of generatedEntries) {
+        await withWriteTimeout(
+          setDoc(doc(db, "custodyDays", data.id), data, { merge: true }),
+          "Saving custody range"
+        );
       }
 
       setCustodyDays((prev) => {
         const map = new Map();
         prev.forEach((item) => map.set(normalizeDate(item.date), item));
-        savedEntries.forEach((item) => map.set(normalizeDate(item.date), item));
+        generatedEntries.forEach((item) => map.set(normalizeDate(item.date), item));
         return Array.from(map.values()).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       });
 
@@ -501,36 +478,19 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       const deleteEntries = lastBulkUndo.entries.filter((entry) => !entry.before);
 
       if (restoreEntries.length) {
-        const workerResult = await saveCustodyDaysViaWorker({
-          familyId: custodyScopeFields.familyId,
-          custodyGroupId: custodyScopeId,
-          days: restoreEntries,
-        });
-
-        if (!workerResult) {
-          for (const entry of restoreEntries) {
-            await withWriteTimeout(
-              setDoc(doc(db, "custodyDays", entry.id), entry, { merge: true }),
-              "Restoring custody range"
-            );
-          }
+        for (const entry of restoreEntries) {
+          await withWriteTimeout(
+            setDoc(doc(db, "custodyDays", entry.id), entry, { merge: true }),
+            "Restoring custody range"
+          );
         }
       }
 
       for (const entry of deleteEntries) {
-        const workerResult = await deleteCustodyDayViaWorker({
-          familyId: custodyScopeFields.familyId,
-          custodyGroupId: custodyScopeId,
-          date: entry.date,
-          docId: entry.id,
-        });
-
-        if (!workerResult) {
-          await withWriteTimeout(
-            deleteDoc(doc(db, "custodyDays", entry.id)),
-            "Deleting custody day"
-          );
-        }
+        await withWriteTimeout(
+          deleteDoc(doc(db, "custodyDays", entry.id)),
+          "Deleting custody day"
+        );
       }
 
       setCustodyDays((prev) => {
@@ -579,28 +539,19 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       const dateKey = normalizeDate(date);
       const newDocId = `${custodyScopeId}_${dateKey}`;
 
-      const workerResult = await deleteCustodyDayViaWorker({
-        familyId: custodyScopeFields.familyId,
-        custodyGroupId: custodyScopeId,
-        date: dateKey,
-        docId: newDocId,
-      });
+      await withWriteTimeout(
+        deleteDoc(doc(db, "custodyDays", newDocId)),
+        "Deleting custody day"
+      );
 
-      if (!workerResult) {
+      try {
+        const oldDocId = `${user.uid}_${dateKey}`;
         await withWriteTimeout(
-          deleteDoc(doc(db, "custodyDays", newDocId)),
-          "Deleting custody day"
+          deleteDoc(doc(db, "custodyDays", oldDocId)),
+          "Deleting legacy custody day"
         );
-
-        try {
-          const oldDocId = `${user.uid}_${dateKey}`;
-          await withWriteTimeout(
-            deleteDoc(doc(db, "custodyDays", oldDocId)),
-            "Deleting legacy custody day"
-          );
-        } catch (legacyError) {
-          console.warn("Could not delete legacy custody doc:", legacyError);
-        }
+      } catch (legacyError) {
+        console.warn("Could not delete legacy custody doc:", legacyError);
       }
 
       setCustodyDays((prev) => prev.filter((d) => normalizeDate(d.date) !== dateKey));
