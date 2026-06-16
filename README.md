@@ -81,7 +81,9 @@ If any required variable is missing, the app intentionally throws an error so br
 
 `VITE_APP_PUBLIC_URL` is optional for local builds, but should be set in production so invitation emails open the correct domain.
 
-When Cloudflare builds from GitHub, it uses the variables configured in Pages settings. When deploying manually with `npm run cloudflare:pages:deploy`, the build runs locally first, so you must also have these values in `.env.production` or the script will stop before uploading a broken `dist`.
+When Cloudflare builds from GitHub, it uses the variables configured in Pages settings. The build script validates these values during Cloudflare Pages builds so a broken bundle is not published.
+
+When deploying manually with `npm run cloudflare:pages:deploy`, the build runs locally first, so you must also have these values in `.env.production` or the script will stop before uploading a broken `dist`.
 
 ## Email delivery
 

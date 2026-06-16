@@ -6,6 +6,7 @@
   "packageManager": "npm@11.13.0",
   "scripts": {
     "preinstall": "node scripts/enforce-npm.mjs",
+    "prebuild": "node scripts/validate-pages-env.mjs --cloudflare-only",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --quiet",

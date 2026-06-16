@@ -10,6 +10,16 @@ const required = [
   "VITE_FIREBASE_APP_ID",
 ];
 
+const args = new Set(process.argv.slice(2));
+const validateOnlyOnCloudflare = args.has("--cloudflare-only");
+const isCloudflarePagesBuild =
+  process.env.CF_PAGES === "1" || process.env.CF_PAGES === "true";
+
+if (validateOnlyOnCloudflare && !isCloudflarePagesBuild) {
+  console.log("Skipping Kinely Pages environment check outside Cloudflare Pages.");
+  process.exit(0);
+}
+
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};
 
