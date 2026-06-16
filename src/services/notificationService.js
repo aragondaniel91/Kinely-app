@@ -4,7 +4,6 @@ import {
   doc,
   limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -221,23 +220,62 @@ export function subscribeUserNotifications({ email, limitCount = 25, onChange, o
     return () => {};
   }
 
-  const notificationsQuery = query(
-    collection(db, NOTIFICATIONS_COLLECTION),
-    where("recipientEmail", "==", recipientEmail),
-    orderBy("createdAt", "desc"),
-    limit(limitCount)
+  const collectionRef = collection(db, NOTIFICATIONS_COLLECTION);
+  const queries = ["recipientEmail", "recipient_email"].map((fieldName) =>
+    query(
+      collectionRef,
+      where(fieldName, "==", recipientEmail),
+      limit(limitCount)
+    )
   );
 
-  return onSnapshot(
-    notificationsQuery,
-    (snapshot) => {
-      onChange?.(snapshot.docs.map(normalizeNotification));
-    },
-    (error) => {
-      console.error("Error loading notifications:", error);
-      onError?.(error);
-    }
+  const queryResults = new Map();
+  const readyIndexes = new Set();
+  let closed = false;
+
+  function emit() {
+    if (closed || readyIndexes.size < queries.length) return;
+
+    const mergedById = new Map();
+    queryResults.forEach((items) => {
+      items.forEach((item) => mergedById.set(item.id, item));
+    });
+
+    const merged = Array.from(mergedById.values())
+      .sort((left, right) => {
+        const leftDate = left.createdAt?.toDate ? left.createdAt.toDate() : new Date(left.createdAt || 0);
+        const rightDate = right.createdAt?.toDate ? right.createdAt.toDate() : new Date(right.createdAt || 0);
+        return rightDate.getTime() - leftDate.getTime();
+      })
+      .slice(0, limitCount);
+
+    onChange?.(merged);
+  }
+
+  const unsubscribes = queries.map((notificationsQuery, index) =>
+    onSnapshot(
+      notificationsQuery,
+      (snapshot) => {
+        if (closed) return;
+        readyIndexes.add(index);
+        queryResults.set(index, snapshot.docs.map(normalizeNotification));
+
+        emit();
+      },
+      (error) => {
+        console.error("Error loading notifications:", error);
+        readyIndexes.add(index);
+        queryResults.set(index, []);
+        emit();
+        onError?.(error);
+      }
+    )
   );
+
+  return () => {
+    closed = true;
+    unsubscribes.forEach((unsubscribe) => unsubscribe());
+  };
 }
 
 export async function markNotificationRead(notificationId, user) {

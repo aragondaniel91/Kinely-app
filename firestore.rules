@@ -1064,6 +1064,10 @@ service cloud.firestore {
         && (
           canManageFamily(request.resource.data.familyId)
           || canWriteFamilyModule(request.resource.data.familyId, "notifications")
+          || (
+            isNotificationRecipient(request.resource.data)
+            && canReadFamily(request.resource.data.familyId)
+          )
         );
     }
 
@@ -1073,6 +1077,10 @@ service cloud.firestore {
         && (
           canManageCustodyGroup(request.resource.data.custodyGroupId)
           || canWriteCustody(request.resource.data.custodyGroupId)
+          || (
+            isNotificationRecipient(request.resource.data)
+            && canReadCustody(request.resource.data.custodyGroupId)
+          )
         );
     }
 

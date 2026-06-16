@@ -99,6 +99,14 @@ async function queueLocalActivityFallback({ activity, user, reason }) {
   });
 }
 
+function didWorkerCreateVisibleNotification(result) {
+  if (!result) return false;
+  if (result.skipped === true) return false;
+
+  const inAppCount = Number(result.inAppCount ?? result.in_app_count ?? 0);
+  return Number.isFinite(inAppCount) && inAppCount > 0;
+}
+
 export async function logFamilyActivity({
   familyId,
   custodyScopeFields = {},
@@ -167,7 +175,7 @@ export async function logFamilyActivity({
       },
     })
       .then((result) => {
-        if (result) return null;
+        if (didWorkerCreateVisibleNotification(result)) return null;
 
         return queueLocalActivityFallback({
           activity: {
@@ -175,7 +183,7 @@ export async function logFamilyActivity({
             ...activityPayload,
           },
           user,
-          reason: "worker_not_configured",
+          reason: result ? "worker_created_no_in_app_notification" : "worker_not_configured",
         });
       })
       .catch((error) => {
@@ -193,6 +201,14 @@ export async function logFamilyActivity({
           },
           user,
           reason: error?.message || "worker_failed",
+        });
+      })
+      .catch((fallbackError) => {
+        console.warn("Could not create local activity notification fallback.", {
+          message: fallbackError?.message || String(fallbackError),
+          familyId: activityFamilyId,
+          module: effectiveModule,
+          type,
         });
       });
 
