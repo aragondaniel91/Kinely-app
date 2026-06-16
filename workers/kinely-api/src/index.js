@@ -2451,7 +2451,10 @@ async function handleActivityNotificationSend(request, env, origin) {
 
   const now = new Date().toISOString();
   const candidateCount = scope.recipients.length;
-  const recipients = scope.recipients.filter((recipient) => !actorMatchesRecipient(activity, recipient));
+  const nonActorRecipients = scope.recipients.filter((recipient) => !actorMatchesRecipient(activity, recipient));
+  const actorRecipients = scope.recipients.filter((recipient) => actorMatchesRecipient(activity, recipient));
+  const selfNotificationFallback = nonActorRecipients.length === 0 && actorRecipients.length > 0;
+  const recipients = selfNotificationFallback ? actorRecipients.slice(0, 1) : nonActorRecipients;
   const notificationWrites = [];
   const emailDeliveries = [];
   const skipped = [];
@@ -2514,6 +2517,7 @@ async function handleActivityNotificationSend(request, env, origin) {
     preferenceKey,
     candidateCount,
     recipientCount: recipients.length,
+    selfNotificationFallback,
     inAppCount: notificationWrites.length,
     emailCount: emailResults.filter((result) => result.status === "fulfilled").length,
     emailFailedCount: emailFailures.length,
