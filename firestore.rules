@@ -16,84 +16,88 @@ service cloud.firestore {
       return value is list ? value : [];
     }
 
-    function mapOrEmpty(value) {
-      return value is map ? value : {};
-    }
-
-    function mapList(data, field) {
-      return listOrEmpty(mapOrEmpty(data).get(field, []));
-    }
-
-    function accessAllowsRead(access) {
-      return access is map
-        && (
-          access.read == true
-          || access.write == true
-          || access.visible == true
-          || access.assignable == true
-        );
-    }
-
-    function accessAllowsWrite(access) {
-      return access is map
-        && access.write == true;
+    function cleanString(value) {
+      return value is string ? value : "";
     }
 
     function familyPath(familyId) {
       return /databases/$(database)/documents/families/$(familyId);
     }
 
-    function custodyGroupPath(groupId) {
+    function custodyPath(groupId) {
       return /databases/$(database)/documents/custodyGroups/$(groupId);
     }
 
-    function familyExists(familyId) {
-      return signedIn()
-        && familyId is string
-        && exists(familyPath(familyId));
+    function familyData(familyId) {
+      return get(familyPath(familyId)).data;
     }
 
-    function custodyGroupExists(groupId) {
-      return signedIn()
-        && groupId is string
-        && exists(custodyGroupPath(groupId));
+    function custodyData(groupId) {
+      return get(custodyPath(groupId)).data;
     }
 
-    function familyDoc(familyId) {
-      return get(familyPath(familyId));
+    function hasRequestFamilyId() {
+      return cleanString(request.resource.data.get("familyId", "")) != ""
+        || cleanString(request.resource.data.get("family_id", "")) != "";
     }
 
-    function custodyGroupDoc(groupId) {
-      return get(custodyGroupPath(groupId));
+    function hasExistingFamilyId() {
+      return cleanString(resource.data.get("familyId", "")) != ""
+        || cleanString(resource.data.get("family_id", "")) != "";
     }
 
-    function isFamilyOwner(familyId) {
-      return familyExists(familyId)
-        && (
-          request.auth.uid == familyDoc(familyId).data.ownerId
-          || request.auth.uid == familyDoc(familyId).data.owner_id
-          || request.auth.uid == familyDoc(familyId).data.createdBy
-          || request.auth.uid == familyDoc(familyId).data.created_by
-          || userEmail() == familyDoc(familyId).data.ownerEmail
-          || userEmail() == familyDoc(familyId).data.owner_email
-          || userEmail() == familyDoc(familyId).data.createdByEmail
-          || userEmail() == familyDoc(familyId).data.created_by_email
-          || userEmail() == familyDoc(familyId).data.created_by
-        );
+    function requestFamilyId() {
+      return cleanString(request.resource.data.get("familyId", "")) != ""
+        ? cleanString(request.resource.data.get("familyId", ""))
+        : cleanString(request.resource.data.get("family_id", ""));
+    }
+
+    function existingFamilyId() {
+      return cleanString(resource.data.get("familyId", "")) != ""
+        ? cleanString(resource.data.get("familyId", ""))
+        : cleanString(resource.data.get("family_id", ""));
+    }
+
+    function requestCustodyGroupId() {
+      return cleanString(request.resource.data.get("custodyGroupId", "")) != ""
+        ? cleanString(request.resource.data.get("custodyGroupId", ""))
+        : cleanString(request.resource.data.get("familyId", ""));
+    }
+
+    function existingCustodyGroupId() {
+      return cleanString(resource.data.get("custodyGroupId", "")) != ""
+        ? cleanString(resource.data.get("custodyGroupId", ""))
+        : cleanString(resource.data.get("familyId", ""));
+    }
+
+    function hasRequestCustodyGroupId() {
+      return requestCustodyGroupId() != "";
+    }
+
+    function hasExistingCustodyGroupId() {
+      return existingCustodyGroupId() != "";
+    }
+
+    function hasExplicitRequestCustodyGroupId() {
+      return cleanString(request.resource.data.get("custodyGroupId", "")) != "";
+    }
+
+    function hasExplicitExistingCustodyGroupId() {
+      return cleanString(resource.data.get("custodyGroupId", "")) != "";
     }
 
     function isFamilyOwnerData(data) {
       return signedIn()
         && (
-          request.auth.uid == data.get("ownerId", "")
-          || request.auth.uid == data.get("owner_id", "")
-          || request.auth.uid == data.get("createdBy", "")
-          || request.auth.uid == data.get("created_by", "")
-          || userEmail() == data.get("ownerEmail", "")
-          || userEmail() == data.get("owner_email", "")
-          || userEmail() == data.get("createdByEmail", "")
-          || userEmail() == data.get("created_by_email", "")
-          || userEmail() == data.get("created_by", "")
+          request.auth.uid == cleanString(data.get("ownerId", ""))
+          || request.auth.uid == cleanString(data.get("owner_id", ""))
+          || request.auth.uid == cleanString(data.get("createdBy", ""))
+          || request.auth.uid == cleanString(data.get("created_by", ""))
+          || userEmail() == cleanString(data.get("ownerEmail", ""))
+          || userEmail() == cleanString(data.get("owner_email", ""))
+          || userEmail() == cleanString(data.get("createdByEmail", ""))
+          || userEmail() == cleanString(data.get("created_by_email", ""))
+          || userEmail() == cleanString(data.get("created_by", ""))
         );
     }
 
@@ -120,503 +124,261 @@ service cloud.firestore {
     }
 
     function isFamilyMemberData(data) {
-      return isFamilyAdminData(data)
-        || isFamilyListedMemberData(data);
+      return isFamilyAdminData(data) || isFamilyListedMemberData(data);
     }
 
     function isFamilyViewerData(data) {
-      return isFamilyMemberData(data)
-        || isFamilyListedViewerData(data);
-    }
-
-    function isFamilyAdmin(familyId) {
-      return isFamilyOwner(familyId)
-        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.adminIds)
-        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.admin_ids)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.adminEmails)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.admin_emails);
-    }
-
-    function isFamilyMember(familyId) {
-      return isFamilyAdmin(familyId)
-        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.memberIds)
-        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.member_ids)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.memberEmails)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.member_emails);
-    }
-
-    function isFamilyViewer(familyId) {
-      return isFamilyMember(familyId)
-        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.viewerIds)
-        || request.auth.uid in listOrEmpty(familyDoc(familyId).data.viewer_ids)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.viewerEmails)
-        || userEmail() in listOrEmpty(familyDoc(familyId).data.viewer_emails);
+      return isFamilyMemberData(data) || isFamilyListedViewerData(data);
     }
 
     function canReadFamily(familyId) {
-      let data = familyDoc(familyId).data;
       return signedIn()
-        && isFamilyViewerData(data);
+        && exists(familyPath(familyId))
+        && isFamilyViewerData(familyData(familyId));
     }
 
-    function canReadBootstrapFamily(familyId) {
+    function canManageFamily(familyId) {
       return signedIn()
-        && familyId == "family_" + request.auth.uid;
+        && exists(familyPath(familyId))
+        && isFamilyAdminData(familyData(familyId));
     }
 
-    function hasHomeReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("homeReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("homeWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("home_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("home_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("homeReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("homeWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("home_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("home_writer_emails", []));
+    function moduleHasPolicy(data, moduleName) {
+      return (moduleName == "home" && data.keys().hasAny(["homeReaderIds", "homeWriterIds", "homeReaderEmails", "homeWriterEmails", "home_reader_ids", "home_writer_ids", "home_reader_emails", "home_writer_emails"]))
+        || (moduleName == "calendar" && data.keys().hasAny(["calendarReaderIds", "calendarWriterIds", "calendarReaderEmails", "calendarWriterEmails", "calendar_reader_ids", "calendar_writer_ids", "calendar_reader_emails", "calendar_writer_emails"]))
+        || (moduleName == "tasks" && data.keys().hasAny(["tasksReaderIds", "tasksWriterIds", "tasksReaderEmails", "tasksWriterEmails", "tasks_reader_ids", "tasks_writer_ids", "tasks_reader_emails", "tasks_writer_emails"]))
+        || (moduleName == "meals" && data.keys().hasAny(["mealsReaderIds", "mealsWriterIds", "mealsReaderEmails", "mealsWriterEmails", "meals_reader_ids", "meals_writer_ids", "meals_reader_emails", "meals_writer_emails"]))
+        || (moduleName == "lists" && data.keys().hasAny(["listsReaderIds", "listsWriterIds", "listsReaderEmails", "listsWriterEmails", "lists_reader_ids", "lists_writer_ids", "lists_reader_emails", "lists_writer_emails"]))
+        || (moduleName == "custody" && data.keys().hasAny(["custodyReaderIds", "custodyWriterIds", "custodyReaderEmails", "custodyWriterEmails", "custody_reader_ids", "custody_writer_ids", "custody_reader_emails", "custody_writer_emails"]))
+        || (moduleName == "budget" && data.keys().hasAny(["budgetReaderIds", "budgetWriterIds", "budgetReaderEmails", "budgetWriterEmails", "budget_reader_ids", "budget_writer_ids", "budget_reader_emails", "budget_writer_emails"]))
+        || (moduleName == "notifications" && data.keys().hasAny(["notificationsReaderIds", "notificationsWriterIds", "notificationsReaderEmails", "notificationsWriterEmails", "notifications_reader_ids", "notifications_writer_ids", "notifications_reader_emails", "notifications_writer_emails"]));
     }
 
-    function hasCalendarReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("calendarReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("calendarWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("calendar_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("calendar_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("calendarReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("calendarWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("calendar_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("calendar_writer_emails", []));
+    function moduleReadGrant(data, moduleName) {
+      return (moduleName == "home" && (
+          request.auth.uid in listOrEmpty(data.get("homeReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("homeWriterIds", []))
+          || request.auth.uid in listOrEmpty(data.get("home_reader_ids", []))
+          || request.auth.uid in listOrEmpty(data.get("home_writer_ids", []))
+          || userEmail() in listOrEmpty(data.get("homeReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("homeWriterEmails", []))
+          || userEmail() in listOrEmpty(data.get("home_reader_emails", []))
+          || userEmail() in listOrEmpty(data.get("home_writer_emails", []))
+        ))
+        || (moduleName == "calendar" && (
+          request.auth.uid in listOrEmpty(data.get("calendarReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("calendarWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("calendarReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("calendarWriterEmails", []))
+        ))
+        || (moduleName == "tasks" && (
+          request.auth.uid in listOrEmpty(data.get("tasksReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("tasksWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("tasksReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("tasksWriterEmails", []))
+        ))
+        || (moduleName == "meals" && (
+          request.auth.uid in listOrEmpty(data.get("mealsReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("mealsWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("mealsReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("mealsWriterEmails", []))
+        ))
+        || (moduleName == "lists" && (
+          request.auth.uid in listOrEmpty(data.get("listsReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("listsWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("listsReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("listsWriterEmails", []))
+        ))
+        || (moduleName == "custody" && (
+          request.auth.uid in listOrEmpty(data.get("custodyReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("custodyWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("custodyReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("custodyWriterEmails", []))
+        ))
+        || (moduleName == "budget" && (
+          request.auth.uid in listOrEmpty(data.get("budgetReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("budgetWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("budgetReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("budgetWriterEmails", []))
+        ))
+        || (moduleName == "notifications" && (
+          request.auth.uid in listOrEmpty(data.get("notificationsReaderIds", []))
+          || request.auth.uid in listOrEmpty(data.get("notificationsWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("notificationsReaderEmails", []))
+          || userEmail() in listOrEmpty(data.get("notificationsWriterEmails", []))
+        ));
     }
 
-    function hasTasksReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("tasksReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("tasksWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("tasks_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("tasks_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("tasksReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("tasksWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("tasks_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("tasks_writer_emails", []));
-    }
-
-    function hasMealsReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("mealsReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("mealsWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("meals_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("meals_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("mealsReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("mealsWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("meals_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("meals_writer_emails", []));
-    }
-
-    function hasListsReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("listsReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("listsWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("lists_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("lists_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("listsReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("listsWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("lists_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("lists_writer_emails", []));
-    }
-
-    function hasCustodyReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("custodyReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("custodyWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("custody_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("custody_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("custodyReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("custodyWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("custody_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("custody_writer_emails", []));
-    }
-
-    function hasBudgetReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("budgetReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("budgetWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("budget_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("budget_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("budgetReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("budgetWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("budget_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("budget_writer_emails", []));
-    }
-
-    function hasNotificationsReadGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("notificationsReaderIds", []))
-        || request.auth.uid in listOrEmpty(data.get("notificationsWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("notifications_reader_ids", []))
-        || request.auth.uid in listOrEmpty(data.get("notifications_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("notificationsReaderEmails", []))
-        || userEmail() in listOrEmpty(data.get("notificationsWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("notifications_reader_emails", []))
-        || userEmail() in listOrEmpty(data.get("notifications_writer_emails", []));
-    }
-
-    function hasModuleReadGrant(data, moduleName) {
-      return (moduleName == "home" && hasHomeReadGrant(data))
-        || (moduleName == "calendar" && hasCalendarReadGrant(data))
-        || (moduleName == "tasks" && hasTasksReadGrant(data))
-        || (moduleName == "meals" && hasMealsReadGrant(data))
-        || (moduleName == "lists" && hasListsReadGrant(data))
-        || (moduleName == "custody" && hasCustodyReadGrant(data))
-        || (moduleName == "budget" && hasBudgetReadGrant(data))
-        || (moduleName == "notifications" && hasNotificationsReadGrant(data));
-    }
-
-    function hasHomeWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("homeWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("home_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("homeWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("home_writer_emails", []));
-    }
-
-    function hasCalendarWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("calendarWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("calendar_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("calendarWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("calendar_writer_emails", []));
-    }
-
-    function hasTasksWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("tasksWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("tasks_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("tasksWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("tasks_writer_emails", []));
-    }
-
-    function hasMealsWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("mealsWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("meals_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("mealsWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("meals_writer_emails", []));
-    }
-
-    function hasListsWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("listsWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("lists_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("listsWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("lists_writer_emails", []));
-    }
-
-    function hasCustodyWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("custodyWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("custody_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("custodyWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("custody_writer_emails", []));
-    }
-
-    function hasBudgetWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("budgetWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("budget_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("budgetWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("budget_writer_emails", []));
-    }
-
-    function hasNotificationsWriteGrant(data) {
-      return request.auth.uid in listOrEmpty(data.get("notificationsWriterIds", []))
-        || request.auth.uid in listOrEmpty(data.get("notifications_writer_ids", []))
-        || userEmail() in listOrEmpty(data.get("notificationsWriterEmails", []))
-        || userEmail() in listOrEmpty(data.get("notifications_writer_emails", []));
-    }
-
-    function hasModuleWriteGrant(data, moduleName) {
-      return (moduleName == "home" && hasHomeWriteGrant(data))
-        || (moduleName == "calendar" && hasCalendarWriteGrant(data))
-        || (moduleName == "tasks" && hasTasksWriteGrant(data))
-        || (moduleName == "meals" && hasMealsWriteGrant(data))
-        || (moduleName == "lists" && hasListsWriteGrant(data))
-        || (moduleName == "custody" && hasCustodyWriteGrant(data))
-        || (moduleName == "budget" && hasBudgetWriteGrant(data))
-        || (moduleName == "notifications" && hasNotificationsWriteGrant(data));
-    }
-
-    function hasModulePolicy(data, moduleName) {
-      return (moduleName == "home" && mapOrEmpty(data).keys().hasAny(["homeReaderIds", "homeWriterIds", "homeReaderEmails", "homeWriterEmails", "home_reader_ids", "home_writer_ids", "home_reader_emails", "home_writer_emails"]))
-        || (moduleName == "calendar" && mapOrEmpty(data).keys().hasAny(["calendarReaderIds", "calendarWriterIds", "calendarReaderEmails", "calendarWriterEmails", "calendar_reader_ids", "calendar_writer_ids", "calendar_reader_emails", "calendar_writer_emails"]))
-        || (moduleName == "tasks" && mapOrEmpty(data).keys().hasAny(["tasksReaderIds", "tasksWriterIds", "tasksReaderEmails", "tasksWriterEmails", "tasks_reader_ids", "tasks_writer_ids", "tasks_reader_emails", "tasks_writer_emails"]))
-        || (moduleName == "meals" && mapOrEmpty(data).keys().hasAny(["mealsReaderIds", "mealsWriterIds", "mealsReaderEmails", "mealsWriterEmails", "meals_reader_ids", "meals_writer_ids", "meals_reader_emails", "meals_writer_emails"]))
-        || (moduleName == "lists" && mapOrEmpty(data).keys().hasAny(["listsReaderIds", "listsWriterIds", "listsReaderEmails", "listsWriterEmails", "lists_reader_ids", "lists_writer_ids", "lists_reader_emails", "lists_writer_emails"]))
-        || (moduleName == "custody" && mapOrEmpty(data).keys().hasAny(["custodyReaderIds", "custodyWriterIds", "custodyReaderEmails", "custodyWriterEmails", "custody_reader_ids", "custody_writer_ids", "custody_reader_emails", "custody_writer_emails"]))
-        || (moduleName == "budget" && mapOrEmpty(data).keys().hasAny(["budgetReaderIds", "budgetWriterIds", "budgetReaderEmails", "budgetWriterEmails", "budget_reader_ids", "budget_writer_ids", "budget_reader_emails", "budget_writer_emails"]))
-        || (moduleName == "notifications" && mapOrEmpty(data).keys().hasAny(["notificationsReaderIds", "notificationsWriterIds", "notificationsReaderEmails", "notificationsWriterEmails", "notifications_reader_ids", "notifications_writer_ids", "notifications_reader_emails", "notifications_writer_emails"]));
+    function moduleWriteGrant(data, moduleName) {
+      return (moduleName == "home" && (
+          request.auth.uid in listOrEmpty(data.get("homeWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("homeWriterEmails", []))
+        ))
+        || (moduleName == "calendar" && (
+          request.auth.uid in listOrEmpty(data.get("calendarWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("calendarWriterEmails", []))
+        ))
+        || (moduleName == "tasks" && (
+          request.auth.uid in listOrEmpty(data.get("tasksWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("tasksWriterEmails", []))
+        ))
+        || (moduleName == "meals" && (
+          request.auth.uid in listOrEmpty(data.get("mealsWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("mealsWriterEmails", []))
+        ))
+        || (moduleName == "lists" && (
+          request.auth.uid in listOrEmpty(data.get("listsWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("listsWriterEmails", []))
+        ))
+        || (moduleName == "custody" && (
+          request.auth.uid in listOrEmpty(data.get("custodyWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("custodyWriterEmails", []))
+        ))
+        || (moduleName == "budget" && (
+          request.auth.uid in listOrEmpty(data.get("budgetWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("budgetWriterEmails", []))
+        ))
+        || (moduleName == "notifications" && (
+          request.auth.uid in listOrEmpty(data.get("notificationsWriterIds", []))
+          || userEmail() in listOrEmpty(data.get("notificationsWriterEmails", []))
+        ));
     }
 
     function canReadFamilyModule(familyId, moduleName) {
-      let data = familyDoc(familyId).data;
       return signedIn()
+        && exists(familyPath(familyId))
         && (
-          isFamilyAdminData(data)
-          || hasModuleReadGrant(data, moduleName)
-          || isFamilyListedMemberData(data)
+          isFamilyAdminData(familyData(familyId))
+          || moduleReadGrant(familyData(familyId), moduleName)
+          || (
+            isFamilyListedMemberData(familyData(familyId))
+            && !moduleHasPolicy(familyData(familyId), moduleName)
+          )
         );
     }
 
     function canWriteFamilyModule(familyId, moduleName) {
-      let data = familyDoc(familyId).data;
+      return signedIn()
+        && exists(familyPath(familyId))
+        && (
+          isFamilyAdminData(familyData(familyId))
+          || moduleWriteGrant(familyData(familyId), moduleName)
+          || (
+            isFamilyListedMemberData(familyData(familyId))
+            && !moduleHasPolicy(familyData(familyId), moduleName)
+          )
+        );
+    }
+
+    function custodyHouseholdFamilyId(data) {
+      return cleanString(data.get("householdFamilyId", "")) != ""
+        ? cleanString(data.get("householdFamilyId", ""))
+        : cleanString(data.get("familyId", ""));
+    }
+
+    function isCustodyOwnerData(data) {
       return signedIn()
         && (
-          isFamilyAdminData(data)
-          || hasModuleWriteGrant(data, moduleName)
-          || isFamilyListedMemberData(data)
+          request.auth.uid == cleanString(data.get("ownerId", ""))
+          || request.auth.uid == cleanString(data.get("createdBy", ""))
+          || userEmail() == cleanString(data.get("ownerEmail", ""))
+          || userEmail() == cleanString(data.get("createdByEmail", ""))
         );
     }
 
-    function canWriteFamilyContent(familyId) {
-      let data = familyDoc(familyId).data;
+    function isCustodyAdminData(data) {
+      return isCustodyOwnerData(data)
+        || request.auth.uid in listOrEmpty(data.get("adminIds", []))
+        || userEmail() in listOrEmpty(data.get("adminEmails", []));
+    }
+
+    function isCustodyMemberData(data) {
+      return isCustodyAdminData(data)
+        || request.auth.uid in listOrEmpty(data.get("memberIds", []))
+        || userEmail() in listOrEmpty(data.get("memberEmails", []));
+    }
+
+    function isCustodyViewerData(data) {
+      return isCustodyMemberData(data)
+        || request.auth.uid in listOrEmpty(data.get("viewerIds", []))
+        || userEmail() in listOrEmpty(data.get("viewerEmails", []))
+        || request.auth.uid in listOrEmpty(data.get("custodyReaderIds", []))
+        || userEmail() in listOrEmpty(data.get("custodyReaderEmails", []));
+    }
+
+    function canReadCustody(groupId) {
       return signedIn()
-        && isFamilyMemberData(data);
+        && exists(custodyPath(groupId))
+        && (
+          isCustodyViewerData(custodyData(groupId))
+          || canManageFamily(custodyHouseholdFamilyId(custodyData(groupId)))
+          || canReadFamilyModule(custodyHouseholdFamilyId(custodyData(groupId)), "custody")
+        );
     }
 
-    function canManageFamily(familyId) {
-      let data = familyDoc(familyId).data;
+    function canWriteCustody(groupId) {
       return signedIn()
-        && isFamilyAdminData(data);
-    }
-
-    function isCustodyOwner(familyId) {
-      return custodyGroupExists(familyId)
+        && exists(custodyPath(groupId))
         && (
-          request.auth.uid == custodyGroupDoc(familyId).data.ownerId
-          || request.auth.uid == custodyGroupDoc(familyId).data.owner_id
-          || request.auth.uid == custodyGroupDoc(familyId).data.createdBy
-          || request.auth.uid == custodyGroupDoc(familyId).data.created_by
-          || userEmail() == custodyGroupDoc(familyId).data.ownerEmail
-          || userEmail() == custodyGroupDoc(familyId).data.owner_email
-          || userEmail() == custodyGroupDoc(familyId).data.createdByEmail
-          || userEmail() == custodyGroupDoc(familyId).data.created_by_email
-          || userEmail() == custodyGroupDoc(familyId).data.created_by
+          isCustodyAdminData(custodyData(groupId))
+          || request.auth.uid in listOrEmpty(custodyData(groupId).get("custodyWriterIds", []))
+          || userEmail() in listOrEmpty(custodyData(groupId).get("custodyWriterEmails", []))
+          || canManageFamily(custodyHouseholdFamilyId(custodyData(groupId)))
+          || canWriteFamilyModule(custodyHouseholdFamilyId(custodyData(groupId)), "custody")
         );
     }
 
-    function isCustodyAdmin(familyId) {
-      return custodyGroupExists(familyId)
+    function canManageCustody(groupId) {
+      return signedIn()
+        && exists(custodyPath(groupId))
         && (
-          isCustodyOwner(familyId)
-          || request.auth.uid == custodyGroupDoc(familyId).data.owner_id
-          || request.auth.uid == custodyGroupDoc(familyId).data.createdBy
-          || request.auth.uid == custodyGroupDoc(familyId).data.created_by
-          || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.adminIds)
-          || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.admin_ids)
-          || userEmail() == custodyGroupDoc(familyId).data.ownerEmail
-          || userEmail() == custodyGroupDoc(familyId).data.owner_email
-          || userEmail() == custodyGroupDoc(familyId).data.createdByEmail
-          || userEmail() == custodyGroupDoc(familyId).data.created_by_email
-          || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.adminEmails)
-          || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.admin_emails)
+          isCustodyAdminData(custodyData(groupId))
+          || canManageFamily(custodyHouseholdFamilyId(custodyData(groupId)))
         );
     }
 
-    function canManageCustodyGroup(familyId) {
-      return isCustodyAdmin(familyId);
-    }
-
-    function isCustodyMember(familyId) {
-      return isCustodyAdmin(familyId)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.memberIds)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.member_ids)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.memberEmails)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.member_emails);
-    }
-
-    function isCustodyViewer(familyId) {
-      return isCustodyMember(familyId)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.viewerIds)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.viewer_ids)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.viewerEmails)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.viewer_emails)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custodyReaderIds)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custody_reader_ids)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custodyWriterIds)
-        || request.auth.uid in listOrEmpty(custodyGroupDoc(familyId).data.custody_writer_ids)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custodyReaderEmails)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custody_reader_emails)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custodyWriterEmails)
-        || userEmail() in listOrEmpty(custodyGroupDoc(familyId).data.custody_writer_emails);
-    }
-
-    function custodyGroupFamilyId(familyId) {
-      return custodyGroupDoc(familyId).data.familyId is string
-        ? custodyGroupDoc(familyId).data.familyId
-        : custodyGroupDoc(familyId).data.family_id is string
-        ? custodyGroupDoc(familyId).data.family_id
-        : custodyGroupDoc(familyId).data.householdFamilyId is string
-        ? custodyGroupDoc(familyId).data.householdFamilyId
-        : custodyGroupDoc(familyId).data.household_family_id is string
-        ? custodyGroupDoc(familyId).data.household_family_id
-        : "";
-    }
-
-    function canReadCustodyFromLinkedFamily(familyId) {
-      return custodyGroupExists(familyId)
-        && custodyGroupFamilyId(familyId) != ""
-        && familyExists(custodyGroupFamilyId(familyId))
+    function canReadBudget(groupId) {
+      return signedIn()
+        && exists(custodyPath(groupId))
         && (
-          canManageFamily(custodyGroupFamilyId(familyId))
-          || hasModuleReadGrant(familyDoc(custodyGroupFamilyId(familyId)).data, "custody")
-          || hasModuleWriteGrant(familyDoc(custodyGroupFamilyId(familyId)).data, "custody")
+          canManageCustody(groupId)
+          || request.auth.uid in listOrEmpty(custodyData(groupId).get("budgetReaderIds", []))
+          || request.auth.uid in listOrEmpty(custodyData(groupId).get("budgetWriterIds", []))
+          || userEmail() in listOrEmpty(custodyData(groupId).get("budgetReaderEmails", []))
+          || userEmail() in listOrEmpty(custodyData(groupId).get("budgetWriterEmails", []))
         );
     }
 
-    function canWriteCustodyFromLinkedFamily(familyId) {
-      return custodyGroupExists(familyId)
-        && custodyGroupFamilyId(familyId) != ""
-        && familyExists(custodyGroupFamilyId(familyId))
+    function canWriteBudget(groupId) {
+      return signedIn()
+        && exists(custodyPath(groupId))
         && (
-          canManageFamily(custodyGroupFamilyId(familyId))
-          || hasModuleWriteGrant(familyDoc(custodyGroupFamilyId(familyId)).data, "custody")
+          canManageCustody(groupId)
+          || request.auth.uid in listOrEmpty(custodyData(groupId).get("budgetWriterIds", []))
+          || userEmail() in listOrEmpty(custodyData(groupId).get("budgetWriterEmails", []))
         );
     }
 
-    function canReadCustody(familyId) {
-      return isCustodyAdmin(familyId)
-        || isCustodyViewer(familyId)
-        || canReadCustodyFromLinkedFamily(familyId)
-        || (
-          familyExists(familyId)
-          && canReadFamilyModule(familyId, "custody")
-        )
-        || (
-          custodyGroupExists(familyId)
-          && hasModuleReadGrant(custodyGroupDoc(familyId).data, "custody")
+    function isNotificationRecipient(data) {
+      return signedIn()
+        && (
+          cleanString(data.get("recipientUid", "")) == request.auth.uid
+          || cleanString(data.get("recipient_uid", "")) == request.auth.uid
+          || cleanString(data.get("recipientEmail", "")).lower() == userEmail()
+          || cleanString(data.get("recipient_email", "")).lower() == userEmail()
         );
-    }
-
-    function canWriteCustody(familyId) {
-      return isCustodyAdmin(familyId)
-        || canWriteCustodyFromLinkedFamily(familyId)
-        || (
-          familyExists(familyId)
-          && canWriteFamilyModule(familyId, "custody")
-        )
-        || (
-          custodyGroupExists(familyId)
-          && hasModuleWriteGrant(custodyGroupDoc(familyId).data, "custody")
-        );
-    }
-
-    function canReadCustodyBudget(familyId) {
-      return isCustodyAdmin(familyId)
-        || (
-          custodyGroupExists(familyId)
-          && hasModuleReadGrant(custodyGroupDoc(familyId).data, "budget")
-        );
-    }
-
-    function canWriteCustodyBudget(familyId) {
-      return isCustodyAdmin(familyId)
-        || (
-          custodyGroupExists(familyId)
-          && hasModuleWriteGrant(custodyGroupDoc(familyId).data, "budget")
-        );
-    }
-
-    function hasRequestFamilyId() {
-      return (
-          request.resource.data.get("familyId", "") is string
-          && request.resource.data.get("familyId", "") != ""
-        )
-        || (
-          request.resource.data.get("family_id", "") is string
-          && request.resource.data.get("family_id", "") != ""
-        );
-    }
-
-    function hasExistingFamilyId() {
-      return (
-          resource.data.get("familyId", "") is string
-          && resource.data.get("familyId", "") != ""
-        )
-        || (
-          resource.data.get("family_id", "") is string
-          && resource.data.get("family_id", "") != ""
-        );
-    }
-
-    function requestFamilyId() {
-      return request.resource.data.get("familyId", "") is string
-        && request.resource.data.get("familyId", "") != ""
-        ? request.resource.data.get("familyId", "")
-        : request.resource.data.get("family_id", "");
-    }
-
-    function existingFamilyId() {
-      return resource.data.get("familyId", "") is string
-        && resource.data.get("familyId", "") != ""
-        ? resource.data.get("familyId", "")
-        : resource.data.get("family_id", "");
-    }
-
-    function hasRequestCustodyScopeId() {
-      return (
-          request.resource.data.get("custodyGroupId", "") is string
-          && request.resource.data.get("custodyGroupId", "") != ""
-        )
-        || (
-          request.resource.data.get("familyId", "") is string
-          && request.resource.data.get("familyId", "") != ""
-        );
-    }
-
-    function hasExistingCustodyScopeId() {
-      return (
-          resource.data.get("custodyGroupId", "") is string
-          && resource.data.get("custodyGroupId", "") != ""
-        )
-        || (
-          resource.data.get("familyId", "") is string
-          && resource.data.get("familyId", "") != ""
-        );
-    }
-
-    function hasRequestExplicitCustodyGroupId() {
-      return request.resource.data.get("custodyGroupId", "") is string
-        && request.resource.data.get("custodyGroupId", "") != "";
-    }
-
-    function hasExistingExplicitCustodyGroupId() {
-      return resource.data.get("custodyGroupId", "") is string
-        && resource.data.get("custodyGroupId", "") != "";
-    }
-
-    function requestCustodyScopeId() {
-      return request.resource.data.get("custodyGroupId", "") is string
-        && request.resource.data.get("custodyGroupId", "") != ""
-        ? request.resource.data.get("custodyGroupId", "")
-        : request.resource.data.get("familyId", "");
-    }
-
-    function existingCustodyScopeId() {
-      return resource.data.get("custodyGroupId", "") is string
-        && resource.data.get("custodyGroupId", "") != ""
-        ? resource.data.get("custodyGroupId", "")
-        : resource.data.get("familyId", "");
     }
 
     function canReadHouseholdDoc() {
-      return hasExistingFamilyId()
-        && canReadFamily(existingFamilyId());
+      return hasExistingFamilyId() && canReadFamily(existingFamilyId());
     }
 
     function canReadHouseholdModuleDoc(moduleName) {
-      return hasExistingFamilyId()
-        && canReadFamilyModule(existingFamilyId(), moduleName);
-    }
-
-    function canCreateHouseholdDoc() {
-      return hasRequestFamilyId()
-        && canWriteFamilyContent(requestFamilyId());
+      return hasExistingFamilyId() && canReadFamilyModule(existingFamilyId(), moduleName);
     }
 
     function canCreateHouseholdModuleDoc(moduleName) {
-      return hasRequestFamilyId()
-        && canWriteFamilyModule(requestFamilyId(), moduleName);
-    }
-
-    function canUpdateHouseholdDoc() {
-      return hasRequestFamilyId()
-        && hasExistingFamilyId()
-        && requestFamilyId() == existingFamilyId()
-        && canWriteFamilyContent(existingFamilyId());
+      return hasRequestFamilyId() && canWriteFamilyModule(requestFamilyId(), moduleName);
     }
 
     function canUpdateHouseholdModuleDoc(moduleName) {
@@ -626,679 +388,57 @@ service cloud.firestore {
         && canWriteFamilyModule(existingFamilyId(), moduleName);
     }
 
-    function canDeleteHouseholdDoc() {
-      return hasExistingFamilyId()
-        && canWriteFamilyContent(existingFamilyId());
+    function canDeleteHouseholdModuleDoc(moduleName) {
+      return hasExistingFamilyId() && canWriteFamilyModule(existingFamilyId(), moduleName);
     }
 
-    function canDeleteHouseholdModuleDoc(moduleName) {
-      return hasExistingFamilyId()
-        && canWriteFamilyModule(existingFamilyId(), moduleName);
+    function canReadCustodyDoc() {
+      return hasExistingCustodyGroupId() && canReadCustody(existingCustodyGroupId());
+    }
+
+    function canCreateCustodyDoc() {
+      return hasRequestCustodyGroupId() && canWriteCustody(requestCustodyGroupId());
+    }
+
+    function canUpdateCustodyDoc() {
+      return hasRequestCustodyGroupId()
+        && hasExistingCustodyGroupId()
+        && requestCustodyGroupId() == existingCustodyGroupId()
+        && canWriteCustody(existingCustodyGroupId());
+    }
+
+    function canDeleteCustodyDoc() {
+      return hasExistingCustodyGroupId() && canWriteCustody(existingCustodyGroupId());
     }
 
     function canReadAnyScopedDoc() {
       return (
-          hasExistingExplicitCustodyGroupId()
-          && canReadCustody(existingCustodyScopeId())
+          hasExplicitExistingCustodyGroupId()
+          && canReadCustody(existingCustodyGroupId())
         )
         || (
-          !hasExistingExplicitCustodyGroupId()
+          !hasExplicitExistingCustodyGroupId()
           && hasExistingFamilyId()
-          && (
-            canReadFamilyModule(existingFamilyId(), "home")
-            || canReadCustody(existingFamilyId())
-          )
+          && canReadFamilyModule(existingFamilyId(), "home")
         );
     }
 
-    function canCreateAnyScopedDoc() {
-      return (
-          hasRequestExplicitCustodyGroupId()
-          && (
-            (
-              request.resource.data.get("module", "custody") == "budget"
-              && canWriteCustodyBudget(requestCustodyScopeId())
-            )
-            || (
-              request.resource.data.get("module", "custody") != "budget"
-              && canWriteCustody(requestCustodyScopeId())
-            )
-          )
-        )
-        || (
-          !hasRequestExplicitCustodyGroupId()
-          && hasRequestFamilyId()
-          && canWriteFamilyModule(
-            requestFamilyId(),
-            request.resource.data.get("module", "home")
-          )
-        );
-    }
-
-    function canUpdateAnyScopedDoc() {
-      return (
-          hasExistingExplicitCustodyGroupId()
-          && hasRequestCustodyScopeId()
-          && requestCustodyScopeId() == existingCustodyScopeId()
-          && canWriteCustody(existingCustodyScopeId())
-        )
-        || (
-          !hasExistingExplicitCustodyGroupId()
-          && hasRequestFamilyId()
-          && hasExistingFamilyId()
-          && requestFamilyId() == existingFamilyId()
-          && (
-            canWriteFamilyModule(existingFamilyId(), "home")
-            || canWriteCustody(existingFamilyId())
-          )
-        );
-    }
-
-    function canDeleteAnyScopedDoc() {
-      return (
-          hasExistingExplicitCustodyGroupId()
-          && canWriteCustody(existingCustodyScopeId())
-        )
-        || (
-          !hasExistingExplicitCustodyGroupId()
-          && hasExistingFamilyId()
-          && (
-            canWriteFamilyModule(existingFamilyId(), "home")
-            || canWriteCustody(existingFamilyId())
-          )
-        );
-    }
-
-    function canReadCustodyDoc() {
-      return hasExistingCustodyScopeId()
-        && canReadCustody(existingCustodyScopeId());
-    }
-
-    function canCreateCustodyDoc() {
-      return hasRequestCustodyScopeId()
-        && canWriteCustody(requestCustodyScopeId());
-    }
-
-    function canUpdateCustodyDoc() {
-      return hasRequestCustodyScopeId()
-        && hasExistingCustodyScopeId()
-        && requestCustodyScopeId() == existingCustodyScopeId()
-        && canWriteCustody(existingCustodyScopeId());
-    }
-
-    function canDeleteCustodyDoc() {
-      return hasExistingCustodyScopeId()
-        && (
-          canWriteCustody(existingCustodyScopeId())
-          || canManageCustodyGroup(existingCustodyScopeId())
-        );
-    }
-
-    function canReadBudgetDoc() {
-      return hasExistingCustodyScopeId()
-        && canReadCustodyBudget(existingCustodyScopeId());
-    }
-
-    function canCreateBudgetDoc() {
-      return hasRequestCustodyScopeId()
-        && canWriteCustodyBudget(requestCustodyScopeId());
-    }
-
-    function canUpdateBudgetDoc() {
-      return hasRequestCustodyScopeId()
-        && hasExistingCustodyScopeId()
-        && requestCustodyScopeId() == existingCustodyScopeId()
-        && canWriteCustodyBudget(existingCustodyScopeId());
-    }
-
-    function canDeleteBudgetDoc() {
-      return hasExistingCustodyScopeId()
-        && (
-          canWriteCustodyBudget(existingCustodyScopeId())
-          || canManageCustodyGroup(existingCustodyScopeId())
-        );
-    }
-
-    function currentUserFamilyInvitationId(familyId) {
-      return "family_" + familyId + "_" + userEmail();
-    }
-
-    function currentUserFamilyInvitationPath(familyId) {
-      return /databases/$(database)/documents/familyInvitations/$(currentUserFamilyInvitationId(familyId));
-    }
-
-    function currentUserCustodyInvitationId(groupId) {
-      return "custody_" + groupId + "_" + userEmail();
-    }
-
-    function currentUserCustodyInvitationPath(groupId) {
-      return /databases/$(database)/documents/custodyInvitations/$(currentUserCustodyInvitationId(groupId));
-    }
-
-    function currentUserFamilyInvitationAfterStatus(familyId, status) {
+    function canCreateActivityDoc() {
       return signedIn()
-        && exists(currentUserFamilyInvitationPath(familyId))
-        && getAfter(currentUserFamilyInvitationPath(familyId)).data.status == status
-        && getAfter(currentUserFamilyInvitationPath(familyId)).data.recipientEmail == userEmail();
-    }
-
-    function currentUserFamilyInvitationAfterGrantsAdmin(familyId) {
-      return currentUserFamilyInvitationAfterStatus(familyId, "accepted")
         && (
-          getAfter(currentUserFamilyInvitationPath(familyId)).data.admin == true
-          || getAfter(currentUserFamilyInvitationPath(familyId)).data.isAdmin == true
-          || getAfter(currentUserFamilyInvitationPath(familyId)).data.is_admin == true
-          || getAfter(currentUserFamilyInvitationPath(familyId)).data.appRole == "admin"
-          || getAfter(currentUserFamilyInvitationPath(familyId)).data.app_role == "admin"
-        );
-    }
-
-    function invitationModuleAccess(familyId, moduleName, sourceField) {
-      return mapOrEmpty(mapOrEmpty(getAfter(currentUserFamilyInvitationPath(familyId)).data.get(sourceField, {})).get(moduleName, {}));
-    }
-
-    function currentUserFamilyInvitationModuleCanRead(familyId, moduleName) {
-      return accessAllowsRead(invitationModuleAccess(familyId, moduleName, "permissions"))
-        || accessAllowsRead(invitationModuleAccess(familyId, moduleName, "modules"));
-    }
-
-    function currentUserFamilyInvitationModuleCanWrite(familyId, moduleName) {
-      return accessAllowsWrite(invitationModuleAccess(familyId, moduleName, "permissions"))
-        || accessAllowsWrite(invitationModuleAccess(familyId, moduleName, "modules"));
-    }
-
-    function currentUserCustodyInvitationModuleCanRead(groupId, moduleName) {
-      return accessAllowsRead(mapOrEmpty(mapOrEmpty(getAfter(currentUserCustodyInvitationPath(groupId)).data.get("permissions", {})).get(moduleName, {})));
-    }
-
-    function currentUserCustodyInvitationModuleCanWrite(groupId, moduleName) {
-      return accessAllowsWrite(mapOrEmpty(mapOrEmpty(getAfter(currentUserCustodyInvitationPath(groupId)).data.get("permissions", {})).get(moduleName, {})));
-    }
-
-    function listPreserved(after, before) {
-      return listOrEmpty(after).hasAll(listOrEmpty(before))
-        && listOrEmpty(after).hasOnly(listOrEmpty(before));
-    }
-
-    function idListAddsOnlyCurrentUser(after, before) {
-      return listOrEmpty(after).hasAll(listOrEmpty(before))
-        && listOrEmpty(after).hasOnly(listOrEmpty(before).concat([request.auth.uid]));
-    }
-
-    function emailListAddsOnlyCurrentUser(after, before) {
-      return listOrEmpty(after).hasAll(listOrEmpty(before))
-        && listOrEmpty(after).hasOnly(listOrEmpty(before).concat([userEmail()]));
-    }
-
-    function emailListRemovesOnlyCurrentUser(after, before) {
-      return userEmail() in listOrEmpty(before)
-        && !(userEmail() in listOrEmpty(after))
-        && listOrEmpty(before).hasAll(listOrEmpty(after))
-        && listOrEmpty(after).hasOnly(listOrEmpty(before))
-        && listOrEmpty(after).size() == listOrEmpty(before).size() - 1;
-    }
-
-    function emailListRemovesCurrentUserOrPreserved(after, before) {
-      return (
-        userEmail() in listOrEmpty(before)
-        && emailListRemovesOnlyCurrentUser(after, before)
-      ) || (
-        !(userEmail() in listOrEmpty(before))
-        && listPreserved(after, before)
-      );
-    }
-
-    function moduleReadArraysAllowed(dataAfter, dataBefore, moduleName, granted) {
-      return granted
-        ? (
-          idListAddsOnlyCurrentUser(moduleReaderIds(dataAfter, moduleName), moduleReaderIds(dataBefore, moduleName))
-          && emailListAddsOnlyCurrentUser(moduleReaderEmails(dataAfter, moduleName), moduleReaderEmails(dataBefore, moduleName))
+          request.resource.data.get("createdBy", "") == request.auth.uid
+          || request.resource.data.get("actorId", "") == request.auth.uid
         )
-        : (
-          listPreserved(moduleReaderIds(dataAfter, moduleName), moduleReaderIds(dataBefore, moduleName))
-          && listPreserved(moduleReaderEmails(dataAfter, moduleName), moduleReaderEmails(dataBefore, moduleName))
-        );
-    }
-
-    function moduleWriteArraysAllowed(dataAfter, dataBefore, moduleName, granted) {
-      return granted
-        ? (
-          idListAddsOnlyCurrentUser(moduleWriterIds(dataAfter, moduleName), moduleWriterIds(dataBefore, moduleName))
-          && emailListAddsOnlyCurrentUser(moduleWriterEmails(dataAfter, moduleName), moduleWriterEmails(dataBefore, moduleName))
-        )
-        : (
-          listPreserved(moduleWriterIds(dataAfter, moduleName), moduleWriterIds(dataBefore, moduleName))
-          && listPreserved(moduleWriterEmails(dataAfter, moduleName), moduleWriterEmails(dataBefore, moduleName))
-        );
-    }
-
-    function familyInvitationModuleArraysAllowed(familyId, moduleName) {
-      return moduleReadArraysAllowed(
-          request.resource.data,
-          resource.data,
-          moduleName,
-          currentUserFamilyInvitationModuleCanRead(familyId, moduleName)
-        )
-        && moduleWriteArraysAllowed(
-          request.resource.data,
-          resource.data,
-          moduleName,
-          currentUserFamilyInvitationModuleCanWrite(familyId, moduleName)
-        );
-    }
-
-    function familyInvitationAllModuleArraysAllowed(familyId) {
-      return familyInvitationModuleArraysAllowed(familyId, "home")
-        && familyInvitationModuleArraysAllowed(familyId, "calendar")
-        && familyInvitationModuleArraysAllowed(familyId, "tasks")
-        && familyInvitationModuleArraysAllowed(familyId, "meals")
-        && familyInvitationModuleArraysAllowed(familyId, "lists")
-        && familyInvitationModuleArraysAllowed(familyId, "groceries")
-        && familyInvitationModuleArraysAllowed(familyId, "custody")
-        && familyInvitationModuleArraysAllowed(familyId, "budget")
-        && familyInvitationModuleArraysAllowed(familyId, "notifications");
-    }
-
-    function custodyInvitationModuleArraysAllowed(groupId, moduleName) {
-      return moduleReadArraysAllowed(
-          request.resource.data,
-          resource.data,
-          moduleName,
-          currentUserCustodyInvitationModuleCanRead(groupId, moduleName)
-        )
-        && moduleWriteArraysAllowed(
-          request.resource.data,
-          resource.data,
-          moduleName,
-          currentUserCustodyInvitationModuleCanWrite(groupId, moduleName)
-        );
-    }
-
-    function custodyInvitationAllModuleArraysAllowed(groupId) {
-      return custodyInvitationModuleArraysAllowed(groupId, "custody")
-        && custodyInvitationModuleArraysAllowed(groupId, "budget");
-    }
-
-    function currentUserCustodyInvitationAfterStatus(groupId, status) {
-      return signedIn()
-        && exists(currentUserCustodyInvitationPath(groupId))
-        && getAfter(currentUserCustodyInvitationPath(groupId)).data.status == status
-        && getAfter(currentUserCustodyInvitationPath(groupId)).data.recipientEmail == userEmail()
-        && getAfter(currentUserCustodyInvitationPath(groupId)).data.groupId == groupId;
-    }
-
-    function familyMemberEmailsPreserved() {
-      return listOrEmpty(request.resource.data.memberEmails)
-        .hasAll(listOrEmpty(resource.data.memberEmails));
-    }
-
-    function familyMemberIdsPreserved() {
-      return listOrEmpty(request.resource.data.memberIds)
-        .hasAll(listOrEmpty(resource.data.memberIds));
-    }
-
-    function familyAdminEmailsPreserved() {
-      return listOrEmpty(request.resource.data.adminEmails)
-        .hasAll(listOrEmpty(resource.data.adminEmails));
-    }
-
-    function familyAdminIdsPreserved() {
-      return listOrEmpty(request.resource.data.adminIds)
-        .hasAll(listOrEmpty(resource.data.adminIds));
-    }
-
-    function canAcceptFamilyInvitationUpdate(familyId) {
-      return signedIn()
-        && familyExists(familyId)
-        && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
-        && request.auth.uid in listOrEmpty(request.resource.data.memberIds)
-        && userEmail() in listOrEmpty(request.resource.data.memberEmails)
-        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
-        && idListAddsOnlyCurrentUser(request.resource.data.memberIds, resource.data.memberIds)
-        && emailListAddsOnlyCurrentUser(request.resource.data.memberEmails, resource.data.memberEmails)
-        && currentUserFamilyInvitationAfterStatus(familyId, "accepted")
         && (
           (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              "memberIds",
-              "memberEmails",
-              "member_emails",
-              "pendingMemberEmails",
-              "pending_member_emails",
-              "pendingInvites",
-              "pending_invites",
-              "members",
-              "homeReaderIds",
-              "homeWriterIds",
-              "homeReaderEmails",
-              "homeWriterEmails",
-              "calendarReaderIds",
-              "calendarWriterIds",
-              "calendarReaderEmails",
-              "calendarWriterEmails",
-              "tasksReaderIds",
-              "tasksWriterIds",
-              "tasksReaderEmails",
-              "tasksWriterEmails",
-              "mealsReaderIds",
-              "mealsWriterIds",
-              "mealsReaderEmails",
-              "mealsWriterEmails",
-              "listsReaderIds",
-              "listsWriterIds",
-              "listsReaderEmails",
-              "listsWriterEmails",
-              "groceriesReaderIds",
-              "groceriesWriterIds",
-              "groceriesReaderEmails",
-              "groceriesWriterEmails",
-              "custodyReaderIds",
-              "custodyWriterIds",
-              "custodyReaderEmails",
-              "custodyWriterEmails",
-              "budgetReaderIds",
-              "budgetWriterIds",
-              "budgetReaderEmails",
-              "budgetWriterEmails",
-              "notificationsReaderIds",
-              "notificationsWriterIds",
-              "notificationsReaderEmails",
-              "notificationsWriterEmails",
-              "updatedAt"
-            ])
-            && familyInvitationAllModuleArraysAllowed(familyId)
+            hasExplicitRequestCustodyGroupId()
+            && canWriteCustody(requestCustodyGroupId())
           )
           || (
-            currentUserFamilyInvitationAfterGrantsAdmin(familyId)
-            && request.auth.uid in listOrEmpty(request.resource.data.adminIds)
-            && userEmail() in listOrEmpty(request.resource.data.adminEmails)
-            && idListAddsOnlyCurrentUser(request.resource.data.adminIds, resource.data.adminIds)
-            && emailListAddsOnlyCurrentUser(request.resource.data.adminEmails, resource.data.adminEmails)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              "memberIds",
-              "memberEmails",
-              "member_emails",
-              "pendingMemberEmails",
-              "pending_member_emails",
-              "pendingInvites",
-              "pending_invites",
-              "members",
-              "adminIds",
-              "admin_ids",
-              "adminEmails",
-              "admin_emails",
-              "updatedAt"
-            ])
+            !hasExplicitRequestCustodyGroupId()
+            && hasRequestFamilyId()
+            && canWriteFamilyModule(requestFamilyId(), cleanString(request.resource.data.get("module", "home")))
           )
-        );
-    }
-
-    function canDeclineFamilyInvitationUpdate(familyId) {
-      return signedIn()
-        && familyExists(familyId)
-        && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
-        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
-        && currentUserFamilyInvitationAfterStatus(familyId, "declined")
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "pendingMemberEmails",
-          "pending_member_emails",
-          "pendingInvites",
-          "pending_invites",
-          "updatedAt"
-        ]);
-    }
-
-    function custodyMemberEmailsPreserved() {
-      return listOrEmpty(request.resource.data.memberEmails)
-        .hasAll(listOrEmpty(resource.data.memberEmails));
-    }
-
-    function custodyMemberIdsPreserved() {
-      return listOrEmpty(request.resource.data.memberIds)
-        .hasAll(listOrEmpty(resource.data.memberIds));
-    }
-
-    function custodyViewerEmailsPreserved() {
-      return listOrEmpty(request.resource.data.viewerEmails)
-        .hasAll(listOrEmpty(resource.data.viewerEmails));
-    }
-
-    function custodyViewerIdsPreserved() {
-      return listOrEmpty(request.resource.data.viewerIds)
-        .hasAll(listOrEmpty(resource.data.viewerIds));
-    }
-
-    function canAcceptCustodyMemberInvitationUpdate(groupId) {
-      return signedIn()
-        && custodyGroupExists(groupId)
-        && userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
-        && request.auth.uid in listOrEmpty(request.resource.data.memberIds)
-        && userEmail() in listOrEmpty(request.resource.data.memberEmails)
-        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
-        && idListAddsOnlyCurrentUser(request.resource.data.memberIds, resource.data.memberIds)
-        && emailListAddsOnlyCurrentUser(request.resource.data.memberEmails, resource.data.memberEmails)
-        && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "memberIds",
-          "memberEmails",
-          "member_emails",
-          "pendingMemberEmails",
-          "pending_member_emails",
-          "pendingInvites",
-          "pending_invites",
-          "custodyReaderIds",
-          "custodyWriterIds",
-          "custodyReaderEmails",
-          "custodyWriterEmails",
-          "budgetReaderIds",
-          "budgetWriterIds",
-          "budgetReaderEmails",
-          "budgetWriterEmails",
-          "updatedAt"
-        ])
-        && custodyInvitationAllModuleArraysAllowed(groupId);
-    }
-
-    function canAcceptCustodyViewerInvitationUpdate(groupId) {
-      return signedIn()
-        && custodyGroupExists(groupId)
-        && userEmail() in listOrEmpty(resource.data.pendingViewerEmails)
-        && request.auth.uid in listOrEmpty(request.resource.data.viewerIds)
-        && userEmail() in listOrEmpty(request.resource.data.viewerEmails)
-        && emailListRemovesOnlyCurrentUser(request.resource.data.pendingViewerEmails, resource.data.pendingViewerEmails)
-        && idListAddsOnlyCurrentUser(request.resource.data.viewerIds, resource.data.viewerIds)
-        && emailListAddsOnlyCurrentUser(request.resource.data.viewerEmails, resource.data.viewerEmails)
-        && currentUserCustodyInvitationAfterStatus(groupId, "accepted")
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "viewerIds",
-          "viewerEmails",
-          "viewer_emails",
-          "pendingViewerEmails",
-          "pending_viewer_emails",
-          "pendingInvites",
-          "pending_invites",
-          "custodyReaderIds",
-          "custodyWriterIds",
-          "custodyReaderEmails",
-          "custodyWriterEmails",
-          "budgetReaderIds",
-          "budgetWriterIds",
-          "budgetReaderEmails",
-          "budgetWriterEmails",
-          "updatedAt"
-        ])
-        && custodyInvitationAllModuleArraysAllowed(groupId);
-    }
-
-    function canDeclineCustodyInvitationUpdate(groupId) {
-      return signedIn()
-        && custodyGroupExists(groupId)
-        && (
-          userEmail() in listOrEmpty(resource.data.pendingMemberEmails)
-          || userEmail() in listOrEmpty(resource.data.pendingViewerEmails)
-        )
-        && emailListRemovesCurrentUserOrPreserved(request.resource.data.pendingMemberEmails, resource.data.pendingMemberEmails)
-        && emailListRemovesCurrentUserOrPreserved(request.resource.data.pendingViewerEmails, resource.data.pendingViewerEmails)
-        && currentUserCustodyInvitationAfterStatus(groupId, "declined")
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "pendingMemberEmails",
-          "pending_member_emails",
-          "pendingViewerEmails",
-          "pending_viewer_emails",
-          "pendingInvites",
-          "pending_invites",
-          "updatedAt"
-        ]);
-    }
-
-    function canRecipientUpdateFamilyInvitation() {
-      return signedIn()
-        && hasExistingFamilyId()
-        && hasRequestFamilyId()
-        && requestFamilyId() == existingFamilyId()
-        && resource.data.recipientEmail == userEmail()
-        && request.resource.data.recipientEmail == resource.data.recipientEmail
-        && request.resource.data.status in ["accepted", "declined"]
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "status",
-          "acceptedBy",
-          "accepted_by",
-          "acceptedAt",
-          "accepted_at",
-          "declinedBy",
-          "declined_by",
-          "declinedAt",
-          "declined_at",
-          "updatedAt",
-          "updated_at"
-        ]);
-    }
-
-    function canRecipientUpdateCustodyInvitation() {
-      return signedIn()
-        && hasExistingFamilyId()
-        && hasRequestFamilyId()
-        && requestFamilyId() == existingFamilyId()
-        && resource.data.recipientEmail == userEmail()
-        && request.resource.data.recipientEmail == resource.data.recipientEmail
-        && request.resource.data.groupId == resource.data.groupId
-        && request.resource.data.status in ["accepted", "declined"]
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "status",
-          "acceptedBy",
-          "accepted_by",
-          "acceptedAt",
-          "accepted_at",
-          "declinedBy",
-          "declined_by",
-          "declinedAt",
-          "declined_at",
-          "updatedAt",
-          "updated_at"
-        ]);
-    }
-
-    function validMailMessage() {
-      return request.resource.data.message is map
-        && request.resource.data.message.subject is string
-        && request.resource.data.message.text is string
-        && request.resource.data.message.html is string;
-    }
-
-    function validMailRecipient() {
-      return request.resource.data.recipientEmail is string
-        && request.resource.data.to is list
-        && request.resource.data.to.size() == 1
-        && request.resource.data.to[0] == request.resource.data.recipientEmail;
-    }
-
-    function canCreateFamilyInvitationMail() {
-      return request.resource.data.kind == "family_invitation"
-        && request.resource.data.familyId is string
-        && request.resource.data.invitationCollection == "familyInvitations"
-        && canManageFamily(request.resource.data.familyId);
-    }
-
-    function canCreateCustodyInvitationMail() {
-      return request.resource.data.kind == "custody_invitation"
-        && request.resource.data.custodyGroupId is string
-        && request.resource.data.invitationCollection == "custodyInvitations"
-        && canManageCustodyGroup(request.resource.data.custodyGroupId);
-    }
-
-    function canCreateNotificationMail() {
-      return request.resource.data.kind == "notification"
-        && (
-          (
-            request.resource.data.familyId is string
-            && canWriteFamilyModule(request.resource.data.familyId, "notifications")
-          )
-          || (
-            request.resource.data.custodyGroupId is string
-            && canWriteCustody(request.resource.data.custodyGroupId)
-          )
-        );
-    }
-
-    function canCreateMailDoc() {
-      return signedIn()
-        && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.status == "queued"
-        && validMailRecipient()
-        && validMailMessage()
-        && (
-          canCreateFamilyInvitationMail()
-          || canCreateCustodyInvitationMail()
-          || canCreateNotificationMail()
-        );
-    }
-
-    function isNotificationRecipient(data) {
-      return signedIn()
-        && (
-          data.recipientUid == request.auth.uid
-          || data.recipient_uid == request.auth.uid
-          || data.recipientEmail == userEmail()
-          || data.recipient_email == userEmail()
-        );
-    }
-
-    function canCreateFamilyNotification() {
-      return request.resource.data.familyId is string
-        && request.resource.data.familyId != ""
-        && (
-          canManageFamily(request.resource.data.familyId)
-          || canWriteFamilyModule(request.resource.data.familyId, "notifications")
-          || (
-            isNotificationRecipient(request.resource.data)
-            && canReadFamily(request.resource.data.familyId)
-          )
-        );
-    }
-
-    function canCreateCustodyNotification() {
-      return request.resource.data.custodyGroupId is string
-        && request.resource.data.custodyGroupId != ""
-        && (
-          canManageCustodyGroup(request.resource.data.custodyGroupId)
-          || canWriteCustody(request.resource.data.custodyGroupId)
-          || (
-            isNotificationRecipient(request.resource.data)
-            && canReadCustody(request.resource.data.custodyGroupId)
-          )
-        );
-    }
-
-    function canCreateNotificationDoc() {
-      return signedIn()
-        && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.recipientEmail is string
-        && request.resource.data.title is string
-        && request.resource.data.kind is string
-        && request.resource.data.status == "unread"
-        && (
-          canCreateFamilyNotification()
-          || canCreateCustodyNotification()
         );
     }
 
@@ -1309,15 +449,48 @@ service cloud.firestore {
           && canManageFamily(existingFamilyId())
         )
         || (
-          hasExistingCustodyScopeId()
-          && canManageCustodyGroup(existingCustodyScopeId())
+          hasExistingCustodyGroupId()
+          && canManageCustody(existingCustodyGroupId())
+        );
+    }
+
+    function canCreateNotificationDoc() {
+      return signedIn()
+        && request.resource.data.get("createdBy", "") == request.auth.uid
+        && cleanString(request.resource.data.get("recipientEmail", "")) != ""
+        && cleanString(request.resource.data.get("title", "")) != ""
+        && cleanString(request.resource.data.get("kind", "")) != ""
+        && request.resource.data.get("status", "") == "unread"
+        && (
+          (
+            cleanString(request.resource.data.get("familyId", "")) != ""
+            && (
+              canManageFamily(cleanString(request.resource.data.get("familyId", "")))
+              || canWriteFamilyModule(cleanString(request.resource.data.get("familyId", "")), "notifications")
+              || (
+                isNotificationRecipient(request.resource.data)
+                && canReadFamily(cleanString(request.resource.data.get("familyId", "")))
+              )
+            )
+          )
+          || (
+            cleanString(request.resource.data.get("custodyGroupId", "")) != ""
+            && (
+              canManageCustody(cleanString(request.resource.data.get("custodyGroupId", "")))
+              || canWriteCustody(cleanString(request.resource.data.get("custodyGroupId", "")))
+              || (
+                isNotificationRecipient(request.resource.data)
+                && canReadCustody(cleanString(request.resource.data.get("custodyGroupId", "")))
+              )
+            )
+          )
         );
     }
 
     function canUpdateOwnNotification() {
       return isNotificationRecipient(resource.data)
-        && request.resource.data.recipientEmail == resource.data.recipientEmail
-        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.get("recipientEmail", "") == resource.data.get("recipientEmail", "")
+        && request.resource.data.get("createdBy", "") == resource.data.get("createdBy", "")
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "status",
           "read",
@@ -1326,7 +499,7 @@ service cloud.firestore {
           "readBy",
           "updatedAt"
         ])
-        && request.resource.data.status in ["read", "unread"];
+        && request.resource.data.get("status", "") in ["read", "unread"];
     }
 
     match /users/{userId} {
@@ -1335,28 +508,9 @@ service cloud.firestore {
     }
 
     match /families/{familyId} {
-      allow read: if canReadFamily(familyId)
-        || canReadBootstrapFamily(familyId);
-      allow create: if signedIn()
-        && request.resource.data.ownerId == request.auth.uid;
-      allow update: if canManageFamily(familyId)
-        || canAcceptFamilyInvitationUpdate(familyId)
-        || canDeclineFamilyInvitationUpdate(familyId);
-      allow delete: if canManageFamily(familyId);
-    }
-
-    match /custodyGroups/{groupId} {
-      allow read: if canReadCustody(groupId);
-      allow create: if signedIn()
-        && hasRequestFamilyId()
-        && canManageFamily(requestFamilyId())
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update: if canWriteCustody(groupId)
-        || canAcceptCustodyMemberInvitationUpdate(groupId)
-        || canAcceptCustodyViewerInvitationUpdate(groupId)
-        || canDeclineCustodyInvitationUpdate(groupId);
-      allow delete: if canManageCustodyGroup(groupId);
+      allow read: if canReadFamily(familyId) || (signedIn() && familyId == "family_" + request.auth.uid);
+      allow create: if signedIn() && request.resource.data.get("ownerId", "") == request.auth.uid;
+      allow update, delete: if canManageFamily(familyId);
     }
 
     match /familyEvents/{docId} {
@@ -1429,6 +583,13 @@ service cloud.firestore {
       allow delete: if canDeleteHouseholdModuleDoc("lists");
     }
 
+    match /groceries/{docId} {
+      allow read: if canReadHouseholdModuleDoc("lists");
+      allow create: if canCreateHouseholdModuleDoc("lists");
+      allow update: if canUpdateHouseholdModuleDoc("lists");
+      allow delete: if canDeleteHouseholdModuleDoc("lists");
+    }
+
     match /children/{docId} {
       allow read: if canReadHouseholdModuleDoc("home");
       allow create: if hasRequestFamilyId() && canManageFamily(requestFamilyId());
@@ -1451,72 +612,54 @@ service cloud.firestore {
 
     match /familyActivity/{docId} {
       allow read: if canReadAnyScopedDoc();
-      allow create: if signedIn()
-        && (
-          request.resource.data.createdBy == request.auth.uid
-          || request.resource.data.actorId == request.auth.uid
-        )
-        && (
-          (
-            hasRequestExplicitCustodyGroupId()
-            && canWriteCustody(requestCustodyScopeId())
-          )
-          || (
-            !hasRequestExplicitCustodyGroupId()
-            && hasRequestFamilyId()
-            && canWriteFamilyModule(
-              requestFamilyId(),
-              request.resource.data.get("module", "home")
-            )
-          )
-        );
+      allow create: if canCreateActivityDoc();
       allow update: if false;
-      allow delete: if canDeleteAnyScopedDoc();
-    }
-
-    match /familyInvitations/{docId} {
-      allow read: if canReadHouseholdDoc()
-        || (signedIn() && resource.data.recipientEmail == userEmail());
-      allow create: if hasRequestFamilyId()
-        && canManageFamily(requestFamilyId())
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update: if (
-          hasRequestFamilyId()
-          && hasExistingFamilyId()
-          && requestFamilyId() == existingFamilyId()
-          && canManageFamily(existingFamilyId())
-        )
-        || canRecipientUpdateFamilyInvitation();
-      allow delete: if hasExistingFamilyId() && canManageFamily(existingFamilyId());
-    }
-
-    match /custodyInvitations/{docId} {
-      allow read: if canReadCustodyDoc()
-        || (signedIn() && resource.data.recipientEmail == userEmail());
-      allow create: if canCreateCustodyDoc()
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update: if canUpdateCustodyDoc()
-        || canRecipientUpdateCustodyInvitation();
-      allow delete: if canDeleteCustodyDoc();
-    }
-
-    match /mail/{mailId} {
-      allow create: if canCreateMailDoc();
-      allow read, update, delete: if false;
+      allow delete: if canReadAnyScopedDoc();
     }
 
     match /notifications/{notificationId} {
       allow read: if canReadNotificationDoc();
       allow create: if canCreateNotificationDoc();
       allow update: if canUpdateOwnNotification();
-      allow delete: if (
-          hasExistingFamilyId()
-          && canManageFamily(existingFamilyId())
-        )
-        || (
-          hasExistingCustodyScopeId()
-          && canManageCustodyGroup(existingCustodyScopeId())
-        );
+      allow delete: if canReadNotificationDoc();
+    }
+
+    match /mail/{mailId} {
+      allow create: if signedIn()
+        && request.resource.data.get("createdBy", "") == request.auth.uid
+        && request.resource.data.get("status", "") == "queued";
+      allow read, update, delete: if false;
+    }
+
+    match /familyInvitations/{docId} {
+      allow read: if canReadHouseholdDoc()
+        || (signedIn() && cleanString(resource.data.get("recipientEmail", "")).lower() == userEmail());
+      allow create: if hasRequestFamilyId()
+        && canManageFamily(requestFamilyId())
+        && request.resource.data.get("createdBy", "") == request.auth.uid;
+      allow update: if canReadHouseholdDoc()
+        || (signedIn() && cleanString(resource.data.get("recipientEmail", "")).lower() == userEmail());
+      allow delete: if hasExistingFamilyId() && canManageFamily(existingFamilyId());
+    }
+
+    match /custodyGroups/{groupId} {
+      allow read: if canReadCustody(groupId);
+      allow create: if hasRequestFamilyId()
+        && canManageFamily(requestFamilyId())
+        && request.resource.data.get("ownerId", "") == request.auth.uid
+        && request.resource.data.get("createdBy", "") == request.auth.uid;
+      allow update: if canManageCustody(groupId);
+      allow delete: if canManageCustody(groupId);
+    }
+
+    match /custodyInvitations/{docId} {
+      allow read: if canReadCustodyDoc()
+        || (signedIn() && cleanString(resource.data.get("recipientEmail", "")).lower() == userEmail());
+      allow create: if canCreateCustodyDoc()
+        && request.resource.data.get("createdBy", "") == request.auth.uid;
+      allow update: if canUpdateCustodyDoc()
+        || (signedIn() && cleanString(resource.data.get("recipientEmail", "")).lower() == userEmail());
+      allow delete: if canDeleteCustodyDoc();
     }
 
     match /custodyDays/{docId} {
@@ -1555,26 +698,19 @@ service cloud.firestore {
     }
 
     match /custodyExpenses/{docId} {
-      allow read: if canReadBudgetDoc();
-      allow create: if canCreateBudgetDoc();
-      allow update: if canUpdateBudgetDoc();
-      allow delete: if canDeleteBudgetDoc();
+      allow read: if hasExistingCustodyGroupId() && canReadBudget(existingCustodyGroupId());
+      allow create: if hasRequestCustodyGroupId() && canWriteBudget(requestCustodyGroupId());
+      allow update: if hasRequestCustodyGroupId()
+        && hasExistingCustodyGroupId()
+        && requestCustodyGroupId() == existingCustodyGroupId()
+        && canWriteBudget(existingCustodyGroupId());
+      allow delete: if hasExistingCustodyGroupId() && canWriteBudget(existingCustodyGroupId());
     }
 
     match /custodyNotificationPrefs/{scopeId} {
       allow read: if canReadCustody(scopeId) || canReadCustodyDoc();
-      allow create: if canCreateCustodyDoc()
-        && requestCustodyScopeId() == scopeId;
-      allow update: if canUpdateCustodyDoc()
-        && requestCustodyScopeId() == scopeId;
-      allow delete: if canManageCustodyGroup(scopeId) || canDeleteCustodyDoc();
-    }
-
-    match /groceries/{docId} {
-      allow read: if canReadHouseholdModuleDoc("lists");
-      allow create: if canCreateHouseholdModuleDoc("lists");
-      allow update: if canUpdateHouseholdModuleDoc("lists");
-      allow delete: if canDeleteHouseholdModuleDoc("lists");
+      allow create, update: if canCreateCustodyDoc() || canUpdateCustodyDoc();
+      allow delete: if canManageCustody(scopeId) || canDeleteCustodyDoc();
     }
 
     match /{document=**} {
