@@ -8,7 +8,7 @@ Kinely is a family organization app for shared homes and co-parenting. The curre
 - Tailwind CSS
 - Firebase Auth
 - Firestore
-- Vercel deployment
+- Cloudflare Pages deployment
 - Firebase CLI for Firestore rules/indexes
 
 ## Local setup
@@ -55,9 +55,9 @@ Preview the production build:
 npm run preview
 ```
 
-## Vercel environment variables
+## Cloudflare Pages environment variables
 
-Add these variables in Vercel:
+Add these variables in Cloudflare Pages:
 
 ```bash
 VITE_FIREBASE_API_KEY
@@ -67,6 +67,8 @@ VITE_FIREBASE_STORAGE_BUCKET
 VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
 VITE_APP_PUBLIC_URL
+VITE_KINELY_API_URL
+VITE_USE_CUSTODY_DAY_WORKER
 ```
 
 The Firebase client config is loaded from `import.meta.env` in:
@@ -78,6 +80,8 @@ src/lib/firebase.js
 If any required variable is missing, the app intentionally throws an error so broken deployments are easier to catch.
 
 `VITE_APP_PUBLIC_URL` is optional for local builds, but should be set in production so invitation emails open the correct domain.
+
+When Cloudflare builds from GitHub, it uses the variables configured in Pages settings. When deploying manually with `npm run cloudflare:pages:deploy`, the build runs locally first, so you must also have these values in `.env.production` or the script will stop before uploading a broken `dist`.
 
 ## Email delivery
 
