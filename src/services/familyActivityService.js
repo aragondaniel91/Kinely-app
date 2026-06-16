@@ -83,6 +83,8 @@ export async function logFamilyActivity({
 
     const activityRef = await addDoc(collection(db, "familyActivity"), {
       ...activityPayload,
+      notificationStatus: "pending",
+      notification_status: "pending",
       createdAt: serverTimestamp(),
       readBy: [],
     });

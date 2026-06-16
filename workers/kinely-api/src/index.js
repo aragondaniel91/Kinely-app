@@ -2450,6 +2450,7 @@ async function handleActivityNotificationSend(request, env, origin) {
   }
 
   const now = new Date().toISOString();
+  const candidateCount = scope.recipients.length;
   const recipients = scope.recipients.filter((recipient) => !actorMatchesRecipient(activity, recipient));
   const notificationWrites = [];
   const emailDeliveries = [];
@@ -2485,7 +2486,10 @@ async function handleActivityNotificationSend(request, env, origin) {
     }
 
     if (channels.email) {
-      emailDeliveries.push(sendWithResend(env, activityEmail(env, notification)));
+      emailDeliveries.push({
+        recipient,
+        promise: sendWithResend(env, activityEmail(env, notification)),
+      });
     }
   }
 
@@ -2493,16 +2497,47 @@ async function handleActivityNotificationSend(request, env, origin) {
     await firestoreCommit(env, notificationWrites);
   }
 
-  const emailResults = await Promise.allSettled(emailDeliveries);
+  const emailResults = await Promise.allSettled(emailDeliveries.map((delivery) => delivery.promise));
+  const emailFailures = emailResults
+    .map((result, index) => ({
+      result,
+      recipient: emailDeliveries[index]?.recipient,
+    }))
+    .filter((item) => item.result.status === "rejected")
+    .map((item) => ({
+      email: item.recipient?.email || "",
+      reason: item.result.reason instanceof Error ? item.result.reason.message : cleanText(item.result.reason),
+    }));
 
-  return json({
+  const deliverySummary = {
     ok: true,
     preferenceKey,
+    candidateCount,
+    recipientCount: recipients.length,
     inAppCount: notificationWrites.length,
     emailCount: emailResults.filter((result) => result.status === "fulfilled").length,
-    emailFailedCount: emailResults.filter((result) => result.status === "rejected").length,
+    emailFailedCount: emailFailures.length,
     skippedCount: skipped.length,
-  }, { status: 200 }, origin);
+    skipped: skipped.slice(0, 20),
+    emailFailures: emailFailures.slice(0, 20),
+  };
+
+  if (activity.id) {
+    await firestoreCommit(env, [
+      firestoreMergeWrite(env, "familyActivity", activity.id, {
+        notificationStatus: "processed",
+        notification_status: "processed",
+        notificationResult: deliverySummary,
+        notification_result: deliverySummary,
+        notifiedAt: now,
+        notified_at: now,
+      }),
+    ]).catch((error) => {
+      console.warn("Could not write activity notification result.", error);
+    });
+  }
+
+  return json(deliverySummary, { status: 200 }, origin);
 }
 
 async function handleSendEmail(request, env, origin) {
