@@ -326,6 +326,12 @@ function firestoreDocumentUrl(env, collectionName, docId) {
   return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${encodeURIComponent(docId)}`;
 }
 
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+function looksLikeIsoTimestamp(value) {
+  return typeof value === "string" && ISO_DATE_REGEX.test(value);
+}
+
 function toFirestoreValue(value) {
   if (value === null) return { nullValue: null };
   if (value === undefined) return undefined;
@@ -333,7 +339,12 @@ function toFirestoreValue(value) {
   if (typeof value === "number") {
     return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
   }
-  if (typeof value === "string") return { stringValue: value };
+  if (typeof value === "string") {
+    if (looksLikeIsoTimestamp(value)) {
+      return { timestampValue: value };
+    }
+    return { stringValue: value };
+  }
   if (Array.isArray(value)) {
     return {
       arrayValue: {
