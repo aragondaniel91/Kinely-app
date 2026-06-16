@@ -1,9 +1,17 @@
+import { useState } from "react";
+import { getAuth, updateProfile } from "firebase/auth";
+import { doc, updateDoc } from "firebase/firestore";
 import { Baby, CalendarHeart, Home, Shield, Users } from "lucide-react";
 
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/lib/AuthContext";
 import { useFamily } from "@/lib/FamilyContext";
 import { getColorMeta, normalizeChildren } from "@/lib/personColorUtils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
 
 function familyNameOf(profile) {
   return profile?.family_name || profile?.familyName || "My Family";
@@ -23,10 +31,52 @@ function memberCountOf(profile) {
 
 export default function ProfileOverview() {
   const { profile, familyId, isOwner, isAdmin, allProfiles, custodyGroups } = useFamily();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const children = normalizeChildren(profile?.children || []);
   const familyCount = Array.isArray(allProfiles) ? allProfiles.length : 0;
   const memberCount = memberCountOf(profile);
   const custodyGroupCount = Array.isArray(custodyGroups) ? custodyGroups.length : 0;
+  const currentDisplayName = user?.displayName || user?.email || "—";
+
+  async function handleSaveName() {
+    const trimmed = newName.trim();
+    if (!trimmed || !user) return;
+
+    setSavingName(true);
+
+    try {
+      const auth = getAuth();
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: trimmed });
+      }
+
+      await updateDoc(doc(db, "users", user.uid), {
+        name: trimmed,
+        displayName: trimmed,
+        updatedAt: new Date().toISOString(),
+      });
+
+      setEditingName(false);
+      toast({
+        title: "Name updated",
+        description: "Your display name has been saved.",
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Could not update name",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+        duration: 4000,
+      });
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -38,6 +88,43 @@ export default function ProfileOverview() {
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
               This family space controls private Family Calendar events, members, tasks, meals, groceries, notes, and child care details.
             </p>
+            <div className="mt-4">
+              {!editingName ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold text-slate-700">{currentDisplayName}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewName(currentDisplayName === "—" ? "" : currentDisplayName);
+                      setEditingName(true);
+                    }}
+                    className="text-xs font-bold text-indigo-600 hover:underline"
+                  >
+                    Edit name
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    value={newName}
+                    onChange={(event) => setNewName(event.target.value)}
+                    placeholder="Your display name"
+                    className="h-9 max-w-[240px] rounded-xl text-sm"
+                    autoFocus
+                  />
+                  <Button size="sm" onClick={handleSaveName} disabled={savingName} className="rounded-xl">
+                    {savingName ? "Saving..." : "Save"}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingName(false)}
+                    className="text-xs font-semibold text-slate-400 hover:text-slate-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

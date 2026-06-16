@@ -104,13 +104,18 @@ function json(data, init = {}, origin = "") {
 }
 
 function corsHeaders(origin = "") {
-  return {
-    "access-control-allow-origin": origin || "https://kinely.net",
+  const headers = {
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "authorization,content-type,x-kinely-webhook-secret",
     "access-control-max-age": "86400",
     vary: "Origin",
   };
+
+  if (origin) {
+    headers["access-control-allow-origin"] = origin;
+  }
+
+  return headers;
 }
 
 function allowedOrigin(request, env) {
@@ -121,7 +126,7 @@ function allowedOrigin(request, env) {
     .filter(Boolean);
 
   if (!origin) return allowed[0] || "https://kinely.net";
-  return allowed.includes(origin) ? origin : allowed[0] || "https://kinely.net";
+  return allowed.includes(origin) ? origin : "";
 }
 
 function cleanText(value, fallback = "") {

@@ -3,9 +3,6 @@ import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import "./index.css";
 import "./kinely-brand.css";
-import "./calendar-cleanup.css";
-import "./custody-card-refinement.css";
-import "./custody-final-pass.css";
 
 if (typeof window !== "undefined") {
   window.addEventListener("vite:preloadError", (event) => {
@@ -27,3 +24,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 );
+
