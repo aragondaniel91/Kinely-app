@@ -116,6 +116,19 @@ try {
       actorId: taskEditorUid,
     })
   );
+  await assertSucceeds(
+    ownerDb.doc("notifications/notification_owner").set({
+      familyId: FAMILY_ID,
+      kind: "familyEventCreated",
+      module: "calendar",
+      title: "Event created",
+      recipientEmail: ownerEmail,
+      status: "unread",
+      createdBy: ownerUid,
+    })
+  );
+  await assertSucceeds(ownerDb.doc("notifications/notification_owner").get());
+  await assertFails(strangerDb.doc("notifications/notification_owner").get());
 
   await assertSucceeds(
     ownerDb.doc("familyLists/list_owner").set({
@@ -137,10 +150,11 @@ try {
 
   await assertSucceeds(
     ownerDb.doc(`custodyGroups/${CUSTODY_GROUP_ID}`).set({
-      familyId: CUSTODY_GROUP_ID,
+      familyId: FAMILY_ID,
       custodyGroupId: CUSTODY_GROUP_ID,
       ownerId: ownerUid,
       ownerEmail,
+      createdBy: ownerUid,
       adminIds: [ownerUid],
       adminEmails: [ownerEmail],
       memberIds: [ownerUid],

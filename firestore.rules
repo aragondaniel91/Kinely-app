@@ -82,6 +82,53 @@ service cloud.firestore {
         );
     }
 
+    function isFamilyOwnerData(data) {
+      return signedIn()
+        && (
+          request.auth.uid == data.get("ownerId", "")
+          || request.auth.uid == data.get("owner_id", "")
+          || request.auth.uid == data.get("createdBy", "")
+          || request.auth.uid == data.get("created_by", "")
+          || userEmail() == data.get("ownerEmail", "")
+          || userEmail() == data.get("owner_email", "")
+          || userEmail() == data.get("createdByEmail", "")
+          || userEmail() == data.get("created_by_email", "")
+          || userEmail() == data.get("created_by", "")
+        );
+    }
+
+    function isFamilyAdminData(data) {
+      return isFamilyOwnerData(data)
+        || request.auth.uid in listOrEmpty(data.get("adminIds", []))
+        || request.auth.uid in listOrEmpty(data.get("admin_ids", []))
+        || userEmail() in listOrEmpty(data.get("adminEmails", []))
+        || userEmail() in listOrEmpty(data.get("admin_emails", []));
+    }
+
+    function isFamilyListedMemberData(data) {
+      return request.auth.uid in listOrEmpty(data.get("memberIds", []))
+        || request.auth.uid in listOrEmpty(data.get("member_ids", []))
+        || userEmail() in listOrEmpty(data.get("memberEmails", []))
+        || userEmail() in listOrEmpty(data.get("member_emails", []));
+    }
+
+    function isFamilyListedViewerData(data) {
+      return request.auth.uid in listOrEmpty(data.get("viewerIds", []))
+        || request.auth.uid in listOrEmpty(data.get("viewer_ids", []))
+        || userEmail() in listOrEmpty(data.get("viewerEmails", []))
+        || userEmail() in listOrEmpty(data.get("viewer_emails", []));
+    }
+
+    function isFamilyMemberData(data) {
+      return isFamilyAdminData(data)
+        || isFamilyListedMemberData(data);
+    }
+
+    function isFamilyViewerData(data) {
+      return isFamilyMemberData(data)
+        || isFamilyListedViewerData(data);
+    }
+
     function isFamilyAdmin(familyId) {
       return isFamilyOwner(familyId)
         || request.auth.uid in listOrEmpty(familyDoc(familyId).data.adminIds)
@@ -107,7 +154,9 @@ service cloud.firestore {
     }
 
     function canReadFamily(familyId) {
-      return isFamilyViewer(familyId);
+      let data = familyDoc(familyId).data;
+      return signedIn()
+        && isFamilyViewerData(data);
     }
 
     function canReadBootstrapFamily(familyId) {
@@ -115,87 +164,213 @@ service cloud.firestore {
         && familyId == "family_" + request.auth.uid;
     }
 
-    function moduleReaderIds(data, moduleName) {
-      return mapList(data, moduleName + "ReaderIds");
+    function hasHomeReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("homeReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("homeWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("home_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("home_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("homeReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("homeWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("home_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("home_writer_emails", []));
     }
 
-    function moduleWriterIds(data, moduleName) {
-      return mapList(data, moduleName + "WriterIds");
+    function hasCalendarReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("calendarReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("calendarWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("calendar_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("calendar_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("calendarReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("calendarWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("calendar_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("calendar_writer_emails", []));
     }
 
-    function moduleReaderEmails(data, moduleName) {
-      return mapList(data, moduleName + "ReaderEmails");
+    function hasTasksReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("tasksReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("tasksWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("tasks_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("tasks_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("tasksReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("tasksWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("tasks_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("tasks_writer_emails", []));
     }
 
-    function moduleWriterEmails(data, moduleName) {
-      return mapList(data, moduleName + "WriterEmails");
+    function hasMealsReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("mealsReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("mealsWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("meals_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("meals_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("mealsReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("mealsWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("meals_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("meals_writer_emails", []));
     }
 
-    function hasModulePolicy(data, moduleName) {
-      return mapOrEmpty(data).keys().hasAny([
-        moduleName + "ReaderIds",
-        moduleName + "WriterIds",
-        moduleName + "ReaderEmails",
-        moduleName + "WriterEmails",
-        moduleName + "_reader_ids",
-        moduleName + "_writer_ids",
-        moduleName + "_reader_emails",
-        moduleName + "_writer_emails"
-      ]);
+    function hasListsReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("listsReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("listsWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("lists_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("lists_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("listsReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("listsWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("lists_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("lists_writer_emails", []));
+    }
+
+    function hasCustodyReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("custodyReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("custodyWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("custody_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("custody_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("custodyReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("custodyWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("custody_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("custody_writer_emails", []));
+    }
+
+    function hasBudgetReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("budgetReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("budgetWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("budget_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("budget_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("budgetReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("budgetWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("budget_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("budget_writer_emails", []));
+    }
+
+    function hasNotificationsReadGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("notificationsReaderIds", []))
+        || request.auth.uid in listOrEmpty(data.get("notificationsWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("notifications_reader_ids", []))
+        || request.auth.uid in listOrEmpty(data.get("notifications_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("notificationsReaderEmails", []))
+        || userEmail() in listOrEmpty(data.get("notificationsWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("notifications_reader_emails", []))
+        || userEmail() in listOrEmpty(data.get("notifications_writer_emails", []));
     }
 
     function hasModuleReadGrant(data, moduleName) {
-      return request.auth.uid in moduleReaderIds(data, moduleName)
-        || request.auth.uid in moduleWriterIds(data, moduleName)
-        || userEmail() in moduleReaderEmails(data, moduleName)
-        || userEmail() in moduleWriterEmails(data, moduleName)
-        || request.auth.uid in mapList(data, moduleName + "_reader_ids")
-        || request.auth.uid in mapList(data, moduleName + "_writer_ids")
-        || userEmail() in mapList(data, moduleName + "_reader_emails")
-        || userEmail() in mapList(data, moduleName + "_writer_emails");
+      return (moduleName == "home" && hasHomeReadGrant(data))
+        || (moduleName == "calendar" && hasCalendarReadGrant(data))
+        || (moduleName == "tasks" && hasTasksReadGrant(data))
+        || (moduleName == "meals" && hasMealsReadGrant(data))
+        || (moduleName == "lists" && hasListsReadGrant(data))
+        || (moduleName == "custody" && hasCustodyReadGrant(data))
+        || (moduleName == "budget" && hasBudgetReadGrant(data))
+        || (moduleName == "notifications" && hasNotificationsReadGrant(data));
+    }
+
+    function hasHomeWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("homeWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("home_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("homeWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("home_writer_emails", []));
+    }
+
+    function hasCalendarWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("calendarWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("calendar_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("calendarWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("calendar_writer_emails", []));
+    }
+
+    function hasTasksWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("tasksWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("tasks_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("tasksWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("tasks_writer_emails", []));
+    }
+
+    function hasMealsWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("mealsWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("meals_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("mealsWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("meals_writer_emails", []));
+    }
+
+    function hasListsWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("listsWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("lists_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("listsWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("lists_writer_emails", []));
+    }
+
+    function hasCustodyWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("custodyWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("custody_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("custodyWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("custody_writer_emails", []));
+    }
+
+    function hasBudgetWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("budgetWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("budget_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("budgetWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("budget_writer_emails", []));
+    }
+
+    function hasNotificationsWriteGrant(data) {
+      return request.auth.uid in listOrEmpty(data.get("notificationsWriterIds", []))
+        || request.auth.uid in listOrEmpty(data.get("notifications_writer_ids", []))
+        || userEmail() in listOrEmpty(data.get("notificationsWriterEmails", []))
+        || userEmail() in listOrEmpty(data.get("notifications_writer_emails", []));
     }
 
     function hasModuleWriteGrant(data, moduleName) {
-      return request.auth.uid in moduleWriterIds(data, moduleName)
-        || userEmail() in moduleWriterEmails(data, moduleName)
-        || request.auth.uid in mapList(data, moduleName + "_writer_ids")
-        || userEmail() in mapList(data, moduleName + "_writer_emails");
+      return (moduleName == "home" && hasHomeWriteGrant(data))
+        || (moduleName == "calendar" && hasCalendarWriteGrant(data))
+        || (moduleName == "tasks" && hasTasksWriteGrant(data))
+        || (moduleName == "meals" && hasMealsWriteGrant(data))
+        || (moduleName == "lists" && hasListsWriteGrant(data))
+        || (moduleName == "custody" && hasCustodyWriteGrant(data))
+        || (moduleName == "budget" && hasBudgetWriteGrant(data))
+        || (moduleName == "notifications" && hasNotificationsWriteGrant(data));
+    }
+
+    function hasModulePolicy(data, moduleName) {
+      return (moduleName == "home" && mapOrEmpty(data).keys().hasAny(["homeReaderIds", "homeWriterIds", "homeReaderEmails", "homeWriterEmails", "home_reader_ids", "home_writer_ids", "home_reader_emails", "home_writer_emails"]))
+        || (moduleName == "calendar" && mapOrEmpty(data).keys().hasAny(["calendarReaderIds", "calendarWriterIds", "calendarReaderEmails", "calendarWriterEmails", "calendar_reader_ids", "calendar_writer_ids", "calendar_reader_emails", "calendar_writer_emails"]))
+        || (moduleName == "tasks" && mapOrEmpty(data).keys().hasAny(["tasksReaderIds", "tasksWriterIds", "tasksReaderEmails", "tasksWriterEmails", "tasks_reader_ids", "tasks_writer_ids", "tasks_reader_emails", "tasks_writer_emails"]))
+        || (moduleName == "meals" && mapOrEmpty(data).keys().hasAny(["mealsReaderIds", "mealsWriterIds", "mealsReaderEmails", "mealsWriterEmails", "meals_reader_ids", "meals_writer_ids", "meals_reader_emails", "meals_writer_emails"]))
+        || (moduleName == "lists" && mapOrEmpty(data).keys().hasAny(["listsReaderIds", "listsWriterIds", "listsReaderEmails", "listsWriterEmails", "lists_reader_ids", "lists_writer_ids", "lists_reader_emails", "lists_writer_emails"]))
+        || (moduleName == "custody" && mapOrEmpty(data).keys().hasAny(["custodyReaderIds", "custodyWriterIds", "custodyReaderEmails", "custodyWriterEmails", "custody_reader_ids", "custody_writer_ids", "custody_reader_emails", "custody_writer_emails"]))
+        || (moduleName == "budget" && mapOrEmpty(data).keys().hasAny(["budgetReaderIds", "budgetWriterIds", "budgetReaderEmails", "budgetWriterEmails", "budget_reader_ids", "budget_writer_ids", "budget_reader_emails", "budget_writer_emails"]))
+        || (moduleName == "notifications" && mapOrEmpty(data).keys().hasAny(["notificationsReaderIds", "notificationsWriterIds", "notificationsReaderEmails", "notificationsWriterEmails", "notifications_reader_ids", "notifications_writer_ids", "notifications_reader_emails", "notifications_writer_emails"]));
     }
 
     function canReadFamilyModule(familyId, moduleName) {
-      return isFamilyAdmin(familyId)
-        || (
-          familyExists(familyId)
-          && (
-            hasModuleReadGrant(familyDoc(familyId).data, moduleName)
-            || (
-              isFamilyMember(familyId)
-              && !hasModulePolicy(familyDoc(familyId).data, moduleName)
-            )
-          )
+      let data = familyDoc(familyId).data;
+      return signedIn()
+        && (
+          isFamilyAdminData(data)
+          || hasModuleReadGrant(data, moduleName)
+          || isFamilyListedMemberData(data)
         );
     }
 
     function canWriteFamilyModule(familyId, moduleName) {
-      return isFamilyAdmin(familyId)
-        || (
-          familyExists(familyId)
-          && (
-            hasModuleWriteGrant(familyDoc(familyId).data, moduleName)
-            || (
-              isFamilyMember(familyId)
-              && !hasModulePolicy(familyDoc(familyId).data, moduleName)
-            )
-          )
+      let data = familyDoc(familyId).data;
+      return signedIn()
+        && (
+          isFamilyAdminData(data)
+          || hasModuleWriteGrant(data, moduleName)
+          || isFamilyListedMemberData(data)
         );
     }
 
     function canWriteFamilyContent(familyId) {
-      return isFamilyMember(familyId);
+      let data = familyDoc(familyId).data;
+      return signedIn()
+        && isFamilyMemberData(data);
     }
 
     function canManageFamily(familyId) {
-      return isFamilyAdmin(familyId);
+      let data = familyDoc(familyId).data;
+      return signedIn()
+        && isFamilyAdminData(data);
     }
 
     function isCustodyOwner(familyId) {
@@ -336,55 +511,85 @@ service cloud.firestore {
     }
 
     function hasRequestFamilyId() {
-      return request.resource.data.familyId is string
-        || request.resource.data.family_id is string;
+      return (
+          request.resource.data.get("familyId", "") is string
+          && request.resource.data.get("familyId", "") != ""
+        )
+        || (
+          request.resource.data.get("family_id", "") is string
+          && request.resource.data.get("family_id", "") != ""
+        );
     }
 
     function hasExistingFamilyId() {
-      return resource.data.familyId is string
-        || resource.data.family_id is string;
+      return (
+          resource.data.get("familyId", "") is string
+          && resource.data.get("familyId", "") != ""
+        )
+        || (
+          resource.data.get("family_id", "") is string
+          && resource.data.get("family_id", "") != ""
+        );
     }
 
     function requestFamilyId() {
-      return request.resource.data.familyId is string
-        ? request.resource.data.familyId
-        : request.resource.data.family_id;
+      return request.resource.data.get("familyId", "") is string
+        && request.resource.data.get("familyId", "") != ""
+        ? request.resource.data.get("familyId", "")
+        : request.resource.data.get("family_id", "");
     }
 
     function existingFamilyId() {
-      return resource.data.familyId is string
-        ? resource.data.familyId
-        : resource.data.family_id;
+      return resource.data.get("familyId", "") is string
+        && resource.data.get("familyId", "") != ""
+        ? resource.data.get("familyId", "")
+        : resource.data.get("family_id", "");
     }
 
     function hasRequestCustodyScopeId() {
-      return request.resource.data.custodyGroupId is string
-        || request.resource.data.familyId is string;
+      return (
+          request.resource.data.get("custodyGroupId", "") is string
+          && request.resource.data.get("custodyGroupId", "") != ""
+        )
+        || (
+          request.resource.data.get("familyId", "") is string
+          && request.resource.data.get("familyId", "") != ""
+        );
     }
 
     function hasExistingCustodyScopeId() {
-      return resource.data.custodyGroupId is string
-        || resource.data.familyId is string;
+      return (
+          resource.data.get("custodyGroupId", "") is string
+          && resource.data.get("custodyGroupId", "") != ""
+        )
+        || (
+          resource.data.get("familyId", "") is string
+          && resource.data.get("familyId", "") != ""
+        );
     }
 
     function hasRequestExplicitCustodyGroupId() {
-      return request.resource.data.custodyGroupId is string;
+      return request.resource.data.get("custodyGroupId", "") is string
+        && request.resource.data.get("custodyGroupId", "") != "";
     }
 
     function hasExistingExplicitCustodyGroupId() {
-      return resource.data.custodyGroupId is string;
+      return resource.data.get("custodyGroupId", "") is string
+        && resource.data.get("custodyGroupId", "") != "";
     }
 
     function requestCustodyScopeId() {
-      return request.resource.data.custodyGroupId is string
-        ? request.resource.data.custodyGroupId
-        : request.resource.data.familyId;
+      return request.resource.data.get("custodyGroupId", "") is string
+        && request.resource.data.get("custodyGroupId", "") != ""
+        ? request.resource.data.get("custodyGroupId", "")
+        : request.resource.data.get("familyId", "");
     }
 
     function existingCustodyScopeId() {
-      return resource.data.custodyGroupId is string
-        ? resource.data.custodyGroupId
-        : resource.data.familyId;
+      return resource.data.get("custodyGroupId", "") is string
+        && resource.data.get("custodyGroupId", "") != ""
+        ? resource.data.get("custodyGroupId", "")
+        : resource.data.get("familyId", "");
     }
 
     function canReadHouseholdDoc() {
@@ -1246,10 +1451,24 @@ service cloud.firestore {
 
     match /familyActivity/{docId} {
       allow read: if canReadAnyScopedDoc();
-      allow create: if canCreateAnyScopedDoc()
+      allow create: if signedIn()
         && (
           request.resource.data.createdBy == request.auth.uid
           || request.resource.data.actorId == request.auth.uid
+        )
+        && (
+          (
+            hasRequestExplicitCustodyGroupId()
+            && canWriteCustody(requestCustodyScopeId())
+          )
+          || (
+            !hasRequestExplicitCustodyGroupId()
+            && hasRequestFamilyId()
+            && canWriteFamilyModule(
+              requestFamilyId(),
+              request.resource.data.get("module", "home")
+            )
+          )
         );
       allow update: if false;
       allow delete: if canDeleteAnyScopedDoc();
