@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Info, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,8 +50,8 @@ export default function AppDialog({
     else if (onConfirm) onConfirm();
   };
 
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 p-3 md:items-center md:p-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-slate-950/45 p-3 md:items-center md:p-6">
       <div className="w-full max-w-md rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
         <div className="flex items-start gap-4">
           <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${config.iconBox}`}>
@@ -108,6 +109,7 @@ export default function AppDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

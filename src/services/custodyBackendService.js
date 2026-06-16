@@ -1,5 +1,7 @@
 import { authorizedWorkerRequest } from "@/services/kinelyApiClient";
 
+const USE_CUSTODY_DAY_WORKER = import.meta.env.VITE_USE_CUSTODY_DAY_WORKER === "true";
+
 function isNetworkFailure(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
@@ -46,6 +48,8 @@ export async function deleteCustodyGroupViaWorker({ groupId }) {
 }
 
 export async function saveCustodyDaysViaWorker({ familyId, custodyGroupId, days }) {
+  if (!USE_CUSTODY_DAY_WORKER) return null;
+
   const dayList = Array.isArray(days) ? days : [days].filter(Boolean);
   if (!dayList.length) return null;
 
@@ -57,6 +61,8 @@ export async function saveCustodyDaysViaWorker({ familyId, custodyGroupId, days 
 }
 
 export async function deleteCustodyDayViaWorker({ familyId, custodyGroupId, date, docId }) {
+  if (!USE_CUSTODY_DAY_WORKER) return null;
+
   if (!date || (!familyId && !custodyGroupId)) return null;
 
   return optionalCustodyDayRequest("/custody-days/delete", {
