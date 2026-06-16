@@ -117,6 +117,16 @@ try {
     })
   );
   await assertSucceeds(
+    ownerDb.doc("familyActivity/calendar_activity_owner").set({
+      familyId: FAMILY_ID,
+      module: "calendar",
+      type: "event_created",
+      title: "Calendar event created",
+      createdBy: ownerUid,
+      actorId: ownerUid,
+    })
+  );
+  await assertSucceeds(
     ownerDb.doc("notifications/notification_owner").set({
       familyId: FAMILY_ID,
       kind: "familyEventCreated",
