@@ -2,6 +2,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { sendActivityNotificationViaWorker } from "@/services/emailQueueService";
+import { queueInAppNotification } from "@/services/notificationService";
 
 function actorName(profile, user) {
   return (
@@ -26,6 +27,76 @@ function normalizeDateKey(value) {
   }
   if (value?.toDate) return value.toDate().toISOString().slice(0, 10);
   return String(value).slice(0, 10);
+}
+
+function activityPreferenceKey(type = "", moduleName = "") {
+  if (moduleName === "tasks" || type.startsWith("task_")) {
+    return type === "task_completed" ? "taskCompleted" : "taskAssigned";
+  }
+
+  if (moduleName === "calendar" || type.startsWith("event_")) {
+    return type.includes("updated") || type.includes("edited")
+      ? "familyEventEdited"
+      : "familyEventCreated";
+  }
+
+  if (
+    moduleName === "custody" ||
+    type.includes("custody") ||
+    type.includes("special_event") ||
+    type.includes("travel_plan")
+  ) {
+    if (type.includes("deleted")) return "custodyDeleted";
+    if (type.includes("updated") || type.includes("edited")) return "custodyEdited";
+    return "custodyCreated";
+  }
+
+  if (moduleName === "meals" || type.includes("meal")) return "mealPlanUpdated";
+  if (["lists", "groceries"].includes(moduleName) || type.includes("grocery") || type.includes("list")) {
+    return "groceryItemAdded";
+  }
+  if (type.includes("child") || type.includes("care")) return "childCareUpdated";
+
+  return "notification";
+}
+
+function activityActionUrl(moduleName = "", entityId = "") {
+  if (moduleName === "tasks") return "/tasks";
+  if (moduleName === "meals") return "/meals";
+  if (["lists", "groceries"].includes(moduleName)) return "/lists";
+  if (moduleName === "custody") return "/custody";
+  if (moduleName === "calendar") {
+    return entityId ? `/calendar?eventId=${encodeURIComponent(entityId)}` : "/calendar";
+  }
+
+  return "/profile?tab=notifications";
+}
+
+async function queueLocalActivityFallback({ activity, user, reason }) {
+  const recipientEmail = user?.email || activity?.actorEmail || activity?.createdByEmail || "";
+  if (!recipientEmail || !activity?.title) return null;
+
+  return queueInAppNotification({
+    kind: activityPreferenceKey(activity.type, activity.module),
+    title: activity.title,
+    body: activity.description || "Kinely saved this update.",
+    recipientEmail,
+    recipientUid: user?.uid || activity?.actorId || "",
+    familyId: activity.householdFamilyId || activity.familyId || "",
+    custodyGroupId: activity.custodyGroupId || "",
+    scopeType: activity.custodyGroupId ? "custody" : "family",
+    module: activity.module || "notifications",
+    entityType: activity.entityType || "",
+    entityId: activity.entityId || "",
+    actionUrl: activityActionUrl(activity.module, activity.entityId),
+    createdBy: user?.uid || activity.actorId || "",
+    createdByEmail: user?.email || activity.actorEmail || "",
+    metadata: {
+      activityId: activity.id || "",
+      fallback: true,
+      reason: reason || "worker_unavailable",
+    },
+  });
 }
 
 export async function logFamilyActivity({
@@ -94,9 +165,36 @@ export async function logFamilyActivity({
         id: activityRef.id,
         ...activityPayload,
       },
-    }).catch((error) => {
-      console.warn("Could not send activity notifications:", error);
-    });
+    })
+      .then((result) => {
+        if (result) return null;
+
+        return queueLocalActivityFallback({
+          activity: {
+            id: activityRef.id,
+            ...activityPayload,
+          },
+          user,
+          reason: "worker_not_configured",
+        });
+      })
+      .catch((error) => {
+        console.warn("Could not send activity notifications; creating local in-app fallback.", {
+          message: error?.message || String(error),
+          familyId: activityFamilyId,
+          module: effectiveModule,
+          type,
+        });
+
+        return queueLocalActivityFallback({
+          activity: {
+            id: activityRef.id,
+            ...activityPayload,
+          },
+          user,
+          reason: error?.message || "worker_failed",
+        });
+      });
 
     return activityRef;
   } catch (error) {
