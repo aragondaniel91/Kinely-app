@@ -8,6 +8,8 @@
     "VITE_FIREBASE_PROJECT_ID": "family-wall-b5f1d",
     "VITE_FIREBASE_STORAGE_BUCKET": "family-wall-b5f1d.firebasestorage.app",
     "VITE_FIREBASE_MESSAGING_SENDER_ID": "489876922203",
-    "VITE_FIREBASE_APP_ID": "1:489876922203:web:b35bb51ee99c383b2c847e"
+    "VITE_FIREBASE_APP_ID": "1:489876922203:web:b35bb51ee99c383b2c847e",
+    "VITE_KINELY_API_URL": "https://kinely-api.aragondaniel91.workers.dev",
+    "VITE_APP_PUBLIC_URL": "https://kinely.net"
   }
 }
