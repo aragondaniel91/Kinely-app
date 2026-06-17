@@ -513,9 +513,34 @@ function extractProviderMessageId(providerResult = {}) {
     providerResult?.providerMessageId ||
     providerResult?.provider_message_id ||
     providerResult?.id ||
+    providerResult?.data?.id ||
+    providerResult?.email?.id ||
+    providerResult?.email_id ||
+    providerResult?.emailId ||
     providerResult?.messageId ||
-    providerResult?.message_id
+    providerResult?.message_id ||
+    providerResult?.data?.email_id ||
+    providerResult?.data?.emailId ||
+    providerResult?.data?.message_id ||
+    providerResult?.data?.messageId
   );
+}
+
+function providerResponseShape(providerResult = {}) {
+  if (!providerResult || typeof providerResult !== "object") return {};
+  const shape = {
+    keys: Object.keys(providerResult).slice(0, 20),
+  };
+
+  if (providerResult.data && typeof providerResult.data === "object") {
+    shape.dataKeys = Object.keys(providerResult.data).slice(0, 20);
+  }
+
+  if (providerResult.email && typeof providerResult.email === "object") {
+    shape.emailKeys = Object.keys(providerResult.email).slice(0, 20);
+  }
+
+  return shape;
 }
 
 async function recordEmailDelivery(env, mail = {}, providerResult = {}, status = "accepted", error = "") {
@@ -541,6 +566,8 @@ async function recordEmailDelivery(env, mail = {}, providerResult = {}, status =
       error: cleanText(error),
       providerResponse: providerResult && typeof providerResult === "object" ? providerResult : {},
       provider_response: providerResult && typeof providerResult === "object" ? providerResult : {},
+      providerResponseShape: providerResponseShape(providerResult),
+      provider_response_shape: providerResponseShape(providerResult),
       createdAt: now,
       created_at: now,
       updatedAt: now,
@@ -1752,6 +1779,7 @@ async function enrichResendDeliveryStatus(env, providerResult = {}) {
       providerMessageId: "",
       lastEvent: "",
       lookupError: "Resend did not return an email id.",
+      providerResponseShape: providerResponseShape(providerResult),
     };
   }
 
@@ -2803,6 +2831,7 @@ async function handleAuthenticatedEmailTest(request, env, origin) {
     providerMessageId: statusResult.providerMessageId,
     lastEvent: statusResult.lastEvent,
     lookupError: statusResult.lookupError || "",
+    providerResponseShape: statusResult.providerResponseShape || providerResponseShape(providerResult),
     to: recipient,
   }, { status: 200 }, origin);
 }

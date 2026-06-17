@@ -256,10 +256,16 @@ export default function NotificationPreferences() {
       const providerId = result?.providerMessageId || result?.id || "";
       const lastEvent = result?.lastEvent || result?.last_event || "";
       const lookupError = result?.lookupError || result?.lookup_error || "";
+      const responseShape = result?.providerResponseShape || result?.provider_response_shape || {};
+      const responseKeys = [
+        responseShape?.keys?.length ? `keys=${responseShape.keys.join(",")}` : "",
+        responseShape?.dataKeys?.length ? `data=${responseShape.dataKeys.join(",")}` : "",
+        responseShape?.emailKeys?.length ? `email=${responseShape.emailKeys.join(",")}` : "",
+      ].filter(Boolean).join(" ");
       setMessage(
         [
           `Test email accepted by Resend for ${result?.to || myEmail || user?.email || "your account"}.`,
-          providerId ? `Resend ID: ${providerId}.` : "Resend did not return an email ID.",
+          providerId ? `Resend ID: ${providerId}.` : `Resend did not return an email ID${responseKeys ? ` (${responseKeys})` : ""}.`,
           lastEvent ? `Status: ${lastEvent}.` : "",
           lookupError ? `Status lookup: ${lookupError}` : "",
         ].filter(Boolean).join(" ")
