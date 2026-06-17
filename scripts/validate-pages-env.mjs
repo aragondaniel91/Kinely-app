@@ -8,6 +8,7 @@ const required = [
   "VITE_FIREBASE_STORAGE_BUCKET",
   "VITE_FIREBASE_MESSAGING_SENDER_ID",
   "VITE_FIREBASE_APP_ID",
+  "VITE_KINELY_API_URL",
 ];
 
 const args = new Set(process.argv.slice(2));

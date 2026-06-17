@@ -268,6 +268,9 @@ export async function sendActivityNotificationViaWorker(options) {
 
 export async function sendAuthenticatedEmailTest(options = {}) {
   const result = await authorizedWorkerRequest("/diagnostics/email-test-auth", options);
+  if (!result) {
+    throw new Error("Kinely API is not configured for this build. Set VITE_KINELY_API_URL in Cloudflare Pages and redeploy.");
+  }
   return result || null;
 }
 
