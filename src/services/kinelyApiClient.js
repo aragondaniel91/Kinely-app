@@ -1,6 +1,6 @@
 import { auth } from "@/lib/firebase";
 
-const WORKER_REQUEST_TIMEOUT_MS = 8000;
+const WORKER_REQUEST_TIMEOUT_MS = 20000;
 
 function cleanText(value, fallback = "") {
   const text = String(value || "").trim();
