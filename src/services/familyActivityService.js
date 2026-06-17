@@ -29,6 +29,38 @@ function normalizeDateKey(value) {
   return String(value).slice(0, 10);
 }
 
+function normalizeEmail(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeEmailList(values = []) {
+  if (!Array.isArray(values)) return [];
+  return Array.from(new Set(values.map(normalizeEmail).filter(Boolean)));
+}
+
+function listFrom(value) {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+}
+
+function normalizeNotifyPayload(notify = null) {
+  if (!notify || typeof notify !== "object") return null;
+  const recipients = normalizeEmailList([
+    ...(Array.isArray(notify.recipients) ? notify.recipients : []),
+    ...(Array.isArray(notify.selectedRecipients) ? notify.selectedRecipients : []),
+    ...(Array.isArray(notify.selected_recipients) ? notify.selected_recipients : []),
+  ]);
+
+  if (!recipients.length) return null;
+
+  return {
+    enabled: notify.enabled !== false,
+    target: notify.target || "selected",
+    recipients,
+    selectedRecipients: normalizeEmailList(notify.selectedRecipients || notify.selected_recipients || recipients),
+  };
+}
+
 function activityPreferenceKey(type = "", moduleName = "") {
   if (moduleName === "tasks" || type.startsWith("task_")) {
     return type === "task_completed" ? "taskCompleted" : "taskAssigned";
@@ -120,6 +152,10 @@ export async function logFamilyActivity({
   entityId = "",
   date = "",
   visibility = "",
+  visibleTo = [],
+  notify = null,
+  targetRecipientEmails = [],
+  targetRecipientUids = [],
   metadata = {},
 }) {
   const activityFamilyId = familyId || custodyScopeFields.familyId || custodyScopeFields.custodyGroupId || "";
@@ -131,6 +167,12 @@ export async function logFamilyActivity({
     const custodyGroupName = custodyScopeFields.custodyGroupName || "";
     const effectiveModule = module || (custodyGroupId ? "custody" : "home");
     const effectiveVisibility = visibility || (custodyGroupId ? "custody" : "family");
+    const notifyPayload = normalizeNotifyPayload(notify);
+    const recipientEmails = normalizeEmailList([
+      ...listFrom(targetRecipientEmails),
+      ...(notifyPayload?.recipients || []),
+    ]);
+    const recipientUids = Array.from(new Set(listFrom(targetRecipientUids).filter(Boolean)));
     const activityPayload = {
       familyId: activityFamilyId,
       family_id: activityFamilyId,
@@ -146,6 +188,25 @@ export async function logFamilyActivity({
         : {}),
       module: effectiveModule,
       visibility: effectiveVisibility,
+      visibleTo: normalizeEmailList(visibleTo),
+      visible_to: normalizeEmailList(visibleTo),
+      ...(notifyPayload ? { notify: notifyPayload } : {}),
+      ...(recipientEmails.length
+        ? {
+            recipientEmails,
+            recipient_emails: recipientEmails,
+            targetRecipientEmails: recipientEmails,
+            target_recipient_emails: recipientEmails,
+          }
+        : {}),
+      ...(recipientUids.length
+        ? {
+            recipientUids,
+            recipient_uids: recipientUids,
+            targetRecipientUids: recipientUids,
+            target_recipient_uids: recipientUids,
+          }
+        : {}),
       type,
       title,
       description,
@@ -158,6 +219,8 @@ export async function logFamilyActivity({
       actorId: user.uid,
       actorEmail: user.email || null,
       actorName: actorName(profile, user),
+      notificationTarget: notifyPayload?.target || "",
+      notification_target: notifyPayload?.target || "",
     };
 
     const activityRef = await addDoc(collection(db, "familyActivity"), {

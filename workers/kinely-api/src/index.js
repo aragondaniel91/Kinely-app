@@ -4,7 +4,7 @@ const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "email-firebase-jwks-2026-06-17-05";
+const WORKER_VERSION = "activity-recipient-targets-2026-06-17-06";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -1669,6 +1669,65 @@ function actorMatchesRecipient(activity = {}, recipient = {}) {
   );
 }
 
+function activityRecipientEmails(activity = {}) {
+  const metadata = mapOrEmpty(activity.metadata);
+  const notify = mapOrEmpty(activity.notify || metadata.notify);
+
+  return uniqueStrings([
+    activity.recipientEmails,
+    activity.recipient_emails,
+    activity.targetRecipientEmails,
+    activity.target_recipient_emails,
+    activity.notifyRecipientEmails,
+    activity.notify_recipient_emails,
+    notify.recipients,
+    notify.selectedRecipients,
+    notify.selected_recipients,
+    metadata.recipientEmails,
+    metadata.recipient_emails,
+    metadata.targetRecipientEmails,
+    metadata.target_recipient_emails,
+  ].flat()).map(normalizeEmail).filter(Boolean);
+}
+
+function activityRecipientUids(activity = {}) {
+  const metadata = mapOrEmpty(activity.metadata);
+  const notify = mapOrEmpty(activity.notify || metadata.notify);
+
+  return uniqueStrings([
+    activity.recipientUids,
+    activity.recipient_uids,
+    activity.targetRecipientUids,
+    activity.target_recipient_uids,
+    activity.notifyRecipientUids,
+    activity.notify_recipient_uids,
+    notify.recipientUids,
+    notify.recipient_uids,
+    metadata.recipientUids,
+    metadata.recipient_uids,
+    metadata.targetRecipientUids,
+    metadata.target_recipient_uids,
+  ].flat());
+}
+
+function applyActivityRecipientSelection(activity = {}, recipients = []) {
+  const explicitEmails = activityRecipientEmails(activity);
+  const explicitUids = activityRecipientUids(activity);
+
+  if (!explicitEmails.length && !explicitUids.length) return recipients;
+
+  const selected = new Map();
+  recipients.forEach((recipient) => {
+    const email = normalizeEmail(recipient.email);
+    const uid = cleanText(recipient.uid);
+    if ((email && explicitEmails.includes(email)) || (uid && explicitUids.includes(uid))) {
+      selected.set(email || uid, recipient);
+    }
+  });
+
+  return [...selected.values()];
+}
+
 async function findUserByEmail(env, email) {
   const cleanEmail = normalizeEmail(email);
   if (!cleanEmail) return null;
@@ -2711,9 +2770,10 @@ async function handleActivityNotificationSend(request, env, origin) {
   }
 
   const now = new Date().toISOString();
-  const candidateCount = scope.recipients.length;
-  const nonActorRecipients = scope.recipients.filter((recipient) => !actorMatchesRecipient(activity, recipient));
-  const actorRecipients = scope.recipients.filter((recipient) => actorMatchesRecipient(activity, recipient));
+  const scopedRecipients = applyActivityRecipientSelection(activity, scope.recipients);
+  const candidateCount = scopedRecipients.length;
+  const nonActorRecipients = scopedRecipients.filter((recipient) => !actorMatchesRecipient(activity, recipient));
+  const actorRecipients = scopedRecipients.filter((recipient) => actorMatchesRecipient(activity, recipient));
   const selfNotificationFallback = nonActorRecipients.length === 0 && actorRecipients.length > 0;
   const recipients = selfNotificationFallback ? actorRecipients.slice(0, 1) : nonActorRecipients;
   const notificationWrites = [];

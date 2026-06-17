@@ -520,6 +520,8 @@ export default function AddFamilyEventDialog({
           entityType: "familyEvent",
           entityId: documentId,
           date: eventDate,
+          visibleTo: audiencePayload?.visibleTo || audiencePayload?.visible_to || [],
+          notify: audiencePayload?.notify?.recipients?.length ? audiencePayload.notify : null,
         });
       } else {
         const eventRef = await addDoc(collection(db, "familyEvents"), {
@@ -549,6 +551,8 @@ export default function AddFamilyEventDialog({
           entityType: "familyEvent",
           entityId: eventRef.id,
           date: eventDate,
+          visibleTo: audiencePayload?.visibleTo || audiencePayload?.visible_to || [],
+          notify: audiencePayload?.notify?.recipients?.length ? audiencePayload.notify : null,
         });
 
         if (createLinkedListWithEvent && canWriteLists) {

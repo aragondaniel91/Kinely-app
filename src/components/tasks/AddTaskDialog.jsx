@@ -179,10 +179,14 @@ function buildPeopleFromFamily({
 
     peopleById.set(id, {
       id,
+      uid: person.uid || person.userId || person.user_id || "",
+      email: person.email || person.emailAddress || person.email_address || "",
       name,
       role: person.role || person.relationship || "Family",
       roleType: person.roleType || person.role_type || "",
       childId: person.childId || person.child_id || "",
+      colorId: person.colorId || person.color_id || person.color || "",
+      color: person.color || person.colorId || person.color_id || "",
     });
   }
 
@@ -462,6 +466,15 @@ export default function AddTaskDialog({
 
     try {
       const dueDate = getDueDate();
+      const assignedEmail = selectedPerson?.email || selectedPerson?.emailAddress || "";
+      const taskNotify = assignedEmail && selectedPerson?.id !== "family"
+        ? {
+            enabled: true,
+            target: "selected",
+            recipients: [assignedEmail],
+            selectedRecipients: [assignedEmail],
+          }
+        : null;
 
       const payload = {
         ...buildTaskPayload({
@@ -525,6 +538,7 @@ export default function AddTaskDialog({
           entityType: "task",
           entityId: editTask.id,
           date: dueDate,
+          notify: taskNotify,
         });
       } else {
         const taskRef = await addDoc(collection(db, TASK_COLLECTIONS.tasks), {
@@ -548,6 +562,7 @@ export default function AddTaskDialog({
           entityType: "task",
           entityId: taskRef.id,
           date: dueDate,
+          notify: taskNotify,
         });
       }
 

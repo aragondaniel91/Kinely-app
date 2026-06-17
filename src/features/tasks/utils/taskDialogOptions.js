@@ -138,9 +138,13 @@ export function buildAssigneeOptions(people = []) {
     .map((person) => ({
       value: person.id,
       label: person.name,
+      email: person.email || person.emailAddress || person.email_address || "",
+      uid: person.uid || person.userId || person.user_id || "",
       role: person.role || "",
       roleType: person.roleType || "",
       childId: person.childId || person.child_id || "",
+      colorId: person.colorId || person.color_id || person.color || "",
+      color: person.color || person.colorId || person.color_id || "",
     }));
 
   return options.length
@@ -182,6 +186,7 @@ export function buildTaskPayload({
 }) {
   const assigneeId = selectedAssignee?.value || selectedAssignee?.id || "family";
   const assigneeName = selectedAssignee?.label || selectedAssignee?.name || "Family";
+  const assigneeEmail = selectedAssignee?.email || selectedAssignee?.emailAddress || selectedAssignee?.email_address || "";
   const roleType = selectedAssignee?.roleType || selectedAssignee?.role || "family";
   const childId =
     roleType === "child"
@@ -196,6 +201,8 @@ export function buildTaskPayload({
     rewardEligible,
     assignedToPersonId: assigneeId,
     assignedToPersonName: assigneeName,
+    assignedToPersonEmail: assigneeEmail,
+    assigned_to_person_email: assigneeEmail,
     assignedToPersonColorId: selectedAssignee?.colorId || selectedAssignee?.color || "",
 
     childId,
