@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { sendAuthenticatedEmailTest } from "@/services/emailQueueService";
 
 const DEFAULT_PREFERENCES = {
   channels: {
@@ -161,6 +162,7 @@ export default function NotificationPreferences() {
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -242,6 +244,24 @@ export default function NotificationPreferences() {
     }
   }
 
+  async function sendTestEmail() {
+    setTestingEmail(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const result = await sendAuthenticatedEmailTest({
+        to: myEmail || user?.email || "",
+      });
+      setMessage(`Test email sent to ${result?.to || myEmail || user?.email || "your account"}.`);
+    } catch (testError) {
+      console.error("Error sending test email:", testError);
+      setError(testError?.message || "Could not send test email.");
+    } finally {
+      setTestingEmail(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 text-sm font-bold text-slate-500 shadow-sm">
@@ -265,9 +285,14 @@ export default function NotificationPreferences() {
             </p>
           </div>
 
-          <Button type="button" onClick={savePreferences} disabled={saving} className="gap-2 rounded-2xl">
-            <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save preferences"}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+            <Button type="button" variant="outline" onClick={sendTestEmail} disabled={testingEmail || saving} className="gap-2 rounded-2xl bg-white/80">
+              <Mail className="h-4 w-4" /> {testingEmail ? "Sending..." : "Send test email"}
+            </Button>
+            <Button type="button" onClick={savePreferences} disabled={saving || testingEmail} className="gap-2 rounded-2xl">
+              <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save preferences"}
+            </Button>
+          </div>
         </div>
 
         {(message || error) && (

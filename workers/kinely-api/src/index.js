@@ -2606,6 +2606,56 @@ async function handleDiagnosticEmailTest(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+async function handleAuthenticatedEmailTest(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json().catch(() => ({}));
+  const userDoc = token.sub ? await firestoreGetDoc(env, "users", token.sub).catch(() => null) : null;
+  const recipient = normalizeEmail(
+    payload.to ||
+    payload.email ||
+    userDoc?.notificationEmail ||
+    userDoc?.notification_email ||
+    token.email
+  );
+
+  if (!recipient) {
+    return json({ ok: false, error: "Your account does not have an email address for this test." }, { status: 400 }, origin);
+  }
+
+  const allowedEmails = [
+    token.email,
+    userDoc?.email,
+    userDoc?.notificationEmail,
+    userDoc?.notification_email,
+  ].map(normalizeEmail).filter(Boolean);
+
+  if (!allowedEmails.includes(recipient)) {
+    return json({ ok: false, error: "You can only send a test email to your own account email." }, { status: 403 }, origin);
+  }
+
+  const providerResult = await sendWithResend(env, {
+    id: `user_diagnostic_${token.sub}_${Date.now()}`,
+    kind: "diagnostic",
+    to: [recipient],
+    subject: "Kinely email test",
+    text: "This is a Kinely diagnostic email. If you received it, Resend delivery is configured correctly.",
+    html: `
+      <div style="font-family: Inter, Arial, sans-serif; color: #0f172a; line-height: 1.6; max-width: 620px;">
+        <p style="font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #4f46e5; margin: 0 0 8px;">Kinely</p>
+        <h1 style="font-size: 22px; margin: 0 0 12px;">Email test</h1>
+        <p style="font-size: 15px; margin: 0;">This is a Kinely diagnostic email. If you received it, Resend delivery is configured correctly.</p>
+      </div>
+    `.trim(),
+  });
+
+  return json({
+    ok: true,
+    provider: "resend",
+    providerMessageId: providerResult?.id || "",
+    to: recipient,
+  }, { status: 200 }, origin);
+}
+
 async function handleResendWebhook(request, env, origin) {
   const expectedSecret = cleanText(env.WEBHOOK_SECRET);
   if (expectedSecret) {
@@ -2688,6 +2738,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/diagnostics/email-test") {
         return handleDiagnosticEmailTest(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/diagnostics/email-test-auth") {
+        return handleAuthenticatedEmailTest(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {

@@ -266,6 +266,11 @@ export async function sendActivityNotificationViaWorker(options) {
   return result || null;
 }
 
+export async function sendAuthenticatedEmailTest(options = {}) {
+  const result = await authorizedWorkerRequest("/diagnostics/email-test-auth", options);
+  return result || null;
+}
+
 export async function queueFamilyInvitationEmail(options) {
   return queueEmailPayload(buildFamilyInvitationEmailPayload(options));
 }
