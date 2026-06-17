@@ -4,7 +4,7 @@ const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "email-cors-await-2026-06-17-04";
+const WORKER_VERSION = "email-firebase-jwks-2026-06-17-05";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -219,12 +219,38 @@ async function loadFirebaseJwks() {
   }
 
   const maxAge = Number((response.headers.get("cache-control") || "").match(/max-age=(\d+)/)?.[1] || 300);
-  const keys = await response.json();
+  const body = await response.json();
+  const keys = normalizeJwks(body);
+  if (!Object.keys(keys).length) {
+    throw new Error("Firebase signing keys response was empty.");
+  }
   jwksCache = {
     expiresAt: now + maxAge * 1000,
     keys,
   };
   return keys;
+}
+
+function normalizeJwks(body = {}) {
+  if (Array.isArray(body.keys)) {
+    return body.keys.reduce((acc, key) => {
+      if (key?.kid) {
+        acc[key.kid] = key;
+      }
+      return acc;
+    }, {});
+  }
+
+  return Object.entries(body).reduce((acc, [kid, key]) => {
+    if (key && typeof key === "object") {
+      const normalizedKid = key.kid || kid;
+      acc[normalizedKid] = {
+        kid: normalizedKid,
+        ...key,
+      };
+    }
+    return acc;
+  }, {});
 }
 
 async function verifyFirebaseToken(request, env) {
