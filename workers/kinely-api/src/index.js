@@ -3,6 +3,7 @@ const FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/s
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
+const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -496,6 +497,53 @@ function firestoreMergeWrite(env, collectionName, docId, data = {}) {
 
 function firestoreDeleteNameWrite(documentName) {
   return { delete: documentName };
+}
+
+function safeDocumentId(value, fallback = "") {
+  const cleanValue = cleanText(value, fallback || crypto.randomUUID());
+  return cleanValue.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 180);
+}
+
+function emailDeliveryDocId(providerMessageId = "", mailId = "") {
+  return safeDocumentId(providerMessageId || mailId, `email_${Date.now()}`);
+}
+
+async function recordEmailDelivery(env, mail = {}, providerResult = {}, status = "accepted", error = "") {
+  const now = new Date().toISOString();
+  const providerMessageId = cleanText(providerResult?.id || providerResult?.messageId || providerResult?.message_id);
+  const docId = emailDeliveryDocId(providerMessageId, mail.id);
+
+  await firestoreCommit(env, [
+    firestoreMergeWrite(env, EMAIL_DELIVERIES_COLLECTION, docId, {
+      id: docId,
+      provider: "resend",
+      providerMessageId,
+      provider_message_id: providerMessageId,
+      mailId: cleanText(mail.id),
+      mail_id: cleanText(mail.id),
+      kind: cleanText(mail.kind, "email"),
+      status,
+      lastEvent: status,
+      last_event: status,
+      from: cleanText(env.MAIL_FROM),
+      to: asEmailList(mail.to),
+      subject: cleanText(mail.subject),
+      error: cleanText(error),
+      providerResponse: providerResult && typeof providerResult === "object" ? providerResult : {},
+      provider_response: providerResult && typeof providerResult === "object" ? providerResult : {},
+      createdAt: now,
+      created_at: now,
+      updatedAt: now,
+      updated_at: now,
+    }),
+  ]).catch((recordError) => {
+    console.warn("Could not record email delivery status.", recordError);
+  });
+
+  return {
+    deliveryId: docId,
+    providerMessageId,
+  };
 }
 
 function parseMailPayload(payload = {}) {
@@ -1648,10 +1696,15 @@ async function sendWithResend(env, mail) {
   }
 
   if (!response.ok) {
+    await recordEmailDelivery(env, mail, body, "failed", `Resend delivery failed (${response.status})`);
     throw new Error(`Resend delivery failed (${response.status}): ${JSON.stringify(body).slice(0, 800)}`);
   }
 
-  return body;
+  const delivery = await recordEmailDelivery(env, mail, body, "accepted");
+  return {
+    ...body,
+    ...delivery,
+  };
 }
 
 async function handleCustodyInvitationSend(request, env, origin) {
@@ -2522,6 +2575,17 @@ async function handleActivityNotificationSend(request, env, origin) {
       email: item.recipient?.email || "",
       reason: item.result.reason instanceof Error ? item.result.reason.message : cleanText(item.result.reason),
     }));
+  const emailSuccesses = emailResults
+    .map((result, index) => ({
+      result,
+      recipient: emailDeliveries[index]?.recipient,
+    }))
+    .filter((item) => item.result.status === "fulfilled")
+    .map((item) => ({
+      email: item.recipient?.email || "",
+      providerMessageId: cleanText(item.result.value?.providerMessageId || item.result.value?.id),
+      deliveryId: cleanText(item.result.value?.deliveryId),
+    }));
 
   const deliverySummary = {
     ok: true,
@@ -2534,6 +2598,7 @@ async function handleActivityNotificationSend(request, env, origin) {
     emailFailedCount: emailFailures.length,
     skippedCount: skipped.length,
     skipped: skipped.slice(0, 20),
+    emailSuccesses: emailSuccesses.slice(0, 20),
     emailFailures: emailFailures.slice(0, 20),
   };
 
@@ -2666,10 +2731,41 @@ async function handleResendWebhook(request, env, origin) {
   }
 
   const payload = await request.json().catch(() => ({}));
+  const eventType = cleanText(payload?.type || payload?.event || payload?.data?.event, "resend_event");
+  const data = payload?.data && typeof payload.data === "object" ? payload.data : payload;
+  const providerMessageId = cleanText(
+    data?.email_id ||
+    data?.emailId ||
+    data?.message_id ||
+    data?.messageId ||
+    data?.id ||
+    payload?.id
+  );
+
   console.log("Resend webhook received", {
-    type: payload?.type || payload?.event || "",
-    id: payload?.data?.id || payload?.id || "",
+    type: eventType,
+    id: providerMessageId,
   });
+
+  if (providerMessageId) {
+    const now = new Date().toISOString();
+    await firestoreCommit(env, [
+      firestoreMergeWrite(env, EMAIL_DELIVERIES_COLLECTION, emailDeliveryDocId(providerMessageId), {
+        provider: "resend",
+        providerMessageId,
+        provider_message_id: providerMessageId,
+        status: eventType,
+        lastEvent: eventType,
+        last_event: eventType,
+        webhookPayload: payload,
+        webhook_payload: payload,
+        updatedAt: now,
+        updated_at: now,
+      }),
+    ]).catch((error) => {
+      console.warn("Could not record Resend webhook event.", error);
+    });
+  }
 
   return json({ ok: true }, { status: 200 }, origin);
 }

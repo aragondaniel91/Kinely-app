@@ -253,7 +253,10 @@ export default function NotificationPreferences() {
       const result = await sendAuthenticatedEmailTest({
         to: myEmail || user?.email || "",
       });
-      setMessage(`Test email sent to ${result?.to || myEmail || user?.email || "your account"}.`);
+      const providerId = result?.providerMessageId || result?.id || "";
+      setMessage(
+        `Test email accepted by Resend for ${result?.to || myEmail || user?.email || "your account"}${providerId ? ` - Resend ID: ${providerId}` : ""}.`
+      );
     } catch (testError) {
       console.error("Error sending test email:", testError);
       setError(testError?.message || "Could not send test email.");
