@@ -4,7 +4,7 @@ const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "email-diagnostics-2026-06-17-02";
+const WORKER_VERSION = "email-diagnostics-2026-06-17-03";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -516,6 +516,10 @@ function extractProviderMessageId(providerResult = {}) {
     providerResult?.id ||
     providerResult?.data?.id ||
     providerResult?.email?.id ||
+    providerResult?.matchedEmail?.id ||
+    providerResult?.matched_email?.id ||
+    providerResult?.fallbackEmail?.id ||
+    providerResult?.fallback_email?.id ||
     providerResult?.email_id ||
     providerResult?.emailId ||
     providerResult?.messageId ||
@@ -542,6 +546,48 @@ function providerResponseShape(providerResult = {}) {
   }
 
   return shape;
+}
+
+function resendEmailMatchesMail(emailRecord = {}, mail = {}) {
+  const recordRecipients = asEmailList(emailRecord?.to);
+  const requestedRecipients = asEmailList(mail.to);
+  const recordSubject = cleanText(emailRecord?.subject);
+  const requestedSubject = cleanText(mail.subject);
+
+  return (
+    recordSubject === requestedSubject &&
+    requestedRecipients.length > 0 &&
+    requestedRecipients.some((email) => recordRecipients.includes(email))
+  );
+}
+
+async function findRecentResendEmail(env, mail = {}) {
+  const apiKey = cleanText(env.RESEND_API_KEY);
+  if (!apiKey) return null;
+
+  const response = await fetch(RESEND_ENDPOINT, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+  });
+
+  const bodyText = await response.text();
+  let body = {};
+  try {
+    body = bodyText ? JSON.parse(bodyText) : {};
+  } catch {
+    body = { raw: bodyText };
+  }
+
+  if (!response.ok) {
+    console.warn("Resend sent-email lookup failed.", response.status, body);
+    return null;
+  }
+
+  const emails = Array.isArray(body?.data) ? body.data : [];
+  return emails.find((emailRecord) => resendEmailMatchesMail(emailRecord, mail)) || null;
 }
 
 async function recordEmailDelivery(env, mail = {}, providerResult = {}, status = "accepted", error = "") {
@@ -1736,6 +1782,12 @@ async function sendWithResend(env, mail) {
   if (!response.ok) {
     await recordEmailDelivery(env, mail, body, "failed", `Resend delivery failed (${response.status})`);
     throw new Error(`Resend delivery failed (${response.status}): ${JSON.stringify(body).slice(0, 800)}`);
+  }
+
+  const matchedEmail = extractProviderMessageId(body) ? null : await findRecentResendEmail(env, mail);
+  if (matchedEmail) {
+    body.matchedEmail = matchedEmail;
+    body.matched_email = matchedEmail;
   }
 
   const delivery = await recordEmailDelivery(env, mail, body, "accepted");
