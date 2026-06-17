@@ -393,7 +393,14 @@ service cloud.firestore {
     }
 
     function canReadCustodyDoc() {
-      return hasExistingCustodyGroupId() && canReadCustody(existingCustodyGroupId());
+      return (
+          hasExistingCustodyGroupId()
+          && canReadCustody(existingCustodyGroupId())
+        )
+        || (
+          hasExistingFamilyId()
+          && canReadFamilyModule(existingFamilyId(), "custody")
+        );
     }
 
     function canCreateCustodyDoc() {
@@ -508,7 +515,8 @@ service cloud.firestore {
     }
 
     match /families/{familyId} {
-      allow read: if canReadFamily(familyId) || (signedIn() && familyId == "family_" + request.auth.uid);
+      allow read: if (signedIn() && isFamilyViewerData(resource.data))
+        || (signedIn() && familyId == "family_" + request.auth.uid);
       allow create: if signedIn() && request.resource.data.get("ownerId", "") == request.auth.uid;
       allow update, delete: if canManageFamily(familyId);
     }
