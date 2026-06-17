@@ -4,7 +4,7 @@ const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "email-diagnostics-2026-06-17-03";
+const WORKER_VERSION = "email-cors-await-2026-06-17-04";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -2962,63 +2962,63 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/emails/send") {
-        return handleSendEmail(request, env, origin);
+        return await handleSendEmail(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/invitations/family/send") {
-        return handleFamilyInvitationSend(request, env, origin);
+        return await handleFamilyInvitationSend(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/invitations/custody/send") {
-        return handleCustodyInvitationSend(request, env, origin);
+        return await handleCustodyInvitationSend(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/invitations/family/respond") {
-        return handleFamilyInvitationRespond(request, env, origin);
+        return await handleFamilyInvitationRespond(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/invitations/custody/respond") {
-        return handleCustodyInvitationRespond(request, env, origin);
+        return await handleCustodyInvitationRespond(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/custody-groups/save") {
-        return handleCustodyGroupSave(request, env, origin);
+        return await handleCustodyGroupSave(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/custody-groups/delete") {
-        return handleCustodyGroupDelete(request, env, origin);
+        return await handleCustodyGroupDelete(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/custody-days/save") {
-        return handleCustodyDaysSave(request, env, origin);
+        return await handleCustodyDaysSave(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/custody-days/delete") {
-        return handleCustodyDayDelete(request, env, origin);
+        return await handleCustodyDayDelete(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/families/update") {
-        return handleFamilyUpdate(request, env, origin);
+        return await handleFamilyUpdate(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/families/delete") {
-        return handleFamilyDelete(request, env, origin);
+        return await handleFamilyDelete(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/notifications/activity/send") {
-        return handleActivityNotificationSend(request, env, origin);
+        return await handleActivityNotificationSend(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/diagnostics/email-test") {
-        return handleDiagnosticEmailTest(request, env, origin);
+        return await handleDiagnosticEmailTest(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/diagnostics/email-test-auth") {
-        return handleAuthenticatedEmailTest(request, env, origin);
+        return await handleAuthenticatedEmailTest(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {
-        return handleResendWebhook(request, env, origin);
+        return await handleResendWebhook(request, env, origin);
       }
 
       return json({ ok: false, error: "Not found." }, { status: 404 }, origin);
