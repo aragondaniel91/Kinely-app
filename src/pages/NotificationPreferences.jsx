@@ -254,8 +254,15 @@ export default function NotificationPreferences() {
         to: myEmail || user?.email || "",
       });
       const providerId = result?.providerMessageId || result?.id || "";
+      const lastEvent = result?.lastEvent || result?.last_event || "";
+      const lookupError = result?.lookupError || result?.lookup_error || "";
       setMessage(
-        `Test email accepted by Resend for ${result?.to || myEmail || user?.email || "your account"}${providerId ? ` - Resend ID: ${providerId}` : ""}.`
+        [
+          `Test email accepted by Resend for ${result?.to || myEmail || user?.email || "your account"}.`,
+          providerId ? `Resend ID: ${providerId}.` : "Resend did not return an email ID.",
+          lastEvent ? `Status: ${lastEvent}.` : "",
+          lookupError ? `Status lookup: ${lookupError}` : "",
+        ].filter(Boolean).join(" ")
       );
     } catch (testError) {
       console.error("Error sending test email:", testError);

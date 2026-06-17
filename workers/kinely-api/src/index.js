@@ -508,9 +508,19 @@ function emailDeliveryDocId(providerMessageId = "", mailId = "") {
   return safeDocumentId(providerMessageId || mailId, `email_${Date.now()}`);
 }
 
+function extractProviderMessageId(providerResult = {}) {
+  return cleanText(
+    providerResult?.providerMessageId ||
+    providerResult?.provider_message_id ||
+    providerResult?.id ||
+    providerResult?.messageId ||
+    providerResult?.message_id
+  );
+}
+
 async function recordEmailDelivery(env, mail = {}, providerResult = {}, status = "accepted", error = "") {
   const now = new Date().toISOString();
-  const providerMessageId = cleanText(providerResult?.id || providerResult?.messageId || providerResult?.message_id);
+  const providerMessageId = extractProviderMessageId(providerResult);
   const docId = emailDeliveryDocId(providerMessageId, mail.id);
 
   await firestoreCommit(env, [
@@ -1707,6 +1717,78 @@ async function sendWithResend(env, mail) {
   };
 }
 
+async function retrieveResendEmail(env, providerMessageId = "") {
+  const apiKey = cleanText(env.RESEND_API_KEY);
+  const emailId = cleanText(providerMessageId);
+  if (!apiKey || !emailId) return null;
+
+  const response = await fetch(`${RESEND_ENDPOINT}/${encodeURIComponent(emailId)}`, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+  });
+
+  const bodyText = await response.text();
+  let body = {};
+  try {
+    body = bodyText ? JSON.parse(bodyText) : {};
+  } catch {
+    body = { raw: bodyText };
+  }
+
+  if (!response.ok) {
+    throw new Error(`Resend status lookup failed (${response.status}): ${JSON.stringify(body).slice(0, 800)}`);
+  }
+
+  return body;
+}
+
+async function enrichResendDeliveryStatus(env, providerResult = {}) {
+  const providerMessageId = extractProviderMessageId(providerResult);
+  if (!providerMessageId) {
+    return {
+      providerMessageId: "",
+      lastEvent: "",
+      lookupError: "Resend did not return an email id.",
+    };
+  }
+
+  try {
+    const status = await retrieveResendEmail(env, providerMessageId);
+    const lastEvent = cleanText(status?.last_event || status?.lastEvent || "accepted");
+    await firestoreCommit(env, [
+      firestoreMergeWrite(env, EMAIL_DELIVERIES_COLLECTION, emailDeliveryDocId(providerMessageId), {
+        provider: "resend",
+        providerMessageId,
+        provider_message_id: providerMessageId,
+        status: lastEvent || "accepted",
+        lastEvent: lastEvent || "accepted",
+        last_event: lastEvent || "accepted",
+        providerStatus: status && typeof status === "object" ? status : {},
+        provider_status: status && typeof status === "object" ? status : {},
+        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    ]).catch((error) => {
+      console.warn("Could not record Resend status lookup.", error);
+    });
+
+    return {
+      providerMessageId,
+      lastEvent,
+      providerStatus: status,
+    };
+  } catch (error) {
+    return {
+      providerMessageId,
+      lastEvent: "accepted",
+      lookupError: error?.message || "Could not retrieve Resend delivery status.",
+    };
+  }
+}
+
 async function handleCustodyInvitationSend(request, env, origin) {
   const token = await verifyFirebaseToken(request, env);
   const payload = await request.json();
@@ -1737,7 +1819,7 @@ async function handleCustodyInvitationSend(request, env, origin) {
     ok: true,
     invitationId: invitation.id,
     provider: "resend",
-    providerMessageId: providerResult?.id || "",
+    providerMessageId: extractProviderMessageId(providerResult),
   }, { status: 200 }, origin);
 }
 
@@ -1771,7 +1853,7 @@ async function handleFamilyInvitationSend(request, env, origin) {
     ok: true,
     invitationId: invitation.id,
     provider: "resend",
-    providerMessageId: providerResult?.id || "",
+    providerMessageId: extractProviderMessageId(providerResult),
   }, { status: 200 }, origin);
 }
 
@@ -2583,7 +2665,7 @@ async function handleActivityNotificationSend(request, env, origin) {
     .filter((item) => item.result.status === "fulfilled")
     .map((item) => ({
       email: item.recipient?.email || "",
-      providerMessageId: cleanText(item.result.value?.providerMessageId || item.result.value?.id),
+      providerMessageId: extractProviderMessageId(item.result.value),
       deliveryId: cleanText(item.result.value?.deliveryId),
     }));
 
@@ -2628,9 +2710,9 @@ async function handleSendEmail(request, env, origin) {
 
   return json({
     ok: true,
-    id: mail.id || providerResult?.id || "",
+    id: mail.id || extractProviderMessageId(providerResult),
     provider: "resend",
-    providerMessageId: providerResult?.id || "",
+    providerMessageId: extractProviderMessageId(providerResult),
     uid: token.sub,
   }, { status: 200 }, origin);
 }
@@ -2666,7 +2748,7 @@ async function handleDiagnosticEmailTest(request, env, origin) {
   return json({
     ok: true,
     provider: "resend",
-    providerMessageId: providerResult?.id || "",
+    providerMessageId: extractProviderMessageId(providerResult),
     to: recipient,
   }, { status: 200 }, origin);
 }
@@ -2713,10 +2795,14 @@ async function handleAuthenticatedEmailTest(request, env, origin) {
     `.trim(),
   });
 
+  const statusResult = await enrichResendDeliveryStatus(env, providerResult);
+
   return json({
     ok: true,
     provider: "resend",
-    providerMessageId: providerResult?.id || "",
+    providerMessageId: statusResult.providerMessageId,
+    lastEvent: statusResult.lastEvent,
+    lookupError: statusResult.lookupError || "",
     to: recipient,
   }, { status: 200 }, origin);
 }
