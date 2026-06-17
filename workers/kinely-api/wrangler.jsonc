@@ -1,10 +1,8 @@
 {
   // Required secrets - set via Cloudflare Dashboard or CLI:
-  //   npx wrangler secret put FIREBASE_PROJECT_ID
-  //   npx wrangler secret put GOOGLE_CLIENT_EMAIL
   //   npx wrangler secret put GOOGLE_PRIVATE_KEY
   //   npx wrangler secret put RESEND_API_KEY
-  //   npx wrangler secret put MAIL_FROM
+  //   npx wrangler secret put WEBHOOK_SECRET
   "name": "kinely-api",
   "main": "src/index.js",
   "compatibility_date": "2026-06-04",
@@ -13,7 +11,9 @@
   },
   "vars": {
     "APP_PUBLIC_URL": "https://kinely.net",
-    // FIREBASE_PROJECT_ID must be set via: npx wrangler secret put FIREBASE_PROJECT_ID
+    "FIREBASE_PROJECT_ID": "family-wall-b5f1d",
+    "GOOGLE_CLIENT_EMAIL": "kinely-worker@family-wall-b5f1d.iam.gserviceaccount.com",
+    "MAIL_FROM": "Kinely <no-reply@kinely.net>",
     "ALLOWED_ORIGINS": "https://kinely.net,https://www.kinely.net,https://kinely-app.pages.dev,http://localhost:5173"
   }
 }
