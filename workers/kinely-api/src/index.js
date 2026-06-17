@@ -128,7 +128,15 @@ function allowedOrigin(request, env) {
     .filter(Boolean);
 
   if (!origin) return allowed[0] || "https://kinely.net";
-  return allowed.includes(origin) ? origin : "";
+  if (allowed.includes(origin)) return origin;
+
+  // Allow any Cloudflare Pages preview deployment subdomain, e.g.
+  // https://16165fa9.kinely-app.pages.dev
+  if (/^https:\/\/[a-z0-9-]+\.kinely-app\.pages\.dev$/i.test(origin)) {
+    return origin;
+  }
+
+  return "";
 }
 
 function cleanText(value, fallback = "") {
