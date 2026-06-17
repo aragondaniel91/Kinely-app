@@ -4,6 +4,7 @@ const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
+const WORKER_VERSION = "email-diagnostics-2026-06-17-02";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -2828,6 +2829,7 @@ async function handleAuthenticatedEmailTest(request, env, origin) {
   return json({
     ok: true,
     provider: "resend",
+    workerVersion: WORKER_VERSION,
     providerMessageId: statusResult.providerMessageId,
     lastEvent: statusResult.lastEvent,
     lookupError: statusResult.lookupError || "",
@@ -2896,7 +2898,7 @@ export default {
 
     try {
       if (request.method === "GET" && url.pathname === "/health") {
-        return json({ ok: true, service: "kinely-api" }, { status: 200 }, origin);
+        return json({ ok: true, service: "kinely-api", version: WORKER_VERSION }, { status: 200 }, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/emails/send") {

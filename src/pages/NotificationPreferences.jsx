@@ -256,6 +256,7 @@ export default function NotificationPreferences() {
       const providerId = result?.providerMessageId || result?.id || "";
       const lastEvent = result?.lastEvent || result?.last_event || "";
       const lookupError = result?.lookupError || result?.lookup_error || "";
+      const workerVersion = result?.workerVersion || result?.worker_version || "";
       const responseShape = result?.providerResponseShape || result?.provider_response_shape || {};
       const responseKeys = [
         responseShape?.keys?.length ? `keys=${responseShape.keys.join(",")}` : "",
@@ -267,6 +268,7 @@ export default function NotificationPreferences() {
           `Test email accepted by Resend for ${result?.to || myEmail || user?.email || "your account"}.`,
           providerId ? `Resend ID: ${providerId}.` : `Resend did not return an email ID${responseKeys ? ` (${responseKeys})` : ""}.`,
           lastEvent ? `Status: ${lastEvent}.` : "",
+          workerVersion ? `Worker: ${workerVersion}.` : "",
           lookupError ? `Status lookup: ${lookupError}` : "",
         ].filter(Boolean).join(" ")
       );
