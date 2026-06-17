@@ -3,8 +3,9 @@ const FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/s
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
+const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "activity-recipient-targets-2026-06-17-06";
+const WORKER_VERSION = "firestore-commit-retry-2026-06-17-07";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -439,6 +440,42 @@ async function firestoreRequest(env, url, init = {}) {
   return { response, body };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryAfterMs(value = "") {
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.min(seconds * 1000, 4_000);
+  }
+
+  const dateMs = Date.parse(value);
+  if (Number.isFinite(dateMs)) {
+    return Math.min(Math.max(dateMs - Date.now(), 0), 4_000);
+  }
+
+  return 0;
+}
+
+function isRetryableFirestoreWrite(response, body = {}) {
+  const status = response?.status;
+  const code = cleanText(body?.error?.status);
+  return (
+    [429, 500, 502, 503, 504].includes(status) ||
+    ["ABORTED", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED", "UNAVAILABLE"].includes(code)
+  );
+}
+
+function firestoreBackoffDelay(response, attempt) {
+  const retryAfter = retryAfterMs(response?.headers?.get("retry-after") || "");
+  if (retryAfter) return retryAfter;
+
+  const base = Math.min(250 * (2 ** attempt), 4_000);
+  const jitter = Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] % 250);
+  return base + jitter;
+}
+
 async function firestoreGetDoc(env, collectionName, docId) {
   const { response, body } = await firestoreRequest(env, firestoreDocumentUrl(env, collectionName, docId));
   if (response.status === 404) return null;
@@ -490,18 +527,35 @@ async function firestoreQueryField(env, collectionName, { field, op = "EQUAL", v
 }
 
 async function firestoreCommit(env, writes = []) {
+  if (!writes.length) return { writeResults: [] };
+
   const projectId = cleanText(env.FIREBASE_PROJECT_ID);
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`;
-  const { response, body } = await firestoreRequest(env, url, {
-    method: "POST",
-    body: JSON.stringify({ writes }),
-  });
+  const requestBody = JSON.stringify({ writes });
+  let lastStatus = 0;
+  let lastBody = {};
 
-  if (!response.ok) {
-    throw new Error(`Firestore commit failed (${response.status}): ${JSON.stringify(body).slice(0, 800)}`);
+  for (let attempt = 0; attempt < FIRESTORE_COMMIT_MAX_ATTEMPTS; attempt += 1) {
+    const { response, body } = await firestoreRequest(env, url, {
+      method: "POST",
+      body: requestBody,
+    });
+
+    if (response.ok) return body;
+
+    lastStatus = response.status;
+    lastBody = body;
+
+    if (!isRetryableFirestoreWrite(response, body) || attempt === FIRESTORE_COMMIT_MAX_ATTEMPTS - 1) {
+      break;
+    }
+
+    await sleep(firestoreBackoffDelay(response, attempt));
   }
 
-  return body;
+  throw new Error(
+    `Firestore commit failed (${lastStatus}) after ${FIRESTORE_COMMIT_MAX_ATTEMPTS} attempt(s): ${JSON.stringify(lastBody).slice(0, 800)}`
+  );
 }
 
 async function firestoreCommitInChunks(env, writes = []) {
