@@ -7,9 +7,9 @@ Kinely can run the React/Vite frontend on Cloudflare Pages while keeping Firebas
 Create a Pages project from the GitHub repository.
 
 - Framework preset: `Vite`
-- Build command: `npm ci && npm run build`
+- Build command: `npm run build`
 - Output directory: `dist`
-- Production branch: `stabilization/firestore-and-lint` for the current migration, then `main` once the branch is merged.
+- Production branch: `main`.
 
 If the Cloudflare UI requires a deploy command, use:
 
@@ -17,9 +17,7 @@ If the Cloudflare UI requires a deploy command, use:
 npx wrangler pages deploy dist --project-name=kinely-app
 ```
 
-If the project was created as a Workers static assets app and Cloudflare automatically runs `npx wrangler versions upload`, the root `wrangler.jsonc` supports that flow by pointing Workers static assets at `./dist`.
-
-Do not use `npx wrangler deploy` for the frontend. That command is for Workers with an entry script and will try to parse the Vite app as a Worker.
+Do not use `npx wrangler deploy` for the frontend. That command is for Workers with an entry script. Kinely's frontend is a Cloudflare Pages project that deploys the Vite `dist` directory.
 
 Set these Pages environment variables:
 
@@ -65,9 +63,7 @@ Configure Worker secrets:
 
 ```powershell
 npx wrangler secret put RESEND_API_KEY --config workers/kinely-api/wrangler.jsonc
-npx wrangler secret put MAIL_FROM --config workers/kinely-api/wrangler.jsonc
 npx wrangler secret put WEBHOOK_SECRET --config workers/kinely-api/wrangler.jsonc
-npx wrangler secret put GOOGLE_CLIENT_EMAIL --config workers/kinely-api/wrangler.jsonc
 npx wrangler secret put GOOGLE_PRIVATE_KEY --config workers/kinely-api/wrangler.jsonc
 ```
 
@@ -75,11 +71,13 @@ Required Worker variables are defined in `workers/kinely-api/wrangler.jsonc`:
 
 - `APP_PUBLIC_URL`
 - `FIREBASE_PROJECT_ID`
+- `GOOGLE_CLIENT_EMAIL`
+- `MAIL_FROM`
 - `ALLOWED_ORIGINS`
 
 ## Current migration behavior
 
-Invitation email sending is Worker-first when `VITE_KINELY_API_URL` is set. If that variable is missing, the app keeps using the existing Firestore `mail` queue and Firebase Function email sender.
+Invitation and activity email sending is Worker-first when `VITE_KINELY_API_URL` is set. Production should keep this value configured in Cloudflare Pages; there is no active Firebase Functions email fallback in the repo.
 
 The Worker also includes `POST /invitations/family/send`, which verifies the Firebase ID token, checks that the caller is a family owner/admin, writes the pending invitation to Firestore with a service account, updates the family pending invite fields, and sends the invitation email through Resend.
 
@@ -97,6 +95,6 @@ Invitation responses are Worker-first through `POST /invitations/family/respond`
 
 Activity notifications are Worker-first through `POST /notifications/activity/send`. The app calls this endpoint after writing `familyActivity`. The Worker verifies the Firebase ID token, validates access to the family or custody group, derives recipients from the Firestore family/group document, reads each user's notification preferences, writes in-app notification documents, and sends email through Resend only when the user has email notifications enabled.
 
-Firestore document triggers for calendar/task/custody changes still run in Firebase Functions as a temporary fallback. Cloudflare Workers do not listen to Firestore document changes natively, so new production flows should prefer explicit app calls to the Worker or a separate Google-to-Worker webhook bridge.
+Calendar, task, custody, meal, and list notification flows should use explicit app calls to the Worker after the user action succeeds. Cloudflare Workers do not listen to Firestore document changes natively, so any future passive/background trigger should be a deliberate Google-to-Worker webhook bridge or scheduled reconciler, not an accidental Firebase Functions dependency.
 
 For the Google service account, start with the smallest practical IAM role for the migration. The Worker currently needs Firestore document read/write access for invitation and notification flows.

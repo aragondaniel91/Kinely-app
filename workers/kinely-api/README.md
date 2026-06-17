@@ -15,11 +15,8 @@ Custody day calendar writes are handled directly by the frontend through Firesto
 Set these in the Cloudflare Dashboard or with Wrangler:
 
 ```powershell
-npx wrangler secret put FIREBASE_PROJECT_ID
-npx wrangler secret put GOOGLE_CLIENT_EMAIL
 npx wrangler secret put GOOGLE_PRIVATE_KEY
 npx wrangler secret put RESEND_API_KEY
-npx wrangler secret put MAIL_FROM
 npx wrangler secret put WEBHOOK_SECRET
 ```
 
@@ -61,4 +58,7 @@ npx wrangler dev
 Configured in `wrangler.jsonc`:
 
 - `APP_PUBLIC_URL`: Production URL of the Kinely frontend.
+- `FIREBASE_PROJECT_ID`: Firebase project ID used by Firestore REST.
+- `GOOGLE_CLIENT_EMAIL`: Service account client email used for Firestore REST.
+- `MAIL_FROM`: Sender identity verified in Resend.
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins.

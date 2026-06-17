@@ -1,110 +1,105 @@
 # Email delivery
 
-The web app does not send email directly from the browser. That would expose private SMTP, Resend, SendGrid, or other provider keys to every user.
+The web app does not send email directly from the browser. That would expose private Resend or Google service-account credentials to every user.
 
-Instead, the app writes email jobs to the Firestore `mail` collection. A trusted backend sender must watch that collection and deliver the email.
+Kinely uses the Cloudflare Worker in `workers/kinely-api` as the trusted backend for invitations, diagnostics, and activity notification emails. The Worker verifies the Firebase ID token, checks family/custody access, writes the in-app notification documents, and sends email through Resend when the recipient preferences allow email.
 
 ## Current implementation
 
-When an admin creates an invitation, the app now writes:
+The active email path is:
+
+```txt
+React app
+  -> Cloudflare Worker
+  -> Firestore REST API
+  -> Resend
+```
+
+Important Worker endpoints:
+
+```txt
+/invitations/family/send
+/invitations/family/respond
+/invitations/custody/respond
+/notifications/activity/send
+/diagnostics/email-test-auth
+/diagnostics/email-test
+```
+
+Important collections:
 
 ```txt
 familyInvitations/{id}
 custodyInvitations/{id}
 notifications/{id}
-mail/{id}
+emailDeliveries/{id}
+familyActivity/{id}
 ```
 
-The `mail` document follows the common Firebase Trigger Email pattern:
+`emailDeliveries` stores provider status and Resend IDs for troubleshooting. It replaces the old queued `mail` sender flow.
 
-```js
-{
-  to: ["person@example.com"],
-  recipientEmail: "person@example.com",
-  status: "queued",
-  kind: "family_invitation",
-  message: {
-    subject: "You're invited to join Daniel Family",
-    text: "...",
-    html: "..."
-  },
-  familyId: "family_...",
-  custodyGroupId: "",
-  invitationId: "family_...",
-  invitationCollection: "familyInvitations",
-  createdBy: "firebase-auth-uid",
-  createdAt: serverTimestamp()
-}
-```
+## Required Worker secrets
 
-Supported `kind` values in rules:
-
-```txt
-family_invitation
-custody_invitation
-notification
-```
-
-The frontend currently queues invitation emails. The generic notification email helper is ready for future backend-triggered reminders and digests.
-
-Invitation notifications are also written to `notifications/{id}` so the recipient can see them in Profile > Notifications after signing in with the invited email address.
-
-## Required production sender
-
-The repo includes a Firebase Cloud Function sender in:
-
-```txt
-functions/index.js
-```
-
-It listens to `mail/{mailId}`, sends through Resend, and then updates the `mail` document to `sent` or `error`.
-
-## Required production secrets
-
-Set these Firebase Functions secrets:
+Set these in Cloudflare Dashboard or with Wrangler:
 
 ```bash
-npx firebase-tools functions:secrets:set RESEND_API_KEY
-npx firebase-tools functions:secrets:set MAIL_FROM
+npx wrangler secret put GOOGLE_PRIVATE_KEY --config workers/kinely-api/wrangler.jsonc
+npx wrangler secret put RESEND_API_KEY --config workers/kinely-api/wrangler.jsonc
+npx wrangler secret put WEBHOOK_SECRET --config workers/kinely-api/wrangler.jsonc
+```
+
+The Worker also expects these non-secret variables in `workers/kinely-api/wrangler.jsonc` or Cloudflare Dashboard:
+
+```txt
+APP_PUBLIC_URL
+FIREBASE_PROJECT_ID
+GOOGLE_CLIENT_EMAIL
+MAIL_FROM
+ALLOWED_ORIGINS
 ```
 
 Example `MAIL_FROM` value:
 
 ```txt
-Kinely <no-reply@your-domain.com>
+Kinely <no-reply@kinely.net>
 ```
 
-Then deploy functions:
+Deploy the Worker:
 
 ```bash
-npm run firebase:deploy:functions
+npm run cloudflare:worker:deploy
 ```
 
-You can still replace this later with another trusted sender:
+## Diagnostics
 
-1. Firebase Trigger Email extension watching `mail`.
-2. A different Firebase Cloud Function provider.
-3. A Vercel/Node worker that uses Firebase Admin SDK and your email provider.
+Authenticated browser test:
 
-Any sender should:
+```txt
+Profile > Notifications > Send test email
+```
 
-1. Read only documents where `status` is `queued`.
-2. Send `message.subject`, `message.text`, and `message.html` to `to`.
-3. Update the document with `status: "sent"` or `status: "error"`.
-4. Store provider metadata such as `sentAt`, `error`, or `providerMessageId`.
+Protected webhook test:
 
-Firestore rules deny client updates to `mail`; backend/admin code bypasses rules with trusted credentials.
+```bash
+curl.exe -X POST "https://kinely-api.your-account.workers.dev/diagnostics/email-test" \
+  -H "content-type: application/json" \
+  -H "x-kinely-webhook-secret: YOUR_WEBHOOK_SECRET" \
+  -d "{\"to\":\"you@example.com\"}"
+```
+
+If Resend accepts the email, the response should include a provider ID and `emailDeliveries/{id}` should be written.
 
 ## Public app URL
 
-Set this env var in Vercel so email links point to production:
+Set these values so email links point to production:
 
-```bash
-VITE_APP_PUBLIC_URL=https://your-production-domain.com
+```txt
+VITE_APP_PUBLIC_URL=https://kinely.net
+APP_PUBLIC_URL=https://kinely.net
 ```
 
-Local development falls back to `window.location.origin`, for example `http://127.0.0.1:5173`.
+Local development can use `http://localhost:5173`.
 
-## Next notification step
+## Notes
 
-For real scheduled notifications, add a backend worker that reads notification preferences from `users/{uid}` and app data from the relevant family or custody group. The worker should create `mail` jobs only for recipients who have email enabled and permission to see the underlying item.
+The old Firebase Functions `mail` queue was removed from the active repo. Keep email delivery in the Worker unless there is a deliberate migration plan to another trusted backend.

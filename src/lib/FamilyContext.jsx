@@ -122,6 +122,83 @@ function uniqueFirestoreDocs(docs = []) {
   });
 }
 
+function familyMemberKey(member = {}) {
+  return (
+    member.uid ||
+    member.userId ||
+    member.user_id ||
+    member.personId ||
+    member.person_id ||
+    normalizeEmail(member.email) ||
+    member.id ||
+    ""
+  );
+}
+
+function mergeFamilyMemberLists(embeddedMembers = [], documentMembers = []) {
+  const merged = new Map();
+
+  listOrEmpty(embeddedMembers).forEach((member) => {
+    const key = familyMemberKey(member);
+    if (key) merged.set(key, member);
+  });
+
+  listOrEmpty(documentMembers).forEach((member) => {
+    const key = familyMemberKey(member);
+    if (!key) return;
+    merged.set(key, {
+      ...(merged.get(key) || {}),
+      ...member,
+    });
+  });
+
+  return Array.from(merged.values());
+}
+
+async function getFamilyMemberDocuments(familyId) {
+  if (!familyId) return [];
+
+  const membersRef = collection(db, "familyMembers");
+  const results = await Promise.allSettled([
+    getDocs(query(membersRef, where("familyId", "==", familyId))),
+    getDocs(query(membersRef, where("family_id", "==", familyId))),
+  ]);
+
+  if (results.every((result) => result.status === "rejected")) {
+    console.warn("Could not load family member documents.", results[0].reason);
+    return [];
+  }
+
+  return uniqueFirestoreDocs(
+    results.flatMap((result) => {
+      if (result.status !== "fulfilled") return [];
+      return result.value.docs.map((memberDoc) => ({
+        id: memberDoc.id,
+        ...memberDoc.data(),
+      }));
+    })
+  );
+}
+
+async function attachFamilyMemberDocuments(family) {
+  if (!family?.id) return family;
+
+  const documentMembers = await getFamilyMemberDocuments(family.id);
+  if (!documentMembers.length) return family;
+
+  const members = mergeFamilyMemberLists(family.members, documentMembers);
+  return {
+    ...family,
+    members,
+    familyMembers: documentMembers,
+    family_members: documentMembers,
+  };
+}
+
+async function attachFamilyMembersToFamilies(families = []) {
+  return Promise.all(uniqueFirestoreDocs(families).map(attachFamilyMemberDocuments));
+}
+
 async function getFamiliesByMemberEmail(email) {
   const cleanEmail = normalizeInviteEmail(email);
   if (!cleanEmail) return [];
@@ -223,6 +300,54 @@ function slugify(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function familyMemberDocumentId(familyId, member = {}) {
+  const key =
+    member.uid ||
+    member.userId ||
+    member.user_id ||
+    member.personId ||
+    member.person_id ||
+    member.id ||
+    normalizeEmail(member.email) ||
+    member.name ||
+    member.displayName ||
+    "member";
+  return `${familyId}_${slugify(key) || "member"}`.slice(0, 180);
+}
+
+function familyMemberDocumentPayload(familyId, member = {}) {
+  const id = familyMemberDocumentId(familyId, member);
+  const email = normalizeEmail(member.email || member.memberEmail || member.member_email);
+  const uid = member.uid || member.userId || member.user_id || "";
+  const personId = member.personId || member.person_id || member.id || (uid ? `user_${uid}` : "") || (email ? `email_${email}` : "");
+
+  return {
+    ...member,
+    id,
+    familyId,
+    family_id: familyId,
+    personId,
+    person_id: personId,
+    uid,
+    email,
+    updatedAt: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  };
+}
+
+async function materializeFamilyMembers(familyId, members = []) {
+  if (!familyId || !Array.isArray(members) || !members.length) return;
+
+  await Promise.all(
+    members
+      .map((member) => familyMemberDocumentPayload(familyId, member))
+      .filter((member) => member.personId || member.uid || member.email)
+      .map((member) =>
+        setDoc(doc(db, "familyMembers", member.id), member, { merge: true })
+      )
+  );
 }
 
 function childDisplayName(child, index = 0) {
@@ -687,6 +812,7 @@ async function ensureUserHasFamily(firebaseUser, authProfile) {
 
   if (!existingBootstrapFamily.exists()) {
     await setDoc(familyRef, familyData);
+    await materializeFamilyMembers(familyRef.id, familyData.members);
   }
 
   await setDoc(
@@ -777,10 +903,11 @@ export function FamilyProvider({ children }) {
         const identityFamilies = await getFamiliesByUserIdentity(user, myEmail);
         identityFamilies.forEach((family) => pushUniqueFamily(loaded, family));
 
-        await syncUserFamilyRefs(user, userData, loaded);
+        const loadedWithMembers = await attachFamilyMembersToFamilies(loaded);
+        await syncUserFamilyRefs(user, userData, loadedWithMembers);
 
         if (!cancelled) {
-          setFamilies(loaded);
+          setFamilies(loadedWithMembers);
         }
       } catch (error) {
         console.error("Error loading families:", error);
@@ -967,9 +1094,10 @@ export function FamilyProvider({ children }) {
       const identityFamilies = await getFamiliesByUserIdentity(user, myEmail);
       identityFamilies.forEach((family) => pushUniqueFamily(loaded, family));
 
-      await syncUserFamilyRefs(user, userData, loaded);
+      const loadedWithMembers = await attachFamilyMembersToFamilies(loaded);
+      await syncUserFamilyRefs(user, userData, loadedWithMembers);
 
-      setFamilies(loaded);
+      setFamilies(loadedWithMembers);
     } catch (error) {
       console.error("Error refreshing families:", error);
     } finally {
@@ -1127,6 +1255,7 @@ export function FamilyProvider({ children }) {
     }, pendingInvite);
 
     await setDoc(familyRef, familyData);
+    await materializeFamilyMembers(familyRef.id, familyData.members);
 
     if (pendingInvite) {
       await setDoc(
@@ -1196,6 +1325,9 @@ export function FamilyProvider({ children }) {
 
     if (!workerResult) {
       await updateDoc(doc(db, "families", activeProfile.id), payload);
+      if (Array.isArray(payload.members)) {
+        await materializeFamilyMembers(activeProfile.id, payload.members);
+      }
     }
 
     await refreshFamilies();

@@ -18,8 +18,6 @@
     "firebase:deploy:rules": "npx firebase-tools deploy --only firestore:rules",
     "firebase:deploy:indexes": "npx firebase-tools deploy --only firestore:indexes",
     "firebase:deploy:firestore": "npx firebase-tools deploy --only firestore",
-    "firebase:deploy:functions": "npx firebase-tools deploy --only functions",
-    "functions:lint": "npm --prefix functions run lint",
     "cloudflare:pages:deploy": "node scripts/validate-pages-env.mjs && npm run build && npx wrangler pages deploy dist --project-name=kinely-app",
     "cloudflare:worker:dev": "npx wrangler dev --config workers/kinely-api/wrangler.jsonc",
     "cloudflare:worker:deploy": "npx wrangler deploy --config workers/kinely-api/wrangler.jsonc --keep-vars",

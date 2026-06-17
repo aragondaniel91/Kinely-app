@@ -87,19 +87,21 @@ When deploying manually with `npm run cloudflare:pages:deploy`, the build runs l
 
 ## Email delivery
 
-Invitation emails are queued in Firestore under the `mail` collection. The repo includes a Firebase Cloud Function sender in `functions/index.js` that watches `mail` and sends through Resend.
+Invitation and activity emails are sent through the Cloudflare Worker in `workers/kinely-api`. The browser never receives Resend or Google service-account secrets.
 
-Required Firebase Functions secrets:
+Required Cloudflare Worker secrets:
 
 ```bash
-npx firebase-tools functions:secrets:set RESEND_API_KEY
-npx firebase-tools functions:secrets:set MAIL_FROM
+npx wrangler secret put GOOGLE_PRIVATE_KEY --config workers/kinely-api/wrangler.jsonc
+npx wrangler secret put RESEND_API_KEY --config workers/kinely-api/wrangler.jsonc
+npx wrangler secret put WEBHOOK_SECRET --config workers/kinely-api/wrangler.jsonc
 ```
 
 Details:
 
 ```txt
 docs/email-delivery.md
+workers/kinely-api/README.md
 ```
 
 ## Firebase project
@@ -154,10 +156,10 @@ Deploy both Firestore rules and indexes:
 npm run firebase:deploy:firestore
 ```
 
-Deploy Cloud Functions:
+Deploy Cloudflare Worker:
 
 ```bash
-npm run firebase:deploy:functions
+npm run cloudflare:worker:deploy
 ```
 
 ## Main scripts
@@ -172,8 +174,9 @@ npm run typecheck
 npm run firebase:deploy:rules
 npm run firebase:deploy:indexes
 npm run firebase:deploy:firestore
-npm run firebase:deploy:functions
-npm run functions:lint
+npm run cloudflare:pages:deploy
+npm run cloudflare:worker:deploy
+npm run cloudflare:worker:tail
 ```
 
 ## Custody data model notes
@@ -225,11 +228,12 @@ Monday PM · Dad → Mom
 
 Before deploying:
 
-1. Confirm Vercel env vars are configured.
-2. Run `npm run build` locally or check the Vercel build.
-3. Confirm the email sender is configured if invitations should send real emails.
-4. Deploy Firestore rules when ready with `npm run firebase:deploy:rules`.
-5. Test these app areas after deploy:
+1. Confirm Cloudflare Pages env vars are configured.
+2. Confirm Cloudflare Worker secrets are configured.
+3. Run `npm run build` locally or check the Cloudflare Pages build.
+4. Confirm the email sender is configured if invitations should send real emails.
+5. Deploy Firestore rules when ready with `npm run firebase:deploy:rules`.
+6. Test these app areas after deploy:
    - Login/Register
    - Home dashboard
    - Custody dashboard

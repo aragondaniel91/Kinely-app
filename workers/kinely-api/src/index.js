@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "firestore-commit-retry-2026-06-17-07";
+const WORKER_VERSION = "family-members-sync-2026-06-17-09";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -1609,6 +1609,139 @@ function familyInvitationMember(invitation = {}, token = {}) {
   };
 }
 
+function familyMemberDocumentId(familyId = "", member = {}) {
+  const key = cleanText(
+    member.uid ||
+    member.userId ||
+    member.user_id ||
+    member.personId ||
+    member.person_id ||
+    member.id ||
+    member.email ||
+    member.name ||
+    member.displayName
+  );
+  return safeDocumentId(`${familyId}_${key || crypto.randomUUID()}`);
+}
+
+function normalizeFamilyMemberRecord(familyId = "", member = {}, token = {}, now = new Date().toISOString()) {
+  const email = normalizeEmail(member.email || member.memberEmail || member.member_email || member.recipientEmail || member.recipient_email);
+  const uid = cleanText(member.uid || member.userId || member.user_id);
+  const personId = cleanText(member.personId || member.person_id || member.id || (uid ? `user_${uid}` : "") || (email ? `email_${email}` : ""));
+  const name = cleanText(
+    member.name ||
+    member.displayName ||
+    member.display_name ||
+    member.fullName ||
+    member.full_name ||
+    email,
+    "Family member"
+  );
+  const appRole = cleanText(member.appRole || member.app_role || member.role || "viewer");
+  const admin = (
+    member.admin === true ||
+    member.isAdmin === true ||
+    member.is_admin === true ||
+    appRole === "owner" ||
+    appRole === "admin"
+  );
+  const livesHere = member.livesHere === true || member.lives_here === true;
+  const showOnHomeDashboard = (
+    member.showOnHomeDashboard === true ||
+    member.show_on_home_dashboard === true ||
+    member.homeDashboard === true ||
+    member.home_dashboard === true ||
+    livesHere
+  );
+  const color = cleanText(member.color || member.colorId || member.color_id || member.familyColor || member.family_color);
+  const role = cleanText(member.role || member.memberRole || member.member_role || "member");
+  const type = cleanText(member.type || member.personType || member.person_type || role, "member");
+  const relationship = cleanText(member.relationship || member.memberRelationship || member.member_relationship || role);
+  const id = familyMemberDocumentId(familyId, { ...member, personId, uid, email, name });
+
+  return {
+    ...member,
+    id,
+    familyId,
+    family_id: familyId,
+    personId,
+    person_id: personId,
+    uid,
+    email,
+    name,
+    displayName: cleanText(member.displayName || member.display_name || name, name),
+    display_name: cleanText(member.display_name || member.displayName || name, name),
+    type,
+    personType: cleanText(member.personType || member.person_type || type, type),
+    person_type: cleanText(member.person_type || member.personType || type, type),
+    role,
+    relationship,
+    memberRelationship: relationship,
+    member_relationship: relationship,
+    appRole,
+    app_role: cleanText(member.app_role || member.appRole || appRole, appRole),
+    livesHere,
+    lives_here: livesHere,
+    showOnHomeDashboard,
+    show_on_home_dashboard: showOnHomeDashboard,
+    homeDashboard: showOnHomeDashboard,
+    home_dashboard: showOnHomeDashboard,
+    color,
+    colorId: cleanText(member.colorId || member.color_id || color, color),
+    color_id: cleanText(member.color_id || member.colorId || color, color),
+    familyColor: cleanText(member.familyColor || member.family_color || color, color),
+    family_color: cleanText(member.family_color || member.familyColor || color, color),
+    admin,
+    isAdmin: admin,
+    is_admin: admin,
+    modules: mapOrEmpty(member.modules),
+    permissions: mapOrEmpty(member.permissions),
+    status: cleanText(member.status || member.invitationStatus || member.invitation_status || "active", "active"),
+    invitationStatus: cleanText(member.invitationStatus || member.invitation_status || member.status || "active", "active"),
+    invitation_status: cleanText(member.invitation_status || member.invitationStatus || member.status || "active", "active"),
+    updatedAt: now,
+    updated_at: now,
+    updatedBy: cleanText(token.sub),
+    updated_by: cleanText(token.sub),
+    updatedByEmail: normalizeEmail(token.email),
+    updated_by_email: normalizeEmail(token.email),
+  };
+}
+
+function familyMemberRecords(familyId = "", members = [], token = {}, now = new Date().toISOString()) {
+  return listOrEmpty(members)
+    .map((member) => normalizeFamilyMemberRecord(familyId, member, token, now))
+    .filter((member) => member.familyId && (member.personId || member.uid || member.email));
+}
+
+function familyMemberWrites(env, familyId = "", members = [], token = {}, now = new Date().toISOString()) {
+  return familyMemberRecords(familyId, members, token, now)
+    .map((member) => firestoreMergeWrite(env, "familyMembers", member.id, member));
+}
+
+async function familyMemberSyncWrites(env, familyId = "", members = [], token = {}, now = new Date().toISOString()) {
+  const nextMembers = familyMemberRecords(familyId, members, token, now);
+  const nextIds = new Set(nextMembers.map((member) => member.id));
+  const existingResults = await Promise.allSettled([
+    firestoreQueryField(env, "familyMembers", { field: "familyId", value: familyId }),
+    firestoreQueryField(env, "familyMembers", { field: "family_id", value: familyId }),
+  ]);
+  const existingMembers = existingResults.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  const seen = new Set();
+  const deleteWrites = existingMembers
+    .filter((member) => {
+      if (!member.id || seen.has(member.id)) return false;
+      seen.add(member.id);
+      return !nextIds.has(member.id);
+    })
+    .map((member) => firestoreDeleteNameWrite(firestoreDocumentName(env, "familyMembers", member.id)));
+
+  return [
+    ...nextMembers.map((member) => firestoreMergeWrite(env, "familyMembers", member.id, member)),
+    ...deleteWrites,
+  ];
+}
+
 function mergeAcceptedMember(members = [], acceptedMember = {}) {
   const currentMembers = listOrEmpty(members);
   let merged = false;
@@ -2133,15 +2266,23 @@ async function handleFamilyUpdate(request, env, origin) {
     return json({ ok: false, error: "Only a family owner or admin can update this family space." }, { status: 403 }, origin);
   }
 
-  const updates = sanitizeFamilyUpdates(payload.updates || payload.data || {}, token);
-  await firestoreCommit(env, [
+  const rawUpdates = payload.updates || payload.data || {};
+  const updates = sanitizeFamilyUpdates(rawUpdates, token);
+  const writes = [
     firestoreMergeWrite(env, "families", familyId, updates),
-  ]);
+  ];
+
+  if (Array.isArray(updates.members)) {
+    writes.push(...await familyMemberSyncWrites(env, familyId, updates.members, token, updates.updatedAt));
+  }
+
+  await firestoreCommit(env, writes);
 
   return json({
     ok: true,
     familyId,
     updatedFieldCount: Object.keys(updates).length,
+    materializedMemberCount: Array.isArray(updates.members) ? updates.members.length : 0,
   }, { status: 200 }, origin);
 }
 
@@ -2646,6 +2787,7 @@ async function handleFamilyInvitationRespond(request, env, origin) {
       updatedAt: now,
       updated_at: now,
     }));
+    writes.push(...familyMemberWrites(env, familyId, [member], token, now));
   }
 
   writes.push(firestoreMergeWrite(env, "families", familyId, familyUpdate));
