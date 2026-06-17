@@ -177,6 +177,7 @@ npm run firebase:deploy:firestore
 npm run cloudflare:pages:deploy
 npm run cloudflare:worker:deploy
 npm run cloudflare:worker:tail
+npm run cloudflare:backfill:family-members
 ```
 
 ## Custody data model notes

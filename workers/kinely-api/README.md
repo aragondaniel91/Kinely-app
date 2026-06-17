@@ -47,6 +47,28 @@ curl.exe -X POST "https://kinely-api.your-account.workers.dev/diagnostics/email-
 
 If the response is not `{"ok":true,...}`, the returned error is the Resend or Worker configuration issue to fix.
 
+## Maintenance: familyMembers Backfill
+
+Run a dry-run first from the repository root:
+
+```powershell
+$env:KINELY_WEBHOOK_SECRET="your_webhook_secret"
+npm run cloudflare:backfill:family-members
+```
+
+Apply the backfill only after the dry-run looks right:
+
+```powershell
+npm run cloudflare:backfill:family-members -- --write
+```
+
+Optional flags:
+
+```powershell
+npm run cloudflare:backfill:family-members -- --family-id family_123
+npm run cloudflare:backfill:family-members -- --limit 500
+```
+
 ## Local Development
 
 ```powershell

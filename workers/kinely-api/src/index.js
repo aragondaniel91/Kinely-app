@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "family-members-sync-2026-06-17-09";
+const WORKER_VERSION = "family-members-backfill-2026-06-17-10";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -1481,6 +1481,69 @@ function pendingCustodyUpdate(group = {}, invitation = {}, now = new Date().toIS
 
 function mergeIdList(...groups) {
   return [...new Set(groups.flat().map(cleanText).filter(Boolean))];
+}
+
+function fallbackMembersFromFamily(family = {}) {
+  const members = listOrEmpty(family.members);
+  if (members.length) return members;
+
+  const ownerUid = cleanText(family.ownerId || family.owner_id || family.createdBy || family.created_by);
+  const ownerEmail = normalizeEmail(family.ownerEmail || family.owner_email || family.createdByEmail || family.created_by_email);
+  const ownerName = cleanText(family.parent1Name || family.parent1_name || family.ownerName || family.owner_name || ownerEmail, "Family owner");
+  const parent1Role = cleanText(family.parent1Role || family.parent1_role || "parent");
+  const parent2Email = normalizeEmail(family.parent2Email || family.parent2_email);
+  const parent2Name = cleanText(family.parent2Name || family.parent2_name || parent2Email);
+  const parent2Role = cleanText(family.parent2Role || family.parent2_role || "parent");
+  const fallback = [];
+
+  if (ownerUid || ownerEmail) {
+    fallback.push({
+      id: ownerUid ? `user_${ownerUid}` : `email_${ownerEmail}`,
+      personId: ownerUid ? `user_${ownerUid}` : `email_${ownerEmail}`,
+      person_id: ownerUid ? `user_${ownerUid}` : `email_${ownerEmail}`,
+      uid: ownerUid,
+      email: ownerEmail,
+      name: ownerName,
+      displayName: ownerName,
+      display_name: ownerName,
+      role: parent1Role,
+      type: cleanText(family.parent1PersonType || family.parent1_person_type || parent1Role, "parent"),
+      relationship: cleanText(family.parent1Relationship || family.parent1_relationship || parent1Role),
+      appRole: "owner",
+      app_role: "owner",
+      livesHere: family.parent1LivesHere === true || family.parent1_lives_here === true,
+      lives_here: family.parent1LivesHere === true || family.parent1_lives_here === true,
+      showOnHomeDashboard: family.parent1ShowOnHomeDashboard !== false && family.parent1_show_on_home_dashboard !== false,
+      show_on_home_dashboard: family.parent1ShowOnHomeDashboard !== false && family.parent1_show_on_home_dashboard !== false,
+      color: cleanText(family.parent1Color || family.parent1_color || "blue"),
+      isAdmin: true,
+      is_admin: true,
+    });
+  }
+
+  if (parent2Email || parent2Name) {
+    fallback.push({
+      id: cleanText(family.parent2PersonId || family.parent2_person_id || (parent2Email ? `email_${parent2Email}` : "")),
+      personId: cleanText(family.parent2PersonId || family.parent2_person_id || (parent2Email ? `email_${parent2Email}` : "")),
+      person_id: cleanText(family.parent2_person_id || family.parent2PersonId || (parent2Email ? `email_${parent2Email}` : "")),
+      email: parent2Email,
+      name: parent2Name || "Family member",
+      displayName: parent2Name || "Family member",
+      display_name: parent2Name || "Family member",
+      role: parent2Role,
+      type: cleanText(family.parent2PersonType || family.parent2_person_type || parent2Role, "parent"),
+      relationship: cleanText(family.parent2Relationship || family.parent2_relationship || parent2Role),
+      appRole: "viewer",
+      app_role: "viewer",
+      livesHere: family.parent2LivesHere === true || family.parent2_lives_here === true,
+      lives_here: family.parent2LivesHere === true || family.parent2_lives_here === true,
+      showOnHomeDashboard: family.parent2ShowOnHomeDashboard === true || family.parent2_show_on_home_dashboard === true,
+      show_on_home_dashboard: family.parent2ShowOnHomeDashboard === true || family.parent2_show_on_home_dashboard === true,
+      color: cleanText(family.parent2Color || family.parent2_color || "amber"),
+    });
+  }
+
+  return fallback;
 }
 
 function normalizeFamilyInvitation(raw = {}, token = {}) {
@@ -3180,6 +3243,66 @@ async function handleAuthenticatedEmailTest(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+function isAuthorizedWebhookRequest(request, env) {
+  const expectedSecret = cleanText(env.WEBHOOK_SECRET);
+  const providedSecret = cleanText(request.headers.get("x-kinely-webhook-secret"));
+  return Boolean(expectedSecret && providedSecret && providedSecret === expectedSecret);
+}
+
+async function handleFamilyMembersBackfill(request, env, origin) {
+  if (!isAuthorizedWebhookRequest(request, env)) {
+    return json({ ok: false, error: "Unauthorized maintenance request." }, { status: 401 }, origin);
+  }
+
+  const payload = await request.json().catch(() => ({}));
+  const write = payload.write === true;
+  const familyId = cleanText(payload.familyId || payload.family_id);
+  const limit = Math.min(Math.max(Number(payload.limit || 200), 1), 500);
+  const now = new Date().toISOString();
+  const families = familyId
+    ? [await firestoreGetDoc(env, "families", familyId)].filter(Boolean)
+    : (await firestoreRunQuery(env, {
+        from: [{ collectionId: "families" }],
+        limit,
+      }));
+  const token = {
+    sub: "maintenance_worker",
+    email: "worker@kinely.local",
+  };
+  const writes = [];
+  const familiesSummary = [];
+
+  for (const family of families) {
+    const members = fallbackMembersFromFamily(family);
+    const familyWrites = await familyMemberSyncWrites(env, family.id, members, token, now);
+    const upsertCount = familyWrites.filter((writeItem) => writeItem.update).length;
+    const deleteCount = familyWrites.filter((writeItem) => writeItem.delete).length;
+
+    writes.push(...familyWrites);
+    familiesSummary.push({
+      familyId: family.id,
+      familyName: cleanText(family.familyName || family.family_name || family.name),
+      sourceMemberCount: members.length,
+      upsertCount,
+      deleteCount,
+    });
+  }
+
+  let committedWriteCount = 0;
+  if (write) {
+    committedWriteCount = await firestoreCommitInChunks(env, writes);
+  }
+
+  return json({
+    ok: true,
+    dryRun: !write,
+    familyCount: families.length,
+    plannedWriteCount: writes.length,
+    committedWriteCount,
+    families: familiesSummary,
+  }, { status: 200 }, origin);
+}
+
 async function handleResendWebhook(request, env, origin) {
   const expectedSecret = cleanText(env.WEBHOOK_SECRET);
   if (expectedSecret) {
@@ -3297,6 +3420,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/diagnostics/email-test-auth") {
         return await handleAuthenticatedEmailTest(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/maintenance/family-members/backfill") {
+        return await handleFamilyMembersBackfill(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {

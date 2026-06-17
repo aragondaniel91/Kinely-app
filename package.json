@@ -22,6 +22,7 @@
     "cloudflare:worker:dev": "npx wrangler dev --config workers/kinely-api/wrangler.jsonc",
     "cloudflare:worker:deploy": "npx wrangler deploy --config workers/kinely-api/wrangler.jsonc --keep-vars",
     "cloudflare:worker:tail": "npx wrangler tail --config workers/kinely-api/wrangler.jsonc",
+    "cloudflare:backfill:family-members": "node scripts/backfill-family-members.mjs",
     "firebase:wipe:app-data": "node scripts/wipe-firestore-app-data.mjs"
   },
   "dependencies": {
