@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "scheduled-reminders-2026-06-18-01";
+const WORKER_VERSION = "reminder-diagnostics-2026-06-18-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -3599,9 +3599,12 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
   return activities.filter((item) => item.recipients.length > 0);
 }
 
-async function runScheduledCustodyReminders(env, { dryRun = false, force = false, trigger = "manual", scheduledTime = Date.now() } = {}) {
+async function runScheduledCustodyReminders(env, { dryRun = false, force = false, trigger = "manual", scheduledTime = Date.now(), groupsOverride = null } = {}) {
   const nowDate = new Date(scheduledTime || Date.now());
-  const groups = (await firestoreCollectionDocs(env, "custodyGroups", { limit: 500 })).filter(isActiveCustodyGroup);
+  const groups = (Array.isArray(groupsOverride)
+    ? groupsOverride
+    : await firestoreCollectionDocs(env, "custodyGroups", { limit: 500 }))
+    .filter(isActiveCustodyGroup);
   const summary = {
     ok: true,
     trigger,
@@ -3680,6 +3683,19 @@ async function runScheduledCustodyReminders(env, { dryRun = false, force = false
   return summary;
 }
 
+async function resolveReminderGroupsForFamily(env, familyId) {
+  const family = await firestoreGetDoc(env, "families", familyId);
+  if (!family) return [];
+
+  const groups = await collectCustodyGroupDocsForFamily(env, familyId);
+  const groupMap = new Map();
+  groups.forEach((group) => {
+    if (group?.id) groupMap.set(group.id, group);
+  });
+
+  return [...groupMap.values()];
+}
+
 async function handleScheduledRemindersRun(request, env, origin) {
   const expectedSecret = cleanText(env.WEBHOOK_SECRET);
   const providedSecret = cleanText(request.headers.get("x-kinely-webhook-secret"));
@@ -3696,6 +3712,38 @@ async function handleScheduledRemindersRun(request, env, origin) {
   });
 
   return json(result, { status: 200 }, origin);
+}
+
+async function handleAuthenticatedScheduledRemindersRun(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json().catch(() => ({}));
+  const familyId = cleanText(payload.familyId || payload.family_id);
+  if (!familyId) {
+    return json({ ok: false, error: "Reminder diagnostics require a familyId." }, { status: 400 }, origin);
+  }
+
+  const family = await firestoreGetDoc(env, "families", familyId);
+  if (!family) {
+    return json({ ok: false, error: "Family space was not found." }, { status: 404 }, origin);
+  }
+  if (!canManageFamily(family, token)) {
+    return json({ ok: false, error: "Only a family owner or admin can run reminder diagnostics." }, { status: 403 }, origin);
+  }
+
+  const groups = await resolveReminderGroupsForFamily(env, familyId);
+  const result = await runScheduledCustodyReminders(env, {
+    dryRun: payload.write !== true,
+    force: payload.force === true,
+    trigger: "admin_diagnostic",
+    scheduledTime: payload.scheduledTime ? Date.parse(payload.scheduledTime) : Date.now(),
+    groupsOverride: groups,
+  });
+
+  return json({
+    ...result,
+    familyId,
+    familyName: cleanText(family.familyName || family.family_name),
+  }, { status: 200 }, origin);
 }
 
 async function handleActivityNotificationSend(request, env, origin) {
@@ -4116,6 +4164,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/maintenance/reminders/run") {
         return await handleScheduledRemindersRun(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/maintenance/reminders/run-auth") {
+        return await handleAuthenticatedScheduledRemindersRun(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {

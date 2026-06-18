@@ -274,6 +274,14 @@ export async function sendAuthenticatedEmailTest(options = {}) {
   return result || null;
 }
 
+export async function runScheduledReminderDiagnostics(options = {}) {
+  const result = await authorizedWorkerRequest("/maintenance/reminders/run-auth", options);
+  if (!result) {
+    throw new Error("Kinely API is not configured for this build. Set VITE_KINELY_API_URL in Cloudflare Pages and redeploy.");
+  }
+  return result || null;
+}
+
 export async function queueFamilyInvitationEmail(options) {
   return queueEmailPayload(buildFamilyInvitationEmailPayload(options));
 }

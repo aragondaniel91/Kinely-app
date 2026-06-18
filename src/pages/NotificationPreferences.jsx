@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarDays, CheckSquare, HeartPulse, Home, Mail, MessageSquare, Save, Shield, UtensilsCrossed, Users, WalletCards } from "lucide-react";
+import { Bell, CalendarDays, CheckSquare, HeartPulse, Home, Mail, MessageSquare, PlayCircle, Save, Shield, Sparkles, UtensilsCrossed, Users, WalletCards } from "lucide-react";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { sendAuthenticatedEmailTest } from "@/services/emailQueueService";
+import { runScheduledReminderDiagnostics, sendAuthenticatedEmailTest } from "@/services/emailQueueService";
 
 const DEFAULT_PREFERENCES = {
   channels: {
@@ -170,11 +170,13 @@ function ChannelCard({ channel, checked, onChange, disabled }) {
 }
 
 export default function NotificationPreferences() {
-  const { user, myEmail } = useFamily();
+  const { user, myEmail, familyId, isOwner, isAdmin } = useFamily();
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [runningReminders, setRunningReminders] = useState(false);
+  const [reminderResult, setReminderResult] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -213,6 +215,7 @@ export default function NotificationPreferences() {
     () => Object.values(preferences.notifyOn || {}).filter(Boolean).length,
     [preferences.notifyOn]
   );
+  const canRunReminderDiagnostics = Boolean((isOwner || isAdmin) && familyId);
 
   function updateSection(section, key, value) {
     setMessage("");
@@ -292,6 +295,37 @@ export default function NotificationPreferences() {
     }
   }
 
+  async function runReminderDiagnostics({ write = false } = {}) {
+    if (!familyId) {
+      setError("A family space is required to run reminder diagnostics.");
+      return;
+    }
+
+    setRunningReminders(true);
+    setReminderResult(null);
+    setMessage("");
+    setError("");
+
+    try {
+      const result = await runScheduledReminderDiagnostics({
+        familyId,
+        force: true,
+        write,
+      });
+      setReminderResult(result);
+      setMessage(
+        write
+          ? `Reminder test sent. ${result.emailCount || 0} email(s), ${result.inAppCount || 0} in-app notification(s).`
+          : `Reminder dry run complete. ${result.activityCount || 0} reminder signal(s), ${result.plannedRecipientCount || 0} planned recipient(s).`
+      );
+    } catch (reminderError) {
+      console.error("Error running reminder diagnostics:", reminderError);
+      setError(reminderError?.message || "Could not run reminder diagnostics.");
+    } finally {
+      setRunningReminders(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 text-sm font-bold text-slate-500 shadow-sm">
@@ -311,7 +345,7 @@ export default function NotificationPreferences() {
               Control when Kinely should notify you about custody changes, family events, tasks, child care updates, meals, groceries, invitations, and messages.
             </p>
             <p className="mt-2 text-xs font-bold text-slate-400">
-              {enabledCount} notification types enabled · Saved per user account
+              {enabledCount} notification types enabled - Saved per user account
             </p>
           </div>
 
@@ -331,6 +365,66 @@ export default function NotificationPreferences() {
           </div>
         )}
       </Card>
+
+      {canRunReminderDiagnostics && (
+        <Card className="rounded-[2rem] border-amber-100 bg-white p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-600">Admin diagnostics</p>
+                <h2 className="text-xl font-black text-slate-950">Scheduled custody reminders</h2>
+                <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                  Preview the daily reminder engine for this family space, then send a real test through the same Cloudflare Worker path used by the cron job.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => runReminderDiagnostics({ write: false })}
+                disabled={runningReminders}
+                className="gap-2 rounded-2xl"
+              >
+                <PlayCircle className="h-4 w-4" /> {runningReminders ? "Running..." : "Dry run"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => runReminderDiagnostics({ write: true })}
+                disabled={runningReminders}
+                className="gap-2 rounded-2xl bg-amber-600 hover:bg-amber-700"
+              >
+                <Mail className="h-4 w-4" /> Send test reminders
+              </Button>
+            </div>
+          </div>
+
+          {reminderResult && (
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Signals</p>
+                <p className="mt-1 text-xl font-black text-slate-950">{reminderResult.activityCount || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-blue-600/70">Recipients</p>
+                <p className="mt-1 text-xl font-black text-blue-800">{reminderResult.plannedRecipientCount || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-indigo-600/70">In-app</p>
+                <p className="mt-1 text-xl font-black text-indigo-800">{reminderResult.inAppCount || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wide text-emerald-600/70">Email</p>
+                <p className="mt-1 text-xl font-black text-emerald-800">{reminderResult.emailCount || 0}</p>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card className="rounded-[2rem] border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
