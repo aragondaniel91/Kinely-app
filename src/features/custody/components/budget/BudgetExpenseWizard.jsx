@@ -242,12 +242,12 @@ export default function BudgetExpenseWizard({
               <label className="grid gap-1.5">
                 <FieldLabel>Category</FieldLabel>
                 <SelectInput value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
-                  <SelectItem>School</SelectItem>
-                  <SelectItem>Medical</SelectItem>
-                  <SelectItem>Activities</SelectItem>
-                  <SelectItem>Clothes</SelectItem>
-                  <SelectItem>Childcare</SelectItem>
-                  <SelectItem>General</SelectItem>
+                  <SelectItem value="School">School</SelectItem>
+                  <SelectItem value="Medical">Medical</SelectItem>
+                  <SelectItem value="Activities">Activities</SelectItem>
+                  <SelectItem value="Clothes">Clothes</SelectItem>
+                  <SelectItem value="Childcare">Childcare</SelectItem>
+                  <SelectItem value="General">General</SelectItem>
                 </SelectInput>
               </label>
             </div>
@@ -306,10 +306,10 @@ export default function BudgetExpenseWizard({
                 value={form.splitType}
                 onChange={(event) => setForm(applySplitDefaults(form, form.amount, event.target.value))}
               >
-                <SelectItem>50/50</SelectItem>
-                <SelectItem>Custom</SelectItem>
-                <SelectItem>Parent 1 pays</SelectItem>
-                <SelectItem>Parent 2 pays</SelectItem>
+                <SelectItem value="50/50">50/50</SelectItem>
+                <SelectItem value="Custom">Custom</SelectItem>
+                <SelectItem value="Parent 1 pays">Parent 1 pays</SelectItem>
+                <SelectItem value="Parent 2 pays">Parent 2 pays</SelectItem>
               </SelectInput>
             </label>
 
