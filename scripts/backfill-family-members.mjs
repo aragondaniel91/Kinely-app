@@ -36,6 +36,20 @@ function parseEnvFile(filePath) {
     }, {});
 }
 
+function parseJsoncFile(filePath) {
+  if (!fs.existsSync(filePath)) return {};
+
+  try {
+    const content = fs
+      .readFileSync(filePath, "utf8")
+      .replace(/^\s*\/\/.*$/gm, "")
+      .replace(/,\s*([}\]])/g, "$1");
+    return JSON.parse(content);
+  } catch {
+    return {};
+  }
+}
+
 const cwd = process.cwd();
 const fileEnv = Object.assign(
   {},
@@ -43,7 +57,8 @@ const fileEnv = Object.assign(
     parseEnvFile(path.join(cwd, fileName))
   )
 );
-const env = { ...fileEnv, ...process.env };
+const pagesWranglerConfig = parseJsoncFile(path.join(cwd, "wrangler.jsonc"));
+const env = { ...pagesWranglerConfig.vars, ...fileEnv, ...process.env };
 const apiUrl = (getArg("--api") || env.VITE_KINELY_API_URL || env.KINELY_API_URL || "").replace(/\/+$/, "");
 const secret = getArg("--secret") || env.KINELY_WEBHOOK_SECRET || env.WEBHOOK_SECRET || "";
 const write = hasArg("--write");
