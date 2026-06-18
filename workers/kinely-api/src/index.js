@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "reminder-diagnostics-2026-06-18-01";
+const WORKER_VERSION = "reminder-diagnostics-2026-06-18-02";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -56,6 +56,18 @@ const CUSTODY_SCOPE_LOOKUP_FIELDS = [
   "group_id",
   "familyId",
   "family_id",
+];
+
+const PRIMARY_CUSTODY_SCOPE_LOOKUP_FIELDS = [
+  "custodyGroupId",
+  "custody_group_id",
+];
+
+const PRIMARY_CUSTODY_GROUP_LOOKUP_FIELDS = [
+  "familyId",
+  "family_id",
+  "householdFamilyId",
+  "household_family_id",
 ];
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
@@ -3050,12 +3062,15 @@ async function firestoreCollectionDocs(env, collectionName, { limit = 500 } = {}
   });
 }
 
-async function getCustodyScopedDocs(env, collectionName, scopeId) {
+async function getCustodyScopedDocs(env, collectionName, scopeId, options = {}) {
   const cleanScopeId = cleanText(scopeId);
   if (!collectionName || !cleanScopeId) return [];
+  const lookupFields = Array.isArray(options.lookupFields) && options.lookupFields.length
+    ? options.lookupFields
+    : CUSTODY_SCOPE_LOOKUP_FIELDS;
 
   const results = await Promise.allSettled(
-    CUSTODY_SCOPE_LOOKUP_FIELDS.map((field) => firestoreQueryField(env, collectionName, {
+    lookupFields.map((field) => firestoreQueryField(env, collectionName, {
       field,
       value: cleanScopeId,
     }))
@@ -3315,7 +3330,15 @@ function scheduledReminderMarkerId(notificationId = "") {
   return safeDocumentId(notificationId, `scheduled_${Date.now()}`);
 }
 
-async function deliverScheduledActivityNotification(env, { activity, recipients = [], now, dryRun = false } = {}) {
+async function deliverScheduledActivityNotification(env, {
+  activity,
+  recipients = [],
+  now,
+  dryRun = false,
+  preferenceCache = new Map(),
+  skipDuplicateCheck = false,
+  skipRecipientPreferenceLookup = false,
+} = {}) {
   const preferenceKey = activityPreferenceKey(activity);
   if (!preferenceKey) {
     return { planned: 0, inAppCount: 0, emailCount: 0, skipped: [{ reason: "no_preference_key" }] };
@@ -3335,7 +3358,12 @@ async function deliverScheduledActivityNotification(env, { activity, recipients 
   let planned = 0;
 
   for (const recipient of uniqueRecipients.values()) {
-    const preferences = await loadRecipientPreferences(env, recipient);
+    const preferenceCacheKey = recipient.uid || recipient.email;
+    let preferences = skipRecipientPreferenceLookup ? DEFAULT_NOTIFICATION_PREFERENCES : preferenceCache.get(preferenceCacheKey);
+    if (!preferences) {
+      preferences = await loadRecipientPreferences(env, recipient);
+      preferenceCache.set(preferenceCacheKey, preferences);
+    }
     if (preferences.notifyOn?.[preferenceKey] !== true) {
       skipped.push({ email: recipient.email, reason: "preference_disabled" });
       continue;
@@ -3359,10 +3387,12 @@ async function deliverScheduledActivityNotification(env, { activity, recipients 
       now,
     });
     const markerId = scheduledReminderMarkerId(notification.id);
-    const existingMarker = await firestoreGetDoc(env, "scheduledReminderDeliveries", markerId).catch(() => null);
-    if (existingMarker) {
-      skipped.push({ email: recipient.email, reason: "already_sent" });
-      continue;
+    if (!dryRun && !skipDuplicateCheck) {
+      const existingMarker = await firestoreGetDoc(env, "scheduledReminderDeliveries", markerId).catch(() => null);
+      if (existingMarker) {
+        skipped.push({ email: recipient.email, reason: "already_sent" });
+        continue;
+      }
     }
 
     planned += 1;
@@ -3599,12 +3629,33 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
   return activities.filter((item) => item.recipients.length > 0);
 }
 
-async function runScheduledCustodyReminders(env, { dryRun = false, force = false, trigger = "manual", scheduledTime = Date.now(), groupsOverride = null } = {}) {
+async function runScheduledCustodyReminders(env, {
+  dryRun = false,
+  force = false,
+  trigger = "manual",
+  scheduledTime = Date.now(),
+  groupsOverride = null,
+  maxGroups = 500,
+  maxActivitiesPerGroup = 10,
+  scopeLookupFields = CUSTODY_SCOPE_LOOKUP_FIELDS,
+  skipDuplicateCheck = false,
+  skipRecipientPreferenceLookup = false,
+} = {}) {
   const nowDate = new Date(scheduledTime || Date.now());
-  const groups = (Array.isArray(groupsOverride)
+  const allGroups = (Array.isArray(groupsOverride)
     ? groupsOverride
     : await firestoreCollectionDocs(env, "custodyGroups", { limit: 500 }))
     .filter(isActiveCustodyGroup);
+  const parsedMaxGroups = Number(maxGroups);
+  const groupLimit = Number.isFinite(parsedMaxGroups) && parsedMaxGroups > 0
+    ? Math.floor(parsedMaxGroups)
+    : allGroups.length;
+  const groups = allGroups.slice(0, groupLimit);
+  const parsedMaxActivities = Number(maxActivitiesPerGroup);
+  const activityLimit = Number.isFinite(parsedMaxActivities) && parsedMaxActivities > 0
+    ? Math.floor(parsedMaxActivities)
+    : 10;
+  const preferenceCache = new Map();
   const summary = {
     ok: true,
     trigger,
@@ -3613,6 +3664,8 @@ async function runScheduledCustodyReminders(env, { dryRun = false, force = false
     workerVersion: WORKER_VERSION,
     checkedAt: nowDate.toISOString(),
     groupCount: groups.length,
+    totalGroupCount: allGroups.length,
+    truncated: allGroups.length > groups.length,
     activityCount: 0,
     plannedRecipientCount: 0,
     inAppCount: 0,
@@ -3628,10 +3681,10 @@ async function runScheduledCustodyReminders(env, { dryRun = false, force = false
 
     const [prefs, dayDocs, exchangeDocs, packingDocs, expenseDocs] = await Promise.all([
       loadCustodyReminderPrefs(env, groupId),
-      getCustodyScopedDocs(env, "custodyDays", groupId),
-      getCustodyScopedDocs(env, "custodyExchanges", groupId),
-      getCustodyScopedDocs(env, "custodyPackingItems", groupId),
-      getCustodyScopedDocs(env, "custodyExpenses", groupId),
+      getCustodyScopedDocs(env, "custodyDays", groupId, { lookupFields: scopeLookupFields }),
+      getCustodyScopedDocs(env, "custodyExchanges", groupId, { lookupFields: scopeLookupFields }),
+      getCustodyScopedDocs(env, "custodyPackingItems", groupId, { lookupFields: scopeLookupFields }),
+      getCustodyScopedDocs(env, "custodyExpenses", groupId, { lookupFields: scopeLookupFields }),
     ]);
 
     const activities = buildScheduledReminderActivities({
@@ -3643,7 +3696,7 @@ async function runScheduledCustodyReminders(env, { dryRun = false, force = false
       expenses: expenseDocs,
       nowDate,
       force,
-    });
+    }).slice(0, activityLimit);
 
     const groupSummary = {
       groupId,
@@ -3663,6 +3716,9 @@ async function runScheduledCustodyReminders(env, { dryRun = false, force = false
         recipients: item.recipients,
         now: nowDate.toISOString(),
         dryRun,
+        preferenceCache,
+        skipDuplicateCheck,
+        skipRecipientPreferenceLookup,
       });
       groupSummary.plannedRecipientCount += result.planned;
       groupSummary.inAppCount += result.inAppCount;
@@ -3683,17 +3739,45 @@ async function runScheduledCustodyReminders(env, { dryRun = false, force = false
   return summary;
 }
 
-async function resolveReminderGroupsForFamily(env, familyId) {
-  const family = await firestoreGetDoc(env, "families", familyId);
-  if (!family) return [];
+async function resolveReminderGroupsForFamily(env, familyId, { family = null, maxGroups = 2 } = {}) {
+  const familyDoc = family || await firestoreGetDoc(env, "families", familyId);
+  if (!familyDoc) return [];
 
-  const groups = await collectCustodyGroupDocsForFamily(env, familyId);
   const groupMap = new Map();
-  groups.forEach((group) => {
-    if (group?.id) groupMap.set(group.id, group);
+  const directGroupIds = uniqueStrings([
+    familyDoc.custodyGroupIds,
+    familyDoc.custody_group_ids,
+  ].flat()).slice(0, maxGroups);
+
+  const directResults = await Promise.allSettled(
+    directGroupIds.map((groupId) => firestoreGetDoc(env, "custodyGroups", groupId))
+  );
+  directResults.forEach((result) => {
+    if (result.status === "fulfilled" && result.value?.id) groupMap.set(result.value.id, result.value);
   });
 
-  return [...groupMap.values()];
+  if (groupMap.size >= maxGroups) return [...groupMap.values()].slice(0, maxGroups);
+
+  const results = await Promise.allSettled(
+    PRIMARY_CUSTODY_GROUP_LOOKUP_FIELDS.map((field) => firestoreQueryField(env, "custodyGroups", {
+      field,
+      value: familyId,
+    }))
+  );
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length === results.length && results.length > 0) {
+    throw failures[0].reason;
+  }
+
+  results.forEach((result) => {
+    if (result.status !== "fulfilled") return;
+    result.value.forEach((group) => {
+      if (groupMap.size >= maxGroups) return;
+      if (group?.id) groupMap.set(group.id, group);
+    });
+  });
+
+  return [...groupMap.values()].slice(0, maxGroups);
 }
 
 async function handleScheduledRemindersRun(request, env, origin) {
@@ -3730,13 +3814,24 @@ async function handleAuthenticatedScheduledRemindersRun(request, env, origin) {
     return json({ ok: false, error: "Only a family owner or admin can run reminder diagnostics." }, { status: 403 }, origin);
   }
 
-  const groups = await resolveReminderGroupsForFamily(env, familyId);
+  const write = payload.write === true;
+  const groupLimit = write ? 1 : 2;
+  const activityLimit = write ? 2 : 4;
+  const groups = await resolveReminderGroupsForFamily(env, familyId, {
+    family,
+    maxGroups: groupLimit,
+  });
   const result = await runScheduledCustodyReminders(env, {
-    dryRun: payload.write !== true,
+    dryRun: !write,
     force: payload.force === true,
     trigger: "admin_diagnostic",
     scheduledTime: payload.scheduledTime ? Date.parse(payload.scheduledTime) : Date.now(),
     groupsOverride: groups,
+    maxGroups: groupLimit,
+    maxActivitiesPerGroup: activityLimit,
+    scopeLookupFields: PRIMARY_CUSTODY_SCOPE_LOOKUP_FIELDS,
+    skipDuplicateCheck: payload.force === true,
+    skipRecipientPreferenceLookup: !write,
   });
 
   return json({
