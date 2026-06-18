@@ -199,7 +199,60 @@ async function attachFamilyMembersToFamilies(families = []) {
   return Promise.all(uniqueFirestoreDocs(families).map(attachFamilyMemberDocuments));
 }
 
-async function getFamiliesByMemberEmail(email) {
+async function getFamiliesByIds(familyIds = []) {
+  const uniqueIds = [...new Set(familyIds.map((id) => String(id || "").trim()).filter(Boolean))];
+  const familySnaps = await Promise.allSettled(
+    uniqueIds.map((familyId) => getDoc(doc(db, "families", familyId)))
+  );
+
+  return familySnaps
+    .filter((result) => result.status === "fulfilled" && result.value.exists())
+    .map((result) => ({
+      id: result.value.id,
+      ...result.value.data(),
+    }));
+}
+
+async function getFamilyMemberAccessRecords(firebaseUser, email) {
+  const uid = firebaseUser?.uid || "";
+  const cleanEmail = normalizeInviteEmail(email || firebaseUser?.email);
+  const membersRef = collection(db, "familyMembers");
+  const memberQueries = [];
+
+  if (uid) {
+    memberQueries.push(query(membersRef, where("uid", "==", uid)));
+    memberQueries.push(query(membersRef, where("userId", "==", uid)));
+    memberQueries.push(query(membersRef, where("user_id", "==", uid)));
+  }
+
+  if (cleanEmail) {
+    memberQueries.push(query(membersRef, where("email", "==", cleanEmail)));
+  }
+
+  if (!memberQueries.length) return [];
+
+  const results = await Promise.allSettled(
+    memberQueries.map((memberQuery) => getDocs(memberQuery))
+  );
+
+  return uniqueFirestoreDocs(
+    results.flatMap((result) => {
+      if (result.status !== "fulfilled") return [];
+      return result.value.docs.map((memberDoc) => ({
+        id: memberDoc.id,
+        ...memberDoc.data(),
+      }));
+    })
+  );
+}
+
+async function getFamiliesByMemberAccess(firebaseUser, email) {
+  const memberRecords = await getFamilyMemberAccessRecords(firebaseUser, email);
+  const familyIds = memberRecords.map((member) => member.familyId || member.family_id);
+  return getFamiliesByIds(familyIds);
+}
+
+async function getLegacyFamiliesByMemberEmail(email) {
   const cleanEmail = normalizeInviteEmail(email);
   if (!cleanEmail) return [];
 
@@ -210,7 +263,6 @@ async function getFamiliesByMemberEmail(email) {
   ]);
 
   if (results.every((result) => result.status === "rejected")) {
-    console.warn("Could not load families by member email.", results[0].reason);
     return [];
   }
 
@@ -253,7 +305,6 @@ async function getFamiliesByUserIdentity(firebaseUser, email) {
   );
 
   if (results.every((result) => result.status === "rejected")) {
-    console.warn("Could not load families by user identity.", results[0].reason);
     return [];
   }
 
@@ -895,13 +946,16 @@ export function FamilyProvider({ children }) {
           }
         }
 
-        if (myEmail) {
-          const memberFamilies = await getFamiliesByMemberEmail(myEmail);
-          memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
-        }
+        const memberFamilies = await getFamiliesByMemberAccess(user, myEmail);
+        memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
 
         const identityFamilies = await getFamiliesByUserIdentity(user, myEmail);
         identityFamilies.forEach((family) => pushUniqueFamily(loaded, family));
+
+        if (myEmail && !memberFamilies.length && !identityFamilies.length) {
+          const legacyMemberFamilies = await getLegacyFamiliesByMemberEmail(myEmail);
+          legacyMemberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
+        }
 
         const loadedWithMembers = await attachFamilyMembersToFamilies(loaded);
         await syncUserFamilyRefs(user, userData, loadedWithMembers);
@@ -1086,13 +1140,16 @@ export function FamilyProvider({ children }) {
         if (familySnap.exists()) loaded.push({ id: familySnap.id, ...familySnap.data() });
       }
 
-      if (myEmail) {
-        const memberFamilies = await getFamiliesByMemberEmail(myEmail);
-        memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
-      }
+      const memberFamilies = await getFamiliesByMemberAccess(user, myEmail);
+      memberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
 
       const identityFamilies = await getFamiliesByUserIdentity(user, myEmail);
       identityFamilies.forEach((family) => pushUniqueFamily(loaded, family));
+
+      if (myEmail && !memberFamilies.length && !identityFamilies.length) {
+        const legacyMemberFamilies = await getLegacyFamiliesByMemberEmail(myEmail);
+        legacyMemberFamilies.forEach((family) => pushUniqueFamily(loaded, family));
+      }
 
       const loadedWithMembers = await attachFamilyMembersToFamilies(loaded);
       await syncUserFamilyRefs(user, userData, loadedWithMembers);

@@ -131,6 +131,18 @@ service cloud.firestore {
       return isFamilyMemberData(data) || isFamilyListedViewerData(data);
     }
 
+    function isOwnFamilyMemberRecord(data) {
+      return signedIn()
+        && (
+          request.auth.uid == cleanString(data.get("uid", ""))
+          || request.auth.uid == cleanString(data.get("userId", ""))
+          || request.auth.uid == cleanString(data.get("user_id", ""))
+          || userEmail() == cleanString(data.get("email", "")).lower()
+          || userEmail() == cleanString(data.get("memberEmail", "")).lower()
+          || userEmail() == cleanString(data.get("member_email", "")).lower()
+        );
+    }
+
     function canReadFamily(familyId) {
       return signedIn()
         && exists(familyPath(familyId))
@@ -609,7 +621,7 @@ service cloud.firestore {
     }
 
     match /familyMembers/{docId} {
-      allow read: if canReadHouseholdDoc();
+      allow read: if canReadHouseholdDoc() || isOwnFamilyMemberRecord(resource.data);
       allow create: if hasRequestFamilyId() && canManageFamily(requestFamilyId());
       allow update: if hasRequestFamilyId()
         && hasExistingFamilyId()
