@@ -61,12 +61,16 @@ service cloud.firestore {
     function requestCustodyGroupId() {
       return cleanString(request.resource.data.get("custodyGroupId", "")) != ""
         ? cleanString(request.resource.data.get("custodyGroupId", ""))
+        : cleanString(request.resource.data.get("custody_group_id", "")) != ""
+        ? cleanString(request.resource.data.get("custody_group_id", ""))
         : cleanString(request.resource.data.get("familyId", ""));
     }
 
     function existingCustodyGroupId() {
       return cleanString(resource.data.get("custodyGroupId", "")) != ""
         ? cleanString(resource.data.get("custodyGroupId", ""))
+        : cleanString(resource.data.get("custody_group_id", "")) != ""
+        ? cleanString(resource.data.get("custody_group_id", ""))
         : cleanString(resource.data.get("familyId", ""));
     }
 
@@ -79,11 +83,13 @@ service cloud.firestore {
     }
 
     function hasExplicitRequestCustodyGroupId() {
-      return cleanString(request.resource.data.get("custodyGroupId", "")) != "";
+      return cleanString(request.resource.data.get("custodyGroupId", "")) != ""
+        || cleanString(request.resource.data.get("custody_group_id", "")) != "";
     }
 
     function hasExplicitExistingCustodyGroupId() {
-      return cleanString(resource.data.get("custodyGroupId", "")) != "";
+      return cleanString(resource.data.get("custodyGroupId", "")) != ""
+        || cleanString(resource.data.get("custody_group_id", "")) != "";
     }
 
     function isFamilyOwnerData(data) {

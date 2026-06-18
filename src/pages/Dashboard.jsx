@@ -320,6 +320,7 @@ function buildHouseholdCustodyGroup(profile = {}) {
   return {
     id: familyId,
     custodyGroupId: familyId,
+    householdFallback: true,
     name: `${getFamilyName(profile)} custody`,
     children: Array.isArray(profile.children) ? profile.children : [],
     parents,
@@ -363,9 +364,9 @@ function subscribeCustodyDays(custodyGroups = [], familyId = "", onData, onReady
   };
 
   custodyGroups
-    .map((group) => getCustodyGroupId(group))
-    .filter(Boolean)
-    .forEach((id) => {
+    .forEach((group) => {
+      const id = getCustodyGroupId(group);
+      if (!id || id === familyId || group.householdFallback === true) return;
       addSource("custodyGroupId", id);
       addSource("custody_group_id", id);
     });
