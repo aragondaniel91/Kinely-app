@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -59,6 +60,57 @@ const emptyNewItem = {
   status: "review",
   important: false,
 };
+
+const emptyTemplateForm = {
+  label: "",
+  description: "",
+  tone: "blue",
+  itemsText: "",
+};
+
+function parseTemplateItems(value = "") {
+  return String(value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name = "", category = "General", owner = "Shared", important = ""] = line
+        .split("|")
+        .map((part) => part.trim());
+
+      return {
+        name,
+        category: category || "General",
+        owner: owner || "Shared",
+        status: "review",
+        important: ["important", "true", "yes", "required"].includes(String(important || "").toLowerCase()),
+      };
+    })
+    .filter((item) => item.name);
+}
+
+function templateItemsToText(items = []) {
+  return items
+    .map((item) => {
+      const parts = [
+        item.name || "",
+        item.category || "General",
+        item.owner || "Shared",
+      ];
+      if (item.important) parts.push("important");
+      return parts.join(" | ");
+    })
+    .join("\n");
+}
+
+function templateToForm(template = {}) {
+  return {
+    label: template.label || "",
+    description: template.description || "",
+    tone: template.tone || "blue",
+    itemsText: templateItemsToText(template.items || []),
+  };
+}
 
 function itemToForm(item) {
   return {
@@ -157,26 +209,59 @@ function packingActivityDescription(action, item) {
   return `${item.name} is ${statusMeta(item.status).label.toLowerCase()} in ${item.category || "General"}.`;
 }
 
-function TemplateCard({ template, applying, onApply }) {
+function TemplateCard({ template, applying, onApply, onCustomize, onEdit, onDelete }) {
   const Icon = iconMap[template.id] || Backpack;
   const accent = accentMap[template.tone] || accentMap.blue;
+  const isCustom = template.system !== true;
 
   return (
-    <button
-      type="button"
-      onClick={() => onApply(template)}
-      disabled={applying}
-      className="rounded-[1.6rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.09)]"
-    >
-      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${accent}`}>
-        <Icon className="h-6 w-6" />
+    <div className="rounded-[1.6rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.09)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${accent}`}>
+          <Icon className="h-6 w-6" />
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${isCustom ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+          {isCustom ? "Custom" : "Starter"}
+        </span>
       </div>
       <h3 className="mt-4 text-base font-black text-slate-950">{template.label}</h3>
       <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">{template.description}</p>
-      <p className="mt-3 text-xs font-black text-emerald-700">
-        {applying ? "Adding..." : "Add template"}
+      <p className="mt-2 text-xs font-bold text-slate-400">
+        {template.items?.length || 0} reusable item{template.items?.length === 1 ? "" : "s"}
       </p>
-    </button>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => onApply(template)}
+          disabled={applying}
+          className="rounded-full bg-emerald-600 hover:bg-emerald-700"
+        >
+          {applying ? "Adding..." : "Add"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => (isCustom ? onEdit(template) : onCustomize(template))}
+          className="rounded-full"
+        >
+          {isCustom ? "Edit" : "Customize"}
+        </Button>
+        {isCustom && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onDelete(template)}
+            className="rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+          >
+            Delete
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -331,6 +416,89 @@ function PackingItemModal({ open, mode, value, saving, onChange, onClose, onSubm
   );
 }
 
+function PackingTemplateModal({ open, mode, value, saving, onChange, onClose, onSubmit }) {
+  if (!open) return null;
+
+  const isEdit = mode === "edit";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm md:items-center">
+      <form onSubmit={onSubmit} className="w-full max-w-2xl rounded-[2rem] border border-white/80 bg-white p-5 shadow-2xl md:p-6">
+        <div className="mb-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Reusable list</p>
+          <h3 className="mt-1 text-2xl font-black text-slate-950">{isEdit ? "Edit reusable list" : "Create reusable list"}</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Save the packing patterns your family uses often. Items use one line each.
+          </p>
+        </div>
+
+        <div className="grid gap-4">
+          <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">List name</span>
+              <Input
+                value={value.label}
+                onChange={(event) => onChange({ ...value, label: event.target.value })}
+                placeholder="Example: School night exchange"
+                className="rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-emerald-200"
+                required
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400">Color</span>
+              <Select value={value.tone} onValueChange={(nextValue) => onChange({ ...value, tone: nextValue })}>
+                <SelectTrigger className="rounded-2xl border-slate-200 text-sm font-bold focus:ring-emerald-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="amber">Amber</SelectItem>
+                  <SelectItem value="emerald">Green</SelectItem>
+                  <SelectItem value="rose">Rose</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+          </div>
+
+          <label className="grid gap-1.5">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Description</span>
+            <Input
+              value={value.description}
+              onChange={(event) => onChange({ ...value, description: event.target.value })}
+              placeholder="Example: Everything needed for school after a custody exchange."
+              className="rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-emerald-200"
+            />
+          </label>
+
+          <label className="grid gap-1.5">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400">Items</span>
+            <Textarea
+              value={value.itemsText}
+              onChange={(event) => onChange({ ...value, itemsText: event.target.value })}
+              placeholder={"Backpack | School | Shared | important\nHomework folder | School | Shared\nMedication | Medicine | Shared | important"}
+              className="min-h-44 rounded-2xl border-slate-200 text-sm font-bold focus-visible:ring-emerald-200"
+              required
+            />
+            <span className="text-xs font-semibold leading-5 text-slate-500">
+              Format: item name | category | responsible | important. Only item name is required.
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving} className="rounded-full">
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving} className="rounded-full bg-emerald-600 hover:bg-emerald-700">
+            {saving ? "Saving..." : isEdit ? "Save list" : "Create list"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function PeaceOfMindCard() {
   return (
     <Card className="rounded-[2rem] border-white/80 bg-white p-5 shadow-[0_14px_38px_rgba(15,23,42,0.07)] md:p-6">
@@ -367,6 +535,19 @@ function normalizePackingDoc(docSnap) {
   };
 }
 
+function normalizePackingTemplateDoc(docSnap) {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    label: data.label || "Custom list",
+    description: data.description || "Reusable packing list.",
+    tone: data.tone || "blue",
+    items: Array.isArray(data.items) ? data.items : [],
+    system: false,
+    order: data.order ?? 999,
+  };
+}
+
 export default function PackingHub() {
   const {
     user,
@@ -388,6 +569,8 @@ export default function PackingHub() {
     visibility: "custody",
   }), [custodyScopeId, householdScopeId, selectedCustodyGroup?.name]);
   const [items, setItems] = useState([]);
+  const [customTemplates, setCustomTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [loading, setLoading] = useState(true);
   const [noticeDialog, setNoticeDialog] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -401,10 +584,14 @@ export default function PackingHub() {
   };
 
   const [showItemModal, setShowItemModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [applyingTemplateId, setApplyingTemplateId] = useState("");
   const [itemForm, setItemForm] = useState(emptyNewItem);
+  const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
   const [editingItem, setEditingItem] = useState(null);
+  const [editingTemplate, setEditingTemplate] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -444,12 +631,59 @@ export default function PackingHub() {
     };
   }, [user?.uid, custodyScopeFields, custodyScopeId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCustomTemplates() {
+      if (!user || !custodyScopeId) {
+        setCustomTemplates([]);
+        setLoadingTemplates(false);
+        return;
+      }
+
+      setLoadingTemplates(true);
+
+      try {
+        const docs = await getCustodyScopedDocSnaps("custodyPackingTemplates", custodyScopeId);
+        const data = docs
+          .map(normalizePackingTemplateDoc)
+          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+        if (!cancelled) setCustomTemplates(data);
+      } catch (error) {
+        console.error("Error loading packing templates:", error);
+        if (!cancelled) setCustomTemplates([]);
+      } finally {
+        if (!cancelled) setLoadingTemplates(false);
+      }
+    }
+
+    loadCustomTemplates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, custodyScopeId]);
+
   const summary = useMemo(() => getPackingSummary(items), [items]);
+  const reusableTemplates = useMemo(
+    () => [
+      ...custodyPackingTemplates.map((template) => ({ ...template, system: true })),
+      ...customTemplates,
+    ],
+    [customTemplates]
+  );
 
   const closeItemModal = () => {
     setShowItemModal(false);
     setEditingItem(null);
     setItemForm(emptyNewItem);
+  };
+
+  const closeTemplateModal = () => {
+    setShowTemplateModal(false);
+    setEditingTemplate(null);
+    setTemplateForm(emptyTemplateForm);
   };
 
   const openAddItem = () => {
@@ -462,6 +696,27 @@ export default function PackingHub() {
     setEditingItem(item);
     setItemForm(itemToForm(item));
     setShowItemModal(true);
+  };
+
+  const openCreateTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateForm(emptyTemplateForm);
+    setShowTemplateModal(true);
+  };
+
+  const openCustomizeTemplate = (template) => {
+    setEditingTemplate(null);
+    setTemplateForm({
+      ...templateToForm(template),
+      label: `${template.label} custom`,
+    });
+    setShowTemplateModal(true);
+  };
+
+  const openEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateForm(templateToForm(template));
+    setShowTemplateModal(true);
   };
 
   const logPackingActivity = (action, item) => {
@@ -622,6 +877,101 @@ export default function PackingHub() {
     });
   };
 
+  const savePackingTemplate = async (event) => {
+    event.preventDefault();
+
+    const cleanLabel = templateForm.label.trim();
+    const templateItems = parseTemplateItems(templateForm.itemsText);
+    if (!cleanLabel || !templateItems.length || !user || !custodyScopeId || savingTemplate) return;
+
+    setSavingTemplate(true);
+
+    try {
+      const payload = {
+        label: cleanLabel,
+        description: templateForm.description.trim() || "Reusable packing list.",
+        tone: templateForm.tone || "blue",
+        items: templateItems,
+        itemCount: templateItems.length,
+        item_count: templateItems.length,
+        isCustom: true,
+        is_custom: true,
+        ...custodyScopeFields,
+        updatedBy: user.uid,
+        updated_by: user.uid,
+        updatedByEmail: user.email || "",
+        updated_by_email: user.email || "",
+        updatedAt: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      };
+
+      if (editingTemplate) {
+        await updateDoc(doc(db, "custodyPackingTemplates", editingTemplate.id), payload);
+        const updatedTemplate = { ...editingTemplate, ...payload, id: editingTemplate.id, system: false };
+        setCustomTemplates((current) =>
+          current.map((template) => (template.id === editingTemplate.id ? updatedTemplate : template))
+        );
+      } else {
+        const createPayload = {
+          ...payload,
+          createdBy: user.uid,
+          created_by: user.uid,
+          createdByEmail: user.email || "",
+          created_by_email: user.email || "",
+          order: customTemplates.length,
+          createdAt: serverTimestamp(),
+          created_at: serverTimestamp(),
+        };
+
+        const docRef = await addDoc(collection(db, "custodyPackingTemplates"), createPayload);
+        const createdTemplate = { ...createPayload, id: docRef.id, system: false };
+        setCustomTemplates((current) => [...current, createdTemplate]);
+      }
+
+      closeTemplateModal();
+    } catch (error) {
+      console.error("Error saving packing template:", error);
+      showNotice({
+        tone: "danger",
+        title: "Could not save reusable list",
+        message: error.message,
+      });
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const performDeleteTemplate = async (templateToDelete) => {
+    if (!templateToDelete || templateToDelete.system === true) return;
+
+    const previousTemplates = customTemplates;
+    setCustomTemplates((current) => current.filter((template) => template.id !== templateToDelete.id));
+
+    try {
+      await deleteDoc(doc(db, "custodyPackingTemplates", templateToDelete.id));
+    } catch (error) {
+      console.error("Error deleting packing template:", error);
+      setCustomTemplates(previousTemplates);
+      showNotice({
+        tone: "danger",
+        title: "Could not delete reusable list",
+        message: error.message,
+      });
+    }
+  };
+
+  const deleteTemplate = (templateToDelete) => {
+    if (!templateToDelete || templateToDelete.system === true) return;
+
+    askConfirm({
+      tone: "danger",
+      title: "Delete reusable list?",
+      message: `Delete "${templateToDelete.label}" from this family's reusable lists? Active packing items will not be removed.`,
+      confirmLabel: "Delete list",
+      onConfirm: () => performDeleteTemplate(templateToDelete),
+    });
+  };
+
   const applyTemplate = async (template) => {
     if (!template?.items?.length || !user || !custodyScopeId || applyingTemplateId) return;
 
@@ -753,26 +1103,36 @@ export default function PackingHub() {
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                    Smart templates
+                    Reusable lists
                   </p>
                   <h3 className="mt-1 text-2xl font-black text-slate-950">
-                    Reusable lists
+                    Family templates
                   </h3>
                 </div>
-                <Badge className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 hover:bg-emerald-50">
-                  Firestore
-                </Badge>
+                <Button type="button" variant="outline" onClick={openCreateTemplate} className="rounded-full gap-2">
+                  <Plus className="h-4 w-4" />
+                  New list
+                </Button>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                {custodyPackingTemplates.map((template) => (
-                  <TemplateCard
-                    key={template.id}
-                    template={template}
-                    applying={applyingTemplateId === template.id}
-                    onApply={applyTemplate}
-                  />
-                ))}
+                {loadingTemplates ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-500 sm:col-span-2 xl:col-span-1 2xl:col-span-2">
+                    Loading reusable lists...
+                  </div>
+                ) : (
+                  reusableTemplates.map((template) => (
+                    <TemplateCard
+                      key={`${template.system ? "starter" : "custom"}-${template.id}`}
+                      template={template}
+                      applying={applyingTemplateId === template.id}
+                      onApply={applyTemplate}
+                      onCustomize={openCustomizeTemplate}
+                      onEdit={openEditTemplate}
+                      onDelete={deleteTemplate}
+                    />
+                  ))
+                )}
               </div>
             </Card>
 
@@ -789,6 +1149,16 @@ export default function PackingHub() {
         onChange={setItemForm}
         onClose={closeItemModal}
         onSubmit={savePackingItem}
+      />
+
+      <PackingTemplateModal
+        open={showTemplateModal}
+        mode={editingTemplate ? "edit" : "add"}
+        value={templateForm}
+        saving={savingTemplate}
+        onChange={setTemplateForm}
+        onClose={closeTemplateModal}
+        onSubmit={savePackingTemplate}
       />
 
       <AppDialog

@@ -723,6 +723,13 @@ service cloud.firestore {
       allow delete: if canDeleteCustodyDoc();
     }
 
+    match /custodyPackingTemplates/{docId} {
+      allow read: if canReadCustodyDoc();
+      allow create: if canCreateCustodyDoc();
+      allow update: if canUpdateCustodyDoc();
+      allow delete: if canDeleteCustodyDoc();
+    }
+
     match /custodyExpenses/{docId} {
       allow read: if hasExistingCustodyGroupId() && canReadBudget(existingCustodyGroupId());
       allow create: if hasRequestCustodyGroupId() && canWriteBudget(requestCustodyGroupId());
