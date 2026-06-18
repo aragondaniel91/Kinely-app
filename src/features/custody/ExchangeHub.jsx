@@ -29,6 +29,7 @@ import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 
 const emptyExchange = {
   date: "",
@@ -196,14 +197,40 @@ function normalizeExchangeDoc(docSnap) {
     date: data.date || "",
     time: data.time || "18:00",
     location: data.location || "Daycare pickup",
-    fromParent: data.fromParent || "dad",
-    toParent: data.toParent || "mom",
-    pickupBy: data.pickupBy || data.toParent || "mom",
+    fromParent: data.fromParent || data.from_parent || "dad",
+    toParent: data.toParent || data.to_parent || "mom",
+    pickupBy: data.pickupBy || data.pickup_by || data.toParent || data.to_parent || "mom",
     notes: data.notes || "",
     status: data.status || "pending",
     source: data.source || "manual",
     order: data.order ?? 999,
   };
+}
+
+function sortExchangeList(items = []) {
+  return [...items].sort((a, b) =>
+    `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`)
+  );
+}
+
+function exchangeActivityType(action) {
+  if (action === "created") return "custody_exchange_created";
+  if (action === "deleted") return "custody_exchange_deleted";
+  return "custody_exchange_updated";
+}
+
+function exchangeActivityTitle(action, exchange) {
+  if (action === "created") return "Custody exchange added";
+  if (action === "deleted") return "Custody exchange deleted";
+  if (action === "status") return `Custody exchange marked ${statusMeta(exchange.status).label.toLowerCase()}`;
+  return "Custody exchange updated";
+}
+
+function exchangeActivityDescription(exchange, dadName, momName) {
+  const route = `${formatParent(exchange.fromParent, dadName, momName)} -> ${formatParent(exchange.toParent, dadName, momName)}`;
+  const when = `${formatDate(exchange.date)} at ${formatTime(exchange.time)}`;
+  const where = exchange.location ? ` at ${exchange.location}` : "";
+  return `${route} on ${when}${where}.`;
 }
 
 function ExchangeSummaryCard({ exchange, dadName, momName, loading }) {
@@ -237,11 +264,11 @@ function ExchangeSummaryCard({ exchange, dadName, momName, loading }) {
                   {loading
                     ? "Loading..."
                     : exchange
-                      ? `${formatParent(exchange.fromParent, dadName, momName)} → ${formatParent(exchange.toParent, dadName, momName)}`
+                      ? `${formatParent(exchange.fromParent, dadName, momName)} -> ${formatParent(exchange.toParent, dadName, momName)}`
                       : "No exchange scheduled"}
                 </p>
                 <p className="text-sm font-bold text-slate-500">
-                  {exchange ? `${formatDate(exchange.date)} · ${formatTime(exchange.time)}` : "Add one to get started"}
+                  {exchange ? `${formatDate(exchange.date)} - ${formatTime(exchange.time)}` : "Add one to get started"}
                 </p>
               </div>
             </div>
@@ -266,7 +293,7 @@ function SuggestedExchangeCard({ suggestion, dadName, momName, onConfirm }) {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Smart suggestion</p>
             <h3 className="mt-1 text-xl font-black text-slate-950">Confirm suggested exchange</h3>
             <p className="mt-1 text-sm font-semibold leading-6 text-blue-800">
-              Calendar detected {formatParent(suggestion.fromParent, dadName, momName)} → {formatParent(suggestion.toParent, dadName, momName)} on {formatDate(suggestion.date)}{suggestion.period ? ` (${suggestion.period})` : ""}. Review time, location, and notes before saving.
+              Calendar detected {formatParent(suggestion.fromParent, dadName, momName)}{" -> "}{formatParent(suggestion.toParent, dadName, momName)} on {formatDate(suggestion.date)}{suggestion.period ? ` (${suggestion.period})` : ""}. Review time, location, and notes before saving.
             </p>
           </div>
         </div>
@@ -305,12 +332,12 @@ function ExchangeRow({ exchange, dadName, momName, onCycle, onEdit, onDelete }) 
         <button type="button" onClick={() => onCycle(exchange.id)} className="min-w-0 flex-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="text-base font-black text-slate-950">
-              {formatDate(exchange.date)} · {formatTime(exchange.time)}
+              {formatDate(exchange.date)} - {formatTime(exchange.time)}
             </h4>
             <span className={`rounded-full border px-3 py-1 text-xs font-black ${meta.className}`}>{meta.label}</span>
           </div>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            {formatParent(exchange.fromParent, dadName, momName)} → {formatParent(exchange.toParent, dadName, momName)} · {exchange.location}
+            {formatParent(exchange.fromParent, dadName, momName)}{" -> "}{formatParent(exchange.toParent, dadName, momName)} - {exchange.location}
           </p>
           {exchange.notes && <p className="mt-2 text-sm font-semibold text-blue-700">{exchange.notes}</p>}
         </button>
@@ -459,6 +486,7 @@ export default function ExchangeHub() {
     selectedCustodyGroup,
     dadName,
     momName,
+    profile,
   } = useFamily();
   const custodyScopeId = custodyGroupId || familyId;
   const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
@@ -503,9 +531,7 @@ export default function ExchangeHub() {
 
       try {
         const docs = await getCustodyScopedDocSnaps("custodyExchanges", custodyScopeId);
-        const data = docs
-          .map(normalizeExchangeDoc)
-          .sort((a, b) => `${a.date || "9999-12-31"} ${a.time || "99:99"}`.localeCompare(`${b.date || "9999-12-31"} ${b.time || "99:99"}`));
+        const data = sortExchangeList(docs.map(normalizeExchangeDoc));
 
         if (!cancelled) setExchanges(data);
       } catch (error) {
@@ -608,6 +634,32 @@ export default function ExchangeHub() {
     setShowExchangeModal(true);
   };
 
+  const logExchangeActivity = (action, exchange) => {
+    if (!exchange || !user?.uid || !custodyScopeFields.familyId) return;
+
+    queueFamilyActivity({
+      familyId: custodyScopeFields.familyId,
+      custodyScopeFields,
+      user,
+      profile,
+      module: "custody",
+      type: exchangeActivityType(action),
+      title: exchangeActivityTitle(action, exchange),
+      description: exchangeActivityDescription(exchange, dadName, momName),
+      entityType: "custody_exchange",
+      entityId: exchange.id || "",
+      date: exchange.date,
+      metadata: {
+        action,
+        status: exchange.status || "pending",
+        location: exchange.location || "",
+        fromParent: exchange.fromParent || "",
+        toParent: exchange.toParent || "",
+        pickupBy: exchange.pickupBy || "",
+      },
+    });
+  };
+
   const saveExchange = async (event) => {
     event.preventDefault();
 
@@ -621,30 +673,46 @@ export default function ExchangeHub() {
         time: exchangeForm.time,
         location: exchangeForm.location.trim(),
         fromParent: exchangeForm.fromParent,
+        from_parent: exchangeForm.fromParent,
         toParent: exchangeForm.toParent,
+        to_parent: exchangeForm.toParent,
         pickupBy: exchangeForm.pickupBy || exchangeForm.toParent,
+        pickup_by: exchangeForm.pickupBy || exchangeForm.toParent,
         notes: exchangeForm.notes.trim(),
         status: exchangeForm.status,
         source: exchangeForm.source || "manual",
         ...custodyScopeFields,
+        updatedBy: user.uid,
+        updated_by: user.uid,
+        updatedByEmail: user.email || "",
+        updated_by_email: user.email || "",
         updatedAt: serverTimestamp(),
+        updated_at: serverTimestamp(),
       };
 
       if (editingExchange) {
         await updateDoc(doc(db, "custodyExchanges", editingExchange.id), payload);
+        const updatedExchange = { ...editingExchange, ...payload, id: editingExchange.id };
         setExchanges((current) =>
-          current.map((exchange) => (exchange.id === editingExchange.id ? { ...exchange, ...payload } : exchange))
+          sortExchangeList(current.map((exchange) => (exchange.id === editingExchange.id ? updatedExchange : exchange)))
         );
+        logExchangeActivity("updated", updatedExchange);
       } else {
         const createPayload = {
           ...payload,
           createdBy: user.uid,
+          created_by: user.uid,
+          createdByEmail: user.email || "",
+          created_by_email: user.email || "",
           order: exchanges.length,
           createdAt: serverTimestamp(),
+          created_at: serverTimestamp(),
         };
 
         const docRef = await addDoc(collection(db, "custodyExchanges"), createPayload);
-        setExchanges((current) => [...current, { ...createPayload, id: docRef.id }]);
+        const createdExchange = { ...createPayload, id: docRef.id };
+        setExchanges((current) => sortExchangeList([...current, createdExchange]));
+        logExchangeActivity("created", createdExchange);
       }
 
       closeExchangeModal();
@@ -676,31 +744,27 @@ export default function ExchangeHub() {
     try {
       await updateDoc(doc(db, "custodyExchanges", id), {
         status: nextStatus,
+        updatedBy: user?.uid || "",
+        updated_by: user?.uid || "",
+        updatedByEmail: user?.email || "",
+        updated_by_email: user?.email || "",
         updatedAt: serverTimestamp(),
+        updated_at: serverTimestamp(),
       });
+      logExchangeActivity("status", { ...currentExchange, status: nextStatus });
     } catch (error) {
       console.error("Error updating custody exchange:", error);
       setExchanges((current) => current.map((exchange) => (exchange.id === id ? { ...exchange, status: currentExchange.status } : exchange)));
     }
   };
 
-  const deleteExchange = async (exchangeToDelete) => {
-    if (!skipConfirm) {
-      askConfirm({
-        tone: "danger",
-        title: "Delete exchange?",
-        message: `Delete exchange on ${formatDate(exchangeToDelete.date)}? This action cannot be undone.`,
-        confirmLabel: "Delete exchange",
-        onConfirm: () => handleDeleteExchange({ skipConfirm: true }),
-      });
-      return;
-    }
-
+  const performDeleteExchange = async (exchangeToDelete) => {
     const previousExchanges = exchanges;
     setExchanges((current) => current.filter((exchange) => exchange.id !== exchangeToDelete.id));
 
     try {
       await deleteDoc(doc(db, "custodyExchanges", exchangeToDelete.id));
+      logExchangeActivity("deleted", exchangeToDelete);
     } catch (error) {
       console.error("Error deleting custody exchange:", error);
       setExchanges(previousExchanges);
@@ -710,6 +774,16 @@ export default function ExchangeHub() {
         message: error.message,
       });
     }
+  };
+
+  const deleteExchange = (exchangeToDelete) => {
+    askConfirm({
+      tone: "danger",
+      title: "Delete exchange?",
+      message: `Delete exchange on ${formatDate(exchangeToDelete.date)}? This action cannot be undone.`,
+      confirmLabel: "Delete exchange",
+      onConfirm: () => performDeleteExchange(exchangeToDelete),
+    });
   };
 
   return (
@@ -723,7 +797,7 @@ export default function ExchangeHub() {
           <DetailCard icon={Clock3} label="Time" value={nextExchange ? formatTime(nextExchange.time) : "TBD"} helper="Suggested reminder: 30 min before" />
           <DetailCard icon={MapPin} label="Location" value={nextExchange?.location || "Needs review"} helper="Visible to connected homes" />
           <DetailCard icon={Car} label="Pickup by" value={nextExchange ? formatParent(nextExchange.pickupBy, dadName, momName) : "TBD"} helper="Based on next exchange" />
-          <DetailCard icon={CalendarClock} label="Exchange status" value={`${pendingCount} pending`} helper={`${completedCount} completed · ${issueCount} issue`} />
+          <DetailCard icon={CalendarClock} label="Exchange status" value={`${pendingCount} pending`} helper={`${completedCount} completed - ${issueCount} issue`} />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">

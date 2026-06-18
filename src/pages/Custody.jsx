@@ -48,7 +48,7 @@ const custodyModules = [
     icon: Truck,
     description: "Pickup/dropoff days, handoff notes, exchange reminders, and status.",
     accent: "bg-cyan-50 text-cyan-600 border-cyan-100",
-    ready: false,
+    ready: true,
   },
   {
     id: "packing",
@@ -183,7 +183,7 @@ function UpcomingCustodyToolsCard() {
         More co-parenting tools are being shaped
       </h2>
       <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900/75">
-        Custody schedule, calendar, and shared tasks are active now. Exchange notes, packing, and smart reminders will appear here once they are reliable enough for daily family use.
+        Custody schedule, calendar, exchange notes, and shared tasks are active now. Packing and smart reminders will appear here once they are reliable enough for daily family use.
       </p>
     </div>
   );
