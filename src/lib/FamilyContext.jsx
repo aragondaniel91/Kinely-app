@@ -15,7 +15,6 @@ import {
   query,
   where,
   setDoc,
-  updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -1379,13 +1378,6 @@ export function FamilyProvider({ children }) {
       familyId: activeProfile.id,
       updates: payload,
     });
-
-    if (!workerResult) {
-      await updateDoc(doc(db, "families", activeProfile.id), payload);
-      if (Array.isArray(payload.members)) {
-        await materializeFamilyMembers(activeProfile.id, payload.members);
-      }
-    }
 
     await refreshFamilies();
   };

@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "reminder-rules-2026-06-18-01";
+const WORKER_VERSION = "family-guardrails-2026-06-18-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -865,6 +865,29 @@ function memberEmail(member = {}) {
   return normalizeEmail(member.email || member.ownerEmail || member.owner_email || member.recipientEmail || member.recipient_email);
 }
 
+function isFamilyOwner(family = {}, token = {}) {
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  if (!uid && !email) return false;
+
+  const ownerIds = uniqueStrings([
+    family.ownerId,
+    family.owner_id,
+    family.ownerUid,
+    family.owner_uid,
+    family.createdBy,
+    family.created_by,
+  ]);
+  const ownerEmails = uniqueStrings([
+    family.ownerEmail,
+    family.owner_email,
+    family.createdByEmail,
+    family.created_by_email,
+  ]).map(normalizeEmail);
+
+  return ownerIds.includes(uid) || ownerEmails.includes(email);
+}
+
 function canManageFamily(family = {}, token = {}) {
   const uid = cleanText(token.sub);
   const email = normalizeEmail(token.email);
@@ -891,6 +914,102 @@ function canManageFamily(family = {}, token = {}) {
     adminEmails.includes(email) ||
     adminMembers.some((member) => cleanText(member.uid || member.userId || member.user_id) === uid || memberEmail(member) === email)
   );
+}
+
+function normalizedComparableList(...values) {
+  return uniqueStrings(values.flat())
+    .map((value) => cleanText(value).toLowerCase())
+    .filter(Boolean)
+    .sort();
+}
+
+function comparableListsEqual(a = [], b = []) {
+  if (a.length !== b.length) return false;
+  return a.every((item, index) => item === b[index]);
+}
+
+function updateChangesListField(updates = {}, family = {}, camelKey = "", snakeKey = "") {
+  const hasNext = Object.prototype.hasOwnProperty.call(updates, camelKey) || Object.prototype.hasOwnProperty.call(updates, snakeKey);
+  if (!hasNext) return false;
+
+  const next = normalizedComparableList(updates[camelKey], updates[snakeKey]);
+  const current = normalizedComparableList(family[camelKey], family[snakeKey]);
+  return !comparableListsEqual(next, current);
+}
+
+function familyMemberAccessKey(member = {}) {
+  return cleanText(
+    member.uid ||
+    member.userId ||
+    member.user_id ||
+    member.personId ||
+    member.person_id ||
+    member.id ||
+    member.email ||
+    member.name ||
+    member.displayName
+  ).toLowerCase();
+}
+
+function familyMemberPrivilegeState(member = {}) {
+  const appRole = cleanText(member.appRole || member.app_role).toLowerCase();
+  const admin = (
+    member.admin === true ||
+    member.isAdmin === true ||
+    member.is_admin === true ||
+    appRole === "owner" ||
+    appRole === "admin"
+  );
+
+  return {
+    admin,
+    appRole,
+    privileged: admin || appRole === "owner" || appRole === "admin",
+  };
+}
+
+function nonOwnerChangesFamilyAdminState(family = {}, updates = {}) {
+  if (
+    updateChangesListField(updates, family, "adminIds", "admin_ids") ||
+    updateChangesListField(updates, family, "adminEmails", "admin_emails")
+  ) {
+    return true;
+  }
+
+  if (!Array.isArray(updates.members)) return false;
+
+  const currentByKey = new Map();
+  listOrEmpty(family.members).forEach((member) => {
+    const key = familyMemberAccessKey(member);
+    if (key) currentByKey.set(key, member);
+  });
+
+  const nextByKey = new Map();
+  listOrEmpty(updates.members).forEach((member) => {
+    const key = familyMemberAccessKey(member);
+    if (key) nextByKey.set(key, member);
+  });
+
+  for (const [key, nextMember] of nextByKey.entries()) {
+    const currentMember = currentByKey.get(key);
+    const nextPrivilege = familyMemberPrivilegeState(nextMember);
+    const currentPrivilege = familyMemberPrivilegeState(currentMember || {});
+
+    if (!currentMember && nextPrivilege.privileged) return true;
+    if (currentMember && (
+      nextPrivilege.admin !== currentPrivilege.admin ||
+      nextPrivilege.appRole !== currentPrivilege.appRole
+    )) {
+      return true;
+    }
+  }
+
+  for (const [key, currentMember] of currentByKey.entries()) {
+    const currentPrivilege = familyMemberPrivilegeState(currentMember);
+    if (currentPrivilege.privileged && !nextByKey.has(key)) return true;
+  }
+
+  return false;
 }
 
 function canDeleteFamily(family = {}, token = {}) {
@@ -2353,6 +2472,13 @@ async function handleFamilyUpdate(request, env, origin) {
   }
 
   const rawUpdates = payload.updates || payload.data || {};
+  if (!isFamilyOwner(family, token) && nonOwnerChangesFamilyAdminState(family, rawUpdates)) {
+    return json({
+      ok: false,
+      error: "Only the family owner can grant, remove, or modify admin access.",
+    }, { status: 403 }, origin);
+  }
+
   const updates = sanitizeFamilyUpdates(rawUpdates, token);
   const writes = [
     firestoreMergeWrite(env, "families", familyId, updates),

@@ -15,6 +15,7 @@ import { CalendarRange, Repeat2, Split, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -481,6 +482,9 @@ export default function BulkCustodyDialog({
             <CalendarRange className="w-6 h-6 text-primary" />
             Asignación masiva
           </DialogTitle>
+          <DialogDescription>
+            Build a custody schedule across multiple days using a repeating pattern.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[70vh] overflow-y-auto px-6 py-4">

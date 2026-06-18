@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -790,6 +791,9 @@ export default function CustodyDayDialog({
               <CalendarDays className="w-5 h-5 text-primary" />
               Today&apos;s plan
             </DialogTitle>
+            <DialogDescription>
+              Review and edit custody ownership, notes, exchanges, travel, and special events for this day.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[72vh] space-y-4 overflow-y-auto bg-slate-50/70 px-5 py-5">
@@ -1149,6 +1153,9 @@ export default function CustodyDayDialog({
             <DialogTitle className="font-heading text-xl">
               Delete special event?
             </DialogTitle>
+            <DialogDescription>
+              Confirm whether to remove this special event from the custody day.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="px-5 py-6 text-center">
@@ -1207,6 +1214,9 @@ export default function CustodyDayDialog({
             <DialogTitle className="font-heading text-xl">
               Delete travel plan?
             </DialogTitle>
+            <DialogDescription>
+              Confirm whether to remove this travel plan from the custody calendar.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="px-5 py-6 text-center">
@@ -1267,6 +1277,9 @@ export default function CustodyDayDialog({
             <DialogTitle className="font-heading text-xl">
               Delete custody day?
             </DialogTitle>
+            <DialogDescription>
+              Confirm whether to remove custody information for this day.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="px-5 py-6 text-center">
@@ -1321,6 +1334,9 @@ export default function CustodyDayDialog({
             <DialogTitle className="font-heading text-xl">
               Delete custody schedule
             </DialogTitle>
+            <DialogDescription>
+              Choose whether to delete the entire bulk schedule or only this custody day.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="px-5 py-6 text-center">

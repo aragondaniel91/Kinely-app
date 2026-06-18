@@ -5,6 +5,7 @@ import { CalendarHeart, Clock, MapPin } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -105,6 +106,9 @@ export default function CustodySpecialEventDialog({
             <CalendarHeart className="h-5 w-5 text-primary" />
             {editing ? "Edit special event" : "Add special event"}
           </DialogTitle>
+          <DialogDescription>
+            Add or edit an important child event on the custody calendar.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 px-5 py-5">

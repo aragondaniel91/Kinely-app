@@ -27,7 +27,7 @@ import { getFamilyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { cn } from "@/lib/utils";
 import { queueFamilyActivity } from "@/services/familyActivityService";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -700,9 +700,12 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
               Add meal
             </p>
 
-            <h2 className="mt-1 text-3xl font-black tracking-tight text-white">
+            <DialogTitle className="mt-1 text-3xl font-black tracking-tight text-white">
               {format(date, "EEEE, MMM d")}
-            </h2>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Add a meal from the family menu or create a new meal plan for this date.
+            </DialogDescription>
 
             <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/88 px-3 py-1.5 text-xs font-black text-slate-700 shadow-sm ring-1 ring-white/70 backdrop-blur-md">
               <Icon className="h-4 w-4" />

@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -240,9 +241,9 @@ export default function ManageTaskRewardsDialog({
                 Manage rewards
               </DialogTitle>
 
-              <p className="mt-1 text-sm font-semibold text-slate-500">
+              <DialogDescription className="mt-1 text-sm font-semibold text-slate-500">
                 Choose what your family earns after reward tasks are completed.
-              </p>
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>

@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -379,9 +380,9 @@ export default function ApplyTaskTemplateDialog({
                 Apply routine
               </DialogTitle>
 
-              <p className="mt-1 text-sm font-semibold text-slate-500">
+              <DialogDescription className="mt-1 text-sm font-semibold text-slate-500">
                 Choose a routine, assign it, and create tasks for a date.
-              </p>
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>

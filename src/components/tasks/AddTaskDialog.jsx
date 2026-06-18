@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -594,9 +595,9 @@ export default function AddTaskDialog({
                 {editTask ? "Edit task" : "Add task"}
               </DialogTitle>
 
-              <p className="mt-1 text-sm font-semibold text-slate-500">
+              <DialogDescription className="mt-1 text-sm font-semibold text-slate-500">
                 Assign it, name it, choose when it matters.
-              </p>
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>

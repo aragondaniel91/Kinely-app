@@ -5,6 +5,7 @@ import { MapPin, Plane, UserRound } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -96,6 +97,9 @@ export default function CustodyTravelPlanDialog({
             <Plane className="h-5 w-5 text-primary" />
             {editing ? "Edit travel plan" : "Add travel plan"}
           </DialogTitle>
+          <DialogDescription>
+            Add or edit travel days so the custody calendar reflects vacation or trip plans.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 px-5 py-5">

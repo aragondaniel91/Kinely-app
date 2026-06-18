@@ -37,6 +37,7 @@ import { queueFamilyActivity } from "@/services/familyActivityService";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -622,6 +623,9 @@ export default function AddFamilyEventDialog({
             <CalendarDays className="h-5 w-5" />
             {isEditing ? "Edit Family Event" : "Add Family Event"}
           </DialogTitle>
+          <DialogDescription>
+            Schedule a family event, choose who it belongs to, and set visibility or notification details.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

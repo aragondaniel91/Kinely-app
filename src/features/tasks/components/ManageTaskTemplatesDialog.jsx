@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -816,13 +817,13 @@ export default function ManageTaskTemplatesDialog({
                 {isEditor ? (draft.id ? "Edit routine" : "New routine") : isDelete ? "Delete routine" : "Manage routines"}
               </DialogTitle>
 
-              <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+              <DialogDescription className="mt-1 text-sm font-semibold leading-5 text-slate-500">
                 {isEditor
                   ? "Create or update a reusable routine for your family."
                   : isDelete
                     ? "Confirm before removing this custom routine."
                     : "Create and manage your family's reusable routines."}
-              </p>
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
