@@ -435,6 +435,7 @@ export default function Custody() {
           onOpenSchedule={() => setActiveModule("schedule")}
           onOpenExchange={() => setActiveModule("exchange")}
           onOpenPacking={() => setActiveModule("packing")}
+          onOpenNotifications={() => setActiveModule("notifications")}
           onOpenBudget={canReadBudget ? () => setActiveModule("budget") : undefined}
         />
       )}
