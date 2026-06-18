@@ -432,6 +432,7 @@ export default function Custody() {
           activityLoading={loadingActivity}
           activityError={activityError}
           onOpenSchedule={() => setActiveModule("schedule")}
+          onOpenExchange={() => setActiveModule("exchange")}
           onOpenBudget={canReadBudget ? () => setActiveModule("budget") : undefined}
         />
       )}
