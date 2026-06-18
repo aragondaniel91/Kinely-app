@@ -516,8 +516,10 @@ export default function NotificationPreferences() {
 
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <Label>Start</Label>
+                <Label htmlFor="quiet-hours-start">Start</Label>
                 <Input
+                  id="quiet-hours-start"
+                  name="quiet-hours-start"
                   type="time"
                   value={preferences.quietHours.start || "22:00"}
                   onChange={(event) => updateSection("quietHours", "start", event.target.value)}
@@ -525,8 +527,10 @@ export default function NotificationPreferences() {
                 />
               </div>
               <div>
-                <Label>End</Label>
+                <Label htmlFor="quiet-hours-end">End</Label>
                 <Input
+                  id="quiet-hours-end"
+                  name="quiet-hours-end"
                   type="time"
                   value={preferences.quietHours.end || "07:00"}
                   onChange={(event) => updateSection("quietHours", "end", event.target.value)}

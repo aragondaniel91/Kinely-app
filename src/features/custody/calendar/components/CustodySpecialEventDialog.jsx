@@ -117,8 +117,10 @@ export default function CustodySpecialEventDialog({
           </div>
 
           <div>
-            <Label>Title</Label>
+            <Label htmlFor="custody-special-event-title">Title</Label>
             <Input
+              id="custody-special-event-title"
+              name="custody-special-event-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Soccer game, doctor appointment, graduation..."
@@ -128,9 +130,9 @@ export default function CustodySpecialEventDialog({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label>Category</Label>
+              <Label htmlFor="custody-special-event-category">Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1">
+                <SelectTrigger id="custody-special-event-category" className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -144,8 +146,10 @@ export default function CustodySpecialEventDialog({
             </div>
 
             <div>
-              <Label>Date</Label>
+              <Label htmlFor="custody-special-event-date">Date</Label>
               <Input
+                id="custody-special-event-date"
+                name="custody-special-event-date"
                 type="date"
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
@@ -156,11 +160,13 @@ export default function CustodySpecialEventDialog({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label className="flex items-center gap-1.5">
+              <Label htmlFor="custody-special-event-start-time" className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5" />
                 Start time
               </Label>
               <Input
+                id="custody-special-event-start-time"
+                name="custody-special-event-start-time"
                 type="time"
                 value={startTime}
                 onChange={(event) => setStartTime(event.target.value)}
@@ -169,8 +175,10 @@ export default function CustodySpecialEventDialog({
             </div>
 
             <div>
-              <Label>End time</Label>
+              <Label htmlFor="custody-special-event-end-time">End time</Label>
               <Input
+                id="custody-special-event-end-time"
+                name="custody-special-event-end-time"
                 type="time"
                 value={endTime}
                 onChange={(event) => setEndTime(event.target.value)}
@@ -180,11 +188,13 @@ export default function CustodySpecialEventDialog({
           </div>
 
           <div>
-            <Label className="flex items-center gap-1.5">
+            <Label htmlFor="custody-special-event-location" className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5" />
               Location
             </Label>
             <Input
+              id="custody-special-event-location"
+              name="custody-special-event-location"
               value={location}
               onChange={(event) => setLocation(event.target.value)}
               placeholder="Field 3, school auditorium, clinic..."
@@ -193,8 +203,10 @@ export default function CustodySpecialEventDialog({
           </div>
 
           <div>
-            <Label>Notes</Label>
+            <Label htmlFor="custody-special-event-notes">Notes</Label>
             <Input
+              id="custody-special-event-notes"
+              name="custody-special-event-notes"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Bring uniform, insurance card, arrive early..."

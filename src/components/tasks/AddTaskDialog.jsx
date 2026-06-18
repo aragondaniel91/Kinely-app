@@ -620,7 +620,7 @@ export default function AddTaskDialog({
 
             <section>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <Label>Assign to</Label>
+                <p className="text-sm font-bold leading-none text-slate-700">Assign to</p>
                 <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
                   Swipe if needed
                 </span>
@@ -653,9 +653,11 @@ export default function AddTaskDialog({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <Label>What needs to be done?</Label>
+                  <Label htmlFor="task-title">What needs to be done?</Label>
 
                   <Input
+                    id="task-title"
+                    name="task-title"
                     value={title}
                     onChange={(event) => {
                       setError("");

@@ -863,12 +863,12 @@ export default function CustodyDayDialog({
 
               <div className="mt-3 space-y-3">
                 <div>
-                  <Label>Day Type</Label>
+                  <Label htmlFor="custody-day-type">Day Type</Label>
                   <Select
                     value={isSplit ? "split" : "single"}
                     onValueChange={(value) => setIsSplit(value === "split")}
                   >
-                    <SelectTrigger className="mt-1 bg-white">
+                    <SelectTrigger id="custody-day-type" className="mt-1 bg-white">
                       <SelectValue />
                     </SelectTrigger>
 
@@ -881,9 +881,9 @@ export default function CustodyDayDialog({
 
                 {!isSplit && (
                   <div>
-                    <Label>With</Label>
+                    <Label htmlFor="custody-day-with">With</Label>
                     <Select value={withWhom} onValueChange={setWithWhom}>
-                      <SelectTrigger className="mt-1 bg-white">
+                      <SelectTrigger id="custody-day-with" className="mt-1 bg-white">
                         <SelectValue />
                       </SelectTrigger>
 
@@ -898,9 +898,9 @@ export default function CustodyDayDialog({
                 {isSplit && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label>Morning</Label>
+                      <Label htmlFor="custody-day-morning">Morning</Label>
                       <Select value={morning} onValueChange={setMorning}>
-                        <SelectTrigger className="mt-1 bg-white">
+                        <SelectTrigger id="custody-day-morning" className="mt-1 bg-white">
                           <SelectValue />
                         </SelectTrigger>
 
@@ -912,9 +912,9 @@ export default function CustodyDayDialog({
                     </div>
 
                     <div>
-                      <Label>Afternoon</Label>
+                      <Label htmlFor="custody-day-afternoon">Afternoon</Label>
                       <Select value={afternoon} onValueChange={setAfternoon}>
-                        <SelectTrigger className="mt-1 bg-white">
+                        <SelectTrigger id="custody-day-afternoon" className="mt-1 bg-white">
                           <SelectValue />
                         </SelectTrigger>
 
@@ -1108,6 +1108,8 @@ export default function CustodyDayDialog({
               description="Pickup notes, reminders, or day-specific details."
             >
               <Input
+                id="custody-day-notes"
+                name="custody-day-notes"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 placeholder="Pickup note, school note, special detail..."

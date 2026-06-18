@@ -180,14 +180,14 @@ function defaultAudience(editEvent, user, profile) {
 function TabletTimePicker({ label, value, onChange }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-      <Label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
+      <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-500">
         <Clock className="h-3.5 w-3.5" />
         {label}
-      </Label>
+      </p>
 
       <div className="grid grid-cols-[1fr_1fr_1.05fr] gap-2">
         <Select value={value.hour} onValueChange={(hour) => onChange({ ...value, hour })}>
-          <SelectTrigger className="h-12 rounded-xl bg-white text-base font-black">
+          <SelectTrigger aria-label={`${label} hour`} className="h-12 rounded-xl bg-white text-base font-black">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="z-[230] max-h-72">
@@ -198,7 +198,7 @@ function TabletTimePicker({ label, value, onChange }) {
         </Select>
 
         <Select value={value.minute} onValueChange={(minute) => onChange({ ...value, minute })}>
-          <SelectTrigger className="h-12 rounded-xl bg-white text-base font-black">
+          <SelectTrigger aria-label={`${label} minute`} className="h-12 rounded-xl bg-white text-base font-black">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="z-[230] max-h-72">
@@ -213,6 +213,8 @@ function TabletTimePicker({ label, value, onChange }) {
             <button
               key={option}
               type="button"
+              aria-label={`${label} ${option}`}
+              aria-pressed={value.meridiem === option}
               onClick={() => onChange({ ...value, meridiem: option })}
               className={cn(
                 "text-sm font-black transition",
@@ -228,7 +230,7 @@ function TabletTimePicker({ label, value, onChange }) {
   );
 }
 
-function AddressAutocompleteInput({ value, onChange }) {
+function AddressAutocompleteInput({ id, name, value, onChange }) {
   const inputRef = useRef(null);
   const [mapsReady, setMapsReady] = useState(false);
 
@@ -267,6 +269,8 @@ function AddressAutocompleteInput({ value, onChange }) {
       <div className="relative mt-1">
         <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
         <Input
+          id={id}
+          name={name}
           ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -630,10 +634,12 @@ export default function AddFamilyEventDialog({
 
         <div className="space-y-4 py-2">
           <div>
-            <Label>Title</Label>
+            <Label htmlFor="family-event-title">Title</Label>
             <div className="relative mt-1">
               <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
+                id="family-event-title"
+                name="family-event-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Baseball practice, school activity..."
@@ -647,14 +653,14 @@ export default function AddFamilyEventDialog({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label>Date</Label>
-              <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1 h-11 text-base" />
+              <Label htmlFor="family-event-date">Date</Label>
+              <Input id="family-event-date" name="family-event-date" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="mt-1 h-11 text-base" />
             </div>
 
             <div>
-              <Label>Category</Label>
+              <Label htmlFor="family-event-category">Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1 h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="family-event-category" className="mt-1 h-11"><SelectValue /></SelectTrigger>
                 <SelectContent className="z-[220]">
                   {categories.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>{cat.emoji} {cat.label}</SelectItem>
@@ -689,9 +695,9 @@ export default function AddFamilyEventDialog({
           )}
 
           <div>
-            <Label>Assign To</Label>
+            <Label htmlFor="family-event-assignee">Assign To</Label>
             <Select value={assignedPersonId} onValueChange={setAssignedPersonId}>
-              <SelectTrigger className="mt-1 h-11">
+              <SelectTrigger id="family-event-assignee" className="mt-1 h-11">
                 <UserRound className="mr-2 h-4 w-4 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
@@ -715,18 +721,20 @@ export default function AddFamilyEventDialog({
           />
 
           <div>
-            <Label>Location</Label>
-            <AddressAutocompleteInput value={location} onChange={setLocation} />
+            <Label htmlFor="family-event-location">Location</Label>
+            <AddressAutocompleteInput id="family-event-location" name="family-event-location" value={location} onChange={setLocation} />
           </div>
 
           <div>
             <div className="mb-1 flex items-center justify-between gap-3">
-              <Label>Description / Notes</Label>
+              <Label htmlFor="family-event-description">Description / Notes</Label>
               <span className="text-xs font-semibold text-slate-400">{description.length}/500</span>
             </div>
             <div className="relative mt-1">
               <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
               <Textarea
+                id="family-event-description"
+                name="family-event-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value.slice(0, 500))}
                 placeholder="Example: Pick up at 3:00 PM after baseball practice. Bring uniform and water bottle."

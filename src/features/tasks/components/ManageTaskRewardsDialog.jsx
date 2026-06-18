@@ -265,7 +265,7 @@ export default function ManageTaskRewardsDialog({
               {childPeople.length > 0 ? (
                 <div className="space-y-3">
                   <div>
-                    <Label>Child</Label>
+                    <p className="text-sm font-bold leading-none text-slate-700">Child</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {childPeople.map((person) => {
                         const active = selectedChildPersonId === person.id;
@@ -292,8 +292,10 @@ export default function ManageTaskRewardsDialog({
 
                   <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
                     <div>
-                      <Label>Reward</Label>
+                      <Label htmlFor="child-reward-title">Reward</Label>
                       <Input
+                        id="child-reward-title"
+                        name="child-reward-title"
                         value={childRewardTitle}
                         onChange={(event) => setChildRewardTitle(event.target.value)}
                         placeholder="Example: Ice cream"
@@ -302,8 +304,10 @@ export default function ManageTaskRewardsDialog({
                     </div>
 
                     <div>
-                      <Label>Tasks needed</Label>
+                      <Label htmlFor="child-required-tasks">Tasks needed</Label>
                       <Input
+                        id="child-required-tasks"
+                        name="child-required-tasks"
                         type="number"
                         min="1"
                         value={childRequiredTasks}
@@ -333,8 +337,10 @@ export default function ManageTaskRewardsDialog({
             >
               <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
                 <div>
-                  <Label>Reward</Label>
+                  <Label htmlFor="family-reward-title">Reward</Label>
                   <Input
+                    id="family-reward-title"
+                    name="family-reward-title"
                     value={familyRewardTitle}
                     onChange={(event) => setFamilyRewardTitle(event.target.value)}
                     placeholder="Example: Pizza Night"
@@ -343,8 +349,10 @@ export default function ManageTaskRewardsDialog({
                 </div>
 
                 <div>
-                  <Label>Tasks needed</Label>
+                  <Label htmlFor="family-required-tasks">Tasks needed</Label>
                   <Input
+                    id="family-required-tasks"
+                    name="family-required-tasks"
                     type="number"
                     min="1"
                     value={familyRequiredTasks}

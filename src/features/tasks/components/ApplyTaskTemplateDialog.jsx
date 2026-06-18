@@ -32,7 +32,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 import { TASK_COLLECTIONS } from "@/features/tasks/model/taskTypes";
 import {
@@ -397,7 +396,7 @@ export default function ApplyTaskTemplateDialog({
           <div className="space-y-4">
             <section>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <Label>Routine type</Label>
+                <p className="text-sm font-bold leading-none text-slate-700">Routine type</p>
                 <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
                   {filteredTemplates.length} shown
                 </span>
@@ -450,7 +449,7 @@ export default function ApplyTaskTemplateDialog({
 
             <section>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <Label>Assign to</Label>
+                <p className="text-sm font-bold leading-none text-slate-700">Assign to</p>
                 <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
                   Swipe if needed
                 </span>
@@ -497,6 +496,8 @@ export default function ApplyTaskTemplateDialog({
                   </div>
 
                   <Input
+                    id="routine-custom-due-date"
+                    name="routine-custom-due-date"
                     type="date"
                     value={customDueDate}
                     onChange={(event) => setCustomDueDate(event.target.value)}

@@ -39,12 +39,12 @@ import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
 import AppDialog from "@/components/app/AppDialog";
 
 const WEEK_DAYS = [
-  { value: 0, label: "D" },
-  { value: 1, label: "L" },
-  { value: 2, label: "M" },
-  { value: 3, label: "X" },
-  { value: 4, label: "J" },
-  { value: 5, label: "V" },
+  { value: 0, label: "S" },
+  { value: 1, label: "M" },
+  { value: 2, label: "T" },
+  { value: 3, label: "W" },
+  { value: 4, label: "T" },
+  { value: 5, label: "F" },
   { value: 6, label: "S" },
 ];
 
@@ -528,29 +528,29 @@ export default function BulkCustodyDialog({
               <div className="rounded-2xl border bg-card p-4 space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label>Desde</Label>
-                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1" />
+                    <Label htmlFor="bulk-custody-start-date">From</Label>
+                    <Input id="bulk-custody-start-date" name="bulk-custody-start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1" />
                   </div>
 
                   <div>
-                    <Label>Hasta</Label>
-                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1" />
+                    <Label htmlFor="bulk-custody-end-date">To</Label>
+                    <Input id="bulk-custody-end-date" name="bulk-custody-end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1" />
                   </div>
                 </div>
 
                 {isSmartPattern ? (
                   <div>
-                    <Label>¿Quién empieza?</Label>
+                    <p className="text-sm font-bold leading-none text-slate-700">Who starts?</p>
                     <div className="mt-2">
                       <ParentPicker value={startingParent} onChange={setStartingParent} dadLabel={dadLabel} momLabel={momLabel} />
                     </div>
                     <p className="mt-2 text-sm font-semibold text-muted-foreground">
-                      El patrón alterna automáticamente entre {dadLabel} y {momLabel}.
+                      The pattern automatically alternates between {dadLabel} and {momLabel}.
                     </p>
                   </div>
                 ) : (
                   <div>
-                    <Label>Con quién (días completos)</Label>
+                    <p className="text-sm font-bold leading-none text-slate-700">With whom (full days)</p>
                     <div className="mt-2">
                       <ParentPicker value={fullDaysParent} onChange={setFullDaysParent} dadLabel={dadLabel} momLabel={momLabel} />
                     </div>
@@ -563,19 +563,19 @@ export default function BulkCustodyDialog({
                   <div className="rounded-2xl border bg-card p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-semibold flex items-center gap-2"><Split className="w-4 h-4" />Primer día compartido</p>
-                        <p className="text-sm text-muted-foreground">Divide el primer día del rango entre ambos padres.</p>
+                        <p className="font-semibold flex items-center gap-2"><Split className="w-4 h-4" />Split first day</p>
+                        <p className="text-sm text-muted-foreground">Divide the first day of the range between both parents.</p>
                       </div>
-                      <Switch checked={splitFirstDay} onCheckedChange={setSplitFirstDay} />
+                      <Switch aria-label="Split first day" checked={splitFirstDay} onCheckedChange={setSplitFirstDay} />
                     </div>
 
                     {splitFirstDay && (
                       <div>
-                        <Label>¿Quién tiene la mañana del primer día?</Label>
+                        <p className="text-sm font-bold leading-none text-slate-700">Who has the first morning?</p>
                         <div className="mt-2">
                           <ParentPicker value={firstDayMorning} onChange={setFirstDayMorning} dadLabel={dadLabel} momLabel={momLabel} />
                         </div>
-                        <p className="text-sm text-muted-foreground mt-2">→ La tarde la tiene: <strong>{firstDayMorning === "dad" ? momLabel : dadLabel}</strong></p>
+                        <p className="text-sm text-muted-foreground mt-2">Afternoon goes to: <strong>{firstDayMorning === "dad" ? momLabel : dadLabel}</strong></p>
                       </div>
                     )}
                   </div>
@@ -583,19 +583,19 @@ export default function BulkCustodyDialog({
                   <div className="rounded-2xl border bg-card p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-semibold flex items-center gap-2"><Split className="w-4 h-4" />Último día compartido</p>
-                        <p className="text-sm text-muted-foreground">Divide el último día del rango entre ambos padres.</p>
+                        <p className="font-semibold flex items-center gap-2"><Split className="w-4 h-4" />Split last day</p>
+                        <p className="text-sm text-muted-foreground">Divide the last day of the range between both parents.</p>
                       </div>
-                      <Switch checked={splitLastDay} onCheckedChange={setSplitLastDay} />
+                      <Switch aria-label="Split last day" checked={splitLastDay} onCheckedChange={setSplitLastDay} />
                     </div>
 
                     {splitLastDay && (
                       <div>
-                        <Label>¿Quién tiene la tarde del último día?</Label>
+                        <p className="text-sm font-bold leading-none text-slate-700">Who has the last afternoon?</p>
                         <div className="mt-2">
                           <ParentPicker value={lastDayAfternoon} onChange={setLastDayAfternoon} dadLabel={dadLabel} momLabel={momLabel} />
                         </div>
-                        <p className="text-sm text-muted-foreground mt-2">→ La mañana la tiene: <strong>{lastDayAfternoon === "dad" ? momLabel : dadLabel}</strong></p>
+                        <p className="text-sm text-muted-foreground mt-2">Morning goes to: <strong>{lastDayAfternoon === "dad" ? momLabel : dadLabel}</strong></p>
                       </div>
                     )}
                   </div>
@@ -603,29 +603,29 @@ export default function BulkCustodyDialog({
                   <div className="rounded-2xl border bg-card p-4 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-semibold flex items-center gap-2"><Repeat2 className="w-4 h-4" />Repetición</p>
-                        <p className="text-sm text-muted-foreground">Repite este mismo patrón automáticamente.</p>
+                        <p className="font-semibold flex items-center gap-2"><Repeat2 className="w-4 h-4" />Repeat</p>
+                        <p className="text-sm text-muted-foreground">Repeat this same pattern automatically.</p>
                       </div>
-                      <Switch checked={repeatEnabled} onCheckedChange={setRepeatEnabled} />
+                      <Switch aria-label="Repeat schedule" checked={repeatEnabled} onCheckedChange={setRepeatEnabled} />
                     </div>
 
                     {repeatEnabled && (
                       <>
                         <div className="grid grid-cols-[120px_1fr] gap-3">
                           <div>
-                            <Label>Repetir cada</Label>
-                            <Input type="number" min="1" value={repeatEvery} onChange={(e) => setRepeatEvery(e.target.value)} className="mt-1" />
+                            <Label htmlFor="bulk-custody-repeat-every">Repeat every</Label>
+                            <Input id="bulk-custody-repeat-every" name="bulk-custody-repeat-every" type="number" min="1" value={repeatEvery} onChange={(e) => setRepeatEvery(e.target.value)} className="mt-1" />
                           </div>
 
                           <div>
-                            <Label>Unidad</Label>
+                            <Label htmlFor="bulk-custody-repeat-unit">Unit</Label>
                             <Select value={repeatUnit} onValueChange={setRepeatUnit}>
-                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                              <SelectTrigger id="bulk-custody-repeat-unit" className="mt-1"><SelectValue /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="day">día(s)</SelectItem>
-                                <SelectItem value="week">semana(s)</SelectItem>
-                                <SelectItem value="month">mes(es)</SelectItem>
-                                <SelectItem value="year">año(s)</SelectItem>
+                                <SelectItem value="day">day(s)</SelectItem>
+                                <SelectItem value="week">week(s)</SelectItem>
+                                <SelectItem value="month">month(s)</SelectItem>
+                                <SelectItem value="year">year(s)</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -633,7 +633,7 @@ export default function BulkCustodyDialog({
 
                         {repeatUnit === "week" && (
                           <div>
-                            <Label>Repetir el</Label>
+                            <p className="text-sm font-bold leading-none text-slate-700">Repeat on</p>
                             <div className="flex flex-wrap gap-2 mt-2">
                               {WEEK_DAYS.map((day) => {
                                 const active = repeatWeekdays.includes(day.value);
@@ -653,7 +653,7 @@ export default function BulkCustodyDialog({
                         )}
 
                         <div>
-                          <Label>Finaliza</Label>
+                          <p className="text-sm font-bold leading-none text-slate-700">Ends</p>
                           <div className="space-y-3 mt-2">
                             <div className="grid gap-2 sm:grid-cols-3">
                               <Button
@@ -662,7 +662,7 @@ export default function BulkCustodyDialog({
                                 onClick={() => setEndMode("never")}
                                 className="rounded-2xl"
                               >
-                                Nunca
+                                Never
                               </Button>
                               <Button
                                 type="button"
@@ -670,7 +670,7 @@ export default function BulkCustodyDialog({
                                 onClick={() => setEndMode("onDate")}
                                 className="rounded-2xl"
                               >
-                                El día
+                                On date
                               </Button>
                               <Button
                                 type="button"
@@ -678,14 +678,16 @@ export default function BulkCustodyDialog({
                                 onClick={() => setEndMode("after")}
                                 className="rounded-2xl"
                               >
-                                Después de
+                                After
                               </Button>
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
                               <div className={cn("rounded-2xl border p-3", endMode === "onDate" ? "border-primary bg-primary/5" : "border-border bg-muted/30")}>
-                                <Label className="text-xs font-black uppercase tracking-wide text-muted-foreground">Finalizar el día</Label>
+                                <Label htmlFor="bulk-custody-until-date" className="text-xs font-black uppercase tracking-wide text-muted-foreground">End on</Label>
                                 <Input
+                                  id="bulk-custody-until-date"
+                                  name="bulk-custody-until-date"
                                   type="date"
                                   value={untilDate}
                                   onChange={(e) => setUntilDate(e.target.value)}
@@ -695,9 +697,11 @@ export default function BulkCustodyDialog({
                               </div>
 
                               <div className={cn("rounded-2xl border p-3", endMode === "after" ? "border-primary bg-primary/5" : "border-border bg-muted/30")}>
-                                <Label className="text-xs font-black uppercase tracking-wide text-muted-foreground">Después de ocurrencias</Label>
+                                <Label htmlFor="bulk-custody-occurrences" className="text-xs font-black uppercase tracking-wide text-muted-foreground">After occurrences</Label>
                                 <div className="mt-2 flex items-center gap-2">
                                   <Input
+                                    id="bulk-custody-occurrences"
+                                    name="bulk-custody-occurrences"
                                     type="number"
                                     min="1"
                                     value={occurrences}
@@ -705,7 +709,7 @@ export default function BulkCustodyDialog({
                                     disabled={endMode !== "after"}
                                     className="w-24"
                                   />
-                                  <span className="text-sm font-semibold text-muted-foreground">ocurrencias</span>
+                                  <span className="text-sm font-semibold text-muted-foreground">occurrences</span>
                                 </div>
                               </div>
                             </div>
@@ -718,21 +722,21 @@ export default function BulkCustodyDialog({
               )}
 
               <div className="rounded-2xl border bg-card p-4">
-                <Label>Notas</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Nota opcional para este rango..." className="mt-1" />
+                <Label htmlFor="bulk-custody-notes">Notes</Label>
+                <Input id="bulk-custody-notes" name="bulk-custody-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional note for this range..." className="mt-1" />
               </div>
             </div>
 
             <div className="rounded-2xl border bg-muted/20 p-4">
-              <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Vista previa</p>
+              <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Preview</p>
 
               <div className="grid grid-cols-2 gap-2 mt-4">
                 <div className="rounded-xl bg-background border p-3">
-                  <p className="text-xs text-muted-foreground">Bloques</p>
+                  <p className="text-xs text-muted-foreground">Blocks</p>
                   <p className="text-2xl font-black">{isSmartPattern ? smartSegments.length : previewBlocks.length}</p>
                 </div>
                 <div className="rounded-xl bg-background border p-3">
-                  <p className="text-xs text-muted-foreground">Días aprox.</p>
+                  <p className="text-xs text-muted-foreground">Approx. days</p>
                   <p className="text-2xl font-black">{estimatedPreviewDays}</p>
                 </div>
               </div>

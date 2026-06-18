@@ -141,7 +141,7 @@ function ColorPicker({ value, onChange }) {
 
   return (
     <div>
-      <Label>Family color</Label>
+      <p className="text-sm font-bold leading-none text-slate-700">Family color</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {PERSON_COLOR_OPTIONS.map((color) => {
           const active = selected === color.id;
@@ -185,8 +185,9 @@ function HouseholdPresenceEditor({
     <div className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 md:col-span-2">
       <p className="text-sm font-black text-slate-950">Home presence</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
           <Switch
+            aria-label="Lives here"
             checked={livesHere === true}
             disabled={disabled}
             onCheckedChange={(checked) => patch("livesHere", checked)}
@@ -198,10 +199,11 @@ function HouseholdPresenceEditor({
               Household context only. It does not force Home visibility.
             </span>
           </span>
-        </label>
+        </div>
 
-        <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+        <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
           <Switch
+            aria-label="Show on Home"
             checked={showOnHomeDashboard === true}
             disabled={disabled}
             onCheckedChange={(checked) => patch("showOnHomeDashboard", checked)}
@@ -213,7 +215,7 @@ function HouseholdPresenceEditor({
               Include this person in Today by person.
             </span>
           </span>
-        </label>
+        </div>
       </div>
     </div>
   );
@@ -289,8 +291,9 @@ function ModuleAccessEditor({ value, onChange, disabled }) {
 
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+      <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
         <Switch
+          aria-label="View module"
           checked={access.read === true}
           disabled={disabled}
           onCheckedChange={(checked) => patch("read", checked)}
@@ -302,10 +305,11 @@ function ModuleAccessEditor({ value, onChange, disabled }) {
             Let this member open this module.
           </span>
         </span>
-      </label>
+      </div>
 
-      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+      <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
         <Switch
+          aria-label="Edit module"
           checked={access.write === true}
           disabled={disabled}
           onCheckedChange={(checked) => patch("write", checked)}
@@ -317,7 +321,7 @@ function ModuleAccessEditor({ value, onChange, disabled }) {
             Allow creating or changing records.
           </span>
         </span>
-      </label>
+      </div>
     </div>
   );
 }
@@ -368,8 +372,9 @@ function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }
 
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+      <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
         <Switch
+          aria-label={copy.visibleLabel}
           checked={access.visible === true}
           disabled={disabled}
           onCheckedChange={(checked) => patch("visible", checked)}
@@ -381,10 +386,11 @@ function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }
             {copy.visibleDescription}
           </span>
         </span>
-      </label>
+      </div>
 
-      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+      <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
         <Switch
+          aria-label={copy.assignableLabel}
           checked={access.assignable === true}
           disabled={disabled}
           onCheckedChange={(checked) => patch("assignable", checked)}
@@ -396,10 +402,11 @@ function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }
             {copy.assignableDescription}
           </span>
         </span>
-      </label>
+      </div>
 
-      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+      <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
         <Switch
+          aria-label={copy.readLabel}
           checked={access.read === true}
           disabled={disabled}
           onCheckedChange={(checked) => patch("read", checked)}
@@ -411,10 +418,11 @@ function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }
             {copy.readDescription}
           </span>
         </span>
-      </label>
+      </div>
 
-      <label className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
+      <div className="flex items-start gap-3 rounded-2xl border border-white bg-white p-3 text-sm font-bold text-slate-700 shadow-sm">
         <Switch
+          aria-label={copy.writeLabel}
           checked={access.write === true}
           disabled={disabled}
           onCheckedChange={(checked) => patch("write", checked)}
@@ -426,7 +434,7 @@ function AssignableModuleAccessEditor({ value, onChange, disabled, labels = {} }
             {copy.writeDescription}
           </span>
         </span>
-      </label>
+      </div>
     </div>
   );
 }
@@ -687,8 +695,10 @@ export default function ProfileMemberEditorDialog({
 
         <div className="grid max-h-[70vh] grid-cols-1 gap-4 overflow-y-auto p-5 md:grid-cols-2">
           <div>
-            <Label>Name</Label>
+            <Label htmlFor="member-editor-name">Name</Label>
             <Input
+              id="member-editor-name"
+              name="member-editor-name"
               value={safeEditor.name}
               onChange={(event) => patch({ name: event.target.value })}
               placeholder="Grandma Petra"
@@ -697,8 +707,10 @@ export default function ProfileMemberEditorDialog({
           </div>
 
           <div>
-            <Label>{isChild ? "Login email (optional)" : "Email"}</Label>
+            <Label htmlFor="member-editor-email">{isChild ? "Login email (optional)" : "Email"}</Label>
             <Input
+              id="member-editor-email"
+              name="member-editor-email"
               value={safeEditor.email}
               onChange={(event) => patch({ email: event.target.value })}
               disabled={isOwner}
@@ -708,9 +720,9 @@ export default function ProfileMemberEditorDialog({
           </div>
 
           <div>
-            <Label>Role</Label>
+            <Label htmlFor="member-editor-role">Role</Label>
             <Select value={safeEditor.role} onValueChange={patchRole} disabled={isChild}>
-              <SelectTrigger className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
+              <SelectTrigger id="member-editor-role" className="mt-1 h-10 rounded-xl border-slate-200 bg-white text-sm font-semibold text-slate-700">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -725,7 +737,7 @@ export default function ProfileMemberEditorDialog({
 
           {!isChild && (
           <div className="flex items-end">
-            <label className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-sm font-bold transition ${
+            <div className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 text-sm font-bold transition ${
               safeEditor.admin
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -737,11 +749,12 @@ export default function ProfileMemberEditorDialog({
                 </span>
               </span>
               <Switch
+                aria-label="Admin access"
                 checked={safeEditor.admin}
                 onCheckedChange={patchAdminAccess}
                 disabled={!canToggleAdminAccess}
               />
-            </label>
+            </div>
             {!canToggleAdminAccess && !isOwner && (
               <p className="mt-1 text-xs font-semibold text-slate-500">
                 Only the family owner can grant or remove admin access.

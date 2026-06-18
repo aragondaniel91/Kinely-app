@@ -210,9 +210,9 @@ export default function VisibilityAudienceSelector({
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <Label>Visibility</Label>
+          <Label htmlFor="event-visibility">Visibility</Label>
           <Select value={visibility} onValueChange={(next) => emit({ visibility: next })}>
-            <SelectTrigger className="mt-1 h-11 bg-white">
+            <SelectTrigger id="event-visibility" className="mt-1 h-11 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[240]">
@@ -239,9 +239,9 @@ export default function VisibilityAudienceSelector({
         </div>
 
         <div>
-          <Label>Notification</Label>
+          <Label htmlFor="event-notification-target">Notification</Label>
           <Select value={notifyTarget} onValueChange={(next) => emit({ notifyTarget: next })}>
-            <SelectTrigger className="mt-1 h-11 bg-white">
+            <SelectTrigger id="event-notification-target" className="mt-1 h-11 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[240]">

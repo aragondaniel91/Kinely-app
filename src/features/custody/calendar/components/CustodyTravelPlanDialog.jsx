@@ -108,8 +108,10 @@ export default function CustodyTravelPlanDialog({
           </div>
 
           <div>
-            <Label>Title</Label>
+            <Label htmlFor="custody-travel-title">Title</Label>
             <Input
+              id="custody-travel-title"
+              name="custody-travel-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Spring break trip, Disney vacation, Austin weekend..."
@@ -118,11 +120,13 @@ export default function CustodyTravelPlanDialog({
           </div>
 
           <div>
-            <Label className="flex items-center gap-1.5">
+            <Label htmlFor="custody-travel-destination" className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5" />
               Destination
             </Label>
             <Input
+              id="custody-travel-destination"
+              name="custody-travel-destination"
               value={destination}
               onChange={(event) => setDestination(event.target.value)}
               placeholder="Orlando, Austin, New York..."
@@ -132,8 +136,10 @@ export default function CustodyTravelPlanDialog({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label>Start date</Label>
+              <Label htmlFor="custody-travel-start-date">Start date</Label>
               <Input
+                id="custody-travel-start-date"
+                name="custody-travel-start-date"
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
@@ -142,8 +148,10 @@ export default function CustodyTravelPlanDialog({
             </div>
 
             <div>
-              <Label>End date</Label>
+              <Label htmlFor="custody-travel-end-date">End date</Label>
               <Input
+                id="custody-travel-end-date"
+                name="custody-travel-end-date"
                 type="date"
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
@@ -153,12 +161,12 @@ export default function CustodyTravelPlanDialog({
           </div>
 
           <div>
-            <Label className="flex items-center gap-1.5">
+            <Label htmlFor="custody-travel-parent" className="flex items-center gap-1.5">
               <UserRound className="h-3.5 w-3.5" />
               Traveling with
             </Label>
             <Select value={travelingParent} onValueChange={setTravelingParent}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="custody-travel-parent" className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -169,8 +177,10 @@ export default function CustodyTravelPlanDialog({
           </div>
 
           <div>
-            <Label>Notes</Label>
+            <Label htmlFor="custody-travel-notes">Notes</Label>
             <Input
+              id="custody-travel-notes"
+              name="custody-travel-notes"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Flight info pending, hotel name, return details..."

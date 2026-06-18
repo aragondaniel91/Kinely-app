@@ -930,8 +930,10 @@ export default function ManageTaskTemplatesDialog({
 
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                     <div>
-                      <Label>Routine title</Label>
+                      <Label htmlFor="routine-template-title">Routine title</Label>
                       <Input
+                        id="routine-template-title"
+                        name="routine-template-title"
                         value={draft.title}
                         onChange={(event) => patchDraft({ title: event.target.value })}
                         placeholder="Example: Saturday chores"
@@ -940,8 +942,10 @@ export default function ManageTaskTemplatesDialog({
                     </div>
 
                     <div>
-                      <Label>Description</Label>
+                      <Label htmlFor="routine-template-description">Description</Label>
                       <Input
+                        id="routine-template-description"
+                        name="routine-template-description"
                         value={draft.description}
                         onChange={(event) => patchDraft({ description: event.target.value })}
                         placeholder="Short description"
@@ -952,9 +956,9 @@ export default function ManageTaskTemplatesDialog({
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
-                      <Label>Type</Label>
+                      <Label htmlFor="routine-template-type">Type</Label>
                       <Select value={draft.type} onValueChange={(nextValue) => patchDraft({ type: nextValue })}>
-                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                        <SelectTrigger id="routine-template-type" className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -968,9 +972,9 @@ export default function ManageTaskTemplatesDialog({
                     </div>
 
                     <div>
-                      <Label>Category</Label>
+                      <Label htmlFor="routine-template-category">Category</Label>
                       <Select value={draft.category} onValueChange={(nextValue) => patchDraft({ category: nextValue })}>
-                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                        <SelectTrigger id="routine-template-category" className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -984,9 +988,9 @@ export default function ManageTaskTemplatesDialog({
                     </div>
 
                     <div>
-                      <Label>Priority</Label>
+                      <Label htmlFor="routine-template-priority">Priority</Label>
                       <Select value={draft.defaultPriority} onValueChange={(nextValue) => patchDraft({ defaultPriority: nextValue })}>
-                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                        <SelectTrigger id="routine-template-priority" className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1013,7 +1017,7 @@ export default function ManageTaskTemplatesDialog({
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <Label>Repeats</Label>
+                      <Label htmlFor="routine-template-recurrence">Repeats</Label>
                       <Select
                         value={draft.recurrence}
                         onValueChange={(recurrence) =>
@@ -1023,7 +1027,7 @@ export default function ManageTaskTemplatesDialog({
                           })
                         }
                       >
-                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                        <SelectTrigger id="routine-template-recurrence" className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1037,9 +1041,9 @@ export default function ManageTaskTemplatesDialog({
                     </div>
 
                     <div>
-                      <Label>Default assignee</Label>
+                      <Label htmlFor="routine-template-assignee">Default assignee</Label>
                       <Select value={draft.assignedToPersonId} onValueChange={(nextValue) => patchDraft({ assignedToPersonId: nextValue })}>
-                        <SelectTrigger className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
+                        <SelectTrigger id="routine-template-assignee" className="mt-1 h-11 rounded-2xl border-slate-200 bg-white text-sm font-black text-slate-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

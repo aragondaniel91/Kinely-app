@@ -5,6 +5,7 @@ import { useFamily } from "@/lib/FamilyContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 
 const LANGUAGE_OPTIONS = [
@@ -27,20 +28,22 @@ function getBrowserTimeZone() {
   }
 }
 
-function SettingsField({ icon: Icon, label, helper, children }) {
+function SettingsField({ icon: Icon, label, helper, fieldId, children }) {
   return (
-    <label className="block rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="block rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-600">
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-slate-950">{label}</p>
+          <Label htmlFor={fieldId} className="text-sm font-black text-slate-950">
+            {label}
+          </Label>
           <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">{helper}</p>
           <div className="mt-3">{children}</div>
         </div>
       </div>
-    </label>
+    </div>
   );
 }
 
@@ -130,6 +133,7 @@ export default function ProfileSettingsSection() {
           <SettingsField
             icon={Languages}
             label="Language"
+            fieldId="profile-settings-language"
             helper="Controls the preferred family language as multilingual screens are added."
           >
             <select
@@ -151,9 +155,12 @@ export default function ProfileSettingsSection() {
           <SettingsField
             icon={Globe2}
             label="Timezone"
+            fieldId="profile-settings-timezone"
             helper="Used for custody reminders, events, tasks, and daily family summaries."
           >
             <Input
+              id="profile-settings-timezone"
+              name="profile-settings-timezone"
               value={timeZone}
               onChange={(event) => setTimeZone(event.target.value)}
               disabled={!canManageSettings || saving}
@@ -165,9 +172,12 @@ export default function ProfileSettingsSection() {
           <SettingsField
             icon={MapPin}
             label="Default location"
+            fieldId="profile-settings-default-location"
             helper="Optional family location for weather, school, activity, and reminder context."
           >
             <Input
+              id="profile-settings-default-location"
+              name="profile-settings-default-location"
               value={defaultLocation}
               onChange={(event) => setDefaultLocation(event.target.value)}
               disabled={!canManageSettings || saving}

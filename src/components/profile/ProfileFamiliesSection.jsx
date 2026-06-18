@@ -361,6 +361,7 @@ export default function ProfileFamiliesSection() {
                     <Label htmlFor="new-family-name">Space name</Label>
                     <Input
                       id="new-family-name"
+                      name="new-family-name"
                       value={newFamilyName}
                       onChange={(event) => setNewFamilyName(event.target.value)}
                       placeholder="Aragon Home"
@@ -368,9 +369,9 @@ export default function ProfileFamiliesSection() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Space type</Label>
+                    <Label htmlFor="new-family-type">Space type</Label>
                     <Select value={newFamilyType} onValueChange={setNewFamilyType}>
-                      <SelectTrigger className="h-11 rounded-xl">
+                      <SelectTrigger id="new-family-type" className="h-11 rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -405,6 +406,7 @@ export default function ProfileFamiliesSection() {
                     <Label htmlFor="family-name">Space name</Label>
                     <Input
                       id="family-name"
+                      name="family-name"
                       value={familyName}
                       onChange={(event) => setFamilyName(event.target.value)}
                       disabled={!canManageSpace}
@@ -412,9 +414,9 @@ export default function ProfileFamiliesSection() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Space type</Label>
+                    <Label htmlFor="family-type">Space type</Label>
                     <Select value={familyType} onValueChange={setFamilyType} disabled={!canManageSpace}>
-                      <SelectTrigger className="h-11 rounded-xl">
+                      <SelectTrigger id="family-type" className="h-11 rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

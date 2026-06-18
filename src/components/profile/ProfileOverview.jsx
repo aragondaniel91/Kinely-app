@@ -106,6 +106,8 @@ export default function ProfileOverview() {
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
+                    id="profile-display-name"
+                    name="profile-display-name"
                     value={newName}
                     onChange={(event) => setNewName(event.target.value)}
                     placeholder="Your display name"
