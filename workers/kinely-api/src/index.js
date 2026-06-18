@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "budget-notifications-2026-06-18-01";
+const WORKER_VERSION = "scheduled-reminders-2026-06-18-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -35,6 +35,7 @@ const CUSTODY_COLLECTIONS = [
   "custodyExpenses",
   "custodyExchanges",
   "custodyInvitations",
+  "scheduledReminderDeliveries",
   "familyActivity",
   "notifications",
 ];
@@ -3020,6 +3021,683 @@ async function activityRecipientsForScope(env, activity, token) {
   return { forbidden: false, recipients: familyNotificationRecipients(family, moduleName) };
 }
 
+function dateKeyFromDate(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDaysToDateKey(dateKey, days) {
+  const base = new Date(`${dateKey}T12:00:00.000Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return dateKeyFromDate(base);
+}
+
+function daysBetweenDateKeys(fromDateKey, toDateKey) {
+  if (!fromDateKey || !toDateKey) return null;
+  const from = new Date(`${fromDateKey}T12:00:00.000Z`);
+  const to = new Date(`${toDateKey}T12:00:00.000Z`);
+  return Math.round((to - from) / 86_400_000);
+}
+
+function isActiveCustodyGroup(group = {}) {
+  const status = cleanText(group.status || group.state).toLowerCase();
+  return !["archived", "deleted", "inactive"].includes(status) && !group.deletedAt && !group.deleted_at;
+}
+
+async function firestoreCollectionDocs(env, collectionName, { limit = 500 } = {}) {
+  return firestoreRunQuery(env, {
+    from: [{ collectionId: collectionName }],
+    limit,
+  });
+}
+
+async function getCustodyScopedDocs(env, collectionName, scopeId) {
+  const cleanScopeId = cleanText(scopeId);
+  if (!collectionName || !cleanScopeId) return [];
+
+  const results = await Promise.allSettled(
+    CUSTODY_SCOPE_LOOKUP_FIELDS.map((field) => firestoreQueryField(env, collectionName, {
+      field,
+      value: cleanScopeId,
+    }))
+  );
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length === results.length && results.length > 0) {
+    throw failures[0].reason;
+  }
+
+  const docsById = new Map();
+  results.forEach((result) => {
+    if (result.status !== "fulfilled") return;
+    result.value.forEach((doc) => docsById.set(doc.id, doc));
+  });
+  return [...docsById.values()];
+}
+
+function normalizeScheduledCustodyDay(day = {}) {
+  const isSplit = day.is_split === true || day.isSplit === true;
+  return {
+    id: cleanText(day.id),
+    date: normalizeDateKey(day.date),
+    isSplit,
+    withWhom: isSplit ? "" : cleanText(day.with_whom || day.withWhom),
+    morning: isSplit ? cleanText(day.morning) : "",
+    afternoon: isSplit ? cleanText(day.afternoon) : "",
+  };
+}
+
+function custodyDayOwnerSegments(day = {}) {
+  if (!day.date) return [];
+  if (day.isSplit) {
+    return [
+      { date: day.date, owner: day.morning, period: "AM", suggestedTime: "08:00" },
+      { date: day.date, owner: day.afternoon, period: "PM", suggestedTime: "12:00" },
+    ].filter((segment) => segment.owner && segment.owner !== "none");
+  }
+
+  return day.withWhom && day.withWhom !== "none"
+    ? [{ date: day.date, owner: day.withWhom, period: "All day", suggestedTime: "18:00" }]
+    : [];
+}
+
+function custodyEndOfDayOwner(day = {}) {
+  return custodyDayOwnerSegments(day).at(-1)?.owner || "none";
+}
+
+function findScheduledCurrentOwner(days = [], todayKey = "") {
+  let owner = "none";
+  days.forEach((day) => {
+    if (day.date && day.date <= todayKey) {
+      owner = custodyEndOfDayOwner(day) || owner;
+    }
+  });
+  return owner;
+}
+
+function findScheduledCalendarExchange(days = [], todayKey = "") {
+  let previousOwner = findScheduledCurrentOwner(days, todayKey);
+  if (!previousOwner || previousOwner === "none") return null;
+
+  for (const day of days) {
+    if (!day.date || day.date <= todayKey) continue;
+    const segments = custodyDayOwnerSegments(day);
+    for (const segment of segments) {
+      if (segment.owner && segment.owner !== previousOwner) {
+        return {
+          date: segment.date,
+          fromParent: previousOwner,
+          toParent: segment.owner,
+          time: segment.suggestedTime,
+          period: segment.period,
+          status: "needs_review",
+          source: "custody_calendar",
+        };
+      }
+      if (segment.owner) previousOwner = segment.owner;
+    }
+  }
+
+  return null;
+}
+
+function normalizeScheduledExchange(exchange = {}) {
+  return {
+    id: cleanText(exchange.id),
+    date: normalizeDateKey(exchange.date),
+    time: cleanText(exchange.time),
+    location: cleanText(exchange.location),
+    fromParent: cleanText(exchange.fromParent || exchange.from_parent),
+    toParent: cleanText(exchange.toParent || exchange.to_parent || exchange.pickupBy || exchange.pickup_by),
+    status: cleanText(exchange.status, "pending"),
+    notes: cleanText(exchange.notes),
+    source: cleanText(exchange.source, "manual"),
+  };
+}
+
+function nextScheduledExchange(days = [], exchanges = [], todayKey = "") {
+  const upcomingManual = exchanges
+    .filter((exchange) => (
+      exchange.date >= todayKey &&
+      !["completed", "cancelled", "canceled"].includes(cleanText(exchange.status).toLowerCase())
+    ))
+    .sort((a, b) => `${a.date} ${a.time || "99:99"}`.localeCompare(`${b.date} ${b.time || "99:99"}`))[0];
+
+  if (upcomingManual) return upcomingManual;
+  return findScheduledCalendarExchange(days, todayKey);
+}
+
+function normalizeScheduledPackingItem(item = {}) {
+  return {
+    id: cleanText(item.id),
+    name: cleanText(item.name, "Packing item"),
+    status: cleanText(item.status, "review"),
+    important: item.important === true,
+  };
+}
+
+function scheduledPackingSummary(items = []) {
+  const total = items.length;
+  const packedCount = items.filter((item) => item.status === "packed").length;
+  const missingItems = items.filter((item) => item.status === "missing");
+  const reviewItems = items.filter((item) => item.status === "review");
+  const readiness = total ? Math.round((packedCount / total) * 100) : 100;
+
+  return {
+    total,
+    packedCount,
+    missingCount: missingItems.length,
+    reviewCount: reviewItems.length,
+    readiness,
+    missingItems,
+    reviewItems,
+  };
+}
+
+function scheduledMoney(value) {
+  const number = Number(value || 0);
+  if (Number.isNaN(number)) return 0;
+  return Math.round(number * 100) / 100;
+}
+
+function scheduledExpenseLedger(expense = {}) {
+  const amount = scheduledMoney(expense.amount);
+  const parent1Share = scheduledMoney(expense.parent1ShareAmount);
+  const parent2Share = scheduledMoney(expense.parent2ShareAmount);
+  const parent1Paid = scheduledMoney(expense.parent1PaidAmount);
+  const parent2Paid = scheduledMoney(expense.parent2PaidAmount);
+  const explicitLedger = (
+    expense.parent1ShareAmount !== undefined ||
+    expense.parent2ShareAmount !== undefined ||
+    expense.parent1PaidAmount !== undefined ||
+    expense.parent2PaidAmount !== undefined
+  );
+
+  if (explicitLedger) {
+    const remaining = Math.max(parent1Share - parent1Paid, 0) + Math.max(parent2Share - parent2Paid, 0);
+    return {
+      amount,
+      remaining: scheduledMoney(remaining),
+      status: expense.reviewFlag ? "review" : remaining <= 0 ? "paid" : parent1Paid + parent2Paid > 0 ? "partial" : "open",
+    };
+  }
+
+  const status = cleanText(expense.status, "review");
+  return {
+    amount,
+    remaining: ["paid", "settled", "completed"].includes(status) ? 0 : amount,
+    status: status === "settled" ? "paid" : status,
+  };
+}
+
+function scheduledBudgetSummary(expenses = []) {
+  const ledgers = expenses.map(scheduledExpenseLedger);
+  const pendingLedgers = ledgers.filter((ledger) => !["paid", "settled", "completed"].includes(ledger.status));
+  const reviewCount = ledgers.filter((ledger) => ledger.status === "review").length;
+  const pending = pendingLedgers.reduce((sum, ledger) => sum + ledger.remaining, 0);
+
+  return {
+    pending: scheduledMoney(pending),
+    pendingCount: pendingLedgers.length,
+    reviewCount,
+  };
+}
+
+function scheduledReminderRuleEnabled(prefs = {}, ruleId = "") {
+  const rules = mapOrEmpty(prefs.rules);
+  return rules[ruleId] !== false;
+}
+
+async function loadCustodyReminderPrefs(env, scopeId) {
+  const prefs = await firestoreGetDoc(env, "custodyNotificationPrefs", scopeId).catch(() => null);
+  return prefs || {};
+}
+
+function custodyBudgetNotificationRecipients(group = {}) {
+  const recipients = new Map();
+  const budgetIds = uniqueStrings([
+    group.budgetReaderIds,
+    group.budget_reader_ids,
+    group.budgetWriterIds,
+    group.budget_writer_ids,
+  ].flat());
+  const budgetEmails = uniqueStrings([
+    group.budgetReaderEmails,
+    group.budget_reader_emails,
+    group.budgetWriterEmails,
+    group.budget_writer_emails,
+  ].flat()).map(normalizeEmail);
+
+  const addBudgetRecipient = (candidate = {}) => {
+    const email = normalizeEmail(candidate.email || candidate.emailAddress || candidate.memberEmail || candidate.recipientEmail);
+    const uid = cleanText(candidate.uid || candidate.userId || candidate.user_id || candidate.id);
+    const isAdmin = (
+      candidate.admin === true ||
+      candidate.isAdmin === true ||
+      candidate.is_admin === true ||
+      ["owner", "admin"].includes(cleanText(candidate.appRole || candidate.app_role))
+    );
+    const canReadBudget = (
+      isAdmin ||
+      (uid && budgetIds.includes(uid)) ||
+      (email && budgetEmails.includes(email)) ||
+      permissionAllowsRead(mapOrEmpty(candidate.permissions).budget) ||
+      permissionAllowsRead(mapOrEmpty(candidate.modules).budget)
+    );
+
+    if (!email || !canReadBudget) return;
+    const key = email || uid;
+    recipients.set(key, {
+      email,
+      uid,
+      name: cleanText(candidate.name || candidate.displayName || candidate.fullName || candidate.label || email),
+      moduleName: "budget",
+    });
+  };
+
+  addBudgetRecipient({
+    uid: group.ownerId || group.owner_id || group.createdBy || group.created_by || group.createdByUid || group.created_by_uid,
+    email: group.ownerEmail || group.owner_email || group.createdByEmail || group.created_by_email,
+    name: "Custody owner",
+    admin: true,
+  });
+
+  [
+    ...listOrEmpty(group.parents),
+    ...listOrEmpty(group.coParents),
+    ...listOrEmpty(group.members),
+  ].forEach(addBudgetRecipient);
+
+  budgetEmails.forEach((email) => addBudgetRecipient({ email, permissions: { budget: "read" } }));
+  return [...recipients.values()];
+}
+
+function scheduledReminderMarkerId(notificationId = "") {
+  return safeDocumentId(notificationId, `scheduled_${Date.now()}`);
+}
+
+async function deliverScheduledActivityNotification(env, { activity, recipients = [], now, dryRun = false } = {}) {
+  const preferenceKey = activityPreferenceKey(activity);
+  if (!preferenceKey) {
+    return { planned: 0, inAppCount: 0, emailCount: 0, skipped: [{ reason: "no_preference_key" }] };
+  }
+
+  const uniqueRecipients = new Map();
+  recipients.forEach((recipient) => {
+    const email = normalizeEmail(recipient.email);
+    const uid = cleanText(recipient.uid);
+    if (email) uniqueRecipients.set(email || uid, { ...recipient, email, uid });
+  });
+
+  const notificationWrites = [];
+  const markerWrites = [];
+  const emailsToSend = [];
+  const skipped = [];
+  let planned = 0;
+
+  for (const recipient of uniqueRecipients.values()) {
+    const preferences = await loadRecipientPreferences(env, recipient);
+    if (preferences.notifyOn?.[preferenceKey] !== true) {
+      skipped.push({ email: recipient.email, reason: "preference_disabled" });
+      continue;
+    }
+
+    const channels = {
+      inApp: preferences.channels?.inApp !== false,
+      email: preferences.channels?.email === true,
+    };
+
+    if (!channels.inApp && !channels.email) {
+      skipped.push({ email: recipient.email, reason: "channels_disabled" });
+      continue;
+    }
+
+    const notification = notificationRecord({
+      activity,
+      recipient,
+      preferenceKey,
+      channels,
+      now,
+    });
+    const markerId = scheduledReminderMarkerId(notification.id);
+    const existingMarker = await firestoreGetDoc(env, "scheduledReminderDeliveries", markerId).catch(() => null);
+    if (existingMarker) {
+      skipped.push({ email: recipient.email, reason: "already_sent" });
+      continue;
+    }
+
+    planned += 1;
+    if (dryRun) continue;
+
+    markerWrites.push(firestoreMergeWrite(env, "scheduledReminderDeliveries", markerId, {
+      id: markerId,
+      notificationId: notification.id,
+      notification_id: notification.id,
+      activityId: activity.id,
+      activity_id: activity.id,
+      recipientEmail: recipient.email,
+      recipient_email: recipient.email,
+      recipientUid: recipient.uid,
+      recipient_uid: recipient.uid,
+      familyId: notification.familyId,
+      family_id: notification.family_id,
+      custodyGroupId: notification.custodyGroupId,
+      custody_group_id: notification.custody_group_id,
+      ruleId: cleanText(activity.metadata?.reminderRuleId),
+      rule_id: cleanText(activity.metadata?.reminderRuleId),
+      status: "planned",
+      createdAt: now,
+      created_at: now,
+      updatedAt: now,
+      updated_at: now,
+    }));
+
+    if (channels.inApp) {
+      notificationWrites.push(firestoreMergeWrite(env, "notifications", notification.id, notification));
+    }
+
+    if (channels.email) {
+      emailsToSend.push({ markerId, recipient, mail: activityEmail(env, notification) });
+    }
+  }
+
+  if (!dryRun && (markerWrites.length || notificationWrites.length)) {
+    await firestoreCommitInChunks(env, [...markerWrites, ...notificationWrites]);
+  }
+
+  let emailCount = 0;
+  const emailFailures = [];
+  const markerUpdates = [];
+
+  if (!dryRun) {
+    for (const delivery of emailsToSend) {
+      try {
+        const providerResult = await sendWithResend(env, delivery.mail);
+        emailCount += 1;
+        markerUpdates.push(firestoreMergeWrite(env, "scheduledReminderDeliveries", delivery.markerId, {
+          status: "accepted",
+          provider: "resend",
+          providerMessageId: extractProviderMessageId(providerResult),
+          provider_message_id: extractProviderMessageId(providerResult),
+          emailDeliveryId: cleanText(providerResult.deliveryId),
+          email_delivery_id: cleanText(providerResult.deliveryId),
+          updatedAt: now,
+          updated_at: now,
+        }));
+      } catch (error) {
+        emailFailures.push({
+          email: delivery.recipient.email,
+          reason: error instanceof Error ? error.message : cleanText(error),
+        });
+        markerUpdates.push(firestoreMergeWrite(env, "scheduledReminderDeliveries", delivery.markerId, {
+          status: "email_failed",
+          error: error instanceof Error ? error.message : cleanText(error),
+          updatedAt: now,
+          updated_at: now,
+        }));
+      }
+    }
+  }
+
+  if (markerUpdates.length) {
+    await firestoreCommitInChunks(env, markerUpdates).catch((error) => {
+      console.warn("Could not update scheduled reminder delivery markers.", error);
+    });
+  }
+
+  return {
+    planned,
+    inAppCount: dryRun ? 0 : notificationWrites.length,
+    emailCount,
+    skipped,
+    emailFailures,
+  };
+}
+
+function scheduledReminderActivity({ group, ruleId, type, title, description, now, todayKey, entityType = "custody_reminder" }) {
+  const groupId = cleanText(group.id);
+  const householdFamilyId = cleanText(group.householdFamilyId || group.household_family_id || group.familyId || group.family_id);
+  return {
+    id: safeDocumentId(`scheduled_${todayKey}_${groupId}_${ruleId}`),
+    familyId: householdFamilyId || groupId,
+    family_id: householdFamilyId || groupId,
+    householdFamilyId,
+    household_family_id: householdFamilyId,
+    custodyGroupId: groupId,
+    custody_group_id: groupId,
+    module: type.includes("budget") ? "budget" : "custody",
+    type,
+    title,
+    description,
+    entityType,
+    entity_type: entityType,
+    entityId: groupId,
+    entity_id: groupId,
+    actorId: "kinely-system",
+    actor_id: "kinely-system",
+    actorEmail: "",
+    actor_email: "",
+    createdBy: "kinely-system",
+    created_by: "kinely-system",
+    createdByEmail: "",
+    created_by_email: "",
+    metadata: {
+      scheduledReminder: true,
+      scheduled_reminder: true,
+      reminderRuleId: ruleId,
+      reminder_rule_id: ruleId,
+      custodyGroupName: cleanText(group.name || group.groupName || group.group_name),
+      scheduledFor: todayKey,
+    },
+    createdAt: now,
+    created_at: now,
+  };
+}
+
+function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges, packingItems, expenses, nowDate, force = false }) {
+  const now = nowDate.toISOString();
+  const todayKey = dateKeyFromDate(nowDate);
+  const nextExchange = nextScheduledExchange(custodyDays, exchanges, todayKey);
+  const daysUntilExchange = nextExchange ? daysBetweenDateKeys(todayKey, nextExchange.date) : null;
+  const activities = [];
+
+  if (
+    nextExchange &&
+    daysUntilExchange !== null &&
+    daysUntilExchange >= 0 &&
+    daysUntilExchange <= 1 &&
+    scheduledReminderRuleEnabled(prefs, "exchange-review")
+  ) {
+    const missingDetails = !nextExchange.time || !nextExchange.location || ["needs_review", "pending"].includes(cleanText(nextExchange.status).toLowerCase());
+    if (force || missingDetails) {
+      activities.push({
+        ruleId: "exchange-review",
+        recipients: custodyNotificationRecipients(group, "custody"),
+        activity: scheduledReminderActivity({
+          group,
+          ruleId: "exchange-review",
+          type: "custody_updated",
+          title: missingDetails ? "Exchange details need review" : "Upcoming custody exchange",
+          description: `${daysUntilExchange === 0 ? "Today" : "Tomorrow"} exchange${nextExchange.time ? ` at ${nextExchange.time}` : ""}${nextExchange.location ? ` - ${nextExchange.location}` : " needs a confirmed time and location."}`,
+          now,
+          todayKey,
+          entityType: "custody_exchange",
+        }),
+      });
+    }
+  }
+
+  const packingSummary = scheduledPackingSummary(packingItems);
+  const transitionSoon = force || (daysUntilExchange !== null && daysUntilExchange >= 0 && daysUntilExchange <= 1);
+
+  if (
+    transitionSoon &&
+    packingSummary.missingCount > 0 &&
+    scheduledReminderRuleEnabled(prefs, "packing-missing")
+  ) {
+    const names = packingSummary.missingItems.slice(0, 3).map((item) => item.name).join(", ");
+    activities.push({
+      ruleId: "packing-missing",
+      recipients: custodyNotificationRecipients(group, "custody"),
+      activity: scheduledReminderActivity({
+        group,
+        ruleId: "packing-missing",
+        type: "custody_updated",
+        title: `${packingSummary.missingCount} packing item${packingSummary.missingCount === 1 ? "" : "s"} missing`,
+        description: `${names}${packingSummary.missingCount > 3 ? " and more" : ""} still need attention before the exchange.`,
+        now,
+        todayKey,
+        entityType: "custody_packing",
+      }),
+    });
+  }
+
+  if (
+    transitionSoon &&
+    packingSummary.total > 0 &&
+    packingSummary.readiness < 100 &&
+    scheduledReminderRuleEnabled(prefs, "packing-readiness")
+  ) {
+    activities.push({
+      ruleId: "packing-readiness",
+      recipients: custodyNotificationRecipients(group, "custody"),
+      activity: scheduledReminderActivity({
+        group,
+        ruleId: "packing-readiness",
+        type: "custody_updated",
+        title: `Packing is ${packingSummary.readiness}% ready`,
+        description: `${packingSummary.packedCount} packed - ${packingSummary.reviewCount} review - ${packingSummary.missingCount} missing before the next transition.`,
+        now,
+        todayKey,
+        entityType: "custody_packing",
+      }),
+    });
+  }
+
+  const budgetSummary = scheduledBudgetSummary(expenses);
+  const isWeeklyDigestDay = nowDate.getUTCDay() === 1;
+  if (
+    budgetSummary.pending > 0 &&
+    (force || isWeeklyDigestDay) &&
+    scheduledReminderRuleEnabled(prefs, "budget-pending")
+  ) {
+    activities.push({
+      ruleId: "budget-pending",
+      recipients: custodyBudgetNotificationRecipients(group),
+      activity: scheduledReminderActivity({
+        group,
+        ruleId: "budget-pending",
+        type: "custody_budget_updated",
+        title: "Shared custody expenses need review",
+        description: `${budgetSummary.pendingCount} open/review item${budgetSummary.pendingCount === 1 ? "" : "s"} need attention in the custody budget.`,
+        now,
+        todayKey,
+        entityType: "custody_budget",
+      }),
+    });
+  }
+
+  return activities.filter((item) => item.recipients.length > 0);
+}
+
+async function runScheduledCustodyReminders(env, { dryRun = false, force = false, trigger = "manual", scheduledTime = Date.now() } = {}) {
+  const nowDate = new Date(scheduledTime || Date.now());
+  const groups = (await firestoreCollectionDocs(env, "custodyGroups", { limit: 500 })).filter(isActiveCustodyGroup);
+  const summary = {
+    ok: true,
+    trigger,
+    dryRun,
+    force,
+    workerVersion: WORKER_VERSION,
+    checkedAt: nowDate.toISOString(),
+    groupCount: groups.length,
+    activityCount: 0,
+    plannedRecipientCount: 0,
+    inAppCount: 0,
+    emailCount: 0,
+    skippedCount: 0,
+    emailFailedCount: 0,
+    groups: [],
+  };
+
+  for (const group of groups) {
+    const groupId = cleanText(group.id);
+    if (!groupId) continue;
+
+    const [prefs, dayDocs, exchangeDocs, packingDocs, expenseDocs] = await Promise.all([
+      loadCustodyReminderPrefs(env, groupId),
+      getCustodyScopedDocs(env, "custodyDays", groupId),
+      getCustodyScopedDocs(env, "custodyExchanges", groupId),
+      getCustodyScopedDocs(env, "custodyPackingItems", groupId),
+      getCustodyScopedDocs(env, "custodyExpenses", groupId),
+    ]);
+
+    const activities = buildScheduledReminderActivities({
+      group,
+      prefs,
+      custodyDays: dayDocs.map(normalizeScheduledCustodyDay).filter((day) => day.date).sort((a, b) => a.date.localeCompare(b.date)),
+      exchanges: exchangeDocs.map(normalizeScheduledExchange).filter((exchange) => exchange.date),
+      packingItems: packingDocs.map(normalizeScheduledPackingItem),
+      expenses: expenseDocs,
+      nowDate,
+      force,
+    });
+
+    const groupSummary = {
+      groupId,
+      groupName: cleanText(group.name || group.groupName || group.group_name),
+      activityCount: activities.length,
+      plannedRecipientCount: 0,
+      inAppCount: 0,
+      emailCount: 0,
+      skippedCount: 0,
+      emailFailedCount: 0,
+      rules: activities.map((item) => item.ruleId),
+    };
+
+    for (const item of activities) {
+      const result = await deliverScheduledActivityNotification(env, {
+        activity: item.activity,
+        recipients: item.recipients,
+        now: nowDate.toISOString(),
+        dryRun,
+      });
+      groupSummary.plannedRecipientCount += result.planned;
+      groupSummary.inAppCount += result.inAppCount;
+      groupSummary.emailCount += result.emailCount;
+      groupSummary.skippedCount += result.skipped.length;
+      groupSummary.emailFailedCount += listOrEmpty(result.emailFailures).length;
+    }
+
+    summary.activityCount += groupSummary.activityCount;
+    summary.plannedRecipientCount += groupSummary.plannedRecipientCount;
+    summary.inAppCount += groupSummary.inAppCount;
+    summary.emailCount += groupSummary.emailCount;
+    summary.skippedCount += groupSummary.skippedCount;
+    summary.emailFailedCount += groupSummary.emailFailedCount;
+    if (groupSummary.activityCount || force) summary.groups.push(groupSummary);
+  }
+
+  return summary;
+}
+
+async function handleScheduledRemindersRun(request, env, origin) {
+  const expectedSecret = cleanText(env.WEBHOOK_SECRET);
+  const providedSecret = cleanText(request.headers.get("x-kinely-webhook-secret"));
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return json({ ok: false, error: "Unauthorized reminder maintenance request." }, { status: 401 }, origin);
+  }
+
+  const payload = await request.json().catch(() => ({}));
+  const result = await runScheduledCustodyReminders(env, {
+    dryRun: payload.write !== true,
+    force: payload.force === true,
+    trigger: "manual",
+    scheduledTime: payload.scheduledTime ? Date.parse(payload.scheduledTime) : Date.now(),
+  });
+
+  return json(result, { status: 200 }, origin);
+}
+
 async function handleActivityNotificationSend(request, env, origin) {
   const token = await verifyFirebaseToken(request, env);
   const payload = await request.json();
@@ -3436,6 +4114,10 @@ export default {
         return await handleFamilyMembersBackfill(request, env, origin);
       }
 
+      if (request.method === "POST" && url.pathname === "/maintenance/reminders/run") {
+        return await handleScheduledRemindersRun(request, env, origin);
+      }
+
       if (request.method === "POST" && url.pathname === "/webhooks/resend") {
         return await handleResendWebhook(request, env, origin);
       }
@@ -3448,5 +4130,21 @@ export default {
         error: error instanceof Error ? error.message : "Unknown Worker error.",
       }, { status: 400 }, origin);
     }
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      runScheduledCustodyReminders(env, {
+        trigger: "cron",
+        dryRun: false,
+        force: false,
+        scheduledTime: event.scheduledTime,
+      })
+        .then((result) => {
+          console.log("Scheduled custody reminders processed", result);
+        })
+        .catch((error) => {
+          console.error("Scheduled custody reminders failed", error);
+        })
+    );
   },
 };

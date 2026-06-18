@@ -7,6 +7,7 @@
 - Saves/deletes custody groups.
 - Updates and deletes family spaces.
 - Sends in-app activity notifications.
+- Runs daily custody reminder checks for exchanges, packing, and shared budget signals.
 
 Custody day calendar writes are handled directly by the frontend through Firestore unless `VITE_USE_CUSTODY_DAY_WORKER=true` is enabled for the frontend.
 
@@ -67,6 +68,28 @@ Optional flags:
 ```powershell
 npm run cloudflare:backfill:family-members -- --family-id family_123
 npm run cloudflare:backfill:family-members -- --limit 500
+```
+
+## Maintenance: scheduled custody reminders
+
+The Worker has a cron trigger that runs daily at `14:00 UTC` and sends one reminder per custody group, rule, recipient, and day. It respects the user's Kinely notification preferences and uses deterministic delivery markers to avoid duplicate email/in-app reminders.
+
+Dry-run the reminder engine first:
+
+```powershell
+curl.exe -X POST "https://kinely-api.your-account.workers.dev/maintenance/reminders/run" `
+  -H "content-type: application/json" `
+  -H "x-kinely-webhook-secret: YOUR_WEBHOOK_SECRET" `
+  -d "{\"force\":true}"
+```
+
+Send real reminders manually:
+
+```powershell
+curl.exe -X POST "https://kinely-api.your-account.workers.dev/maintenance/reminders/run" `
+  -H "content-type: application/json" `
+  -H "x-kinely-webhook-secret: YOUR_WEBHOOK_SECRET" `
+  -d "{\"write\":true,\"force\":true}"
 ```
 
 ## Local Development

@@ -6,6 +6,9 @@
   "name": "kinely-api",
   "main": "src/index.js",
   "compatibility_date": "2026-06-04",
+  "triggers": {
+    "crons": ["0 14 * * *"]
+  },
   "observability": {
     "enabled": true
   },
