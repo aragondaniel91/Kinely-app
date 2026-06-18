@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "family-members-backfill-2026-06-17-10";
+const WORKER_VERSION = "budget-notifications-2026-06-18-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -31,6 +31,7 @@ const CUSTODY_COLLECTIONS = [
   "custodySpecialEvents",
   "custodyTravelPlans",
   "custodyPackingItems",
+  "custodyPackingTemplates",
   "custodyExpenses",
   "custodyExchanges",
   "custodyInvitations",
@@ -67,6 +68,9 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
     custodyCreated: true,
     custodyEdited: true,
     custodyDeleted: true,
+    budgetExpenseCreated: true,
+    budgetExpenseEdited: true,
+    budgetExpenseDeleted: true,
     familyEventCreated: true,
     familyEventEdited: true,
     taskAssigned: true,
@@ -1861,6 +1865,12 @@ function activityPreferenceKey(activity = {}) {
 
   if (moduleName === "calendar" || type.startsWith("event_")) {
     return type.includes("updated") || type.includes("edited") ? "familyEventEdited" : "familyEventCreated";
+  }
+
+  if (moduleName === "budget" || type.includes("custody_budget")) {
+    if (type.includes("deleted")) return "budgetExpenseDeleted";
+    if (type.includes("updated") || type.includes("edited")) return "budgetExpenseEdited";
+    return "budgetExpenseCreated";
   }
 
   if (

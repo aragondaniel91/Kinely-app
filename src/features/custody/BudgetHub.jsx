@@ -4,8 +4,11 @@ import {
   collection,
   deleteDoc,
   doc,
+  onSnapshot,
+  query,
   serverTimestamp,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import {
   BadgeDollarSign,
@@ -23,8 +26,9 @@ import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
-import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
+import { uniqueFirestoreDocsFromSnapshots } from "@/core/firestore/firestoreDocUtils";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 import { currency, getBudgetSummary, getExpenseLedger, validateExpenseLedger } from "@/data/custodyBudget";
 import BudgetExpenseCard from "./components/budget/BudgetExpenseCard";
 import BudgetExpenseDetail from "./components/budget/BudgetExpenseDetail";
@@ -71,6 +75,61 @@ function normalizeExpenseDoc(docSnap) {
     ...expense,
     ledger: getExpenseLedger(expense),
   };
+}
+
+function sortExpenses(items = []) {
+  return [...items].sort((a, b) => {
+    const leftOrder = a.order ?? 999;
+    const rightOrder = b.order ?? 999;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return String(a.title || "").localeCompare(String(b.title || ""));
+  });
+}
+
+function expenseActivityType(action) {
+  if (action === "created") return "custody_budget_created";
+  if (action === "deleted") return "custody_budget_deleted";
+  return "custody_budget_updated";
+}
+
+function expenseActivityTitle(action, expense) {
+  if (action === "created") return "Budget expense added";
+  if (action === "deleted") return "Budget expense deleted";
+  if (action === "payment") return "Budget payment recorded";
+  if (action === "payment_reversed") return "Budget payment reversed";
+  if (action === "review") return expense.reviewFlag ? "Budget expense marked for review" : "Budget review cleared";
+  return "Budget expense updated";
+}
+
+function expenseActivityDescription(action, expense, parent1Name, parent2Name, focusedParent = "") {
+  const ledger = getExpenseLedger(expense);
+  const amount = currency(ledger.amount);
+  const payerName =
+    focusedParent === "parent1"
+      ? parent1Name
+      : focusedParent === "parent2"
+        ? parent2Name
+        : "";
+
+  if (action === "payment") {
+    return `${payerName || "A parent"} recorded a payment for ${expense.title}. Remaining balance: ${currency(ledger.remainingTotal)}.`;
+  }
+
+  if (action === "payment_reversed") {
+    return `${payerName || "A parent"} reversed a payment for ${expense.title}. Remaining balance: ${currency(ledger.remainingTotal)}.`;
+  }
+
+  if (action === "review") {
+    return expense.reviewFlag
+      ? `${expense.title} was marked for review.`
+      : `${expense.title} review status was cleared.`;
+  }
+
+  if (action === "deleted") {
+    return `${expense.title} (${amount}) was removed from the shared custody budget.`;
+  }
+
+  return `${expense.title} (${amount}) is tracked in the shared custody budget.`;
 }
 
 function BudgetHero({ total, paid, remaining, loading }) {
@@ -259,6 +318,7 @@ export default function BudgetHub() {
     custodyMomColor,
     custodyParentOverride,
     perms,
+    profile,
   } = useFamily();
 
   const parent1Name = custodyParentOverride?.dadName || dadName || "Parent 1";
@@ -294,43 +354,54 @@ export default function BudgetHub() {
   const [deletingExpense, setDeletingExpense] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadExpenses() {
-      if (!user || !custodyScopeId || !canReadBudget) {
-        setExpenses([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-
-      try {
-        const docs = await getCustodyScopedDocSnaps("custodyExpenses", custodyScopeId);
-
-        if (!docs.length) {
-          if (!cancelled) setExpenses([]);
-          return;
-        }
-
-        const data = docs.map(normalizeExpenseDoc).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-        if (!cancelled) setExpenses(data);
-      } catch (error) {
-        console.error("Error loading custody expenses:", error);
-        if (!cancelled) {
-          setExpenses([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    if (!user || !custodyScopeId || !canReadBudget) {
+      setExpenses([]);
+      setLoading(false);
+      return () => {};
     }
 
-    loadExpenses();
+    const collectionRef = collection(db, "custodyExpenses");
+    const queries = [
+      query(collectionRef, where("custodyGroupId", "==", custodyScopeId)),
+      query(collectionRef, where("custody_group_id", "==", custodyScopeId)),
+    ];
+
+    const snapshots = new Map();
+    const readyIndexes = new Set();
+    let closed = false;
+
+    setLoading(true);
+
+    function emit() {
+      if (closed || readyIndexes.size < queries.length) return;
+      const docs = uniqueFirestoreDocsFromSnapshots(Array.from(snapshots.values()));
+      setExpenses(sortExpenses(docs.map(normalizeExpenseDoc)));
+      setLoading(false);
+    }
+
+    const unsubscribers = queries.map((expensesQuery, index) =>
+      onSnapshot(
+        expensesQuery,
+        (snapshot) => {
+          if (closed) return;
+          readyIndexes.add(index);
+          snapshots.set(index, snapshot);
+          emit();
+        },
+        (error) => {
+          console.warn(`Could not listen to custody expenses query ${index + 1}:`, error);
+          readyIndexes.add(index);
+          snapshots.set(index, { docs: [] });
+          emit();
+        }
+      )
+    );
 
     return () => {
-      cancelled = true;
+      closed = true;
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [user?.uid, custodyScopeFields, custodyScopeId, canReadBudget]);
+  }, [user?.uid, custodyScopeId, canReadBudget]);
 
   const summary = useMemo(() => getBudgetSummary(expenses), [expenses]);
 
@@ -385,6 +456,35 @@ export default function BudgetHub() {
     setNoticeDialog({ tone, title, message });
   };
 
+  const logBudgetActivity = (action, expense, focusedParent = "") => {
+    if (!expense || !user?.uid || !custodyScopeFields.familyId) return;
+
+    const ledger = getExpenseLedger(expense);
+    queueFamilyActivity({
+      familyId: custodyScopeFields.familyId,
+      custodyScopeFields,
+      user,
+      profile,
+      module: "custody",
+      type: expenseActivityType(action),
+      title: expenseActivityTitle(action, expense),
+      description: expenseActivityDescription(action, expense, parent1Name, parent2Name, focusedParent),
+      entityType: "custody_budget_expense",
+      entityId: expense.id || "",
+      date: expense.dueDate || "",
+      metadata: {
+        action,
+        category: expense.category || "General",
+        amount: ledger.amount,
+        status: ledger.status,
+        remainingTotal: ledger.remainingTotal,
+        parent1Remaining: ledger.parent1Remaining,
+        parent2Remaining: ledger.parent2Remaining,
+        focusedParent,
+      },
+    });
+  };
+
   const saveExpense = async (draftExpense) => {
     if (!user || !custodyScopeId || savingExpense || !canWriteBudget) return;
 
@@ -427,6 +527,7 @@ export default function BudgetHub() {
       if (editingExpense) {
         await updateDoc(doc(db, "custodyExpenses", editingExpense.id), payload);
         refreshExpenseInState(editingExpense.id, payload);
+        logBudgetActivity("updated", { ...editingExpense, ...payload, id: editingExpense.id });
       } else {
         const createPayload = {
           ...payload,
@@ -436,10 +537,12 @@ export default function BudgetHub() {
         };
 
         const docRef = await addDoc(collection(db, "custodyExpenses"), createPayload);
-        setExpenses((current) => [
+        const createdExpense = { ...createPayload, id: docRef.id };
+        setExpenses((current) => sortExpenses([
           ...current,
-          { ...createPayload, id: docRef.id, ledger: getExpenseLedger(createPayload) },
-        ]);
+          { ...createdExpense, ledger: getExpenseLedger(createdExpense) },
+        ]));
+        logBudgetActivity("created", createdExpense);
       }
 
       closeWizard();
@@ -530,6 +633,7 @@ export default function BudgetHub() {
     try {
       await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
       refreshExpenseInState(currentExpense.id, payload);
+      logBudgetActivity("payment", { ...updatedExpense, ...payload, id: currentExpense.id }, activeParentLedger);
     } catch (error) {
       console.error("Error saving payment:", error);
       showNotice({
@@ -592,6 +696,7 @@ export default function BudgetHub() {
     try {
       await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
       refreshExpenseInState(currentExpense.id, payload);
+      logBudgetActivity("payment_reversed", { ...updatedExpense, ...payload, id: currentExpense.id }, payment.parent);
     } catch (error) {
       console.error("Error undoing payment:", error);
       showNotice({
@@ -628,6 +733,7 @@ export default function BudgetHub() {
     try {
       await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
       refreshExpenseInState(currentExpense.id, payload);
+      logBudgetActivity("review", { ...updatedExpense, ...payload, id: currentExpense.id });
     } catch (error) {
       console.error("Error updating review status:", error);
       showNotice({
@@ -664,6 +770,7 @@ export default function BudgetHub() {
     try {
       await deleteDoc(doc(db, "custodyExpenses", expenseToDelete.id));
       setDeleteCandidate(null);
+      logBudgetActivity("deleted", expenseToDelete);
     } catch (error) {
       console.error("Error deleting custody expense:", error);
       setExpenses(previousExpenses);

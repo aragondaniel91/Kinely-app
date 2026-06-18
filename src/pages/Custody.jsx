@@ -75,6 +75,7 @@ const custodyModules = [
     description: "Shared expenses, split costs, who paid, who owes, and recurring payments.",
     accent: "bg-amber-50 text-amber-600 border-amber-100",
     requiresModule: "budget",
+    ready: true,
   },
 ];
 
@@ -183,7 +184,7 @@ function UpcomingCustodyToolsCard() {
         More co-parenting tools are being shaped
       </h2>
       <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900/75">
-        Custody schedule, calendar, exchange notes, packing, and shared tasks are active now. Smart reminders will appear here once they are reliable enough for daily family use.
+        Custody schedule, calendar, exchange notes, packing, and shared budget tools are active now. Smart reminders will appear here once they are reliable enough for daily family use.
       </p>
     </div>
   );

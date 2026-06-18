@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarDays, CheckSquare, HeartPulse, Home, Mail, MessageSquare, Save, Shield, UtensilsCrossed, Users } from "lucide-react";
+import { Bell, CalendarDays, CheckSquare, HeartPulse, Home, Mail, MessageSquare, Save, Shield, UtensilsCrossed, Users, WalletCards } from "lucide-react";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -21,6 +21,9 @@ const DEFAULT_PREFERENCES = {
     custodyCreated: true,
     custodyEdited: true,
     custodyDeleted: true,
+    budgetExpenseCreated: true,
+    budgetExpenseEdited: true,
+    budgetExpenseDeleted: true,
     familyEventCreated: true,
     familyEventEdited: true,
     taskAssigned: true,
@@ -68,6 +71,15 @@ const NOTIFICATION_GROUPS = [
     items: [
       { id: "familyEventCreated", label: "Family event created", description: "Notify when a school, sport, doctor, or family event is added." },
       { id: "familyEventEdited", label: "Family event edited", description: "Notify when a family event changes." },
+    ],
+  },
+  {
+    title: "Custody Budget",
+    icon: WalletCards,
+    items: [
+      { id: "budgetExpenseCreated", label: "Budget expense added", description: "Notify when a shared custody expense is added." },
+      { id: "budgetExpenseEdited", label: "Budget expense edited", description: "Notify when a custody expense, payment, or review status changes." },
+      { id: "budgetExpenseDeleted", label: "Budget expense deleted", description: "Notify when a shared custody expense is removed." },
     ],
   },
   {

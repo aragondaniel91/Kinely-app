@@ -72,6 +72,12 @@ function activityPreferenceKey(type = "", moduleName = "") {
       : "familyEventCreated";
   }
 
+  if (moduleName === "budget" || type.includes("custody_budget")) {
+    if (type.includes("deleted")) return "budgetExpenseDeleted";
+    if (type.includes("updated") || type.includes("edited")) return "budgetExpenseEdited";
+    return "budgetExpenseCreated";
+  }
+
   if (
     moduleName === "custody" ||
     type.includes("custody") ||
