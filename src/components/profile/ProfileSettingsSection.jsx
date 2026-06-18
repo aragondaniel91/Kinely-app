@@ -133,6 +133,8 @@ export default function ProfileSettingsSection() {
             helper="Controls the preferred family language as multilingual screens are added."
           >
             <select
+              id="profile-settings-language"
+              name="profile-settings-language"
               value={language}
               onChange={(event) => setLanguage(event.target.value)}
               disabled={!canManageSettings || saving}

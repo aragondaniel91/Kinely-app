@@ -7,7 +7,11 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useStableFieldId } from "@/components/ui/formA11y";
 import { cn } from "@/lib/utils";
 
-const Select = SelectPrimitive.Root;
+function Select({ name, ...props }) {
+  const fieldName = useStableFieldId("kinely-select-value", name);
+  return <SelectPrimitive.Root name={fieldName} {...props} />;
+}
+Select.displayName = SelectPrimitive.Root.displayName;
 
 const SelectGroup = SelectPrimitive.Group;
 
