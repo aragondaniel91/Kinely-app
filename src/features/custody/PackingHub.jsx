@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import {
   Backpack,
   CheckCircle2,
@@ -32,6 +32,7 @@ import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import { queueFamilyActivity } from "@/services/familyActivityService";
 import {
   custodyPackingTemplates,
   getPackingSummary,
@@ -133,13 +134,38 @@ function PackingHero({ readiness, packedCount, totalCount, loading }) {
   );
 }
 
-function TemplateCard({ template }) {
+function sortPackingItems(items = []) {
+  return [...items].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+}
+
+function packingActivityType(action) {
+  if (action === "created" || action === "template") return "custody_packing_created";
+  if (action === "deleted") return "custody_packing_deleted";
+  return "custody_packing_updated";
+}
+
+function packingActivityTitle(action, item) {
+  if (action === "template") return "Packing template added";
+  if (action === "created") return "Packing item added";
+  if (action === "deleted") return "Packing item deleted";
+  if (action === "status") return `Packing item marked ${statusMeta(item.status).label.toLowerCase()}`;
+  return "Packing item updated";
+}
+
+function packingActivityDescription(action, item) {
+  if (action === "template") return `${item.name} template items were added to the custody packing list.`;
+  return `${item.name} is ${statusMeta(item.status).label.toLowerCase()} in ${item.category || "General"}.`;
+}
+
+function TemplateCard({ template, applying, onApply }) {
   const Icon = iconMap[template.id] || Backpack;
   const accent = accentMap[template.tone] || accentMap.blue;
 
   return (
     <button
       type="button"
+      onClick={() => onApply(template)}
+      disabled={applying}
       className="rounded-[1.6rem] border border-white/80 bg-white p-4 text-left shadow-[0_10px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.09)]"
     >
       <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${accent}`}>
@@ -147,6 +173,9 @@ function TemplateCard({ template }) {
       </div>
       <h3 className="mt-4 text-base font-black text-slate-950">{template.label}</h3>
       <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">{template.description}</p>
+      <p className="mt-3 text-xs font-black text-emerald-700">
+        {applying ? "Adding..." : "Add template"}
+      </p>
     </button>
   );
 }
@@ -172,7 +201,7 @@ function PackingItem({ item, onCycle, onEdit, onDelete }) {
             )}
           </div>
           <p className="mt-0.5 text-xs font-semibold text-slate-400">
-            {item.category} · Responsible: {item.owner}
+            {item.category} - Responsible: {item.owner}
           </p>
         </div>
       </button>
@@ -331,7 +360,7 @@ function normalizePackingDoc(docSnap) {
     id: docSnap.id,
     name: data.name || "Packing item",
     category: data.category || "General",
-    owner: data.owner || "Shared",
+    owner: data.owner || data.assignedTo || data.assigned_to || "Shared",
     status: data.status || "review",
     important: Boolean(data.important),
     order: data.order ?? 999,
@@ -346,6 +375,7 @@ export default function PackingHub() {
     householdFamilyId,
     custodyGroupId,
     selectedCustodyGroup,
+    profile,
   } = useFamily();
   const custodyScopeId = custodyGroupId || familyId;
   const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
@@ -372,6 +402,7 @@ export default function PackingHub() {
 
   const [showItemModal, setShowItemModal] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
+  const [applyingTemplateId, setApplyingTemplateId] = useState("");
   const [itemForm, setItemForm] = useState(emptyNewItem);
   const [editingItem, setEditingItem] = useState(null);
 
@@ -395,9 +426,7 @@ export default function PackingHub() {
           return;
         }
 
-        const data = docs
-          .map(normalizePackingDoc)
-          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+        const data = sortPackingItems(docs.map(normalizePackingDoc));
 
         if (!cancelled) setItems(data);
       } catch (error) {
@@ -435,6 +464,30 @@ export default function PackingHub() {
     setShowItemModal(true);
   };
 
+  const logPackingActivity = (action, item) => {
+    if (!item || !user?.uid || !custodyScopeFields.familyId) return;
+
+    queueFamilyActivity({
+      familyId: custodyScopeFields.familyId,
+      custodyScopeFields,
+      user,
+      profile,
+      module: "custody",
+      type: packingActivityType(action),
+      title: packingActivityTitle(action, item),
+      description: packingActivityDescription(action, item),
+      entityType: "custody_packing_item",
+      entityId: item.id || "",
+      metadata: {
+        action,
+        status: item.status || "review",
+        category: item.category || "General",
+        owner: item.owner || "Shared",
+        important: Boolean(item.important),
+      },
+    });
+  };
+
   const cycleStatus = async (id) => {
     const next = {
       review: "packed",
@@ -456,8 +509,14 @@ export default function PackingHub() {
     try {
       await updateDoc(doc(db, "custodyPackingItems", id), {
         status: nextStatus,
+        updatedBy: user?.uid || "",
+        updated_by: user?.uid || "",
+        updatedByEmail: user?.email || "",
+        updated_by_email: user?.email || "",
         updatedAt: serverTimestamp(),
+        updated_at: serverTimestamp(),
       });
+      logPackingActivity("status", { ...currentItem, status: nextStatus });
     } catch (error) {
       console.error("Error updating packing item:", error);
       setItems((current) =>
@@ -481,30 +540,45 @@ export default function PackingHub() {
         name: cleanName,
         category: itemForm.category,
         owner: itemForm.owner,
+        assignedTo: itemForm.owner,
+        assigned_to: itemForm.owner,
         status: itemForm.status,
         important: Boolean(itemForm.important),
         ...custodyScopeFields,
+        updatedBy: user.uid,
+        updated_by: user.uid,
+        updatedByEmail: user.email || "",
+        updated_by_email: user.email || "",
         updatedAt: serverTimestamp(),
+        updated_at: serverTimestamp(),
       };
 
       if (editingItem) {
         await updateDoc(doc(db, "custodyPackingItems", editingItem.id), payload);
+        const updatedItem = { ...editingItem, ...payload, id: editingItem.id };
         setItems((current) =>
-          current.map((item) =>
-            item.id === editingItem.id ? { ...item, ...payload } : item
-          )
+          sortPackingItems(current.map((item) =>
+            item.id === editingItem.id ? updatedItem : item
+          ))
         );
+        logPackingActivity("updated", updatedItem);
       } else {
         const order = items.length;
         const createPayload = {
           ...payload,
           createdBy: user.uid,
+          created_by: user.uid,
+          createdByEmail: user.email || "",
+          created_by_email: user.email || "",
           order,
           createdAt: serverTimestamp(),
+          created_at: serverTimestamp(),
         };
 
         const docRef = await addDoc(collection(db, "custodyPackingItems"), createPayload);
-        setItems((current) => [...current, { ...createPayload, id: docRef.id }]);
+        const createdItem = { ...createPayload, id: docRef.id };
+        setItems((current) => sortPackingItems([...current, createdItem]));
+        logPackingActivity("created", createdItem);
       }
 
       closeItemModal();
@@ -520,23 +594,13 @@ export default function PackingHub() {
     }
   };
 
-  const deletePackingItem = async (itemToDelete) => {
-    if (!skipConfirm) {
-      askConfirm({
-        tone: "danger",
-        title: "Delete packing item?",
-        message: `Delete "${itemToDelete.name}" from the packing list? This action cannot be undone.`,
-        confirmLabel: "Delete item",
-        onConfirm: () => handleDeletePackingItem({ skipConfirm: true }),
-      });
-      return;
-    }
-
+  const performDeletePackingItem = async (itemToDelete) => {
     const previousItems = items;
     setItems((current) => current.filter((item) => item.id !== itemToDelete.id));
 
     try {
       await deleteDoc(doc(db, "custodyPackingItems", itemToDelete.id));
+      logPackingActivity("deleted", itemToDelete);
     } catch (error) {
       console.error("Error deleting packing item:", error);
       setItems(previousItems);
@@ -545,6 +609,88 @@ export default function PackingHub() {
         title: "Could not delete packing item",
         message: error.message,
       });
+    }
+  };
+
+  const deletePackingItem = (itemToDelete) => {
+    askConfirm({
+      tone: "danger",
+      title: "Delete packing item?",
+      message: `Delete "${itemToDelete.name}" from the packing list? This action cannot be undone.`,
+      confirmLabel: "Delete item",
+      onConfirm: () => performDeletePackingItem(itemToDelete),
+    });
+  };
+
+  const applyTemplate = async (template) => {
+    if (!template?.items?.length || !user || !custodyScopeId || applyingTemplateId) return;
+
+    const existingNames = new Set(items.map((item) => String(item.name || "").trim().toLowerCase()).filter(Boolean));
+    const templateItems = template.items.filter((item) => !existingNames.has(String(item.name || "").trim().toLowerCase()));
+
+    if (!templateItems.length) {
+      showNotice({
+        tone: "info",
+        title: "Template already added",
+        message: `${template.label} items are already in this packing list.`,
+      });
+      return;
+    }
+
+    setApplyingTemplateId(template.id);
+
+    try {
+      const batch = writeBatch(db);
+      const createdItems = templateItems.map((templateItem, index) => {
+        const docRef = doc(collection(db, "custodyPackingItems"));
+        const itemPayload = {
+          name: templateItem.name,
+          category: templateItem.category || template.label,
+          owner: templateItem.owner || "Shared",
+          assignedTo: templateItem.owner || "Shared",
+          assigned_to: templateItem.owner || "Shared",
+          status: templateItem.status || "review",
+          important: Boolean(templateItem.important),
+          templateId: template.id,
+          template_id: template.id,
+          ...custodyScopeFields,
+          createdBy: user.uid,
+          created_by: user.uid,
+          createdByEmail: user.email || "",
+          created_by_email: user.email || "",
+          updatedBy: user.uid,
+          updated_by: user.uid,
+          updatedByEmail: user.email || "",
+          updated_by_email: user.email || "",
+          order: items.length + index,
+          createdAt: serverTimestamp(),
+          created_at: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          updated_at: serverTimestamp(),
+        };
+
+        batch.set(docRef, itemPayload);
+        return { id: docRef.id, ...itemPayload };
+      });
+
+      await batch.commit();
+      setItems((current) => sortPackingItems([...current, ...createdItems]));
+      logPackingActivity("template", {
+        id: template.id,
+        name: template.label,
+        category: "Template",
+        owner: "Shared",
+        status: "review",
+      });
+    } catch (error) {
+      console.error("Error applying packing template:", error);
+      showNotice({
+        tone: "danger",
+        title: "Could not apply template",
+        message: error.message,
+      });
+    } finally {
+      setApplyingTemplateId("");
     }
   };
 
@@ -590,9 +736,15 @@ export default function PackingHub() {
             </div>
 
             <div className="space-y-3">
-              {items.map((item) => (
-                <PackingItem key={item.id} item={item} onCycle={cycleStatus} onEdit={openEditItem} onDelete={deletePackingItem} />
-              ))}
+              {items.length ? (
+                items.map((item) => (
+                  <PackingItem key={item.id} item={item} onCycle={cycleStatus} onEdit={openEditItem} onDelete={deletePackingItem} />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-500">
+                  No packing items yet. Add one manually or start with a smart template.
+                </div>
+              )}
             </div>
           </Card>
 
@@ -614,7 +766,12 @@ export default function PackingHub() {
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 {custodyPackingTemplates.map((template) => (
-                  <TemplateCard key={template.id} template={template} />
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    applying={applyingTemplateId === template.id}
+                    onApply={applyTemplate}
+                  />
                 ))}
               </div>
             </Card>

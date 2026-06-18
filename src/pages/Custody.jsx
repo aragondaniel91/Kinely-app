@@ -57,7 +57,7 @@ const custodyModules = [
     description:
       "Checklist for clothes, backpack, medicine, sports gear, and exchange-day items.",
     accent: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    ready: false,
+    ready: true,
   },
   {
     id: "notifications",
@@ -183,7 +183,7 @@ function UpcomingCustodyToolsCard() {
         More co-parenting tools are being shaped
       </h2>
       <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900/75">
-        Custody schedule, calendar, exchange notes, and shared tasks are active now. Packing and smart reminders will appear here once they are reliable enough for daily family use.
+        Custody schedule, calendar, exchange notes, packing, and shared tasks are active now. Smart reminders will appear here once they are reliable enough for daily family use.
       </p>
     </div>
   );
@@ -433,6 +433,7 @@ export default function Custody() {
           activityError={activityError}
           onOpenSchedule={() => setActiveModule("schedule")}
           onOpenExchange={() => setActiveModule("exchange")}
+          onOpenPacking={() => setActiveModule("packing")}
           onOpenBudget={canReadBudget ? () => setActiveModule("budget") : undefined}
         />
       )}
