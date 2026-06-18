@@ -32,7 +32,7 @@ const initialRules = [
     title: "Exchange details need review",
     description: "Notify when the next exchange is missing time, location, or confirmation.",
     timing: "Before exchange",
-    channel: "Push + Email",
+    channel: "In-app + Email",
     enabled: true,
     icon: Truck,
     accent: "bg-blue-50 text-blue-700 border-blue-100",
@@ -42,7 +42,7 @@ const initialRules = [
     title: "Packing items missing",
     description: "Notify when important transition items are marked missing or need review.",
     timing: "Evening before",
-    channel: "Push",
+    channel: "In-app",
     enabled: true,
     icon: Pill,
     accent: "bg-rose-50 text-rose-700 border-rose-100",
@@ -52,7 +52,7 @@ const initialRules = [
     title: "Packing readiness below 100%",
     description: "Notify when the checklist is not fully ready before transition day.",
     timing: "Day before",
-    channel: "Push",
+    channel: "In-app",
     enabled: true,
     icon: ShieldCheck,
     accent: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -62,7 +62,7 @@ const initialRules = [
     title: "Shared expenses pending",
     description: "Notify when custody-related expenses still need review or settlement.",
     timing: "Weekly digest",
-    channel: "Push + Email",
+    channel: "In-app + Email",
     enabled: true,
     icon: WalletCards,
     accent: "bg-amber-50 text-amber-700 border-amber-100",
@@ -129,9 +129,19 @@ function normalizeExpenseDoc(docSnap) {
     category: data.category || "General",
     amount: Number(data.amount || 0),
     paidBy: data.paidBy || "Shared",
-    split: data.split || "50/50",
+    split: data.split || data.splitType || "50/50",
+    splitType: data.splitType || data.split || "50/50",
+    parent1ShareAmount: data.parent1ShareAmount,
+    parent2ShareAmount: data.parent2ShareAmount,
+    parent1PaidAmount: data.parent1PaidAmount,
+    parent2PaidAmount: data.parent2PaidAmount,
+    reviewFlag: Boolean(data.reviewFlag),
+    reviewNote: data.reviewNote || "",
+    payments: Array.isArray(data.payments) ? data.payments : [],
     status: data.status || "review",
     due: data.due || "",
+    dueDate: data.dueDate || data.due || "",
+    dueDayOfMonth: data.dueDayOfMonth || "",
     recurring: Boolean(data.recurring),
     order: data.order ?? 999,
   };
@@ -274,14 +284,14 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
   if (nextExchange) {
     const from = formatParent(nextExchange.fromParent, dadName, momName);
     const to = formatParent(nextExchange.toParent, dadName, momName);
-    const when = `${timeLabelForDate(nextExchange.date)} · ${formatDate(nextExchange.date)}${nextExchange.period ? ` (${nextExchange.period})` : ""}`;
+    const when = `${timeLabelForDate(nextExchange.date)} - ${formatDate(nextExchange.date)}${nextExchange.period ? ` (${nextExchange.period})` : ""}`;
     const missingDetails = !nextExchange.location || !nextExchange.time || nextExchange.status === "needs_review" || nextExchange.status === "pending";
 
     alerts.push({
       id: "next-exchange",
       ruleId: "exchange-review",
       title: `${when} exchange`,
-      message: `${from} → ${to} at ${formatTime(nextExchange.time)}. ${nextExchange.location || "Location needs review."}`,
+      message: `${from} -> ${to} at ${formatTime(nextExchange.time)}. ${nextExchange.location || "Location needs review."}`,
       type: "Exchange",
       time: when,
       priority: missingDetails ? "high" : "normal",
@@ -334,7 +344,7 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
       id: "packing-review",
       ruleId: "packing-readiness",
       title: `Packing is ${packingSummary.readiness}% ready`,
-      message: `${packingSummary.packedCount} packed · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing.`,
+      message: `${packingSummary.packedCount} packed - ${packingSummary.reviewCount} review - ${packingSummary.missingCount} missing.`,
       type: "Packing",
       time: "Before transition",
       priority: packingSummary.missingCount ? "high" : "normal",
@@ -343,11 +353,12 @@ function buildAlerts({ nextExchange, packingItems, expenses, dadName, momName })
   }
 
   if (budgetSummary.pending > 0) {
+    const pendingCount = budgetSummary.pendingCount || budgetSummary.openCount + budgetSummary.partialCount + budgetSummary.reviewCount;
     alerts.push({
       id: "budget-pending",
       ruleId: "budget-pending",
       title: `${currency(budgetSummary.pending)} pending in shared expenses`,
-      message: `${budgetSummary.pendingCount} pending and ${budgetSummary.reviewCount} item(s) needing review.`,
+      message: `${pendingCount} open/review item${pendingCount === 1 ? "" : "s"} across the shared budget.`,
       type: "Budget",
       time: "Weekly digest",
       priority: "normal",
@@ -379,7 +390,7 @@ function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCo
           <div className="max-w-2xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-amber-700 shadow-sm">
               <Sparkles className="h-3.5 w-3.5" />
-              Smart Notifications
+              Smart Reminders
             </div>
             <h2 className="text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
               Calm reminders before things get stressful
@@ -402,7 +413,7 @@ function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCo
                   {highPriorityCount ? `${highPriorityCount} action needed` : "Looks calm"}
                 </p>
                 <p className="text-sm font-bold text-slate-500">
-                  {enabledCount} of {totalCount} rules enabled · {prefsLoaded ? "Saved" : "Loading prefs"}
+                  {enabledCount} of {totalCount} rules enabled - {prefsLoaded ? "Saved" : "Loading prefs"}
                 </p>
               </div>
             </div>
@@ -692,9 +703,9 @@ export default function SmartNotificationsHub() {
                 </p>
               </div>
 
-              <Button type="button" variant="outline" className="rounded-full gap-2" disabled={savingPrefs}>
+              <Button type="button" variant="outline" className="rounded-full gap-2" disabled>
                 <Settings2 className="h-4 w-4" />
-                {savingPrefs ? "Saving..." : "Preferences"}
+                {savingPrefs ? "Saving..." : "Saved per group"}
               </Button>
             </div>
 
@@ -731,7 +742,7 @@ export default function SmartNotificationsHub() {
                     Preferences now persist
                   </p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">
-                    Rule toggles are saved to Firestore for the selected custody group. The next backend step is scheduled email/push delivery.
+                    Rule toggles are saved for the selected custody group. In-app and email delivery follow each person's notification preferences in Profile.
                   </p>
                 </div>
               </div>

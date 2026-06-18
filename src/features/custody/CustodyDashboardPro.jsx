@@ -62,9 +62,19 @@ function normalizeExpenseDoc(docSnap) {
     category: data.category || "General",
     amount: Number(data.amount || 0),
     paidBy: data.paidBy || "Shared",
-    split: data.split || "50/50",
+    split: data.split || data.splitType || "50/50",
+    splitType: data.splitType || data.split || "50/50",
+    parent1ShareAmount: data.parent1ShareAmount,
+    parent2ShareAmount: data.parent2ShareAmount,
+    parent1PaidAmount: data.parent1PaidAmount,
+    parent2PaidAmount: data.parent2PaidAmount,
+    reviewFlag: Boolean(data.reviewFlag),
+    reviewNote: data.reviewNote || "",
+    payments: Array.isArray(data.payments) ? data.payments : [],
     status: data.status || "review",
     due: data.due || "",
+    dueDate: data.dueDate || data.due || "",
+    dueDayOfMonth: data.dueDayOfMonth || "",
     recurring: Boolean(data.recurring),
     order: data.order ?? 999,
   };
@@ -603,7 +613,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   }, [dashboard.nextChange, dashboard.currentOwner, dashboard.nextParent, dashboard.suggestedTime, dashboard.nextChangePeriod, exchanges]);
 
   const nextChangeText = dashboard.nextChange
-    ? `${dashboard.daysUntil === 0 ? "Today" : dashboard.daysUntil === 1 ? "Tomorrow" : `In ${dashboard.daysUntil} days`} · ${dashboard.nextChangeDayLabel}${dashboard.nextChangePeriod ? ` (${dashboard.nextChangePeriod})` : ""}`
+    ? `${dashboard.daysUntil === 0 ? "Today" : dashboard.daysUntil === 1 ? "Tomorrow" : `In ${dashboard.daysUntil} days`} - ${dashboard.nextChangeDayLabel}${dashboard.nextChangePeriod ? ` (${dashboard.nextChangePeriod})` : ""}`
     : "No upcoming exchange found";
 
   const readinessItems = useMemo(
@@ -619,7 +629,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
   const heroSummary = loading
     ? "Loading custody status..."
     : smartExchange
-      ? `${nextChangeText}. ${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel}. ${smartExchange.needsReview ? "Details need review." : "Details confirmed."}`
+      ? `${nextChangeText}. ${dashboard.currentOwnerLabel} -> ${dashboard.nextChangeLabel}. ${smartExchange.needsReview ? "Details need review." : "Details confirmed."}`
       : "No upcoming exchange is currently scheduled.";
   const canOpenExchange = typeof onOpenExchange === "function";
   const canOpenPacking = typeof onOpenPacking === "function";
@@ -665,7 +675,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             <MetricCard
               title={smartExchange?.source === "calendar-default" ? "Suggested exchange" : "Next exchange"}
               value={smartExchange ? (dashboard.daysUntil === 1 ? "Tomorrow" : dashboard.nextChangeDayLabel) : "None"}
-              text={loadingExchanges ? "Checking exchange details..." : smartExchange ? `${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel} · ${formatExchangeTime(smartExchange.time)} · ${smartExchange.location || "Location needs review"}` : "No upcoming exchange found"}
+              text={loadingExchanges ? "Checking exchange details..." : smartExchange ? `${dashboard.currentOwnerLabel} -> ${dashboard.nextChangeLabel} - ${formatExchangeTime(smartExchange.time)} - ${smartExchange.location || "Location needs review"}` : "No upcoming exchange found"}
               icon={Truck}
               tone={smartExchange?.needsReview ? "rose" : "blue"}
               onClick={canOpenExchange ? onOpenExchange : undefined}
@@ -673,7 +683,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             <MetricCard
               title="Packing readiness"
               value={loadingPacking ? "Loading" : `${packingSummary.readiness}%`}
-              text={loadingPacking ? "Checking packing checklist..." : `${packingSummary.packedCount} ready · ${packingSummary.reviewCount} review · ${packingSummary.missingCount} missing`}
+              text={loadingPacking ? "Checking packing checklist..." : `${packingSummary.packedCount} ready - ${packingSummary.reviewCount} review - ${packingSummary.missingCount} missing`}
               icon={Shirt}
               tone={packingSummary.missingCount ? "rose" : "emerald"}
               onClick={canOpenPacking ? onOpenPacking : undefined}
@@ -699,7 +709,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 <ActionTile icon={Shirt} label="Packing" text="Exchange-day checklist" tone="emerald" onClick={onOpenPacking} />
               )}
               {canOpenNotifications && (
-                <ActionTile icon={BellRing} label="Reminders" text="Custody notification settings" tone="amber" onClick={onOpenNotifications} />
+                <ActionTile icon={BellRing} label="Reminders" text="Smart custody alerts" tone="amber" onClick={onOpenNotifications} />
               )}
               <ActionTile
                 icon={WalletCards}
@@ -713,7 +723,7 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
                 <div className="rounded-[1.25rem] border border-blue-100 bg-blue-50/70 p-4 sm:col-span-2">
                   <p className="text-sm font-black text-slate-950">More tools are being prepared</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-blue-900/75">
-                    Schedule, exchange, packing, and budget are available now. Reminder workspaces will appear here once they are reliable enough for daily family use.
+                    Schedule, exchange, packing, budget, and reminders are available now. More co-parenting tools will appear here once they are reliable enough for daily family use.
                   </p>
                 </div>
               )}
@@ -727,8 +737,8 @@ export default function CustodyDashboardPro({ onOpenSchedule, onOpenExchange, on
             <div className="mt-4 grid gap-2.5 md:grid-cols-2">
               {smartExchange && (
                 <ReadinessItem
-                  label={`${dashboard.currentOwnerLabel} → ${dashboard.nextChangeLabel}${smartExchange.period ? ` (${smartExchange.period})` : ""}`}
-                  owner={`${formatExchangeTime(smartExchange.time)} · ${smartExchange.location || "Location needs review"}`}
+                  label={`${dashboard.currentOwnerLabel} -> ${dashboard.nextChangeLabel}${smartExchange.period ? ` (${smartExchange.period})` : ""}`}
+                  owner={`${formatExchangeTime(smartExchange.time)} - ${smartExchange.location || "Location needs review"}`}
                   status={smartExchange.needsReview ? "Review" : "Ready"}
                 />
               )}

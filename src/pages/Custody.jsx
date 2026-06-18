@@ -61,12 +61,12 @@ const custodyModules = [
   },
   {
     id: "notifications",
-    label: "Notifications",
+    label: "Reminders",
     icon: BellRing,
     description:
-      "Smart reminders for exchanges, packing, school items, medicine, and transition readiness.",
+      "Smart custody reminders for exchanges, packing, shared expenses, and transition readiness.",
     accent: "bg-orange-50 text-orange-600 border-orange-100",
-    ready: false,
+    ready: true,
   },
   {
     id: "budget",
@@ -184,7 +184,7 @@ function UpcomingCustodyToolsCard() {
         More co-parenting tools are being shaped
       </h2>
       <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900/75">
-        Custody schedule, calendar, exchange notes, packing, and shared budget tools are active now. Smart reminders will appear here once they are reliable enough for daily family use.
+        Custody schedule, calendar, exchange notes, packing, shared budget, and smart reminders are active now. More co-parenting tools will appear here once they are reliable enough for daily family use.
       </p>
     </div>
   );

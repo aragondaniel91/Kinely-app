@@ -142,6 +142,11 @@ export function getBudgetSummary(expenses = []) {
 
   const parent1Overpaid = ledgers.reduce((sum, ledger) => sum + ledger.parent1Overpaid, 0);
   const parent2Overpaid = ledgers.reduce((sum, ledger) => sum + ledger.parent2Overpaid, 0);
+  const openCount = ledgers.filter((ledger) => ledger.status === "open").length;
+  const partialCount = ledgers.filter((ledger) => ledger.status === "partial").length;
+  const paidCount = ledgers.filter((ledger) => ledger.status === "paid").length;
+  const reviewCount = ledgers.filter((ledger) => ledger.status === "review").length;
+  const pendingCount = openCount + partialCount + reviewCount;
 
   return {
     total,
@@ -150,10 +155,12 @@ export function getBudgetSummary(expenses = []) {
     remaining,
     settled: paid,
     totalCount: expenses.length,
-    openCount: ledgers.filter((ledger) => ledger.status === "open").length,
-    partialCount: ledgers.filter((ledger) => ledger.status === "partial").length,
-    paidCount: ledgers.filter((ledger) => ledger.status === "paid").length,
-    reviewCount: ledgers.filter((ledger) => ledger.status === "review").length,
+    openCount,
+    partialCount,
+    paidCount,
+    settledCount: paidCount,
+    reviewCount,
+    pendingCount,
     parent1ShouldPay,
     parent2ShouldPay,
     parent1Paid,
