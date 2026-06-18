@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "reminder-diagnostics-2026-06-18-02";
+const WORKER_VERSION = "reminder-rules-2026-06-18-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -3257,9 +3257,60 @@ function scheduledBudgetSummary(expenses = []) {
   };
 }
 
+const DEFAULT_SCHEDULED_REMINDER_RULE_SETTINGS = {
+  "exchange-review": { enabled: true, leadDays: 1, frequency: "once_per_window" },
+  "packing-missing": { enabled: true, leadDays: 1, frequency: "daily" },
+  "packing-readiness": { enabled: true, leadDays: 1, frequency: "daily" },
+  "budget-pending": { enabled: true, leadDays: 0, frequency: "weekly", weekday: 1, monthDay: 1 },
+};
+
+function scheduledReminderRuleConfig(prefs = {}, ruleId = "") {
+  const defaults = DEFAULT_SCHEDULED_REMINDER_RULE_SETTINGS[ruleId] || { enabled: true, leadDays: 1, frequency: "daily" };
+  const raw = mapOrEmpty(prefs.rules)[ruleId];
+
+  if (typeof raw === "boolean") return { ...defaults, enabled: raw };
+  if (!raw || typeof raw !== "object") return defaults;
+
+  const leadDays = Number(raw.leadDays ?? raw.lead_days ?? defaults.leadDays);
+  const weekday = Number(raw.weekday ?? raw.week_day ?? defaults.weekday);
+  const monthDay = Number(raw.monthDay ?? raw.month_day ?? defaults.monthDay);
+
+  return {
+    ...defaults,
+    enabled: typeof raw.enabled === "boolean" ? raw.enabled : defaults.enabled,
+    leadDays: Number.isFinite(leadDays) ? Math.max(0, Math.floor(leadDays)) : defaults.leadDays,
+    frequency: cleanText(raw.frequency, defaults.frequency),
+    weekday: Number.isFinite(weekday) ? Math.min(Math.max(Math.floor(weekday), 0), 6) : defaults.weekday,
+    monthDay: Number.isFinite(monthDay) ? Math.min(Math.max(Math.floor(monthDay), 1), 28) : defaults.monthDay,
+  };
+}
+
 function scheduledReminderRuleEnabled(prefs = {}, ruleId = "") {
-  const rules = mapOrEmpty(prefs.rules);
-  return rules[ruleId] !== false;
+  return scheduledReminderRuleConfig(prefs, ruleId).enabled !== false;
+}
+
+function scheduledTransitionRuleMatches(prefs = {}, ruleId = "", daysUntilExchange = null, force = false) {
+  const config = scheduledReminderRuleConfig(prefs, ruleId);
+  if (config.enabled === false) return false;
+  if (force) return true;
+  return daysUntilExchange !== null && daysUntilExchange >= 0 && daysUntilExchange <= config.leadDays;
+}
+
+function scheduledBudgetRuleMatches(prefs = {}, ruleId = "", nowDate = new Date(), force = false) {
+  const config = scheduledReminderRuleConfig(prefs, ruleId);
+  if (config.enabled === false) return false;
+  if (force) return true;
+
+  if (config.frequency === "daily") return true;
+  if (config.frequency === "monthly") return nowDate.getUTCDate() === (config.monthDay || 1);
+  return nowDate.getUTCDay() === (config.weekday ?? 1);
+}
+
+function scheduledTransitionScheduleKey(ruleConfig = {}, todayKey = "", nextExchange = null) {
+  if (ruleConfig.frequency === "once_per_window") {
+    return cleanText(nextExchange?.date, todayKey);
+  }
+  return todayKey;
 }
 
 async function loadCustodyReminderPrefs(env, scopeId) {
@@ -3483,11 +3534,12 @@ async function deliverScheduledActivityNotification(env, {
   };
 }
 
-function scheduledReminderActivity({ group, ruleId, type, title, description, now, todayKey, entityType = "custody_reminder" }) {
+function scheduledReminderActivity({ group, ruleId, ruleConfig = {}, type, title, description, now, todayKey, scheduleKey = "", entityType = "custody_reminder" }) {
   const groupId = cleanText(group.id);
   const householdFamilyId = cleanText(group.householdFamilyId || group.household_family_id || group.familyId || group.family_id);
+  const reminderScheduleKey = cleanText(scheduleKey, todayKey);
   return {
-    id: safeDocumentId(`scheduled_${todayKey}_${groupId}_${ruleId}`),
+    id: safeDocumentId(`scheduled_${reminderScheduleKey}_${groupId}_${ruleId}`),
     familyId: householdFamilyId || groupId,
     family_id: householdFamilyId || groupId,
     householdFamilyId,
@@ -3515,8 +3567,15 @@ function scheduledReminderActivity({ group, ruleId, type, title, description, no
       scheduled_reminder: true,
       reminderRuleId: ruleId,
       reminder_rule_id: ruleId,
+      reminderLeadDays: ruleConfig.leadDays,
+      reminder_lead_days: ruleConfig.leadDays,
+      reminderFrequency: cleanText(ruleConfig.frequency),
+      reminder_frequency: cleanText(ruleConfig.frequency),
       custodyGroupName: cleanText(group.name || group.groupName || group.group_name),
-      scheduledFor: todayKey,
+      scheduledFor: reminderScheduleKey,
+      scheduled_for: reminderScheduleKey,
+      evaluatedOn: todayKey,
+      evaluated_on: todayKey,
     },
     createdAt: now,
     created_at: now,
@@ -3528,14 +3587,15 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
   const todayKey = dateKeyFromDate(nowDate);
   const nextExchange = nextScheduledExchange(custodyDays, exchanges, todayKey);
   const daysUntilExchange = nextExchange ? daysBetweenDateKeys(todayKey, nextExchange.date) : null;
+  const exchangeRule = scheduledReminderRuleConfig(prefs, "exchange-review");
+  const packingMissingRule = scheduledReminderRuleConfig(prefs, "packing-missing");
+  const packingReadinessRule = scheduledReminderRuleConfig(prefs, "packing-readiness");
+  const budgetRule = scheduledReminderRuleConfig(prefs, "budget-pending");
   const activities = [];
 
   if (
     nextExchange &&
-    daysUntilExchange !== null &&
-    daysUntilExchange >= 0 &&
-    daysUntilExchange <= 1 &&
-    scheduledReminderRuleEnabled(prefs, "exchange-review")
+    scheduledTransitionRuleMatches(prefs, "exchange-review", daysUntilExchange, force)
   ) {
     const missingDetails = !nextExchange.time || !nextExchange.location || ["needs_review", "pending"].includes(cleanText(nextExchange.status).toLowerCase());
     if (force || missingDetails) {
@@ -3545,11 +3605,13 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
         activity: scheduledReminderActivity({
           group,
           ruleId: "exchange-review",
+          ruleConfig: exchangeRule,
           type: "custody_updated",
           title: missingDetails ? "Exchange details need review" : "Upcoming custody exchange",
           description: `${daysUntilExchange === 0 ? "Today" : "Tomorrow"} exchange${nextExchange.time ? ` at ${nextExchange.time}` : ""}${nextExchange.location ? ` - ${nextExchange.location}` : " needs a confirmed time and location."}`,
           now,
           todayKey,
+          scheduleKey: scheduledTransitionScheduleKey(exchangeRule, todayKey, nextExchange),
           entityType: "custody_exchange",
         }),
       });
@@ -3557,10 +3619,9 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
   }
 
   const packingSummary = scheduledPackingSummary(packingItems);
-  const transitionSoon = force || (daysUntilExchange !== null && daysUntilExchange >= 0 && daysUntilExchange <= 1);
 
   if (
-    transitionSoon &&
+    scheduledTransitionRuleMatches(prefs, "packing-missing", daysUntilExchange, force) &&
     packingSummary.missingCount > 0 &&
     scheduledReminderRuleEnabled(prefs, "packing-missing")
   ) {
@@ -3571,18 +3632,20 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
       activity: scheduledReminderActivity({
         group,
         ruleId: "packing-missing",
+        ruleConfig: packingMissingRule,
         type: "custody_updated",
         title: `${packingSummary.missingCount} packing item${packingSummary.missingCount === 1 ? "" : "s"} missing`,
         description: `${names}${packingSummary.missingCount > 3 ? " and more" : ""} still need attention before the exchange.`,
         now,
         todayKey,
+        scheduleKey: scheduledTransitionScheduleKey(packingMissingRule, todayKey, nextExchange),
         entityType: "custody_packing",
       }),
     });
   }
 
   if (
-    transitionSoon &&
+    scheduledTransitionRuleMatches(prefs, "packing-readiness", daysUntilExchange, force) &&
     packingSummary.total > 0 &&
     packingSummary.readiness < 100 &&
     scheduledReminderRuleEnabled(prefs, "packing-readiness")
@@ -3593,22 +3656,22 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
       activity: scheduledReminderActivity({
         group,
         ruleId: "packing-readiness",
+        ruleConfig: packingReadinessRule,
         type: "custody_updated",
         title: `Packing is ${packingSummary.readiness}% ready`,
         description: `${packingSummary.packedCount} packed - ${packingSummary.reviewCount} review - ${packingSummary.missingCount} missing before the next transition.`,
         now,
         todayKey,
+        scheduleKey: scheduledTransitionScheduleKey(packingReadinessRule, todayKey, nextExchange),
         entityType: "custody_packing",
       }),
     });
   }
 
   const budgetSummary = scheduledBudgetSummary(expenses);
-  const isWeeklyDigestDay = nowDate.getUTCDay() === 1;
   if (
     budgetSummary.pending > 0 &&
-    (force || isWeeklyDigestDay) &&
-    scheduledReminderRuleEnabled(prefs, "budget-pending")
+    scheduledBudgetRuleMatches(prefs, "budget-pending", nowDate, force)
   ) {
     activities.push({
       ruleId: "budget-pending",
@@ -3616,6 +3679,7 @@ function buildScheduledReminderActivities({ group, prefs, custodyDays, exchanges
       activity: scheduledReminderActivity({
         group,
         ruleId: "budget-pending",
+        ruleConfig: budgetRule,
         type: "custody_budget_updated",
         title: "Shared custody expenses need review",
         description: `${budgetSummary.pendingCount} open/review item${budgetSummary.pendingCount === 1 ? "" : "s"} need attention in the custody budget.`,

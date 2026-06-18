@@ -19,6 +19,14 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AppDialog from "@/components/app/AppDialog";
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
@@ -26,14 +34,34 @@ import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
 import { currency, getBudgetSummary } from "@/data/custodyBudget";
 import { getPackingSummary } from "@/data/custodyPacking";
 
-const initialRules = [
+const LEAD_DAY_OPTIONS = [
+  { value: "0", label: "Same day" },
+  { value: "1", label: "1 day before" },
+  { value: "2", label: "2 days before" },
+  { value: "3", label: "3 days before" },
+];
+
+const TRANSITION_FREQUENCY_OPTIONS = [
+  { value: "daily", label: "Daily while active" },
+  { value: "once_per_window", label: "Once per transition" },
+];
+
+const BUDGET_FREQUENCY_OPTIONS = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "daily", label: "Daily while pending" },
+];
+
+const ruleDefinitions = [
   {
     id: "exchange-review",
     title: "Exchange details need review",
     description: "Notify when the next exchange is missing time, location, or confirmation.",
-    timing: "Before exchange",
-    channel: "In-app + Email",
+    channel: "User channels",
     enabled: true,
+    leadDays: 1,
+    frequency: "once_per_window",
+    cadenceType: "transition",
     icon: Truck,
     accent: "bg-blue-50 text-blue-700 border-blue-100",
   },
@@ -41,9 +69,11 @@ const initialRules = [
     id: "packing-missing",
     title: "Packing items missing",
     description: "Notify when important transition items are marked missing or need review.",
-    timing: "Evening before",
-    channel: "In-app",
+    channel: "User channels",
     enabled: true,
+    leadDays: 1,
+    frequency: "daily",
+    cadenceType: "transition",
     icon: Pill,
     accent: "bg-rose-50 text-rose-700 border-rose-100",
   },
@@ -51,9 +81,11 @@ const initialRules = [
     id: "packing-readiness",
     title: "Packing readiness below 100%",
     description: "Notify when the checklist is not fully ready before transition day.",
-    timing: "Day before",
-    channel: "In-app",
+    channel: "User channels",
     enabled: true,
+    leadDays: 1,
+    frequency: "daily",
+    cadenceType: "transition",
     icon: ShieldCheck,
     accent: "bg-emerald-50 text-emerald-700 border-emerald-100",
   },
@@ -61,16 +93,82 @@ const initialRules = [
     id: "budget-pending",
     title: "Shared expenses pending",
     description: "Notify when custody-related expenses still need review or settlement.",
-    timing: "Weekly digest",
-    channel: "In-app + Email",
+    channel: "User channels",
     enabled: true,
+    leadDays: 0,
+    frequency: "weekly",
+    cadenceType: "budget",
     icon: WalletCards,
     accent: "bg-amber-50 text-amber-700 border-amber-100",
   },
 ];
 
-function rulesToMap(rules) {
+function normalizeRuleSetting(definition, savedValue) {
+  if (typeof savedValue === "boolean") {
+    return {
+      enabled: savedValue,
+      leadDays: definition.leadDays,
+      frequency: definition.frequency,
+    };
+  }
+
+  const saved = savedValue && typeof savedValue === "object" ? savedValue : {};
+  const leadDays = Number(saved.leadDays ?? saved.lead_days ?? definition.leadDays);
+
+  return {
+    enabled: typeof saved.enabled === "boolean" ? saved.enabled : definition.enabled,
+    leadDays: Number.isFinite(leadDays) ? leadDays : definition.leadDays,
+    frequency: saved.frequency || definition.frequency,
+  };
+}
+
+function buildInitialRules(savedRules = {}) {
+  return ruleDefinitions.map((definition) => ({
+    ...definition,
+    ...normalizeRuleSetting(definition, savedRules[definition.id]),
+  }));
+}
+
+function rulesToSettingsMap(rules) {
+  return rules.reduce((acc, rule) => ({
+    ...acc,
+    [rule.id]: {
+      enabled: Boolean(rule.enabled),
+      leadDays: Number(rule.leadDays || 0),
+      lead_days: Number(rule.leadDays || 0),
+      frequency: rule.frequency || "daily",
+    },
+  }), {});
+}
+
+function rulesToEnabledMap(rules) {
   return rules.reduce((acc, rule) => ({ ...acc, [rule.id]: Boolean(rule.enabled) }), {});
+}
+
+function ruleTimingLabel(rule) {
+  if (rule.cadenceType === "budget") {
+    return BUDGET_FREQUENCY_OPTIONS.find((option) => option.value === rule.frequency)?.label || "Weekly";
+  }
+
+  return LEAD_DAY_OPTIONS.find((option) => option.value === String(rule.leadDays))?.label || "1 day before";
+}
+
+function ruleFrequencyOptions(rule) {
+  return rule.cadenceType === "budget" ? BUDGET_FREQUENCY_OPTIONS : TRANSITION_FREQUENCY_OPTIONS;
+}
+
+function rulesToSettingsLookup(rules) {
+  return rules.reduce((acc, rule) => ({ ...acc, [rule.id]: rule }), {});
+}
+
+function alertMatchesRuleSettings(alert, ruleSettings, nextExchange) {
+  if (alert.ruleId === "all-clear") return true;
+  const rule = ruleSettings[alert.ruleId];
+  if (!rule?.enabled) return false;
+  if (rule.cadenceType === "budget") return true;
+
+  const daysUntilExchange = getDaysUntil(nextExchange?.date);
+  return daysUntilExchange !== null && daysUntilExchange >= 0 && daysUntilExchange <= Number(rule.leadDays ?? 1);
 }
 
 function normalizeDate(value) {
@@ -424,17 +522,14 @@ function NotificationHero({ enabledCount, totalCount, alertCount, highPriorityCo
   );
 }
 
-function RuleCard({ rule, onToggle, saving }) {
+function RuleCard({ rule, onChange, saving }) {
   const Icon = rule.icon;
+  const timing = ruleTimingLabel(rule);
+  const frequencyOptions = ruleFrequencyOptions(rule);
 
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(rule.id)}
-      disabled={saving}
-      className="w-full rounded-[1.6rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md disabled:cursor-wait disabled:opacity-70"
-    >
-      <div className="flex items-start gap-4">
+    <div className="w-full rounded-[1.6rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${rule.accent}`}>
           <Icon className="h-6 w-6" />
         </div>
@@ -451,7 +546,7 @@ function RuleCard({ rule, onToggle, saving }) {
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-slate-500">
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1">
               <Clock3 className="h-3.5 w-3.5" />
-              {rule.timing}
+              {timing}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1">
               <Mail className="h-3.5 w-3.5" />
@@ -459,8 +554,66 @@ function RuleCard({ rule, onToggle, saving }) {
             </span>
           </div>
         </div>
+        <div className="grid shrink-0 gap-3 sm:grid-cols-3 lg:w-[430px]">
+          <div className="flex min-h-[72px] flex-col justify-between rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+            <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Enabled</span>
+            <Switch
+              checked={Boolean(rule.enabled)}
+              disabled={saving}
+              aria-label={`Enable ${rule.title}`}
+              onCheckedChange={(checked) => onChange(rule.id, { enabled: checked })}
+            />
+          </div>
+
+          {rule.cadenceType === "transition" ? (
+            <div className="min-h-[72px] rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+              <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Timing</span>
+              <Select
+                value={String(rule.leadDays ?? 1)}
+                onValueChange={(value) => onChange(rule.id, { leadDays: Number(value) })}
+                disabled={saving || !rule.enabled}
+              >
+                <SelectTrigger aria-label={`${rule.title} timing`} className="mt-2 h-8 rounded-xl border-slate-200 bg-white text-xs font-bold">
+                  <SelectValue placeholder="Timing" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_DAY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="min-h-[72px] rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+              <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Timing</span>
+              <p className="mt-3 text-xs font-black text-slate-700">Digest</p>
+            </div>
+          )}
+
+          <div className="min-h-[72px] rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+            <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Frequency</span>
+            <Select
+              value={rule.frequency || "daily"}
+              onValueChange={(value) => onChange(rule.id, { frequency: value })}
+              disabled={saving || !rule.enabled}
+            >
+              <SelectTrigger aria-label={`${rule.title} frequency`} className="mt-2 h-8 rounded-xl border-slate-200 bg-white text-xs font-bold">
+                <SelectValue placeholder="Frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                {frequencyOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -509,7 +662,7 @@ export default function SmartNotificationsHub() {
   } = useFamily();
   const custodyScopeId = custodyGroupId || familyId;
   const householdScopeId = householdFamilyId || actualFamilyId || (custodyGroupId ? "" : familyId);
-  const [rules, setRules] = useState(initialRules);
+  const [rules, setRules] = useState(() => buildInitialRules());
   const [custodyDays, setCustodyDays] = useState([]);
   const [exchanges, setExchanges] = useState([]);
   const [packingItems, setPackingItems] = useState([]);
@@ -530,7 +683,7 @@ export default function SmartNotificationsHub() {
       setPrefsLoaded(false);
 
       if (!user || !custodyScopeId) {
-        setRules(initialRules);
+        setRules(buildInitialRules());
         setPrefsLoaded(true);
         return;
       }
@@ -542,13 +695,10 @@ export default function SmartNotificationsHub() {
 
         if (cancelled) return;
 
-        setRules(initialRules.map((rule) => ({
-          ...rule,
-          enabled: typeof savedRules[rule.id] === "boolean" ? savedRules[rule.id] : rule.enabled,
-        })));
+        setRules(buildInitialRules(savedRules));
       } catch (error) {
         console.error("Error loading custody notification preferences:", error);
-        if (!cancelled) setRules(initialRules);
+        if (!cancelled) setRules(buildInitialRules());
       } finally {
         if (!cancelled) setPrefsLoaded(true);
       }
@@ -615,11 +765,15 @@ export default function SmartNotificationsHub() {
     [custodyDays, exchanges]
   );
 
-  const ruleMap = useMemo(() => rulesToMap(rules), [rules]);
+  const ruleMap = useMemo(() => rulesToEnabledMap(rules), [rules]);
+  const ruleSettings = useMemo(() => rulesToSettingsLookup(rules), [rules]);
 
   const generatedAlerts = useMemo(() => {
     const alerts = buildAlerts({ nextExchange, packingItems, expenses, dadName, momName });
-    const filtered = alerts.filter((alert) => alert.ruleId === "all-clear" || ruleMap[alert.ruleId] !== false);
+    const filtered = alerts.filter((alert) =>
+      (alert.ruleId === "all-clear" || ruleMap[alert.ruleId] !== false) &&
+      alertMatchesRuleSettings(alert, ruleSettings, nextExchange)
+    );
     return filtered.length ? filtered : [{
       id: "all-clear-filtered",
       ruleId: "all-clear",
@@ -630,7 +784,7 @@ export default function SmartNotificationsHub() {
       priority: "low",
       icon: CheckCircle2,
     }];
-  }, [nextExchange, packingItems, expenses, dadName, momName, ruleMap]);
+  }, [nextExchange, packingItems, expenses, dadName, momName, ruleMap, ruleSettings]);
 
   const enabledCount = useMemo(
     () => rules.filter((rule) => rule.enabled).length,
@@ -652,7 +806,9 @@ export default function SmartNotificationsHub() {
         custodyGroupName: selectedCustodyGroup?.name || "",
         module: "custody",
         visibility: "custody",
-        rules: rulesToMap(nextRules),
+        rules: rulesToSettingsMap(nextRules),
+        rulesVersion: 2,
+        rules_version: 2,
         updatedBy: user.uid,
         updatedAt: serverTimestamp(),
       }, { merge: true });
@@ -668,9 +824,9 @@ export default function SmartNotificationsHub() {
     }
   };
 
-  const toggleRule = (id) => {
+  const updateRule = (id, changes) => {
     const nextRules = rules.map((rule) =>
-      rule.id === id ? { ...rule, enabled: !rule.enabled } : rule
+      rule.id === id ? { ...rule, ...changes } : rule
     );
 
     setRules(nextRules);
@@ -711,7 +867,7 @@ export default function SmartNotificationsHub() {
 
             <div className="space-y-3">
               {rules.map((rule) => (
-                <RuleCard key={rule.id} rule={rule} onToggle={toggleRule} saving={savingPrefs || !prefsLoaded} />
+                <RuleCard key={rule.id} rule={rule} onChange={updateRule} saving={savingPrefs || !prefsLoaded} />
               ))}
             </div>
           </Card>

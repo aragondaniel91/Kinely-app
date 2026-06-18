@@ -72,7 +72,15 @@ npm run cloudflare:backfill:family-members -- --limit 500
 
 ## Maintenance: scheduled custody reminders
 
-The Worker has a cron trigger that runs daily at `14:00 UTC` and sends one reminder per custody group, rule, recipient, and day. It respects the user's Kinely notification preferences and uses deterministic delivery markers to avoid duplicate email/in-app reminders.
+The Worker has a cron trigger that runs daily at `14:00 UTC`. Each custody group controls what is sent through `custodyNotificationPrefs/{custodyGroupId}`.
+
+Rule settings support:
+
+- `enabled`: turns a rule on or off.
+- `leadDays`: how many days before a transition the exchange/packing rule becomes active.
+- `frequency`: `daily`, `once_per_window`, `weekly`, or `monthly` depending on the rule.
+
+The Worker respects each person's Kinely notification preferences and uses deterministic delivery markers to avoid duplicate email/in-app reminders.
 
 Dry-run the reminder engine first:
 
