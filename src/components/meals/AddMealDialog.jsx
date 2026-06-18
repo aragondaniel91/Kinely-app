@@ -789,6 +789,8 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
               <div className="flex items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
                 <Search className="h-4 w-4 text-slate-400" />
                 <Input
+                  id="add-meal-template-search"
+                  name="add-meal-template-search"
                   value={templateSearch}
                   onChange={(event) => setTemplateSearch(event.target.value)}
                   placeholder="Search meals or ingredients..."
@@ -876,11 +878,13 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
 
                 <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-black text-slate-700">
+                    <label htmlFor="add-meal-name" className="text-sm font-black text-slate-700">
                       Meal name
                     </label>
 
                     <Input
+                      id="add-meal-name"
+                      name="add-meal-name"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                       placeholder="Taco night, pasta, pancakes..."
@@ -892,11 +896,13 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
                   </div>
 
                   <div>
-                    <label className="text-sm font-black text-slate-700">
+                    <label htmlFor="add-meal-notes" className="text-sm font-black text-slate-700">
                       Notes
                     </label>
 
                     <Input
+                      id="add-meal-notes"
+                      name="add-meal-notes"
                       value={notes}
                       onChange={(event) => setNotes(event.target.value)}
                       placeholder="Recipe link, prep note, who likes it..."
@@ -908,7 +914,7 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
                   </div>
 
                   <div>
-                    <label className="text-sm font-black text-slate-700">
+                    <label htmlFor="add-meal-image-url" className="text-sm font-black text-slate-700">
                       Image URL
                     </label>
 
@@ -918,6 +924,8 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
                       </div>
 
                       <Input
+                        id="add-meal-image-url"
+                        name="add-meal-image-url"
                         value={imageUrl}
                         onChange={(event) => setImageUrl(event.target.value)}
                         placeholder="Optional image link"
@@ -936,8 +944,9 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
                     : "border-slate-100 bg-white"
                 )}
               >
-                <label className="flex cursor-pointer items-start gap-3">
+                <div className="flex cursor-pointer items-start gap-3">
                   <Switch
+                    aria-label="Create grocery list after saving"
                     checked={createGroceryList}
                     onCheckedChange={setCreateGroceryList}
                     className="mt-1"
@@ -954,7 +963,7 @@ export default function AddMealDialog({ date, onClose, onSuccess, prefill }) {
                       right after saving this meal.
                     </p>
                   </div>
-                </label>
+                </div>
               </section>
             </>
           )}

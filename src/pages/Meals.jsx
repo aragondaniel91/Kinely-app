@@ -616,8 +616,9 @@ function PantryIngredientHelper({
             ))}
           </div>
 
-          <label className="mt-3 flex cursor-pointer items-start gap-2">
+          <div className="mt-3 flex cursor-pointer items-start gap-2">
             <Switch
+              aria-label="Add missing ingredients to Pantry"
               checked={addMissingToPantry}
               onCheckedChange={setAddMissingToPantry}
               className="mt-1"
@@ -626,7 +627,7 @@ function PantryIngredientHelper({
             <span className="text-xs font-bold leading-5 text-amber-800">
               Add missing ingredients to Pantry as Out, so future smart lists can match them.
             </span>
-          </label>
+          </div>
         </div>
       )}
     </div>
@@ -746,6 +747,8 @@ function IngredientPantryModal({
             <Search className="h-4 w-4 text-slate-400" />
 
             <Input
+              id="meal-pantry-ingredient-search"
+              name="meal-pantry-ingredient-search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search pantry ingredients..."
@@ -834,6 +837,7 @@ function IngredientPantryModal({
 }
 
 function IngredientField({
+  idPrefix = "meal-ingredients",
   value,
   onChange,
   pantryItems,
@@ -864,7 +868,7 @@ function IngredientField({
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <label className="text-sm font-black text-slate-700">Ingredients</label>
+        <label htmlFor={`${idPrefix}-ingredients`} className="text-sm font-black text-slate-700">Ingredients</label>
 
         <button
           type="button"
@@ -876,6 +880,8 @@ function IngredientField({
       </div>
 
       <Textarea
+        id={`${idPrefix}-ingredients`}
+        name={`${idPrefix}-ingredients`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={"One per line:\ntortillas\nground beef\ncheese"}
@@ -899,8 +905,9 @@ function IngredientField({
             ))}
           </div>
 
-          <label className="mt-3 flex cursor-pointer items-start gap-2">
+          <div className="mt-3 flex cursor-pointer items-start gap-2">
             <Switch
+              aria-label="Add missing ingredients to Pantry"
               checked={addMissingToPantry}
               onCheckedChange={setAddMissingToPantry}
               className="mt-1"
@@ -909,7 +916,7 @@ function IngredientField({
             <span className="text-xs font-bold leading-5 text-amber-800">
               Add missing ingredients to Pantry as Out when saving.
             </span>
-          </label>
+          </div>
         </div>
       )}
     </div>
@@ -1093,8 +1100,10 @@ function FamilyMenuPanel({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="text-sm font-black text-slate-700">Meal name</label>
+            <label htmlFor="family-menu-new-meal-name" className="text-sm font-black text-slate-700">Meal name</label>
             <Input
+              id="family-menu-new-meal-name"
+              name="family-menu-new-meal-name"
               value={newName}
               onChange={(event) => setNewName(event.target.value)}
               placeholder="Taco night, pancakes, chicken rice..."
@@ -1103,7 +1112,7 @@ function FamilyMenuPanel({
           </div>
 
           <div>
-            <label className="text-sm font-black text-slate-700">Meal type</label>
+            <p className="text-sm font-black text-slate-700">Meal type</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {mealOrder.map((type) => {
                 const config = getMealConfig(type);
@@ -1131,8 +1140,10 @@ function FamilyMenuPanel({
           </div>
 
           <div>
-            <label className="text-sm font-black text-slate-700">Notes</label>
+            <label htmlFor="family-menu-new-meal-notes" className="text-sm font-black text-slate-700">Notes</label>
             <Input
+              id="family-menu-new-meal-notes"
+              name="family-menu-new-meal-notes"
               value={newNotes}
               onChange={(event) => setNewNotes(event.target.value)}
               placeholder="Easy dinner, family favorite, 20 minutes..."
@@ -1141,6 +1152,7 @@ function FamilyMenuPanel({
           </div>
 
           <IngredientField
+            idPrefix="family-menu-new-meal"
             value={newIngredients}
             onChange={setNewIngredients}
             pantryItems={pantryItems}
@@ -1204,6 +1216,8 @@ function FamilyMenuPanel({
             <Search className="h-4 w-4 text-slate-400" />
 
             <Input
+              id="family-menu-search"
+              name="family-menu-search"
               value={menuSearch}
               onChange={(event) => setMenuSearch(event.target.value)}
               placeholder="Search meals, ingredients, notes..."
@@ -1274,6 +1288,8 @@ function FamilyMenuPanel({
                               </div>
 
                               <Input
+                                id={`family-menu-edit-name-${template.id}`}
+                                name={`family-menu-edit-name-${template.id}`}
                                 value={editName}
                                 onChange={(event) => setEditName(event.target.value)}
                                 className="h-11 rounded-2xl bg-white font-bold"
@@ -1306,6 +1322,8 @@ function FamilyMenuPanel({
                               </div>
 
                               <Input
+                                id={`family-menu-edit-notes-${template.id}`}
+                                name={`family-menu-edit-notes-${template.id}`}
                                 value={editNotes}
                                 onChange={(event) => setEditNotes(event.target.value)}
                                 className="h-11 rounded-2xl bg-white"
@@ -1313,6 +1331,7 @@ function FamilyMenuPanel({
                               />
 
                               <IngredientField
+                                idPrefix={`family-menu-edit-${template.id}`}
                                 value={editIngredients}
                                 onChange={setEditIngredients}
                                 pantryItems={pantryItems}
