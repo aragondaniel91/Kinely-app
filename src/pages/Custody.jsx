@@ -235,6 +235,7 @@ export default function Custody() {
       setActivityError("");
 
       const familyIdsToWatch = new Set([familyId]);
+      const custodyGroupIdsToWatch = new Set();
       const email = normalizeEmail(myEmail || user.email);
 
       if (email) {
@@ -262,7 +263,9 @@ export default function Custody() {
 
           groups.forEach((group) => {
             if (!shouldIncludeCustodyGroup(group, { familyId, user, email })) return;
-            familyIdsToWatch.add(group.id);
+            if (group.id && group.id !== familyId) {
+              custodyGroupIdsToWatch.add(group.id);
+            }
           });
         } catch (error) {
           console.warn("Could not load custody spaces for audit log:", error);
@@ -280,6 +283,33 @@ export default function Custody() {
 
       Array.from(familyIdsToWatch).forEach((idToWatch) => {
         ["familyId", "family_id"].forEach((fieldName) => {
+          const bucketKey = `${fieldName}:${idToWatch}`;
+          const activityQuery = query(
+            collection(db, "familyActivity"),
+            where(fieldName, "==", idToWatch)
+          );
+
+          const unsubscribe = onSnapshot(
+            activityQuery,
+            (snap) => {
+              bucket.set(bucketKey, snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
+              updateActivity();
+            },
+            (error) => {
+              console.warn(`Could not listen to custody activity for ${bucketKey}:`, error);
+              if (!cancelled) {
+                setActivityError(error.message || `Could not read familyActivity for ${bucketKey}.`);
+                setLoadingActivity(false);
+              }
+            }
+          );
+
+          unsubscribers.push(unsubscribe);
+        });
+      });
+
+      Array.from(custodyGroupIdsToWatch).forEach((idToWatch) => {
+        ["custodyGroupId", "custody_group_id"].forEach((fieldName) => {
           const bucketKey = `${fieldName}:${idToWatch}`;
           const activityQuery = query(
             collection(db, "familyActivity"),
