@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "custody-scoped-records-2026-06-19-01";
+const WORKER_VERSION = "custody-exchanges-2026-06-19-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -41,6 +41,7 @@ const CUSTODY_COLLECTIONS = [
 ];
 
 const CUSTODY_SCOPED_RECORD_COLLECTIONS = new Set([
+  "custodyExchanges",
   "custodySpecialEvents",
   "custodyTravelPlans",
 ]);
@@ -2982,6 +2983,34 @@ function normalizeCustodyScopedRecordForWrite(collectionName = "", raw = {}, { e
       end_time: cleanText(record.end_time || record.endTime),
       location: cleanText(record.location),
       notes: cleanText(record.notes),
+    };
+  }
+
+  if (collection === "custodyExchanges") {
+    const date = normalizeDateKey(record.date);
+    if (!date) throw new Error("Custody exchange requires a YYYY-MM-DD date.");
+
+    const fromParent = cleanText(record.fromParent || record.from_parent, "dad");
+    const toParent = cleanText(record.toParent || record.to_parent, "mom");
+    const pickupBy = cleanText(record.pickupBy || record.pickup_by || toParent, toParent);
+    const order = Number.isFinite(Number(record.order)) ? Number(record.order) : 999;
+
+    return {
+      ...base,
+      id,
+      date,
+      time: cleanText(record.time, "18:00"),
+      location: cleanText(record.location, "Daycare pickup"),
+      fromParent,
+      from_parent: fromParent,
+      toParent,
+      to_parent: toParent,
+      pickupBy,
+      pickup_by: pickupBy,
+      notes: cleanText(record.notes),
+      status: cleanText(record.status, "pending"),
+      source: cleanText(record.source, "manual"),
+      order,
     };
   }
 

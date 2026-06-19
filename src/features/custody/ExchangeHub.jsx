@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import {
   ArrowRightLeft,
   CalendarClock,
@@ -26,9 +25,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
-import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import {
+  deleteCustodyScopedRecordViaWorker,
+  saveCustodyScopedRecordViaWorker,
+} from "@/services/custodyBackendService";
 import { queueFamilyActivity } from "@/services/familyActivityService";
 
 const emptyExchange = {
@@ -190,10 +192,9 @@ function exchangeToForm(exchange) {
   };
 }
 
-function normalizeExchangeDoc(docSnap) {
-  const data = docSnap.data();
+function normalizeExchangeData(data = {}, id = "") {
   return {
-    id: docSnap.id,
+    id: data.id || id,
     date: data.date || "",
     time: data.time || "18:00",
     location: data.location || "Daycare pickup",
@@ -205,6 +206,10 @@ function normalizeExchangeDoc(docSnap) {
     source: data.source || "manual",
     order: data.order ?? 999,
   };
+}
+
+function normalizeExchangeDoc(docSnap) {
+  return normalizeExchangeData(docSnap.data(), docSnap.id);
 }
 
 function sortExchangeList(items = []) {
@@ -686,13 +691,20 @@ export default function ExchangeHub() {
         updated_by: user.uid,
         updatedByEmail: user.email || "",
         updated_by_email: user.email || "",
-        updatedAt: serverTimestamp(),
-        updated_at: serverTimestamp(),
       };
 
       if (editingExchange) {
-        await updateDoc(doc(db, "custodyExchanges", editingExchange.id), payload);
-        const updatedExchange = { ...editingExchange, ...payload, id: editingExchange.id };
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyExchanges",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: {
+            ...editingExchange,
+            ...payload,
+            id: editingExchange.id,
+          },
+        });
+        const updatedExchange = normalizeExchangeData(result?.record || { ...editingExchange, ...payload }, editingExchange.id);
         setExchanges((current) =>
           sortExchangeList(current.map((exchange) => (exchange.id === editingExchange.id ? updatedExchange : exchange)))
         );
@@ -705,12 +717,15 @@ export default function ExchangeHub() {
           createdByEmail: user.email || "",
           created_by_email: user.email || "",
           order: exchanges.length,
-          createdAt: serverTimestamp(),
-          created_at: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, "custodyExchanges"), createPayload);
-        const createdExchange = { ...createPayload, id: docRef.id };
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyExchanges",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: createPayload,
+        });
+        const createdExchange = normalizeExchangeData(result?.record || createPayload, result?.recordId);
         setExchanges((current) => sortExchangeList([...current, createdExchange]));
         logExchangeActivity("created", createdExchange);
       }
@@ -742,16 +757,22 @@ export default function ExchangeHub() {
     setExchanges((current) => current.map((exchange) => (exchange.id === id ? { ...exchange, status: nextStatus } : exchange)));
 
     try {
-      await updateDoc(doc(db, "custodyExchanges", id), {
-        status: nextStatus,
-        updatedBy: user?.uid || "",
-        updated_by: user?.uid || "",
-        updatedByEmail: user?.email || "",
-        updated_by_email: user?.email || "",
-        updatedAt: serverTimestamp(),
-        updated_at: serverTimestamp(),
+      const result = await saveCustodyScopedRecordViaWorker({
+        collectionName: "custodyExchanges",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        record: {
+          ...currentExchange,
+          status: nextStatus,
+          updatedBy: user?.uid || "",
+          updated_by: user?.uid || "",
+          updatedByEmail: user?.email || "",
+          updated_by_email: user?.email || "",
+        },
       });
-      logExchangeActivity("status", { ...currentExchange, status: nextStatus });
+      const savedExchange = normalizeExchangeData(result?.record || { ...currentExchange, status: nextStatus }, id);
+      setExchanges((current) => sortExchangeList(current.map((exchange) => (exchange.id === id ? savedExchange : exchange))));
+      logExchangeActivity("status", savedExchange);
     } catch (error) {
       console.error("Error updating custody exchange:", error);
       setExchanges((current) => current.map((exchange) => (exchange.id === id ? { ...exchange, status: currentExchange.status } : exchange)));
@@ -763,7 +784,12 @@ export default function ExchangeHub() {
     setExchanges((current) => current.filter((exchange) => exchange.id !== exchangeToDelete.id));
 
     try {
-      await deleteDoc(doc(db, "custodyExchanges", exchangeToDelete.id));
+      await deleteCustodyScopedRecordViaWorker({
+        collectionName: "custodyExchanges",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        recordId: exchangeToDelete.id,
+      });
       logExchangeActivity("deleted", exchangeToDelete);
     } catch (error) {
       console.error("Error deleting custody exchange:", error);
