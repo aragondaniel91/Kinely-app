@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "family-guardrails-2026-06-18-01";
+const WORKER_VERSION = "custody-scoped-records-2026-06-19-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -39,6 +39,11 @@ const CUSTODY_COLLECTIONS = [
   "familyActivity",
   "notifications",
 ];
+
+const CUSTODY_SCOPED_RECORD_COLLECTIONS = new Set([
+  "custodySpecialEvents",
+  "custodyTravelPlans",
+]);
 
 const CUSTODY_GROUP_LOOKUP_FIELDS = [
   "familyId",
@@ -2901,6 +2906,221 @@ async function handleCustodyDayDelete(request, env, origin) {
   }, { status: 200 }, origin);
 }
 
+function allowedCustodyScopedRecordCollection(collectionName = "") {
+  const cleanCollectionName = cleanText(collectionName);
+  if (CUSTODY_SCOPED_RECORD_COLLECTIONS.has(cleanCollectionName)) return cleanCollectionName;
+  throw new Error("Unsupported custody record collection.");
+}
+
+function normalizeCustodyScopedRecordForWrite(collectionName = "", raw = {}, { existingRecord = null, scope = {}, token = {}, now = "" } = {}) {
+  const record = mapOrEmpty(raw);
+  const scopeId = cleanText(
+    record.custodyGroupId ||
+    record.custody_group_id ||
+    scope.custodyGroupId ||
+    record.familyId ||
+    record.family_id
+  );
+  const householdFamilyId = cleanText(
+    record.householdFamilyId ||
+    record.household_family_id ||
+    record.familyId ||
+    record.family_id ||
+    scope.familyId ||
+    scopeId
+  );
+  const collection = allowedCustodyScopedRecordCollection(collectionName);
+  const createdBy = cleanText(existingRecord?.createdBy || existingRecord?.created_by || record.createdBy || record.created_by || token.sub);
+  const createdByEmail = normalizeEmail(existingRecord?.createdByEmail || existingRecord?.created_by_email || record.createdByEmail || record.created_by_email || token.email);
+  const createdAt = cleanText(existingRecord?.createdAt || existingRecord?.created_at || record.createdAt || record.created_at || now);
+  const id = cleanText(record.id || record.recordId || record.record_id || crypto.randomUUID());
+
+  if (!scopeId) throw new Error("Custody record requires a custody scope.");
+
+  const base = {
+    ...record,
+    id,
+    familyId: householdFamilyId,
+    family_id: householdFamilyId,
+    custodyGroupId: scopeId,
+    custody_group_id: scopeId,
+    householdFamilyId,
+    household_family_id: householdFamilyId,
+    custodyGroupName: cleanText(record.custodyGroupName || record.custody_group_name || scope.custodyGroupName),
+    custody_group_name: cleanText(record.custodyGroupName || record.custody_group_name || scope.custodyGroupName),
+    module: "custody",
+    visibility: "custody",
+    userId: cleanText(record.userId || record.user_id || token.sub),
+    user_id: cleanText(record.userId || record.user_id || token.sub),
+    createdBy,
+    created_by: createdBy,
+    createdByEmail,
+    created_by_email: createdByEmail,
+    createdAt,
+    created_at: createdAt,
+    updatedBy: cleanText(token.sub),
+    updated_by: cleanText(token.sub),
+    updatedByEmail: normalizeEmail(token.email),
+    updated_by_email: normalizeEmail(token.email),
+    updatedAt: now,
+    updated_at: now,
+  };
+
+  if (collection === "custodySpecialEvents") {
+    const date = normalizeDateKey(record.date);
+    if (!date) throw new Error("Custody special event requires a YYYY-MM-DD date.");
+
+    return {
+      ...base,
+      id,
+      date,
+      title: cleanText(record.title, "Special event"),
+      category: cleanText(record.category, "other"),
+      startTime: cleanText(record.startTime || record.start_time),
+      start_time: cleanText(record.start_time || record.startTime),
+      endTime: cleanText(record.endTime || record.end_time),
+      end_time: cleanText(record.end_time || record.endTime),
+      location: cleanText(record.location),
+      notes: cleanText(record.notes),
+    };
+  }
+
+  const startDate = normalizeDateKey(record.startDate || record.start_date);
+  const endDate = normalizeDateKey(record.endDate || record.end_date || startDate);
+  if (!startDate || !endDate) throw new Error("Custody travel plan requires start and end dates.");
+
+  const travelingParent = cleanText(record.travelingParent || record.traveling_parent);
+  const travelStatus = cleanText(record.travelStatus || record.travel_status || record.status, "approved");
+  const affectsCustody = record.affectsCustody ?? record.affects_custody ?? true;
+
+  return {
+    ...base,
+    id,
+    title: cleanText(record.title, "Travel / vacation"),
+    destination: cleanText(record.destination),
+    startDate,
+    start_date: startDate,
+    endDate,
+    end_date: endDate,
+    travelingParent,
+    traveling_parent: travelingParent,
+    travelStatus,
+    travel_status: travelStatus,
+    status: travelStatus,
+    affectsCustody: affectsCustody !== false,
+    affects_custody: affectsCustody !== false,
+    notes: cleanText(record.notes),
+  };
+}
+
+async function handleCustodyScopedRecordSave(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const collectionName = allowedCustodyScopedRecordCollection(payload.collection || payload.collectionName || payload.collection_name);
+  const rawRecord = mapOrEmpty(payload.record || payload.data || payload.payload);
+  const requestedRecordId = cleanText(payload.recordId || payload.record_id || rawRecord.id);
+  const existingRecord = requestedRecordId ? await firestoreGetDoc(env, collectionName, requestedRecordId) : null;
+  const requestedFamilyId = cleanText(
+    existingRecord?.familyId ||
+    existingRecord?.family_id ||
+    existingRecord?.householdFamilyId ||
+    existingRecord?.household_family_id ||
+    payload.familyId ||
+    payload.family_id ||
+    rawRecord.familyId ||
+    rawRecord.family_id ||
+    rawRecord.householdFamilyId ||
+    rawRecord.household_family_id
+  );
+  const requestedGroupId = cleanText(
+    existingRecord?.custodyGroupId ||
+    existingRecord?.custody_group_id ||
+    payload.custodyGroupId ||
+    payload.custody_group_id ||
+    rawRecord.custodyGroupId ||
+    rawRecord.custody_group_id ||
+    requestedFamilyId
+  );
+
+  const scope = await assertCustodyDayWriteAccess(env, {
+    familyId: requestedFamilyId,
+    custodyGroupId: requestedGroupId,
+  }, token);
+
+  if (scope.forbidden) {
+    return json({ ok: false, error: scope.error }, { status: 403 }, origin);
+  }
+
+  const now = new Date().toISOString();
+  const record = normalizeCustodyScopedRecordForWrite(collectionName, rawRecord, {
+    existingRecord,
+    scope,
+    token,
+    now,
+  });
+
+  const committed = await firestoreCommitInChunks(env, [
+    firestoreMergeWrite(env, collectionName, record.id, record),
+  ]);
+
+  return json({
+    ok: true,
+    collection: collectionName,
+    recordId: record.id,
+    committedWrites: committed,
+    record,
+  }, { status: 200 }, origin);
+}
+
+async function handleCustodyScopedRecordDelete(request, env, origin) {
+  const token = await verifyFirebaseToken(request, env);
+  const payload = await request.json();
+  const collectionName = allowedCustodyScopedRecordCollection(payload.collection || payload.collectionName || payload.collection_name);
+  const recordId = cleanText(payload.recordId || payload.record_id || payload.id);
+  if (!recordId) throw new Error("Custody record delete requires recordId.");
+
+  const existingRecord = await firestoreGetDoc(env, collectionName, recordId);
+  const requestedFamilyId = cleanText(
+    existingRecord?.familyId ||
+    existingRecord?.family_id ||
+    existingRecord?.householdFamilyId ||
+    existingRecord?.household_family_id ||
+    payload.familyId ||
+    payload.family_id ||
+    payload.householdFamilyId ||
+    payload.household_family_id
+  );
+  const requestedGroupId = cleanText(
+    existingRecord?.custodyGroupId ||
+    existingRecord?.custody_group_id ||
+    payload.custodyGroupId ||
+    payload.custody_group_id ||
+    requestedFamilyId
+  );
+
+  const scope = await assertCustodyDayWriteAccess(env, {
+    familyId: requestedFamilyId,
+    custodyGroupId: requestedGroupId,
+  }, token);
+
+  if (scope.forbidden) {
+    return json({ ok: false, error: scope.error }, { status: 403 }, origin);
+  }
+
+  const writesByName = new Map();
+  addDeleteWrite(writesByName, env, collectionName, recordId);
+  const writes = [...writesByName.values()];
+  const committed = await firestoreCommitInChunks(env, writes);
+
+  return json({
+    ok: true,
+    collection: collectionName,
+    recordId,
+    deletedRecords: writes.length,
+    committedWrites: committed,
+  }, { status: 200 }, origin);
+}
+
 function responseStatus(action = "") {
   const normalized = cleanText(action).toLowerCase();
   if (normalized === "decline" || normalized === "declined") return "declined";
@@ -4421,6 +4641,14 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/custody-days/delete") {
         return await handleCustodyDayDelete(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/custody-records/save") {
+        return await handleCustodyScopedRecordSave(request, env, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/custody-records/delete") {
+        return await handleCustodyScopedRecordDelete(request, env, origin);
       }
 
       if (request.method === "POST" && url.pathname === "/families/update") {

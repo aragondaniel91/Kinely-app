@@ -72,3 +72,41 @@ export async function deleteCustodyDayViaWorker({ familyId, custodyGroupId, date
     docId,
   });
 }
+
+export async function saveCustodyScopedRecordViaWorker({ collectionName, familyId, custodyGroupId, record }) {
+  if (!collectionName || !record || typeof record !== "object") {
+    throw new Error("Custody record save requires a collection and record.");
+  }
+
+  const result = await authorizedWorkerRequest("/custody-records/save", {
+    collection: collectionName,
+    familyId,
+    custodyGroupId,
+    record,
+  });
+
+  if (!result) {
+    throw new Error("Kinely API is required to save custody records.");
+  }
+
+  return result;
+}
+
+export async function deleteCustodyScopedRecordViaWorker({ collectionName, familyId, custodyGroupId, recordId }) {
+  if (!collectionName || !recordId) {
+    throw new Error("Custody record delete requires a collection and recordId.");
+  }
+
+  const result = await authorizedWorkerRequest("/custody-records/delete", {
+    collection: collectionName,
+    familyId,
+    custodyGroupId,
+    recordId,
+  });
+
+  if (!result) {
+    throw new Error("Kinely API is required to delete custody records.");
+  }
+
+  return result;
+}

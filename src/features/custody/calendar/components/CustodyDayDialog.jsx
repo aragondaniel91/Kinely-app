@@ -4,11 +4,8 @@ import { CalendarDays, Pencil, Plane, Plus, Trash2 } from "lucide-react";
 import {
   collection,
   deleteDoc,
-  doc,
   getDocs,
   query,
-  serverTimestamp,
-  setDoc,
   where,
 } from "firebase/firestore";
 
@@ -36,6 +33,10 @@ import {
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import {
+  deleteCustodyScopedRecordViaWorker,
+  saveCustodyScopedRecordViaWorker,
+} from "@/services/custodyBackendService";
 import { queueFamilyActivity } from "@/services/familyActivityService";
 import CustodySpecialEventDialog, {
   getCustodyEventCategory,
@@ -425,17 +426,18 @@ export default function CustodyDayDialog({
         ...custodyScopeFields,
         familyName: profile?.family_name || profile?.familyName || "",
         userId: user.uid,
-        createdBy: selectedSpecialEvent?.createdBy || user.uid,
-        createdByEmail: selectedSpecialEvent?.createdByEmail || user.email || null,
-        createdAt: selectedSpecialEvent?.createdAt || serverTimestamp(),
-        updatedBy: user.uid,
-        updatedAt: serverTimestamp(),
       };
 
       const before = editing ? buildSpecialEventAuditSnapshot(selectedSpecialEvent) : null;
       const after = buildSpecialEventAuditSnapshot(data);
+      const result = await saveCustodyScopedRecordViaWorker({
+        collectionName: "custodySpecialEvents",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        record: data,
+      });
+      const savedData = result?.record || data;
 
-      await setDoc(doc(db, "custodySpecialEvents", eventId), data, { merge: true });
       queueFamilyActivity({
         familyId,
         custodyScopeFields,
@@ -462,8 +464,8 @@ export default function CustodyDayDialog({
       });
       setSpecialEvents((prev) => {
         const next = editing
-          ? prev.map((event) => (event.id === eventId ? { ...event, ...data } : event))
-          : [...prev, data];
+          ? prev.map((event) => (event.id === eventId ? { ...event, ...savedData } : event))
+          : [...prev, savedData];
         return sortSpecialEvents(next.filter((event) => normalizeDate(event.date) === dateKey));
       });
       setSelectedSpecialEvent(null);
@@ -493,7 +495,12 @@ export default function CustodyDayDialog({
     try {
       const before = buildSpecialEventAuditSnapshot(event);
 
-      await deleteDoc(doc(db, "custodySpecialEvents", event.id));
+      await deleteCustodyScopedRecordViaWorker({
+        collectionName: "custodySpecialEvents",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        recordId: event.id,
+      });
       queueFamilyActivity({
         familyId,
         custodyScopeFields,
@@ -551,17 +558,18 @@ export default function CustodyDayDialog({
         ...custodyScopeFields,
         familyName: profile?.family_name || profile?.familyName || "",
         userId: user.uid,
-        createdBy: selectedTravelPlan?.createdBy || user.uid,
-        createdByEmail: selectedTravelPlan?.createdByEmail || user.email || null,
-        createdAt: selectedTravelPlan?.createdAt || serverTimestamp(),
-        updatedBy: user.uid,
-        updatedAt: serverTimestamp(),
       };
 
       const before = editing ? buildTravelAuditSnapshot(selectedTravelPlan) : null;
       const after = buildTravelAuditSnapshot(data);
+      const result = await saveCustodyScopedRecordViaWorker({
+        collectionName: "custodyTravelPlans",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        record: data,
+      });
+      const savedData = result?.record || data;
 
-      await setDoc(doc(db, "custodyTravelPlans", travelId), data, { merge: true });
       queueFamilyActivity({
         familyId,
         custodyScopeFields,
@@ -590,8 +598,8 @@ export default function CustodyDayDialog({
       });
       setTravelPlans((prev) => {
         const next = editing
-          ? prev.map((plan) => (plan.id === travelId ? { ...plan, ...data } : plan))
-          : [...prev, data];
+          ? prev.map((plan) => (plan.id === travelId ? { ...plan, ...savedData } : plan))
+          : [...prev, savedData];
         return sortTravelPlans(next.filter((plan) => plan.startDate <= dateKey && plan.endDate >= dateKey));
       });
       setSelectedTravelPlan(null);
@@ -621,7 +629,12 @@ export default function CustodyDayDialog({
     try {
       const before = buildTravelAuditSnapshot(plan);
 
-      await deleteDoc(doc(db, "custodyTravelPlans", plan.id));
+      await deleteCustodyScopedRecordViaWorker({
+        collectionName: "custodyTravelPlans",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        recordId: plan.id,
+      });
       queueFamilyActivity({
         familyId,
         custodyScopeFields,
