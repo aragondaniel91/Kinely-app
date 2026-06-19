@@ -14,11 +14,6 @@ import {
 } from "date-fns";
 
 import {
-  doc,
-  getDoc,
-} from "firebase/firestore";
-
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -28,7 +23,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { getAppColor, normalizeColorId } from "@/lib/appColorUtils";
@@ -390,6 +384,14 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       const bulkRunId = `bulk_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const generatedEntries = [];
       const undoMap = new Map();
+      const existingDaysByDate = new Map();
+
+      custodyDays.forEach((day) => {
+        const dateKey = normalizeDate(day.date);
+        if (dateKey) {
+          existingDaysByDate.set(dateKey, { ...day, date: dateKey });
+        }
+      });
 
       for (const blockStart of blockStarts) {
         const blockEnd = addDays(blockStart, rangeLength);
@@ -409,14 +411,13 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
             bulkRunId,
             getOtherParent,
           });
-          const ref = doc(db, "custodyDays", data.id);
 
           if (!undoMap.has(data.id)) {
-            const beforeSnap = await getDoc(ref);
+            const before = existingDaysByDate.get(data.date) || null;
             undoMap.set(data.id, {
               id: data.id,
               date: data.date,
-              before: beforeSnap.exists() ? { id: beforeSnap.id, ...beforeSnap.data(), date: normalizeDate(beforeSnap.data().date) } : null,
+              before,
             });
           }
 
