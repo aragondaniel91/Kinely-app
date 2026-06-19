@@ -1,23 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Baby, Eye, Pencil, Plus, ShieldCheck, Trash2, Users, WalletCards } from "lucide-react";
 import {
-  arrayUnion,
   collection,
-  doc,
   getDocs,
   query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { mapSettledFirestoreSnapshots } from "@/core/firestore/firestoreDocUtils";
-import { deleteCustodyGroupCascade } from "@/services/familyAdminService";
-import { saveCustodyGroupViaWorker } from "@/services/custodyBackendService";
+import { deleteCustodyGroupViaWorker, saveCustodyGroupViaWorker } from "@/services/custodyBackendService";
 import {
   CHILD_RELATIONSHIP_TYPES,
   buildCustodyGroupPayload,
@@ -40,13 +33,9 @@ import {
 } from "@/lib/custodyGroupAccess";
 import {
   buildCustodyInvitation,
-  custodyInvitationId,
   withPendingCustodyInvitation,
 } from "@/lib/invitationUtils";
-import {
-  queueCustodyInvitationEmail,
-  sendCustodyInvitationViaWorker,
-} from "@/services/emailQueueService";
+import { sendCustodyInvitationViaWorker } from "@/services/emailQueueService";
 import { queueCustodyInvitationNotifications } from "@/services/notificationService";
 import { PERSON_COLOR_OPTIONS, getColorMeta } from "@/lib/personColorUtils";
 import { Button } from "@/components/ui/button";
@@ -96,6 +85,13 @@ function getPendingViewerEmails(group) {
 
 function uniqueClean(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function makeClientId(prefix = "record") {
+  if (globalThis.crypto?.randomUUID) return `${prefix}-${globalThis.crypto.randomUUID()}`;
+  const bytes = new Uint32Array(2);
+  globalThis.crypto?.getRandomValues?.(bytes);
+  return `${prefix}-${Date.now()}-${Array.from(bytes).map((value) => value.toString(16)).join("")}`;
 }
 
 function groupAccessEmails(group, camelKey, snakeKey) {
@@ -537,7 +533,7 @@ export default function CustodyGroupsManager() {
     setShowForm(true);
   };
 
-  const ensureChildRecords = async (childNames, now) => {
+  const ensureChildRecords = async (childNames, nowIso) => {
     const cleanNames = splitCsv(childNames.join(","));
     const records = [];
 
@@ -562,10 +558,10 @@ export default function CustodyGroupsManager() {
         continue;
       }
 
-      const childRef = doc(collection(db, "children"));
+      const childId = makeClientId("child");
       const childPayload = {
-        id: childRef.id,
-        childId: childRef.id,
+        id: childId,
+        childId,
         name,
         childName: name,
         nameKey,
@@ -576,11 +572,10 @@ export default function CustodyGroupsManager() {
         custodyGroupIds: [],
         createdBy: user.uid,
         createdByEmail: user.email || myEmail || null,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: nowIso,
+        updatedAt: nowIso,
       };
 
-      await setDoc(childRef, childPayload);
       records.push(normalizeChildRecord(childPayload));
     }
 
@@ -648,12 +643,10 @@ export default function CustodyGroupsManager() {
     setSaving(true);
 
     try {
-      const now = serverTimestamp();
       const nowIso = new Date().toISOString();
-      const childRecords = await ensureChildRecords(children, now);
+      const childRecords = await ensureChildRecords(children, nowIso);
       const existingGroup = editingGroupId ? groups.find((group) => group.id === editingGroupId) : null;
-      const groupRef = editingGroupId ? doc(db, "custodyGroups", editingGroupId) : doc(collection(db, "custodyGroups"));
-      const groupId = editingGroupId || groupRef.id;
+      const groupId = editingGroupId || makeClientId("custody-group");
       const acceptedMemberEmails = normalizeEmailList([
         ...(editingGroupId ? getCustodyGroupMemberEmails(existingGroup) : []),
         activeEmail,
@@ -705,7 +698,7 @@ export default function CustodyGroupsManager() {
         coparentEmail: momEmail,
         coparentRole: "mom",
         coparentColor: form.momColor || "amber",
-        now,
+        now: nowIso,
       });
 
       let finalPayload = {
@@ -813,7 +806,7 @@ export default function CustodyGroupsManager() {
         finalPayload = withPendingCustodyInvitation(finalPayload, invite);
       });
 
-      const workerSaveResult = await saveCustodyGroupViaWorker({
+      await saveCustodyGroupViaWorker({
         groupId,
         familyId,
         group: finalPayload,
@@ -821,87 +814,7 @@ export default function CustodyGroupsManager() {
         childIds: childRecords.map((child) => child.id).filter(Boolean),
       });
 
-      if (!workerSaveResult) {
-        if (editingGroupId) {
-          if (invitations.length) {
-            const batch = writeBatch(db);
-            batch.update(groupRef, finalPayload);
-            invitations.forEach((invite) => {
-              batch.set(
-                doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
-                invite,
-                { merge: true }
-              );
-            });
-            await batch.commit();
-          } else {
-            await updateDoc(groupRef, finalPayload);
-          }
-        } else {
-          const basePayload = {
-            ...finalPayload,
-            pendingMemberEmails: [],
-            pending_member_emails: [],
-            pendingViewerEmails: [],
-            pending_viewer_emails: [],
-            pendingInvites: [],
-            pending_invites: [],
-          };
-
-          await setDoc(groupRef, {
-            ...basePayload,
-            createdAt: now,
-          });
-
-          if (invitations.length) {
-            const batch = writeBatch(db);
-            batch.update(groupRef, {
-              pendingMemberEmails: finalPayload.pendingMemberEmails || [],
-              pending_member_emails: finalPayload.pending_member_emails || [],
-              pendingViewerEmails: finalPayload.pendingViewerEmails || [],
-              pending_viewer_emails: finalPayload.pending_viewer_emails || [],
-              pendingInvites: finalPayload.pendingInvites || [],
-              pending_invites: finalPayload.pending_invites || [],
-              updatedAt: now,
-            });
-            invitations.forEach((invite) => {
-              batch.set(
-                doc(db, "custodyInvitations", custodyInvitationId(groupId, invite.recipientEmail)),
-                invite,
-                { merge: true }
-              );
-            });
-            await batch.commit();
-          }
-        }
-
-        if (familyId) {
-          await setDoc(
-            doc(db, "families", familyId),
-            {
-              custodyGroupIds: arrayUnion(groupId),
-              custody_group_ids: arrayUnion(groupId),
-              updatedAt: now,
-            },
-            { merge: true }
-          );
-        }
-
-        await Promise.all(
-          childRecords.map((child) =>
-            setDoc(
-              doc(db, "children", child.id),
-              {
-                custodyGroupIds: [...new Set([...(child.custodyGroupIds || []), groupId].filter(Boolean))],
-                updatedAt: now,
-              },
-              { merge: true }
-            )
-          )
-        );
-      } else {
-        await refreshCustodyGroups?.();
-      }
+      await refreshCustodyGroups?.();
 
       let queuedEmailCount = 0;
       let queuedNotificationCount = 0;
@@ -914,14 +827,7 @@ export default function CustodyGroupsManager() {
               inviterName: user?.displayName || myEmail || user?.email || "Custody admin",
             };
 
-            try {
-              const workerResult = await sendCustodyInvitationViaWorker(inviteDeliveryOptions);
-              if (workerResult) return workerResult;
-            } catch (workerError) {
-              console.warn("Custody invitation Worker delivery failed; trying generic Worker email:", workerError);
-            }
-
-            return queueCustodyInvitationEmail(inviteDeliveryOptions);
+            return sendCustodyInvitationViaWorker(inviteDeliveryOptions);
           })
         );
         queuedEmailCount = emailQueueResults.filter((result) => result.status === "fulfilled").length;
@@ -991,7 +897,7 @@ export default function CustodyGroupsManager() {
     setSaving(true);
 
     try {
-      const result = await deleteCustodyGroupCascade(group.id);
+      const result = await deleteCustodyGroupViaWorker({ groupId: group.id });
       await loadGroups();
       refreshCustodyGroups?.();
       showNotice({

@@ -1,23 +1,39 @@
 import { authorizedWorkerRequest } from "@/services/kinelyApiClient";
 
 export async function saveCustodyGroupViaWorker({ groupId, familyId, group, invitations = [], childIds = [] }) {
-  if (!familyId || !group || typeof group !== "object") return null;
+  if (!familyId || !group || typeof group !== "object") {
+    throw new Error("Custody group save requires a family and group payload.");
+  }
 
-  return authorizedWorkerRequest("/custody-groups/save", {
+  const result = await authorizedWorkerRequest("/custody-groups/save", {
     groupId,
     familyId,
     group,
     invitations,
     childIds,
   });
+
+  if (!result) {
+    throw new Error("Kinely API is required to save custody groups.");
+  }
+
+  return result;
 }
 
 export async function deleteCustodyGroupViaWorker({ groupId }) {
-  if (!groupId) return null;
+  if (!groupId) {
+    throw new Error("Custody group delete requires groupId.");
+  }
 
-  return authorizedWorkerRequest("/custody-groups/delete", {
+  const result = await authorizedWorkerRequest("/custody-groups/delete", {
     groupId,
   });
+
+  if (!result) {
+    throw new Error("Kinely API is required to delete custody groups.");
+  }
+
+  return result;
 }
 
 export async function saveCustodyDaysViaWorker({ familyId, custodyGroupId, days }) {

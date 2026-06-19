@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "custody-budget-2026-06-19-01";
+const WORKER_VERSION = "custody-groups-2026-06-19-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -169,6 +169,15 @@ function allowedOrigin(request, env) {
 function cleanText(value, fallback = "") {
   const text = String(value || "").trim();
   return text || fallback;
+}
+
+function normalizeKey(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function normalizeEmail(value) {
@@ -2663,6 +2672,75 @@ function normalizeChildLinkIds(payload = {}, childIds = []) {
   );
 }
 
+function normalizeChildRecordForCustodySave(child = {}, { existingChild = null, familyId = "", groupId = "", token = {}, now = "" } = {}) {
+  const raw = mapOrEmpty(child);
+  const childId = cleanText(raw.id || raw.childId || raw.child_id || existingChild?.id);
+  if (!childId) return null;
+
+  const name = cleanText(
+    raw.name ||
+    raw.childName ||
+    raw.child_name ||
+    raw.displayName ||
+    existingChild?.name ||
+    existingChild?.childName ||
+    existingChild?.child_name ||
+    "Child"
+  );
+  const custodyGroupIds = mergeIdList(
+    existingChild?.custodyGroupIds,
+    existingChild?.custody_group_ids,
+    raw.custodyGroupIds,
+    raw.custody_group_ids,
+    groupId
+  );
+  const linkedFamilyIds = mergeIdList(
+    existingChild?.linkedFamilyIds,
+    existingChild?.linked_family_ids,
+    raw.linkedFamilyIds,
+    raw.linked_family_ids,
+    familyId
+  );
+  const createdBy = cleanText(existingChild?.createdBy || existingChild?.created_by || raw.createdBy || raw.created_by || token.sub);
+  const createdByEmail = normalizeEmail(existingChild?.createdByEmail || existingChild?.created_by_email || raw.createdByEmail || raw.created_by_email || token.email);
+  const createdAt = cleanText(existingChild?.createdAt || existingChild?.created_at || raw.createdAt || raw.created_at || now);
+
+  return {
+    ...existingChild,
+    ...raw,
+    id: childId,
+    childId,
+    child_id: childId,
+    name,
+    childName: name,
+    child_name: name,
+    nameKey: cleanText(raw.nameKey || raw.name_key || existingChild?.nameKey || existingChild?.name_key || normalizeKey(name)),
+    name_key: cleanText(raw.name_key || raw.nameKey || existingChild?.name_key || existingChild?.nameKey || normalizeKey(name)),
+    familyId: cleanText(raw.familyId || raw.family_id || existingChild?.familyId || existingChild?.family_id || familyId),
+    family_id: cleanText(raw.family_id || raw.familyId || existingChild?.family_id || existingChild?.familyId || familyId),
+    householdFamilyId: cleanText(raw.householdFamilyId || raw.household_family_id || existingChild?.householdFamilyId || existingChild?.household_family_id || familyId),
+    household_family_id: cleanText(raw.household_family_id || raw.householdFamilyId || existingChild?.household_family_id || existingChild?.householdFamilyId || familyId),
+    linkedFamilyIds,
+    linked_family_ids: linkedFamilyIds,
+    custodyGroupIds,
+    custody_group_ids: custodyGroupIds,
+    relationshipType: cleanText(raw.relationshipType || raw.relationship_type || existingChild?.relationshipType || existingChild?.relationship_type, "external_custody"),
+    relationship_type: cleanText(raw.relationship_type || raw.relationshipType || existingChild?.relationship_type || existingChild?.relationshipType, "external_custody"),
+    createdBy,
+    created_by: createdBy,
+    createdByEmail,
+    created_by_email: createdByEmail,
+    createdAt,
+    created_at: createdAt,
+    updatedAt: now,
+    updated_at: now,
+    updatedBy: cleanText(token.sub),
+    updated_by: cleanText(token.sub),
+    updatedByEmail: normalizeEmail(token.email),
+    updated_by_email: normalizeEmail(token.email),
+  };
+}
+
 async function handleCustodyGroupSave(request, env, origin) {
   const token = await verifyFirebaseToken(request, env);
   const payload = await request.json();
@@ -2720,16 +2798,24 @@ async function handleCustodyGroupSave(request, env, origin) {
     }));
   }
 
+  const childRecords = new Map();
+  listOrEmpty(group.children).forEach((child) => {
+    const childMap = mapOrEmpty(child);
+    const childId = cleanText(childMap.id || childMap.childId || childMap.child_id);
+    if (childId) childRecords.set(childId, childMap);
+  });
+
   const childIds = normalizeChildLinkIds(group, payload.childIds || payload.child_ids || []);
   for (const childId of childIds) {
     const child = await firestoreGetDoc(env, "children", childId);
-    const custodyGroupIds = mergeIdList(child?.custodyGroupIds, child?.custody_group_ids, requestedGroupId);
-    writes.push(firestoreMergeWrite(env, "children", childId, {
-      custodyGroupIds,
-      custody_group_ids: custodyGroupIds,
-      updatedAt: now,
-      updated_at: now,
-    }));
+    const childPayload = normalizeChildRecordForCustodySave(childRecords.get(childId) || { id: childId }, {
+      existingChild: child,
+      familyId,
+      groupId: requestedGroupId,
+      token,
+      now,
+    });
+    if (childPayload) writes.push(firestoreMergeWrite(env, "children", childId, childPayload));
   }
 
   await firestoreCommit(env, writes);
