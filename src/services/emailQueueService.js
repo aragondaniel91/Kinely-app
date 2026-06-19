@@ -1,10 +1,6 @@
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
 import { normalizeInviteEmail } from "@/lib/invitationUtils";
 import { authorizedWorkerRequest } from "@/services/kinelyApiClient";
 
-const MAIL_COLLECTION = "mail";
 const FAMILY_INVITATION_KIND = "family_invitation";
 const CUSTODY_INVITATION_KIND = "custody_invitation";
 const NOTIFICATION_KIND = "notification";
@@ -78,6 +74,7 @@ function mailPayload({
   metadata = {},
 }) {
   const recipientEmail = normalizeInviteEmail(to);
+  const now = new Date().toISOString();
 
   return {
     id,
@@ -97,8 +94,8 @@ function mailPayload({
     createdBy: cleanText(createdBy),
     createdByEmail: normalizeInviteEmail(createdByEmail),
     metadata,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -244,11 +241,11 @@ export async function queueEmailPayload(payload) {
       return result?.id || payload.id;
     }
   } catch (error) {
-    console.warn("Kinely email Worker delivery failed; writing to Firestore mail queue.", error);
+    console.warn("Kinely email Worker delivery failed.", error);
+    throw error;
   }
 
-  await setDoc(doc(db, MAIL_COLLECTION, payload.id), payload, { merge: true });
-  return payload.id;
+  throw new Error("Kinely API is required to send email.");
 }
 
 export async function sendFamilyInvitationViaWorker(options) {

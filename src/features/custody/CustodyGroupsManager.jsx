@@ -918,7 +918,7 @@ export default function CustodyGroupsManager() {
               const workerResult = await sendCustodyInvitationViaWorker(inviteDeliveryOptions);
               if (workerResult) return workerResult;
             } catch (workerError) {
-              console.warn("Custody invitation Worker delivery failed, falling back to Firestore queue:", workerError);
+              console.warn("Custody invitation Worker delivery failed; trying generic Worker email:", workerError);
             }
 
             return queueCustodyInvitationEmail(inviteDeliveryOptions);

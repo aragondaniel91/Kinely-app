@@ -1,14 +1,11 @@
 import { useMemo, useState } from "react";
 import { getAuth, updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
 import { Baby, Palette, Pencil, Plus, Shield, Trash2 } from "lucide-react";
 
 import { useFamily } from "@/lib/FamilyContext";
-import { db } from "@/lib/firebase";
 import {
   INVITATION_TYPES,
   buildFamilyInvitation,
-  familyInvitationId,
   withPendingFamilyInvitation,
 } from "@/lib/invitationUtils";
 import {
@@ -1035,16 +1032,10 @@ export default function ProfileMembersSection() {
           invitationHandledByWorker = Boolean(workerResult);
           invitationEmailQueued = true;
         } catch (workerError) {
-          console.warn("Family invitation Worker delivery failed, falling back to Firestore queue:", workerError);
+          console.warn("Family invitation Worker delivery failed; trying generic Worker email:", workerError);
         }
 
         if (!invitationHandledByWorker) {
-          await setDoc(
-            doc(db, "familyInvitations", familyInvitationId(familyId, email)),
-            pendingInvite,
-            { merge: true }
-          );
-
           try {
             await queueFamilyInvitationEmail(inviteDeliveryOptions);
             invitationEmailQueued = true;
