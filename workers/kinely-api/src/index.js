@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "custody-exchanges-2026-06-19-01";
+const WORKER_VERSION = "custody-packing-2026-06-19-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -42,6 +42,8 @@ const CUSTODY_COLLECTIONS = [
 
 const CUSTODY_SCOPED_RECORD_COLLECTIONS = new Set([
   "custodyExchanges",
+  "custodyPackingItems",
+  "custodyPackingTemplates",
   "custodySpecialEvents",
   "custodyTravelPlans",
 ]);
@@ -187,6 +189,14 @@ function listOrEmpty(value) {
 
 function mapOrEmpty(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function booleanValue(value, fallback = false) {
+  if (typeof value === "boolean") return value;
+  const normalized = cleanText(value).toLowerCase();
+  if (["true", "yes", "1", "important", "required"].includes(normalized)) return true;
+  if (["false", "no", "0"].includes(normalized)) return false;
+  return fallback;
 }
 
 function uniqueStrings(values = []) {
@@ -3010,6 +3020,63 @@ function normalizeCustodyScopedRecordForWrite(collectionName = "", raw = {}, { e
       notes: cleanText(record.notes),
       status: cleanText(record.status, "pending"),
       source: cleanText(record.source, "manual"),
+      order,
+    };
+  }
+
+  if (collection === "custodyPackingItems") {
+    const owner = cleanText(record.owner || record.assignedTo || record.assigned_to, "Shared");
+    const order = Number.isFinite(Number(record.order)) ? Number(record.order) : 999;
+
+    return {
+      ...base,
+      id,
+      name: cleanText(record.name, "Packing item"),
+      category: cleanText(record.category, "General"),
+      owner,
+      assignedTo: owner,
+      assigned_to: owner,
+      status: cleanText(record.status, "review"),
+      important: booleanValue(record.important),
+      templateId: cleanText(record.templateId || record.template_id),
+      template_id: cleanText(record.template_id || record.templateId),
+      order,
+    };
+  }
+
+  if (collection === "custodyPackingTemplates") {
+    const items = listOrEmpty(record.items)
+      .map((item) => {
+        const itemMap = mapOrEmpty(item);
+        const name = cleanText(itemMap.name);
+        if (!name) return null;
+
+        const owner = cleanText(itemMap.owner || itemMap.assignedTo || itemMap.assigned_to, "Shared");
+        return {
+          name,
+          category: cleanText(itemMap.category, "General"),
+          owner,
+          assignedTo: owner,
+          assigned_to: owner,
+          status: cleanText(itemMap.status, "review"),
+          important: booleanValue(itemMap.important),
+        };
+      })
+      .filter(Boolean);
+    const order = Number.isFinite(Number(record.order)) ? Number(record.order) : 999;
+
+    return {
+      ...base,
+      id,
+      label: cleanText(record.label, "Custom list"),
+      description: cleanText(record.description, "Reusable packing list."),
+      tone: cleanText(record.tone, "blue"),
+      items,
+      itemCount: items.length,
+      item_count: items.length,
+      isCustom: true,
+      is_custom: true,
+      system: false,
       order,
     };
   }

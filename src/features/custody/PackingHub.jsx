@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import {
   Backpack,
   CheckCircle2,
@@ -30,9 +29,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import AppDialog from "@/components/app/AppDialog";
-import { db } from "@/lib/firebase";
 import { useFamily } from "@/lib/FamilyContext";
 import { getCustodyScopedDocSnaps } from "@/lib/firestoreFamilyQueries";
+import {
+  deleteCustodyScopedRecordViaWorker,
+  saveCustodyScopedRecordViaWorker,
+} from "@/services/custodyBackendService";
 import { queueFamilyActivity } from "@/services/familyActivityService";
 import {
   custodyPackingTemplates,
@@ -523,9 +525,12 @@ function PeaceOfMindCard() {
 }
 
 function normalizePackingDoc(docSnap) {
-  const data = docSnap.data();
+  return normalizePackingData(docSnap.data(), docSnap.id);
+}
+
+function normalizePackingData(data = {}, id = "") {
   return {
-    id: docSnap.id,
+    id: data.id || id,
     name: data.name || "Packing item",
     category: data.category || "General",
     owner: data.owner || data.assignedTo || data.assigned_to || "Shared",
@@ -536,9 +541,12 @@ function normalizePackingDoc(docSnap) {
 }
 
 function normalizePackingTemplateDoc(docSnap) {
-  const data = docSnap.data();
+  return normalizePackingTemplateData(docSnap.data(), docSnap.id);
+}
+
+function normalizePackingTemplateData(data = {}, id = "") {
   return {
-    id: docSnap.id,
+    id: data.id || id,
     label: data.label || "Custom list",
     description: data.description || "Reusable packing list.",
     tone: data.tone || "blue",
@@ -762,16 +770,28 @@ export default function PackingHub() {
     );
 
     try {
-      await updateDoc(doc(db, "custodyPackingItems", id), {
-        status: nextStatus,
-        updatedBy: user?.uid || "",
-        updated_by: user?.uid || "",
-        updatedByEmail: user?.email || "",
-        updated_by_email: user?.email || "",
-        updatedAt: serverTimestamp(),
-        updated_at: serverTimestamp(),
+      const result = await saveCustodyScopedRecordViaWorker({
+        collectionName: "custodyPackingItems",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        record: {
+          ...currentItem,
+          id,
+          status: nextStatus,
+          ...custodyScopeFields,
+          updatedBy: user?.uid || "",
+          updated_by: user?.uid || "",
+          updatedByEmail: user?.email || "",
+          updated_by_email: user?.email || "",
+        },
       });
-      logPackingActivity("status", { ...currentItem, status: nextStatus });
+      const updatedItem = normalizePackingData(result?.record || { ...currentItem, status: nextStatus }, id);
+      setItems((current) =>
+        sortPackingItems(current.map((item) =>
+          item.id === id ? updatedItem : item
+        ))
+      );
+      logPackingActivity("status", updatedItem);
     } catch (error) {
       console.error("Error updating packing item:", error);
       setItems((current) =>
@@ -779,6 +799,11 @@ export default function PackingHub() {
           item.id === id ? { ...item, status: currentItem.status } : item
         )
       );
+      showNotice({
+        tone: "danger",
+        title: "Could not update packing item",
+        message: error.message,
+      });
     }
   };
 
@@ -804,13 +829,16 @@ export default function PackingHub() {
         updated_by: user.uid,
         updatedByEmail: user.email || "",
         updated_by_email: user.email || "",
-        updatedAt: serverTimestamp(),
-        updated_at: serverTimestamp(),
       };
 
       if (editingItem) {
-        await updateDoc(doc(db, "custodyPackingItems", editingItem.id), payload);
-        const updatedItem = { ...editingItem, ...payload, id: editingItem.id };
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyPackingItems",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: { ...editingItem, ...payload, id: editingItem.id },
+        });
+        const updatedItem = normalizePackingData(result?.record || { ...editingItem, ...payload }, editingItem.id);
         setItems((current) =>
           sortPackingItems(current.map((item) =>
             item.id === editingItem.id ? updatedItem : item
@@ -826,12 +854,15 @@ export default function PackingHub() {
           createdByEmail: user.email || "",
           created_by_email: user.email || "",
           order,
-          createdAt: serverTimestamp(),
-          created_at: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, "custodyPackingItems"), createPayload);
-        const createdItem = { ...createPayload, id: docRef.id };
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyPackingItems",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: createPayload,
+        });
+        const createdItem = normalizePackingData(result?.record || createPayload, result?.recordId);
         setItems((current) => sortPackingItems([...current, createdItem]));
         logPackingActivity("created", createdItem);
       }
@@ -854,7 +885,12 @@ export default function PackingHub() {
     setItems((current) => current.filter((item) => item.id !== itemToDelete.id));
 
     try {
-      await deleteDoc(doc(db, "custodyPackingItems", itemToDelete.id));
+      await deleteCustodyScopedRecordViaWorker({
+        collectionName: "custodyPackingItems",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        recordId: itemToDelete.id,
+      });
       logPackingActivity("deleted", itemToDelete);
     } catch (error) {
       console.error("Error deleting packing item:", error);
@@ -901,13 +937,19 @@ export default function PackingHub() {
         updated_by: user.uid,
         updatedByEmail: user.email || "",
         updated_by_email: user.email || "",
-        updatedAt: serverTimestamp(),
-        updated_at: serverTimestamp(),
       };
 
       if (editingTemplate) {
-        await updateDoc(doc(db, "custodyPackingTemplates", editingTemplate.id), payload);
-        const updatedTemplate = { ...editingTemplate, ...payload, id: editingTemplate.id, system: false };
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyPackingTemplates",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: { ...editingTemplate, ...payload, id: editingTemplate.id },
+        });
+        const updatedTemplate = normalizePackingTemplateData(
+          { ...(result?.record || { ...editingTemplate, ...payload }), system: false },
+          editingTemplate.id
+        );
         setCustomTemplates((current) =>
           current.map((template) => (template.id === editingTemplate.id ? updatedTemplate : template))
         );
@@ -919,12 +961,18 @@ export default function PackingHub() {
           createdByEmail: user.email || "",
           created_by_email: user.email || "",
           order: customTemplates.length,
-          createdAt: serverTimestamp(),
-          created_at: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, "custodyPackingTemplates"), createPayload);
-        const createdTemplate = { ...createPayload, id: docRef.id, system: false };
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyPackingTemplates",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: createPayload,
+        });
+        const createdTemplate = normalizePackingTemplateData(
+          { ...(result?.record || createPayload), system: false },
+          result?.recordId
+        );
         setCustomTemplates((current) => [...current, createdTemplate]);
       }
 
@@ -948,7 +996,12 @@ export default function PackingHub() {
     setCustomTemplates((current) => current.filter((template) => template.id !== templateToDelete.id));
 
     try {
-      await deleteDoc(doc(db, "custodyPackingTemplates", templateToDelete.id));
+      await deleteCustodyScopedRecordViaWorker({
+        collectionName: "custodyPackingTemplates",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        recordId: templateToDelete.id,
+      });
     } catch (error) {
       console.error("Error deleting packing template:", error);
       setCustomTemplates(previousTemplates);
@@ -990,9 +1043,8 @@ export default function PackingHub() {
     setApplyingTemplateId(template.id);
 
     try {
-      const batch = writeBatch(db);
-      const createdItems = templateItems.map((templateItem, index) => {
-        const docRef = doc(collection(db, "custodyPackingItems"));
+      const createdItems = [];
+      for (const [index, templateItem] of templateItems.entries()) {
         const itemPayload = {
           name: templateItem.name,
           category: templateItem.category || template.label,
@@ -1013,17 +1065,17 @@ export default function PackingHub() {
           updatedByEmail: user.email || "",
           updated_by_email: user.email || "",
           order: items.length + index,
-          createdAt: serverTimestamp(),
-          created_at: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          updated_at: serverTimestamp(),
         };
 
-        batch.set(docRef, itemPayload);
-        return { id: docRef.id, ...itemPayload };
-      });
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyPackingItems",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: itemPayload,
+        });
+        createdItems.push(normalizePackingData(result?.record || itemPayload, result?.recordId));
+      }
 
-      await batch.commit();
       setItems((current) => sortPackingItems([...current, ...createdItems]));
       logPackingActivity("template", {
         id: template.id,
