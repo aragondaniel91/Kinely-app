@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "custody-groups-2026-06-19-01";
+const WORKER_VERSION = "custody-groups-2026-06-19-02";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -184,13 +184,17 @@ function normalizeEmail(value) {
   return cleanText(value).toLowerCase();
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
+}
+
 function asEmailList(value) {
   if (Array.isArray(value)) {
-    return [...new Set(value.map(normalizeEmail).filter(Boolean))];
+    return [...new Set(value.map(normalizeEmail).filter(isValidEmail))];
   }
 
   const email = normalizeEmail(value);
-  return email ? [email] : [];
+  return isValidEmail(email) ? [email] : [];
 }
 
 function listOrEmpty(value) {
@@ -1742,6 +1746,9 @@ function normalizeFamilyInvitation(raw = {}, token = {}) {
   if (!familyId || !recipientEmail) {
     throw new Error("Family invitation requires familyId and recipientEmail.");
   }
+  if (!isValidEmail(recipientEmail)) {
+    throw new Error(`Family invitation email is invalid: ${recipientEmail}`);
+  }
 
   const id = cleanText(raw.id, familyInvitationId(familyId, recipientEmail));
   return {
@@ -1769,6 +1776,9 @@ function normalizeCustodyInvitation(raw = {}, token = {}) {
   const now = new Date().toISOString();
   if (!groupId || !recipientEmail) {
     throw new Error("Custody invitation requires groupId and recipientEmail.");
+  }
+  if (!isValidEmail(recipientEmail)) {
+    throw new Error(`Custody invitation email is invalid: ${recipientEmail}`);
   }
 
   const id = cleanText(raw.id, custodyInvitationId(groupId, recipientEmail));
@@ -2288,8 +2298,10 @@ function activityEmail(env, notification = {}) {
 async function sendWithResend(env, mail) {
   const apiKey = cleanText(env.RESEND_API_KEY);
   const from = cleanText(env.MAIL_FROM);
+  const to = asEmailList(mail.to);
   if (!apiKey) throw new Error("RESEND_API_KEY secret is not configured.");
   if (!from) throw new Error("MAIL_FROM secret is not configured.");
+  if (!to.length) throw new Error("Email requires at least one valid recipient address.");
 
   const response = await fetch(RESEND_ENDPOINT, {
     method: "POST",
@@ -2299,7 +2311,7 @@ async function sendWithResend(env, mail) {
     },
     body: JSON.stringify({
       from,
-      to: mail.to,
+      to,
       subject: mail.subject,
       text: mail.text || undefined,
       html: mail.html || undefined,
@@ -2741,6 +2753,45 @@ function normalizeChildRecordForCustodySave(child = {}, { existingChild = null, 
   };
 }
 
+async function findExistingChildForCustodyRecord(env, child = {}, familyId = "") {
+  const raw = mapOrEmpty(child);
+  const name = cleanText(raw.name || raw.childName || raw.child_name);
+  const nameKey = cleanText(raw.nameKey || raw.name_key || normalizeKey(name));
+  const householdFamilyId = cleanText(familyId || raw.householdFamilyId || raw.household_family_id || raw.familyId || raw.family_id);
+
+  if (!nameKey || !householdFamilyId) return null;
+
+  const results = await Promise.all([
+    firestoreRunQuery(env, {
+      from: [{ collectionId: "children" }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: "nameKey" },
+          op: "EQUAL",
+          value: { stringValue: nameKey },
+        },
+      },
+      limit: 25,
+    }),
+    firestoreRunQuery(env, {
+      from: [{ collectionId: "children" }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: "name_key" },
+          op: "EQUAL",
+          value: { stringValue: nameKey },
+        },
+      },
+      limit: 25,
+    }),
+  ]);
+  const matches = [...new Map(results.flat().map((doc) => [doc.id, doc])).values()];
+
+  return matches.find((match) => (
+    cleanText(match.householdFamilyId || match.household_family_id || match.familyId || match.family_id) === householdFamilyId
+  )) || null;
+}
+
 async function handleCustodyGroupSave(request, env, origin) {
   const token = await verifyFirebaseToken(request, env);
   const payload = await request.json();
@@ -2782,10 +2833,7 @@ async function handleCustodyGroupSave(request, env, origin) {
     };
   });
 
-  const writes = [
-    firestoreMergeWrite(env, "custodyGroups", requestedGroupId, group),
-    ...invitations.map((invite) => firestoreMergeWrite(env, "custodyInvitations", invite.id, invite)),
-  ];
+  const writes = [];
 
   const family = await firestoreGetDoc(env, "families", familyId);
   if (family) {
@@ -2805,18 +2853,49 @@ async function handleCustodyGroupSave(request, env, origin) {
     if (childId) childRecords.set(childId, childMap);
   });
 
-  const childIds = normalizeChildLinkIds(group, payload.childIds || payload.child_ids || []);
-  for (const childId of childIds) {
-    const child = await firestoreGetDoc(env, "children", childId);
-    const childPayload = normalizeChildRecordForCustodySave(childRecords.get(childId) || { id: childId }, {
-      existingChild: child,
+  const resolvedChildren = [];
+  const rawChildIds = normalizeChildLinkIds(group, payload.childIds || payload.child_ids || []);
+  for (const rawChildId of rawChildIds) {
+    const childRecord = childRecords.get(rawChildId) || { id: rawChildId };
+    const directChild = await firestoreGetDoc(env, "children", rawChildId);
+    const existingChild = directChild || await findExistingChildForCustodyRecord(env, childRecord, familyId);
+    const childPayload = normalizeChildRecordForCustodySave({
+      ...childRecord,
+      id: existingChild?.id || rawChildId,
+      childId: existingChild?.id || rawChildId,
+      child_id: existingChild?.id || rawChildId,
+    }, {
+      existingChild,
       familyId,
       groupId: requestedGroupId,
       token,
       now,
     });
-    if (childPayload) writes.push(firestoreMergeWrite(env, "children", childId, childPayload));
+    if (!childPayload) continue;
+    resolvedChildren.push({
+      id: childPayload.id,
+      childId: childPayload.id,
+      name: childPayload.name,
+      nameKey: childPayload.nameKey,
+      color: childPayload.color || "green",
+      relationshipType: childPayload.relationshipType || "external_custody",
+    });
+    writes.push(firestoreMergeWrite(env, "children", childPayload.id, childPayload));
   }
+  const childIds = resolvedChildren.length ? mergeIdList(resolvedChildren.map((child) => child.id)) : rawChildIds;
+  group = {
+    ...group,
+    children: resolvedChildren.length ? resolvedChildren : group.children,
+    childIds,
+    child_ids: childIds,
+    childNames: resolvedChildren.length ? resolvedChildren.map((child) => child.name).filter(Boolean) : group.childNames,
+    child_names: resolvedChildren.length ? resolvedChildren.map((child) => child.name).filter(Boolean) : group.child_names,
+  };
+
+  writes.unshift(
+    firestoreMergeWrite(env, "custodyGroups", requestedGroupId, group),
+    ...invitations.map((invite) => firestoreMergeWrite(env, "custodyInvitations", invite.id, invite))
+  );
 
   await firestoreCommit(env, writes);
 

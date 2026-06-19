@@ -3,8 +3,6 @@ import { Baby, Eye, Pencil, Plus, ShieldCheck, Trash2, Users, WalletCards } from
 import {
   collection,
   getDocs,
-  query,
-  where,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
@@ -67,6 +65,10 @@ function splitCsv(value) {
 
 function splitEmailCsv(value) {
   return [...new Set(splitCsv(value).map(normalizeEmail).filter(Boolean))];
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
 }
 
 function getPendingMemberEmails(group) {
@@ -539,25 +541,6 @@ export default function CustodyGroupsManager() {
 
     for (const name of cleanNames) {
       const nameKey = normalizeKey(name);
-      let existing = null;
-
-      try {
-        const q = query(
-          collection(db, "children"),
-          where("householdFamilyId", "==", familyId),
-          where("nameKey", "==", nameKey)
-        );
-        const snap = await getDocs(q);
-        existing = snap.docs[0] || null;
-      } catch (error) {
-        console.warn("Could not query child record, creating a new one:", error);
-      }
-
-      if (existing) {
-        records.push(normalizeChildRecord({ id: existing.id, ...existing.data() }));
-        continue;
-      }
-
       const childId = makeClientId("child");
       const childPayload = {
         id: childId,
@@ -612,6 +595,13 @@ export default function CustodyGroupsManager() {
       ...budgetViewerEmails,
       ...budgetEditorEmails,
     ]).filter((email) => !blockedParentEmails.has(email));
+    const invalidEmails = normalizeEmailList([
+      dadEmail,
+      momEmail,
+      ...splitEmailCsv(form.viewerEmails),
+      ...splitEmailCsv(form.budgetViewerEmails),
+      ...splitEmailCsv(form.budgetEditorEmails),
+    ]).filter((email) => !isValidEmail(email));
 
     if (!cleanName) {
       showNotice({
@@ -627,6 +617,15 @@ export default function CustodyGroupsManager() {
         tone: "warning",
         title: "Child required",
         message: "Please add at least one child.",
+      });
+      return;
+    }
+
+    if (invalidEmails.length) {
+      showNotice({
+        tone: "warning",
+        title: "Check email format",
+        message: `These emails are not valid: ${invalidEmails.join(", ")}. Use email@example.com format.`,
       });
       return;
     }
