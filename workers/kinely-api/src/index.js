@@ -5,7 +5,7 @@ const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BATCH_SIZE = 400;
 const FIRESTORE_COMMIT_MAX_ATTEMPTS = 5;
 const EMAIL_DELIVERIES_COLLECTION = "emailDeliveries";
-const WORKER_VERSION = "custody-packing-2026-06-19-01";
+const WORKER_VERSION = "custody-budget-2026-06-19-01";
 
 const HOUSEHOLD_COLLECTIONS = [
   "familyEvents",
@@ -42,6 +42,7 @@ const CUSTODY_COLLECTIONS = [
 
 const CUSTODY_SCOPED_RECORD_COLLECTIONS = new Set([
   "custodyExchanges",
+  "custodyExpenses",
   "custodyPackingItems",
   "custodyPackingTemplates",
   "custodySpecialEvents",
@@ -197,6 +198,12 @@ function booleanValue(value, fallback = false) {
   if (["true", "yes", "1", "important", "required"].includes(normalized)) return true;
   if (["false", "no", "0"].includes(normalized)) return false;
   return fallback;
+}
+
+function moneyValue(value, fallback = 0) {
+  const number = Number(value ?? fallback);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.round(number * 100) / 100;
 }
 
 function uniqueStrings(values = []) {
@@ -1413,6 +1420,27 @@ function canWriteCustodyGroup(group = {}, token = {}) {
     (uid && writerIds.includes(uid)) ||
     (email && writerEmails.includes(email)) ||
     memberCanWriteModule(findPrincipalMember(group, token), "custody")
+  );
+}
+
+function canWriteCustodyBudgetGroup(group = {}, token = {}) {
+  if (canManageCustodyGroup(group, token)) return true;
+
+  const uid = cleanText(token.sub);
+  const email = normalizeEmail(token.email);
+  const writerIds = uniqueStrings([
+    group.budgetWriterIds,
+    group.budget_writer_ids,
+  ].flat());
+  const writerEmails = uniqueStrings([
+    group.budgetWriterEmails,
+    group.budget_writer_emails,
+  ].flat()).map(normalizeEmail);
+
+  return Boolean(
+    (uid && writerIds.includes(uid)) ||
+    (email && writerEmails.includes(email)) ||
+    memberCanWriteModule(findPrincipalMember(group, token), "budget")
   );
 }
 
@@ -2748,13 +2776,18 @@ function normalizeDateKey(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
 }
 
-async function assertCustodyDayWriteAccess(env, { familyId = "", custodyGroupId = "" } = {}, token = {}) {
+async function assertCustodyDayWriteAccess(env, { familyId = "", custodyGroupId = "", moduleName = "custody" } = {}, token = {}) {
+  const normalizedModule = cleanText(moduleName, "custody");
   const groupId = cleanText(custodyGroupId);
   const group = groupId ? await firestoreGetDoc(env, "custodyGroups", groupId) : null;
 
   if (group) {
-    if (!canWriteCustodyGroup(group, token)) {
-      return { forbidden: true, error: "You do not have write access to this custody group." };
+    const canWrite = normalizedModule === "budget"
+      ? canWriteCustodyBudgetGroup(group, token)
+      : canWriteCustodyGroup(group, token);
+
+    if (!canWrite) {
+      return { forbidden: true, error: `You do not have write access to this custody ${normalizedModule}.` };
     }
 
     return {
@@ -2772,8 +2805,8 @@ async function assertCustodyDayWriteAccess(env, { familyId = "", custodyGroupId 
     return { forbidden: true, error: "Custody scope was not found." };
   }
 
-  if (!canWriteFamilyModule(family, token, "custody")) {
-    return { forbidden: true, error: "You do not have permission to edit custody for this family space." };
+  if (!canWriteFamilyModule(family, token, normalizedModule)) {
+    return { forbidden: true, error: `You do not have permission to edit ${normalizedModule} for this family space.` };
   }
 
   return {
@@ -3081,6 +3114,81 @@ function normalizeCustodyScopedRecordForWrite(collectionName = "", raw = {}, { e
     };
   }
 
+  if (collection === "custodyExpenses") {
+    const amount = moneyValue(record.amount);
+    const parent1ShareAmount = moneyValue(record.parent1ShareAmount ?? record.parent1_share_amount);
+    const parent2ShareAmount = moneyValue(record.parent2ShareAmount ?? record.parent2_share_amount);
+    const parent1PaidAmount = moneyValue(record.parent1PaidAmount ?? record.parent1_paid_amount);
+    const parent2PaidAmount = moneyValue(record.parent2PaidAmount ?? record.parent2_paid_amount);
+    const splitType = cleanText(record.splitType || record.split_type || record.split, "50/50");
+    const reviewFlag = booleanValue(record.reviewFlag ?? record.review_flag);
+    const order = Number.isFinite(Number(record.order)) ? Number(record.order) : 999;
+    const payments = listOrEmpty(record.payments)
+      .map((payment) => {
+        const paymentMap = mapOrEmpty(payment);
+        const paymentId = cleanText(paymentMap.id || paymentMap.paymentId || paymentMap.payment_id || crypto.randomUUID());
+        const paymentCreatedBy = cleanText(paymentMap.createdBy || paymentMap.created_by || token.sub);
+        const paymentCreatedByEmail = normalizeEmail(paymentMap.createdByEmail || paymentMap.created_by_email || token.email);
+        const paymentCreatedAt = cleanText(paymentMap.createdAt || paymentMap.created_at || now);
+        const reversesPaymentId = cleanText(paymentMap.reversesPaymentId || paymentMap.reverses_payment_id);
+
+        return {
+          ...paymentMap,
+          id: paymentId,
+          paymentId,
+          payment_id: paymentId,
+          type: cleanText(paymentMap.type, "payment"),
+          parent: cleanText(paymentMap.parent),
+          amount: moneyValue(paymentMap.amount),
+          note: cleanText(paymentMap.note),
+          reversesPaymentId,
+          reverses_payment_id: reversesPaymentId,
+          createdBy: paymentCreatedBy,
+          created_by: paymentCreatedBy,
+          createdByEmail: paymentCreatedByEmail,
+          created_by_email: paymentCreatedByEmail,
+          createdAt: paymentCreatedAt,
+          created_at: paymentCreatedAt,
+        };
+      });
+
+    return {
+      ...base,
+      id,
+      module: "budget",
+      visibility: "custody_budget",
+      title: cleanText(record.title, "Expense"),
+      category: cleanText(record.category, "General"),
+      amount,
+      splitType,
+      split_type: splitType,
+      split: cleanText(record.split || splitType, splitType),
+      parent1ShareAmount,
+      parent1_share_amount: parent1ShareAmount,
+      parent2ShareAmount,
+      parent2_share_amount: parent2ShareAmount,
+      parent1PaidAmount,
+      parent1_paid_amount: parent1PaidAmount,
+      parent2PaidAmount,
+      parent2_paid_amount: parent2PaidAmount,
+      paidBy: cleanText(record.paidBy || record.paid_by, "Shared"),
+      paid_by: cleanText(record.paid_by || record.paidBy, "Shared"),
+      due: cleanText(record.due),
+      dueDate: cleanText(record.dueDate || record.due_date),
+      due_date: cleanText(record.due_date || record.dueDate),
+      dueDayOfMonth: cleanText(record.dueDayOfMonth || record.due_day_of_month),
+      due_day_of_month: cleanText(record.due_day_of_month || record.dueDayOfMonth),
+      recurring: booleanValue(record.recurring),
+      payments,
+      reviewFlag,
+      review_flag: reviewFlag,
+      reviewNote: cleanText(record.reviewNote || record.review_note),
+      review_note: cleanText(record.review_note || record.reviewNote),
+      status: cleanText(record.status, reviewFlag ? "review" : "open"),
+      order,
+    };
+  }
+
   const startDate = normalizeDateKey(record.startDate || record.start_date);
   const endDate = normalizeDateKey(record.endDate || record.end_date || startDate);
   if (!startDate || !endDate) throw new Error("Custody travel plan requires start and end dates.");
@@ -3137,10 +3245,12 @@ async function handleCustodyScopedRecordSave(request, env, origin) {
     rawRecord.custody_group_id ||
     requestedFamilyId
   );
+  const moduleName = collectionName === "custodyExpenses" ? "budget" : "custody";
 
   const scope = await assertCustodyDayWriteAccess(env, {
     familyId: requestedFamilyId,
     custodyGroupId: requestedGroupId,
+    moduleName,
   }, token);
 
   if (scope.forbidden) {
@@ -3193,10 +3303,12 @@ async function handleCustodyScopedRecordDelete(request, env, origin) {
     payload.custody_group_id ||
     requestedFamilyId
   );
+  const moduleName = collectionName === "custodyExpenses" ? "budget" : "custody";
 
   const scope = await assertCustodyDayWriteAccess(env, {
     familyId: requestedFamilyId,
     custodyGroupId: requestedGroupId,
+    moduleName,
   }, token);
 
   if (scope.forbidden) {

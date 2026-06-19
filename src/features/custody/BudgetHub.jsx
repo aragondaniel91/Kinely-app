@@ -1,13 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  addDoc,
   collection,
-  deleteDoc,
-  doc,
   onSnapshot,
   query,
-  serverTimestamp,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import {
@@ -28,6 +23,10 @@ import { useFamily } from "@/lib/FamilyContext";
 import { canReadModule, canWriteModule } from "@/lib/modulePermissions";
 import { getColorClasses, normalizeColorId } from "@/lib/appColorUtils";
 import { uniqueFirestoreDocsFromSnapshots } from "@/core/firestore/firestoreDocUtils";
+import {
+  deleteCustodyScopedRecordViaWorker,
+  saveCustodyScopedRecordViaWorker,
+} from "@/services/custodyBackendService";
 import { queueFamilyActivity } from "@/services/familyActivityService";
 import { currency, getBudgetSummary, getExpenseLedger, validateExpenseLedger } from "@/data/custodyBudget";
 import BudgetExpenseCard from "./components/budget/BudgetExpenseCard";
@@ -46,28 +45,27 @@ function makePaymentId() {
   return `payment-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function normalizeExpenseDoc(docSnap) {
-  const data = docSnap.data();
+function normalizeExpenseData(data = {}, id = "") {
   const expense = {
-    id: docSnap.id,
+    id: data.id || id,
     title: data.title || "Expense",
     category: data.category || "General",
     amount: Number(data.amount || 0),
-    splitType: data.splitType || data.split || "50/50",
-    parent1ShareAmount: data.parent1ShareAmount,
-    parent2ShareAmount: data.parent2ShareAmount,
-    parent1PaidAmount: data.parent1PaidAmount,
-    parent2PaidAmount: data.parent2PaidAmount,
+    splitType: data.splitType || data.split_type || data.split || "50/50",
+    parent1ShareAmount: data.parent1ShareAmount ?? data.parent1_share_amount,
+    parent2ShareAmount: data.parent2ShareAmount ?? data.parent2_share_amount,
+    parent1PaidAmount: data.parent1PaidAmount ?? data.parent1_paid_amount,
+    parent2PaidAmount: data.parent2PaidAmount ?? data.parent2_paid_amount,
     due: data.due || "",
-    dueDate: data.dueDate || "",
-    dueDayOfMonth: data.dueDayOfMonth || "",
+    dueDate: data.dueDate || data.due_date || "",
+    dueDayOfMonth: data.dueDayOfMonth || data.due_day_of_month || "",
     recurring: Boolean(data.recurring),
     payments: Array.isArray(data.payments) ? data.payments : [],
-    reviewFlag: Boolean(data.reviewFlag),
-    reviewNote: data.reviewNote || "",
+    reviewFlag: Boolean(data.reviewFlag ?? data.review_flag),
+    reviewNote: data.reviewNote || data.review_note || "",
     order: data.order ?? 999,
-    paidBy: data.paidBy || "Shared",
-    split: data.split || "50/50",
+    paidBy: data.paidBy || data.paid_by || "Shared",
+    split: data.split || data.splitType || data.split_type || "50/50",
     status: data.status || "review",
   };
 
@@ -75,6 +73,10 @@ function normalizeExpenseDoc(docSnap) {
     ...expense,
     ledger: getExpenseLedger(expense),
   };
+}
+
+function normalizeExpenseDoc(docSnap) {
+  return normalizeExpenseData(docSnap.data(), docSnap.id);
 }
 
 function sortExpenses(items = []) {
@@ -438,16 +440,16 @@ export default function BudgetHub() {
 
   const refreshExpenseInState = (id, payload) => {
     setExpenses((current) =>
-      current.map((expense) =>
+      sortExpenses(current.map((expense) => (
         expense.id === id
-          ? { ...expense, ...payload, updatedAt: undefined, ledger: getExpenseLedger({ ...expense, ...payload }) }
+          ? normalizeExpenseData({ ...expense, ...payload }, id)
           : expense
-      )
+      )))
     );
 
     setDetailExpense((current) =>
       current?.id === id
-        ? { ...current, ...payload, updatedAt: undefined, ledger: getExpenseLedger({ ...current, ...payload }) }
+        ? normalizeExpenseData({ ...current, ...payload }, id)
         : current
     );
   };
@@ -521,26 +523,38 @@ export default function BudgetHub() {
         parent2PaidAmount: ledger.parent2PaidAmount,
         status: ledger.status,
         ...custodyScopeFields,
-        updatedAt: serverTimestamp(),
       };
 
       if (editingExpense) {
-        await updateDoc(doc(db, "custodyExpenses", editingExpense.id), payload);
-        refreshExpenseInState(editingExpense.id, payload);
-        logBudgetActivity("updated", { ...editingExpense, ...payload, id: editingExpense.id });
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyExpenses",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: { ...editingExpense, ...payload, id: editingExpense.id },
+        });
+        const updatedExpense = normalizeExpenseData(result?.record || { ...editingExpense, ...payload }, editingExpense.id);
+        refreshExpenseInState(editingExpense.id, updatedExpense);
+        logBudgetActivity("updated", updatedExpense);
       } else {
         const createPayload = {
           ...payload,
           createdBy: user.uid,
+          created_by: user.uid,
+          createdByEmail: user.email || "",
+          created_by_email: user.email || "",
           order: expenses.length,
-          createdAt: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, "custodyExpenses"), createPayload);
-        const createdExpense = { ...createPayload, id: docRef.id };
+        const result = await saveCustodyScopedRecordViaWorker({
+          collectionName: "custodyExpenses",
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          record: createPayload,
+        });
+        const createdExpense = normalizeExpenseData(result?.record || createPayload, result?.recordId);
         setExpenses((current) => sortExpenses([
           ...current,
-          { ...createdExpense, ledger: getExpenseLedger(createdExpense) },
+          createdExpense,
         ]));
         logBudgetActivity("created", createdExpense);
       }
@@ -625,15 +639,20 @@ export default function BudgetHub() {
       reviewFlag: false,
       reviewNote: "",
       payments: updatedExpense.payments,
-      updatedAt: serverTimestamp(),
     };
 
     setSavingPayment(true);
 
     try {
-      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
-      refreshExpenseInState(currentExpense.id, payload);
-      logBudgetActivity("payment", { ...updatedExpense, ...payload, id: currentExpense.id }, activeParentLedger);
+      const result = await saveCustodyScopedRecordViaWorker({
+        collectionName: "custodyExpenses",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        record: { ...updatedExpense, ...payload, id: currentExpense.id, ...custodyScopeFields },
+      });
+      const savedExpense = normalizeExpenseData(result?.record || { ...updatedExpense, ...payload }, currentExpense.id);
+      refreshExpenseInState(currentExpense.id, savedExpense);
+      logBudgetActivity("payment", savedExpense, activeParentLedger);
     } catch (error) {
       console.error("Error saving payment:", error);
       showNotice({
@@ -688,15 +707,20 @@ export default function BudgetHub() {
       parent2PaidAmount: updatedLedger.parent2PaidAmount,
       status: updatedLedger.status,
       payments: updatedExpense.payments,
-      updatedAt: serverTimestamp(),
     };
 
     setSavingPayment(true);
 
     try {
-      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
-      refreshExpenseInState(currentExpense.id, payload);
-      logBudgetActivity("payment_reversed", { ...updatedExpense, ...payload, id: currentExpense.id }, payment.parent);
+      const result = await saveCustodyScopedRecordViaWorker({
+        collectionName: "custodyExpenses",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        record: { ...updatedExpense, ...payload, id: currentExpense.id, ...custodyScopeFields },
+      });
+      const savedExpense = normalizeExpenseData(result?.record || { ...updatedExpense, ...payload }, currentExpense.id);
+      refreshExpenseInState(currentExpense.id, savedExpense);
+      logBudgetActivity("payment_reversed", savedExpense, payment.parent);
     } catch (error) {
       console.error("Error undoing payment:", error);
       showNotice({
@@ -725,15 +749,20 @@ export default function BudgetHub() {
       reviewFlag,
       reviewNote: updatedExpense.reviewNote,
       status: updatedLedger.status,
-      updatedAt: serverTimestamp(),
     };
 
     setSavingPayment(true);
 
     try {
-      await updateDoc(doc(db, "custodyExpenses", currentExpense.id), payload);
-      refreshExpenseInState(currentExpense.id, payload);
-      logBudgetActivity("review", { ...updatedExpense, ...payload, id: currentExpense.id });
+      const result = await saveCustodyScopedRecordViaWorker({
+        collectionName: "custodyExpenses",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        record: { ...updatedExpense, ...payload, id: currentExpense.id, ...custodyScopeFields },
+      });
+      const savedExpense = normalizeExpenseData(result?.record || { ...updatedExpense, ...payload }, currentExpense.id);
+      refreshExpenseInState(currentExpense.id, savedExpense);
+      logBudgetActivity("review", savedExpense);
     } catch (error) {
       console.error("Error updating review status:", error);
       showNotice({
@@ -768,7 +797,12 @@ export default function BudgetHub() {
     setExpenses((current) => current.filter((expense) => expense.id !== expenseToDelete.id));
 
     try {
-      await deleteDoc(doc(db, "custodyExpenses", expenseToDelete.id));
+      await deleteCustodyScopedRecordViaWorker({
+        collectionName: "custodyExpenses",
+        familyId: custodyScopeFields.familyId,
+        custodyGroupId: custodyScopeId,
+        recordId: expenseToDelete.id,
+      });
       setDeleteCandidate(null);
       logBudgetActivity("deleted", expenseToDelete);
     } catch (error) {
