@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import ProfileSystemStatusCard from "@/components/profile/ProfileSystemStatusCard";
 
 const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
@@ -210,29 +211,33 @@ export default function ProfileSettingsSection() {
         </form>
       </Card>
 
-      <Card className="rounded-[2rem] border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-          Where to manage this
-        </p>
+      <div className="space-y-5">
+        <Card className="rounded-[2rem] border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            Where to manage this
+          </p>
 
-        <div className="mt-4 space-y-3">
-          <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
-            <Bell className="h-5 w-5 text-blue-600" />
-            <p className="mt-2 text-sm font-black text-slate-950">Notifications</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-              Use the Notifications tab to manage custody reminders, task due dates, and family event alerts.
-            </p>
-          </div>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
+              <Bell className="h-5 w-5 text-blue-600" />
+              <p className="mt-2 text-sm font-black text-slate-950">Notifications</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                Use the Notifications tab to manage custody reminders, task due dates, and family event alerts.
+              </p>
+            </div>
 
-          <div className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
-            <ShieldCheck className="h-5 w-5 text-indigo-600" />
-            <p className="mt-2 text-sm font-black text-slate-950">Member access</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-              Use People & Access to decide who can view, create, edit, or manage each family module.
-            </p>
+            <div className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
+              <ShieldCheck className="h-5 w-5 text-indigo-600" />
+              <p className="mt-2 text-sm font-black text-slate-950">Member access</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                Use People & Access to decide who can view, create, edit, or manage each family module.
+              </p>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+
+        <ProfileSystemStatusCard />
+      </div>
     </div>
   );
 }

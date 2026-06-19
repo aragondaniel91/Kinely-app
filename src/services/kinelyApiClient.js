@@ -18,6 +18,46 @@ export function hasWorkerApiConfigured() {
   return Boolean(workerApiBaseUrl());
 }
 
+export async function publicWorkerRequest(pathname, options = {}) {
+  const workerBaseUrl = workerApiBaseUrl();
+  if (!workerBaseUrl) return null;
+
+  const controller = new AbortController();
+  const timeoutMs = Number(options.timeoutMs || WORKER_REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(`${workerBaseUrl}${pathname}`, {
+      method: options.method || "GET",
+      headers: {
+        "content-type": "application/json",
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Kinely API request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result?.ok === false) {
+    throw new Error(result?.error || `Kinely API request failed with ${response.status}.`);
+  }
+
+  return result;
+}
+
+export function checkWorkerHealth() {
+  return publicWorkerRequest("/health", { timeoutMs: 8000 });
+}
+
 export async function authorizedWorkerRequest(pathname, payload) {
   const workerBaseUrl = workerApiBaseUrl();
   if (!workerBaseUrl) return null;
