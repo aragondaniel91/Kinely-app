@@ -1,32 +1,5 @@
 import { authorizedWorkerRequest } from "@/services/kinelyApiClient";
 
-const USE_CUSTODY_DAY_WORKER = import.meta.env.VITE_USE_CUSTODY_DAY_WORKER === "true";
-
-function isNetworkFailure(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    error instanceof TypeError ||
-    message.includes("failed to fetch") ||
-    message.includes("networkerror") ||
-    message.includes("load failed") ||
-    message.includes("timed out") ||
-    message.includes("abort")
-  );
-}
-
-async function optionalCustodyDayRequest(pathname, payload) {
-  try {
-    return await authorizedWorkerRequest(pathname, payload);
-  } catch (error) {
-    if (isNetworkFailure(error)) {
-      console.warn("Kinely API unavailable for custody day write; falling back to Firestore.", error);
-      return null;
-    }
-
-    throw error;
-  }
-}
-
 export async function saveCustodyGroupViaWorker({ groupId, familyId, group, invitations = [], childIds = [] }) {
   if (!familyId || !group || typeof group !== "object") return null;
 
@@ -48,29 +21,41 @@ export async function deleteCustodyGroupViaWorker({ groupId }) {
 }
 
 export async function saveCustodyDaysViaWorker({ familyId, custodyGroupId, days }) {
-  if (!USE_CUSTODY_DAY_WORKER) return null;
-
   const dayList = Array.isArray(days) ? days : [days].filter(Boolean);
-  if (!dayList.length) return null;
+  if (!dayList.length) {
+    throw new Error("Custody day save requires at least one day.");
+  }
 
-  return optionalCustodyDayRequest("/custody-days/save", {
+  const result = await authorizedWorkerRequest("/custody-days/save", {
     familyId,
     custodyGroupId,
     days: dayList,
   });
+
+  if (!result) {
+    throw new Error("Kinely API is required to save custody days.");
+  }
+
+  return result;
 }
 
 export async function deleteCustodyDayViaWorker({ familyId, custodyGroupId, date, docId }) {
-  if (!USE_CUSTODY_DAY_WORKER) return null;
+  if (!date || (!familyId && !custodyGroupId)) {
+    throw new Error("Custody day delete requires a date and custody scope.");
+  }
 
-  if (!date || (!familyId && !custodyGroupId)) return null;
-
-  return optionalCustodyDayRequest("/custody-days/delete", {
+  const result = await authorizedWorkerRequest("/custody-days/delete", {
     familyId,
     custodyGroupId,
     date,
     docId,
   });
+
+  if (!result) {
+    throw new Error("Kinely API is required to delete custody days.");
+  }
+
+  return result;
 }
 
 export async function saveCustodyScopedRecordViaWorker({ collectionName, familyId, custodyGroupId, record }) {

@@ -8,8 +8,6 @@ import {
   format,
 } from "date-fns";
 
-import { serverTimestamp } from "firebase/firestore";
-
 export function advanceDateByUnit(date, every, unit) {
   if (unit === "day") return addDays(date, every);
   if (unit === "week") return addWeeks(date, every);
@@ -162,6 +160,5 @@ export function buildBulkDayPayload({
     bulkRunId,
     bulkTemplateId: payload.templateId || "custom",
     smartPatternId: payload.smartPatternId || null,
-    updatedAt: serverTimestamp(),
   };
 }

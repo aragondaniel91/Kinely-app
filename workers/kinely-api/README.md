@@ -9,7 +9,7 @@
 - Sends in-app activity notifications.
 - Runs daily custody reminder checks for exchanges, packing, and shared budget signals.
 
-Custody day calendar writes are handled directly by the frontend through Firestore unless `VITE_USE_CUSTODY_DAY_WORKER=true` is enabled for the frontend.
+Custody day calendar writes are routed through this Worker from the frontend. Set `VITE_KINELY_API_URL` in Cloudflare Pages so the app can call the deployed Worker.
 
 ## Required Secrets
 

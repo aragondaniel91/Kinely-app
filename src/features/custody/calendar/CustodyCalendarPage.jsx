@@ -16,9 +16,6 @@ import {
 import {
   doc,
   getDoc,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 
 import {
@@ -60,6 +57,10 @@ import {
   buildBulkDayPayload,
   generateBlockStarts,
 } from "@/features/custody/calendar/utils/custodyBulkUtils";
+import {
+  deleteCustodyDayViaWorker,
+  saveCustodyDaysViaWorker,
+} from "@/services/custodyBackendService";
 const FIRESTORE_WRITE_TIMEOUT_MS = 10000;
 
 async function withWriteTimeout(promise, label) {
@@ -296,18 +297,22 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         createdByEmail: user.email || null,
         updatedBy: user.uid,
         updatedByEmail: user.email || null,
-        updatedAt: serverTimestamp(),
       };
 
-      await withWriteTimeout(
-        setDoc(doc(db, "custodyDays", docId), data, { merge: true }),
+      const result = await withWriteTimeout(
+        saveCustodyDaysViaWorker({
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          days: [data],
+        }),
         "Saving custody day"
       );
+      const savedData = result?.days?.[0] || data;
 
       setCustodyDays((prev) => {
         const existing = prev.find((d) => normalizeDate(d.date) === dateKey);
-        if (existing) return prev.map((d) => (normalizeDate(d.date) === dateKey ? { ...d, ...data } : d));
-        return [...prev, data].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        if (existing) return prev.map((d) => (normalizeDate(d.date) === dateKey ? { ...d, ...savedData } : d));
+        return [...prev, savedData].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       });
 
       setSelectedDate(null);
@@ -419,24 +424,29 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         }
       }
 
-      for (const data of generatedEntries) {
-        await withWriteTimeout(
-          setDoc(doc(db, "custodyDays", data.id), data, { merge: true }),
-          "Saving custody range"
-        );
-      }
+      const result = await withWriteTimeout(
+        saveCustodyDaysViaWorker({
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          days: generatedEntries,
+        }),
+        "Saving custody range"
+      );
+      const savedEntries = Array.isArray(result?.days) && result.days.length
+        ? result.days
+        : generatedEntries;
 
       setCustodyDays((prev) => {
         const map = new Map();
         prev.forEach((item) => map.set(normalizeDate(item.date), item));
-        generatedEntries.forEach((item) => map.set(normalizeDate(item.date), item));
+        savedEntries.forEach((item) => map.set(normalizeDate(item.date), item));
         return Array.from(map.values()).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       });
 
       setLastBulkUndo({
         bulkRunId,
         entries: Array.from(undoMap.values()),
-        createdCount: generatedEntries.length,
+        createdCount: savedEntries.length,
         blockCount: blockStarts.length,
         createdAt: new Date().toISOString(),
       });
@@ -473,22 +483,28 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
         .map((entry) => ({
           ...entry.before,
           restoredFromBulkRunId: lastBulkUndo.bulkRunId,
-          updatedAt: serverTimestamp(),
         }));
       const deleteEntries = lastBulkUndo.entries.filter((entry) => !entry.before);
 
       if (restoreEntries.length) {
-        for (const entry of restoreEntries) {
-          await withWriteTimeout(
-            setDoc(doc(db, "custodyDays", entry.id), entry, { merge: true }),
-            "Restoring custody range"
-          );
-        }
+        await withWriteTimeout(
+          saveCustodyDaysViaWorker({
+            familyId: custodyScopeFields.familyId,
+            custodyGroupId: custodyScopeId,
+            days: restoreEntries,
+          }),
+          "Restoring custody range"
+        );
       }
 
       for (const entry of deleteEntries) {
         await withWriteTimeout(
-          deleteDoc(doc(db, "custodyDays", entry.id)),
+          deleteCustodyDayViaWorker({
+            familyId: custodyScopeFields.familyId,
+            custodyGroupId: custodyScopeId,
+            date: entry.date,
+            docId: entry.id,
+          }),
           "Deleting custody day"
         );
       }
@@ -540,19 +556,14 @@ export default function CustodyCalendar({ viewMode = "month", setViewMode, showF
       const newDocId = `${custodyScopeId}_${dateKey}`;
 
       await withWriteTimeout(
-        deleteDoc(doc(db, "custodyDays", newDocId)),
+        deleteCustodyDayViaWorker({
+          familyId: custodyScopeFields.familyId,
+          custodyGroupId: custodyScopeId,
+          date: dateKey,
+          docId: newDocId,
+        }),
         "Deleting custody day"
       );
-
-      try {
-        const oldDocId = `${user.uid}_${dateKey}`;
-        await withWriteTimeout(
-          deleteDoc(doc(db, "custodyDays", oldDocId)),
-          "Deleting legacy custody day"
-        );
-      } catch (legacyError) {
-        console.warn("Could not delete legacy custody doc:", legacyError);
-      }
 
       setCustodyDays((prev) => prev.filter((d) => normalizeDate(d.date) !== dateKey));
       setSelectedDate(null);
